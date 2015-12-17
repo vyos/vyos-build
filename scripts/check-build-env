@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+required_packages = [
+    'make',
+    'live-build',
+    'pbuilder',
+    'devscripts',
+    'python-pystache'
+]
+
+
+def is_installed(name):
+    result = os.system("dpkg-query -W --showformat='${{Status}}\n' {name} 2>&1 | grep 'install ok installed' >/dev/null".format(name=name))
+    return True if result == 0 else False
+
+
+missing_packages = []
+
+print("Checking if packages required for VyOS image build are installed")
+
+for p in required_packages:
+    if not is_installed(p):
+        missing_packages.append(p)
+
+if missing_packages:
+    print("Your system does not have some of the required packages installed.")
+    print("Please install the following packages:")
+    print(" ".join(missing_packages))
+    sys.exit(1)
+else:
+    print("All required packages are installed")
+    sys.exit(0)

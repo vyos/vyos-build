@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+import argparse
+import re
+import sys
+import os
+import getpass
+import platform
+import json
+
+import defaults
+
+# argparse converts hyphens to underscores,
+# so for lookups in the original options hash we have to
+# convert them back
+def field_to_option(s):
+    return re.sub(r'_', '-', s)
+
+def get_default_build_by():
+    return "{user}@{host}".format(user= getpass.getuser(), host=platform.node())
+
+
+options = {
+   'architecture': ('Image target architecture (amd64 or i586)', lambda: 'amd64', lambda x: x in ['amd64', 'i586']),
+   'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None)
+}
+
+# Create the option parser
+parser = argparse.ArgumentParser()
+for k, v in options.items():
+    parser.add_argument('--' + k, type=str, help=v[0], default=v[1]())
+
+args = vars(parser.parse_args())
+
+# Validate options
+for k, v in args.items():
+    key = field_to_option(k)
+    func = options[key][2]
+    if func is not None:
+        if not func(v):
+            print("{v} is not a valid value for --{o} option".format(o=key, v=v))
+            sys.exit(1)
+
+# Save to file
+with open(defaults.BUILD_CONFIG, 'w') as f:
+    json.dump(args, f)
