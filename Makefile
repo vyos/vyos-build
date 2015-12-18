@@ -11,6 +11,7 @@ iso:
 	@scripts/check-config
 
 	@scripts/live-build-config
+	cp -r data/includes.chroot/* build/config/includes.chroot/
 
 	@echo "The rest is not yet implemented ;)"
 
