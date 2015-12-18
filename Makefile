@@ -14,6 +14,7 @@ prepare:
 
 	@scripts/live-build-config
 	cp -r data/includes.chroot/* build/config/includes.chroot/
+	cp -r data/package-lists/common/* build/config/package-lists/
 
 .PHONY: iso
 .ONESHELL:
