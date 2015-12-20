@@ -13,6 +13,9 @@ If you want to use it in your network, check out download and installation instr
 
 If you want to modify VyOS and/or join its development, read on.
 
+VyOS is not new. It is a fork of Vyatta Core that was created when the open source version of it was
+discontinued. If you are a Vyatta Core user, you can upgrade your installation to VyOS.
+
 # What is this repository?
 
 VyOS is a GNU/Linux distribution based on Debian. Just like any other distribution, it consists of multiple
@@ -53,3 +56,19 @@ To build an image, use the following commands:
     make iso
 
 The ./configure script has a number of options that you can see by calling it with --help
+
+# Development process
+
+## git branches
+
+The default branch that contains the most recent VyOS code is called 'current' rather than 'master'.
+We know if'ts confusing, but it's not easy to fix.
+In a nutshell, the code we inherited from Vyatta Core had its master branch so out of sync with everything
+it was beyong any repair. Vyatta developers used to create a new branch not when a release is ready for
+code freeze, but rather before starting to work on a new release.
+This is hard to change in existing code, so this is just the way it is, for now.
+
+All new code goes to the 'current' branch. When it's time for a code freeze, a new branch is created
+for the release, and new code from 'current' is backported to the release branch as needed.
+
+For branch naming we use chemical elements (hydrogen, helium, ...).
