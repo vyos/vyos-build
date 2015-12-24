@@ -7,6 +7,7 @@ import os
 import getpass
 import platform
 import json
+import distutils.dir_util
 
 import defaults
 
@@ -42,5 +43,8 @@ for k, v in args.items():
             sys.exit(1)
 
 # Save to file
+
+distutils.dir_util.mkpath(defaults.BUILD_DIR)
+
 with open(defaults.BUILD_CONFIG, 'w') as f:
     json.dump(args, f)
