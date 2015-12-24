@@ -4,6 +4,7 @@ import os
 import sys
 
 required_packages = [
+    'sudo',
     'make',
     'live-build',
     'pbuilder',
