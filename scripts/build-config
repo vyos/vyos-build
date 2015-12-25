@@ -51,6 +51,13 @@ if (args['debian_mirror'] != defaults.DEBIAN_MIRROR) and \
    (args['pbuilder_debian_mirror'] == defaults.DEBIAN_MIRROR):
     args['pbuilder_debian_mirror'] = args['debian-mirror']
 
+# Populate some defaults that are not configurable,
+# but that are handy to have in the options hash
+args['distribution'] = defaults.DEBIAN_DISTRIBUTION
+args['build_dir'] = os.path.join(os.getcwd(), defaults.BUILD_DIR)
+args['pbuilder_config'] = defaults.PBUILDER_CONFIG
+
+
 # Save to file
 distutils.dir_util.mkpath(defaults.BUILD_DIR)
 

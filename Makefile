@@ -24,6 +24,12 @@ iso: prepare
 	lb build 2>&1 | tee build.log
 	@echo "VyOS ISO build successful"
 
+.PHONY: prepare-package-env
+.ONESHELL:
+prepare-package-env:
+	@scripts/pbuilder-config
+	@scripts/pbuilder-setup
+
 .PHONY: clean
 .ONESHELL:
 clean:
