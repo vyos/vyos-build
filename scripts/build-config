@@ -1,4 +1,26 @@
 #!/usr/bin/env python
+# Copyright (C) 2015 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-config
+# Purpose:
+#  This script serves the same purpose as ./configure in traditional
+#   autoconf setups.
+#  It takes build configuration options from command line, checks them,
+#  builds a config dictionary, augments it with some default and/or
+#  computed values and saves it to build/build-config.json
+#  for other build scripts to read.
 
 import argparse
 import re
@@ -21,6 +43,8 @@ def get_default_build_by():
     return "{user}@{host}".format(user= getpass.getuser(), host=platform.node())
 
 
+# Options dict format:
+# '$option_name_without_leading_dashes': { ('$help_string', $default_value_generator_thunk, $value_checker_thunk) }
 options = {
    'architecture': ('Image target architecture (amd64 or i586)', lambda: 'amd64', lambda x: x in ['amd64', 'i586']),
    'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None),
