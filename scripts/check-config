@@ -22,14 +22,17 @@
 
 
 import sys
-import os
+import json
 
 import defaults
 
 
 print("Checking build configuration")
 
-if not os.path.exists(defaults.BUILD_CONFIG):
-    print("Build config does not exist")
+try:
+    with open(defaults.BUILD_CONFIG, 'r') as f:
+        build_config = json.load(f)
+except:
+    print("Build config does not exist or is not a valid JSON file")
     print("Please run the ./configure script and try again")
     sys.exit(1)
