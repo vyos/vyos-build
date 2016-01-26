@@ -28,3 +28,6 @@ DEBIAN_DISTRIBUTION = 'jessie'
 
 PBUILDER_CONFIG = os.path.join(BUILD_DIR, 'pbuilderrc')
 PBUILDER_DIR = os.path.join(BUILD_DIR, 'pbuilder')
+
+LB_CONFIG_DIR = os.path.join(BUILD_DIR, 'config')
+CHROOT_INCLUDES_DIR = os.path.join(LB_CONFIG_DIR, 'includes.chroot')

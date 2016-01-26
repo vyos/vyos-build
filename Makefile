@@ -15,6 +15,8 @@ prepare:
 	@scripts/live-build-config
 	cp -r data/live-build-config/* build/config/
 
+	@scripts/make-version-file
+
 .PHONY: iso
 .ONESHELL:
 iso: prepare
