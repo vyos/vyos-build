@@ -50,13 +50,18 @@ options = {
    'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None),
    'debian-mirror': ('Debian repository mirror for ISO build', lambda: defaults.DEBIAN_MIRROR, None),
    'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', lambda: defaults.DEBIAN_MIRROR, None),
-   'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development'])
+   'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development']),
+   'version': ('Version number (release builds only)', None, None)
 }
 
 # Create the option parser
 parser = argparse.ArgumentParser()
 for k, v in options.items():
-    parser.add_argument('--' + k, type=str, help=v[0], default=v[1]())
+    help_string, default_value_thunk = v[0], v[1]
+    if default_value_thunk is None:
+        parser.add_argument('--' + k, type=str, help=help_string)
+    else:
+        parser.add_argument('--' + k, type=str, help=help_string, default=default_value_thunk())
 
 args = vars(parser.parse_args())
 
@@ -75,6 +80,14 @@ for k, v in args.items():
 if (args['debian_mirror'] != defaults.DEBIAN_MIRROR) and \
    (args['pbuilder_debian_mirror'] == defaults.DEBIAN_MIRROR):
     args['pbuilder_debian_mirror'] = args['debian-mirror']
+
+# Version can only be set for release builds,
+# for dev builds it hardly makes any sense
+if args['build_type'] == 'development':
+    if args['version'] is not None:
+        print("Version can only be set for release builds")
+        print("Use --build-type=release option if you want to set version number")
+        sys.exit(1)
 
 # Populate some defaults that are not configurable,
 # but that are handy to have in the options hash
