@@ -34,7 +34,7 @@ util.check_build_config()
 lb_config_tmpl = """
 lb config noauto \
         --architectures {{architecture}} \
-        --bootappend-live "boot=live components hostname=vyos username=live" \
+        --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay" \
         --bootloader syslinux \
         --binary-images iso-hybrid \
         --debian-installer false \
