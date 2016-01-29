@@ -23,7 +23,6 @@ iso: prepare
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
-	@echo "VyOS ISO build successful"
 
 .PHONY: prepare-package-env
 .ONESHELL:
