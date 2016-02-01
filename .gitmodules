@@ -118,3 +118,6 @@
 [submodule "packages/vyatta-util"]
 	path = packages/vyatta-util
 	url = https://github.com/vyos/vyatta-util.git
+[submodule "packages/vyos-world"]
+	path = packages/vyos-world
+	url = https://github.com/vyos/vyos-world.git
