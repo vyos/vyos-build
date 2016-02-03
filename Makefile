@@ -12,10 +12,13 @@ prepare:
 	@scripts/check-build-env
 	@scripts/check-config
 
+	rm -rf build/config/*
 	@scripts/live-build-config
 	cp -r data/live-build-config/* build/config/
 
 	@scripts/make-version-file
+
+	@scripts/build-flavour
 
 .PHONY: iso
 .ONESHELL:

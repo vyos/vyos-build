@@ -1,0 +1,26 @@
+#!/bin/sh
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-flavour
+# Purpose: Adds various data files to the build config
+#          depending on the build flavour.
+
+
+BUILD_TYPE=$(scripts/query-config build_type)
+
+# Add debug tools if it's a development image
+if [ $BUILD_TYPE = "development" ]; then
+    cp data/package-lists/vyos-dev.list.chroot build/config/package-lists/
+fi
