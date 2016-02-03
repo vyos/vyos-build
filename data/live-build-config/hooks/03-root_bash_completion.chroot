@@ -1,0 +1,10 @@
+#!/bin/sh
+
+grep -q '\(^[^#]*\)\(\.\|source\) /etc/bash_completion' root/.bashrc || \
+    cat <<-EOF >> root/.bashrc
+
+	source /etc/bash_completion
+	EOF
+
+sed -i 's/set $BASH_COMPLETION_ORIGINAL_V_VALUE/builtin set $BASH_COMPLETION_ORIGINAL_V_VALUE/g' /usr/share/bash-completion/bash_completion
+

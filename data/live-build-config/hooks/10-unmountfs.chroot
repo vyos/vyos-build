@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# hack umountfs script to cleanly unmount live systems
+
+sed \
+    -e '/proc|procfs|linprocfs/ s/)/|squashfs|iso9660)/' \
+    -e '/tmpfs)/ a\
+			[ "$MTPT" != "/media" ] && \
+			[ "$MTPT" != "/live" ] && \
+			[ "$MTPT" != "/live/cow" ] &&
+'   \
+    -i /etc/init.d/umountfs

@@ -1,0 +1,183 @@
+#!/bin/sh
+
+# create busybox alternatives
+
+bb=`which busybox`
+applets=$(busybox | sed '1,/^Currently defined functions:/d; s/[\[,]//g; s/	/ /g; s/$/ /g')
+
+bb_alternative ()
+{
+    full=$1
+    full_bb=${full}.bb
+    app=${full##*/}
+    if [ ! -x $full ] && (echo -n "$applets" | grep -q " $app "); then
+      ln -s $bb $full_bb
+      update-alternatives --install $full $app $full_bb 10
+    fi
+}
+
+bb_alternative /bin/bunzip2
+bb_alternative /bin/bzcat
+bb_alternative /bin/cat
+bb_alternative /bin/chgrp
+bb_alternative /bin/chmod
+bb_alternative /bin/chown
+bb_alternative /bin/cp
+bb_alternative /bin/cpio
+bb_alternative /bin/date
+bb_alternative /bin/dd
+bb_alternative /bin/df
+bb_alternative /bin/dmesg
+bb_alternative /bin/echo
+bb_alternative /bin/egrep
+bb_alternative /bin/false
+bb_alternative /bin/fgrep
+bb_alternative /bin/grep
+bb_alternative /bin/gunzip
+bb_alternative /bin/gzip
+bb_alternative /bin/hostname
+bb_alternative /bin/ip
+bb_alternative /bin/kill
+bb_alternative /bin/ln
+bb_alternative /bin/login
+bb_alternative /bin/ls
+bb_alternative /bin/mkdir
+bb_alternative /bin/mknod
+bb_alternative /bin/mktemp
+bb_alternative /bin/more
+bb_alternative /bin/mount
+bb_alternative /bin/mt
+bb_alternative /bin/mv
+bb_alternative /bin/nc
+bb_alternative /bin/netstat
+bb_alternative /bin/pidof
+bb_alternative /bin/ping
+bb_alternative /bin/ping6
+bb_alternative /bin/ps
+bb_alternative /bin/pwd
+bb_alternative /bin/readlink
+bb_alternative /bin/rm
+bb_alternative /bin/rmdir
+bb_alternative /bin/run-parts
+bb_alternative /bin/sed
+bb_alternative /bin/sh
+bb_alternative /bin/sleep
+bb_alternative /bin/stty
+bb_alternative /bin/sync
+bb_alternative /bin/tar
+bb_alternative /bin/touch
+bb_alternative /bin/true
+bb_alternative /bin/umount
+bb_alternative /bin/uname
+bb_alternative /bin/uncompress
+bb_alternative /bin/which
+bb_alternative /bin/zcat
+
+bb_alternative /sbin/ifconfig
+bb_alternative /sbin/ip
+bb_alternative /sbin/iptunnel
+bb_alternative /sbin/klogd
+bb_alternative /sbin/losetup
+bb_alternative /sbin/nameif
+bb_alternative /sbin/route
+bb_alternative /sbin/start-stop-daemon
+bb_alternative /sbin/swapoff
+bb_alternative /sbin/swapon
+bb_alternative /sbin/syslogd
+
+bb_alternative /usr/bin/adjtimex
+bb_alternative /usr/bin/ar
+bb_alternative /usr/bin/arping
+bb_alternative /usr/bin/awk
+bb_alternative /usr/bin/basename
+bb_alternative /usr/bin/cal
+bb_alternative /usr/bin/chvt
+bb_alternative /usr/bin/clear
+bb_alternative /usr/bin/cmp
+bb_alternative /usr/bin/cut
+bb_alternative /usr/bin/dc
+bb_alternative /usr/bin/deallocvt
+bb_alternative /usr/bin/dirname
+bb_alternative /usr/bin/dos2unix
+bb_alternative /usr/bin/dumpkmap
+bb_alternative /usr/bin/du
+bb_alternative /usr/bin/env
+bb_alternative /usr/bin/expr
+bb_alternative /usr/bin/find
+bb_alternative /usr/bin/fold
+bb_alternative /usr/bin/free
+bb_alternative /usr/bin/ftpget
+bb_alternative /usr/bin/ftpput
+bb_alternative /usr/bin/getopt
+bb_alternative /usr/bin/head
+bb_alternative /usr/bin/hexdump
+bb_alternative /usr/bin/hostid
+bb_alternative /usr/bin/id
+bb_alternative /usr/bin/ipaddr
+bb_alternative /usr/bin/ipcalc
+bb_alternative /usr/bin/iplink
+bb_alternative /usr/bin/iproute
+bb_alternative /usr/bin/killall
+bb_alternative /usr/bin/last
+bb_alternative /usr/bin/loadfont
+bb_alternative /usr/bin/loadkmap
+bb_alternative /usr/bin/logger
+bb_alternative /usr/bin/logname
+bb_alternative /usr/bin/logread
+bb_alternative /usr/bin/md5sum
+bb_alternative /usr/bin/mkfifo
+bb_alternative /usr/bin/nslookup
+bb_alternative /usr/bin/od
+bb_alternative /usr/bin/openvt
+bb_alternative /usr/bin/patch
+bb_alternative /usr/bin/printf
+bb_alternative /usr/bin/rdate
+bb_alternative /usr/bin/realpath
+bb_alternative /usr/bin/rpm
+bb_alternative /usr/bin/rpm2cpio
+bb_alternative /usr/bin/renice
+bb_alternative /usr/bin/reset
+bb_alternative /usr/bin/setkeycodes
+bb_alternative /usr/bin/sha1sum
+bb_alternative /usr/bin/sort
+bb_alternative /usr/bin/strings
+bb_alternative /usr/bin/tail
+bb_alternative /usr/bin/tee
+bb_alternative /usr/bin/test
+bb_alternative /usr/bin/tftp
+bb_alternative /usr/bin/time
+bb_alternative /usr/bin/top
+bb_alternative /usr/bin/touch
+bb_alternative /usr/bin/tr
+bb_alternative /usr/bin/traceroute
+bb_alternative /usr/bin/tty
+bb_alternative /usr/bin/uniq
+bb_alternative /usr/bin/unix2dos
+bb_alternative /usr/bin/unzip
+bb_alternative /usr/bin/uptime
+bb_alternative /usr/bin/usleep
+bb_alternative /usr/bin/uudecode
+bb_alternative /usr/bin/uuencode
+bb_alternative /usr/bin/vi
+bb_alternative /usr/bin/watch
+bb_alternative /usr/bin/wc
+bb_alternative /usr/bin/wget
+bb_alternative /usr/bin/which
+bb_alternative /usr/bin/who
+bb_alternative /usr/bin/whoami
+bb_alternative /usr/bin/xargs
+bb_alternative /usr/bin/yes
+
+bb_alternative /usr/sbin/chroot
+bb_alternative /usr/sbin/dumpleases
+bb_alternative /usr/sbin/httpd
+bb_alternative /usr/sbin/telnetd
+bb_alternative /usr/sbin/traceroute
+bb_alternative /usr/sbin/udhcpc
+bb_alternative /usr/sbin/udhcpd
+bb_alternative /usr/sbin/watchdog
+
+# Local Variables:
+# mode: shell-script
+# sh-indentation: 4
+# End:

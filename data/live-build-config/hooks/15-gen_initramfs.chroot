@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo I: Create initramfs if it does not exist.
+update-initramfs -c -k `ls /boot | grep vmlinuz- | sed 's/vmlinuz-//g'`

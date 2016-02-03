@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# this was a "local patch" but patch generates a .orig file if it doesn't
+# apply cleanly, which is not good when all files in the hook directory are
+# executed. just use sed to hack the udev hook here.
+
+sed -i 's/^\(mount -n -o move \/dev .*\/dev\)$/\1 2>\/dev\/null/' \
+  /usr/share/initramfs-tools/scripts/init-bottom/udev
+
