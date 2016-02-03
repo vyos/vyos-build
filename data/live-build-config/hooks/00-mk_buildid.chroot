@@ -1,0 +1,22 @@
+#!/bin/sh
+# create the buildid file
+
+etcdir=/opt/vyatta/etc
+
+[ -d $etcdir ] || mkdir -p -m 0755 $etcdir
+rm -f $etcdir/build.txt $etcdir/iso-build.txt $etc/iso-submodules.txt
+
+## NOTE: on live image build, these files are in the chroot/root
+##       however, during install, these are in /cdrom
+for f in iso-build.txt iso-submodules.txt ; do
+    if [ -f /cdrom/$f ] ; then
+	cp /cdrom/$f $etcdir
+    elif [ -f /$f ] ; then
+	cp /$f $etcdir
+    else
+	>$etcdir/$f
+    fi
+done
+
+# backwards compatible symlink
+ln -s iso-build.txt $etcdir/build.txt

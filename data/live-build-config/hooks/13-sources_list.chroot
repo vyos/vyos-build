@@ -1,0 +1,4 @@
+#!/bin/sh
+
+rm -f /etc/apt/sources.list.d/*.list >/dev/null 2>&1 || true
+

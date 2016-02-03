@@ -1,0 +1,4 @@
+#!/bin/sh
+
+sed -i 's/#user_allow_other/user_allow_other/g' /etc/fuse.conf
+chmod a+r /etc/fuse.conf
