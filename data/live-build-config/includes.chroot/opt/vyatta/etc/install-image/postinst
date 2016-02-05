@@ -1,0 +1,17 @@
+#!/bin/bash
+
+source /opt/vyatta/sbin/install-functions
+
+NEWVER=`mount | grep /mnt/inst_root`
+NEWVER=${NEWVER#*upperdir=/live/image/boot/}
+NEWVER=${NEWVER%/live-rw*}
+DISK_LABEL=`mount | grep /live/image | awk '{print $1}' | grep dev`
+
+if [ -d "/live/image" ]; then
+	e2label "${DISK_LABEL}" persistence
+	if [ ! -f /live/image/persistence.conf ]; then
+		echo "/ union" > /live/image/persistence.conf
+	fi
+	rm -f /live/image/boot/"${NEWVER}"/live-rw/etc/fstab
+	mv /live/image/boot/"${NEWVER}"/live-rw /live/image/boot/"${NEWVER}"/rw
+fi
