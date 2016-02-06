@@ -121,3 +121,6 @@
 [submodule "packages/vyos-world"]
 	path = packages/vyos-world
 	url = https://github.com/vyos/vyos-world.git
+[submodule "packages/vyos-kernel"]
+	path = packages/vyos-kernel
+	url = https://github.com/vyos/vyos-kernel.git
