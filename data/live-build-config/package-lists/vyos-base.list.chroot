@@ -1,5 +1,4 @@
 debconf
 gpgv
 gnupg
-libpam-systemd
 vyos-world
