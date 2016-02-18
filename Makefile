@@ -7,6 +7,7 @@ all:
 
 .PHONY: prepare
 prepare:
+	@set -e
 	@echo "Starting VyOS ISO image build"
 
 	@scripts/check-build-env
@@ -23,6 +24,7 @@ prepare:
 .PHONY: iso
 .ONESHELL:
 iso: prepare
+	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
@@ -30,12 +32,14 @@ iso: prepare
 .PHONY: prepare-package-env
 .ONESHELL:
 prepare-package-env:
+	@set -e
 	@scripts/pbuilder-config
 	@scripts/pbuilder-setup
 
 .PHONY: clean
 .ONESHELL:
 clean:
+	@set -e
 	cd $(build_dir)
 	lb clean
 
