@@ -79,7 +79,7 @@ for k, v in args.items():
 # use the --debian-mirror value for both lb and pbuilder bootstrap
 if (args['debian_mirror'] != defaults.DEBIAN_MIRROR) and \
    (args['pbuilder_debian_mirror'] == defaults.DEBIAN_MIRROR):
-    args['pbuilder_debian_mirror'] = args['debian-mirror']
+    args['pbuilder_debian_mirror'] = args['debian_mirror']
 
 # Version can only be set for release builds,
 # for dev builds it hardly makes any sense
