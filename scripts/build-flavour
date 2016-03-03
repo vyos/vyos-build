@@ -18,7 +18,7 @@
 #          depending on the build flavour.
 
 
-BUILD_TYPE=$(scripts/query-config build_type)
+BUILD_TYPE=$(scripts/query-json build/build-config.json build_type)
 
 # Add debug tools if it's a development image
 if [ $BUILD_TYPE = "development" ]; then
