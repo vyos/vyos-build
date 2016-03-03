@@ -64,3 +64,9 @@ with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'opt/vyatta/etc/version.jso
 # for upgrade
 with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'opt/vyatta/etc/version'), 'w') as f:
     print("Version: {0}".format(version), file=f)
+
+# Leaky abstraction: we want ISO file name include version number,
+# but we probably don't want to  have a separate build step just for this,
+# neither we want to use lengthy paths in makefiles
+with open(os.path.join(defaults.BUILD_DIR, 'version'), 'w') as f:
+    print(version, file=f)

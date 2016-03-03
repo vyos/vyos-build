@@ -23,11 +23,12 @@ prepare:
 
 .PHONY: iso
 .ONESHELL:
-iso: prepare
+iso: clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
+	ln -nsf live-image-amd64.hybrid.iso vyos-`cat version`-`dpkg --print-architecture`.iso
 
 .PHONY: prepare-package-env
 .ONESHELL:
@@ -45,6 +46,7 @@ clean:
 
 	rm -f config/binary config/bootstrap config/chroot config/common config/source
 	rm -f build.log
+	rm -f vyos-*.iso
 
 .PHONY: purge
 purge:
