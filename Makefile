@@ -37,6 +37,13 @@ prepare-package-env:
 	@scripts/pbuilder-config
 	@scripts/pbuilder-setup
 
+.PHONY: qemu
+.ONESHELL:
+qemu:
+	@set -e
+	@scripts/check-vm-build-env
+	@scripts/build-qemu-image
+
 .PHONY: clean
 .ONESHELL:
 clean:

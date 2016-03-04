@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: check-vm-build-env
+# Purpose:
+#   Checks if packages required for VM image build are installed.
+
+
+import os
+import sys
+from distutils.spawn import find_executable
+
+required_packages = [
+    'make',
+    'qemu-system-x86',
+    'qemu-utils'
+]
+
+
+def is_installed(name):
+    result = os.system("dpkg-query -W --showformat='${{Status}}\n' {name} 2>&1 | grep 'install ok installed' >/dev/null".format(name=name))
+    return True if result == 0 else False
+
+
+missing_packages = []
+
+print("Checking if packages required for VyOS VM image build are installed")
+
+for p in required_packages:
+    if not is_installed(p):
+        missing_packages.append(p)
+
+if missing_packages:
+    print("Your system does not have some of the required packages installed.")
+    print("Please install the following packages:")
+    print(" ".join(missing_packages))
+    sys.exit(1)
+else:
+    print("All required packages are installed")
+
+if find_executable("packer"):
+    print("Your system has Packer.")
+else:
+    print("Your system does not have Packer.")
+    print("Please install Packer from https://www.packer.io/downloads.html.")
+    sys.exit(1)
+
+sys.exit(0)
