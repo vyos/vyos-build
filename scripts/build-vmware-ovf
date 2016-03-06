@@ -1,0 +1,45 @@
+#!/bin/sh
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-vmware-ovf
+# Purpose:
+#   Build VyOS OVF for VMware.
+
+if [ ! $(which vmdk-convert) ]; then
+   echo "Your system doesn't have vmdk-convert. Please install it from https://github.com/vmware/open-vmdk."
+   exit 1
+else
+   echo "Your system has vmdk-convert."
+fi
+
+export PACKER_BUILD_DIR=packer_build
+export PACKER_LOG_PATH=${PACKER_BUILD_DIR}/build_vmware_ovf.log
+export PACKER_LOG=1
+
+mkdir -p ${PACKER_BUILD_DIR}
+
+packer build -only=vmware-image scripts/packer.json
+
+# Convert raw image to VMDK
+source_image=${PACKER_BUILD_DIR}/vmware/vyos_vmware_image.img
+tmp_vmdk=${PACKER_BUILD_DIR}/vmware/tmp.vmdk
+vmdk=${PACKER_BUILD_DIR}/vmware/vyos_vmware_image.vmdk
+qemu-img convert -f raw ${source_image} -O vmdk -o adapter_type=lsilogic ${tmp_vmdk}
+vmdk-convert ${tmp_vmdk} ${vmdk}
+
+# Generate OVF
+vmdk_file_size=$(du --bytes ${vmdk} | awk '{print $1}')
+cat scripts/template.ovf | sed "s/{{vmdk_file_size}}/${vmdk_file_size}/" > packer_build/vmware/vyos_vmware_image.ovf
