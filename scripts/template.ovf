@@ -16,7 +16,7 @@
   <VirtualSystem ovf:id="vm">
     <Info>A virtual machine</Info>
     <Name>vyos</Name>
-    <OperatingSystemSection ovf:id="1" vmw:osType="*other3xLinux64Guest">
+    <OperatingSystemSection ovf:id="1" vmw:osType="other26xLinux64Guest">
       <Info>The kind of installed guest operating system</Info>
     </OperatingSystemSection>
     <VirtualHardwareSection>
@@ -94,10 +94,10 @@
         <rasd:AddressOnParent>2</rasd:AddressOnParent>
         <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
         <rasd:Connection>VM Network</rasd:Connection>
-        <rasd:Description>VMXNET3 ethernet adapter on &quot;nat&quot;</rasd:Description>
+        <rasd:Description>VmxNet3 ethernet adapter on &quot;VM Network&quot;</rasd:Description>
         <rasd:ElementName>ethernet0</rasd:ElementName>
         <rasd:InstanceID>9</rasd:InstanceID>
-        <rasd:ResourceSubType>VMXNET3</rasd:ResourceSubType>
+        <rasd:ResourceSubType>VmxNet3</rasd:ResourceSubType>
         <rasd:ResourceType>10</rasd:ResourceType>
         <vmw:Config ovf:required="false" vmw:key="wakeOnLanEnabled" vmw:value="false"/>
       </Item>
