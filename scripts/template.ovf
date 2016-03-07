@@ -25,7 +25,7 @@
         <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
         <vssd:InstanceID>0</vssd:InstanceID>
         <vssd:VirtualSystemIdentifier>vyos</vssd:VirtualSystemIdentifier>
-        <vssd:VirtualSystemType>vmx-08</vssd:VirtualSystemType>
+        <vssd:VirtualSystemType>vmx-09</vssd:VirtualSystemType>
       </System>
       <Item>
         <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
@@ -36,27 +36,18 @@
         <rasd:VirtualQuantity>1</rasd:VirtualQuantity>
       </Item>
       <Item>
-        <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
+        <rasd:AllocationUnits>byte * 2^30</rasd:AllocationUnits>
         <rasd:Description>Memory Size</rasd:Description>
-        <rasd:ElementName>512MB of memory</rasd:ElementName>
+        <rasd:ElementName>1GB of memory</rasd:ElementName>
         <rasd:InstanceID>2</rasd:InstanceID>
         <rasd:ResourceType>4</rasd:ResourceType>
-        <rasd:VirtualQuantity>512</rasd:VirtualQuantity>
-      </Item>
-      <Item ovf:required="false">
-        <rasd:Address>0</rasd:Address>
-        <rasd:Description>USB Controller (EHCI)</rasd:Description>
-        <rasd:ElementName>usb</rasd:ElementName>
-        <rasd:InstanceID>3</rasd:InstanceID>
-        <rasd:ResourceSubType>vmware.usb.ehci</rasd:ResourceSubType>
-        <rasd:ResourceType>23</rasd:ResourceType>
-        <vmw:Config ovf:required="false" vmw:key="ehciEnabled" vmw:value="true"/>
+        <rasd:VirtualQuantity>1</rasd:VirtualQuantity>
       </Item>
       <Item>
         <rasd:Address>0</rasd:Address>
         <rasd:Description>SCSI Controller</rasd:Description>
         <rasd:ElementName>scsiController0</rasd:ElementName>
-        <rasd:InstanceID>4</rasd:InstanceID>
+        <rasd:InstanceID>3</rasd:InstanceID>
         <rasd:ResourceSubType>lsilogic</rasd:ResourceSubType>
         <rasd:ResourceType>6</rasd:ResourceType>
       </Item>
@@ -64,13 +55,13 @@
         <rasd:Address>1</rasd:Address>
         <rasd:Description>IDE Controller</rasd:Description>
         <rasd:ElementName>ideController1</rasd:ElementName>
-        <rasd:InstanceID>5</rasd:InstanceID>
+        <rasd:InstanceID>4</rasd:InstanceID>
         <rasd:ResourceType>5</rasd:ResourceType>
       </Item>
       <Item ovf:required="false">
         <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
         <rasd:ElementName>serial0</rasd:ElementName>
-        <rasd:InstanceID>6</rasd:InstanceID>
+        <rasd:InstanceID>5</rasd:InstanceID>
         <rasd:ResourceType>21</rasd:ResourceType>
         <vmw:Config ovf:required="false" vmw:key="yieldOnPoll" vmw:value="false"/>
       </Item>
@@ -78,7 +69,7 @@
         <rasd:AddressOnParent>0</rasd:AddressOnParent>
         <rasd:AutomaticAllocation>false</rasd:AutomaticAllocation>
         <rasd:ElementName>cdrom0</rasd:ElementName>
-        <rasd:InstanceID>7</rasd:InstanceID>
+        <rasd:InstanceID>6</rasd:InstanceID>
         <rasd:Parent>5</rasd:Parent>
         <rasd:ResourceType>15</rasd:ResourceType>
       </Item>
@@ -86,7 +77,7 @@
         <rasd:AddressOnParent>0</rasd:AddressOnParent>
         <rasd:ElementName>disk0</rasd:ElementName>
         <rasd:HostResource>ovf:/disk/vmdisk1</rasd:HostResource>
-        <rasd:InstanceID>8</rasd:InstanceID>
+        <rasd:InstanceID>7</rasd:InstanceID>
         <rasd:Parent>4</rasd:Parent>
         <rasd:ResourceType>17</rasd:ResourceType>
       </Item>
@@ -96,28 +87,21 @@
         <rasd:Connection>VM Network</rasd:Connection>
         <rasd:Description>VmxNet3 ethernet adapter on &quot;VM Network&quot;</rasd:Description>
         <rasd:ElementName>ethernet0</rasd:ElementName>
-        <rasd:InstanceID>9</rasd:InstanceID>
+        <rasd:InstanceID>8</rasd:InstanceID>
         <rasd:ResourceSubType>VmxNet3</rasd:ResourceSubType>
         <rasd:ResourceType>10</rasd:ResourceType>
         <vmw:Config ovf:required="false" vmw:key="wakeOnLanEnabled" vmw:value="false"/>
       </Item>
       <Item ovf:required="false">
         <rasd:AutomaticAllocation>false</rasd:AutomaticAllocation>
-        <rasd:ElementName>sound</rasd:ElementName>
-        <rasd:InstanceID>10</rasd:InstanceID>
-        <rasd:ResourceSubType>vmware.soundcard.ensoniq1371</rasd:ResourceSubType>
-        <rasd:ResourceType>1</rasd:ResourceType>
-      </Item>
-      <Item ovf:required="false">
-        <rasd:AutomaticAllocation>false</rasd:AutomaticAllocation>
         <rasd:ElementName>video</rasd:ElementName>
-        <rasd:InstanceID>11</rasd:InstanceID>
+        <rasd:InstanceID>9</rasd:InstanceID>
         <rasd:ResourceType>24</rasd:ResourceType>
       </Item>
       <Item ovf:required="false">
         <rasd:AutomaticAllocation>false</rasd:AutomaticAllocation>
         <rasd:ElementName>vmci</rasd:ElementName>
-        <rasd:InstanceID>12</rasd:InstanceID>
+        <rasd:InstanceID>10</rasd:InstanceID>
         <rasd:ResourceSubType>vmware.vmci</rasd:ResourceSubType>
         <rasd:ResourceType>1</rasd:ResourceType>
       </Item>
