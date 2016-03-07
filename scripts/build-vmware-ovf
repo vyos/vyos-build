@@ -30,16 +30,22 @@ export PACKER_LOG_PATH=${PACKER_BUILD_DIR}/build_vmware_ovf.log
 export PACKER_LOG=1
 
 mkdir -p ${PACKER_BUILD_DIR}
+DST_DIR=${PACKER_BUILD_DIR}/vmware
 
 packer build -only=vmware-image scripts/packer.json
 
 # Convert raw image to VMDK
-source_image=${PACKER_BUILD_DIR}/vmware/vyos_vmware_image.img
-tmp_vmdk=${PACKER_BUILD_DIR}/vmware/tmp.vmdk
-vmdk=${PACKER_BUILD_DIR}/vmware/vyos_vmware_image.vmdk
+source_image=${DST_DIR}/vyos_vmware_image.img
+tmp_vmdk=${DST_DIR}/tmp.vmdk
+vmdk=${DST_DIR}/vyos_vmware_image.vmdk
+ovf=${DST_DIR}/vyos_vmware_image.ovf
 qemu-img convert -f raw ${source_image} -O vmdk -o adapter_type=lsilogic ${tmp_vmdk}
 vmdk-convert ${tmp_vmdk} ${vmdk}
 
 # Generate OVF
 vmdk_file_size=$(du --bytes ${vmdk} | awk '{print $1}')
-cat scripts/template.ovf | sed "s/{{vmdk_file_size}}/${vmdk_file_size}/" > packer_build/vmware/vyos_vmware_image.ovf
+cat scripts/template.ovf | sed "s/{{vmdk_file_size}}/${vmdk_file_size}/" >  ${ovf}
+
+# Generate manifest file
+cd ${DST_DIR}
+openssl sha1 *.vmdk *.ovf > vyos_vmware_image.mf
