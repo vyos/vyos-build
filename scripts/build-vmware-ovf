@@ -43,8 +43,12 @@ qemu-img convert -f raw ${source_image} -O vmdk -o adapter_type=lsilogic ${tmp_v
 vmdk-convert ${tmp_vmdk} ${vmdk}
 
 # Generate OVF
-vmdk_file_size=$(du --bytes ${vmdk} | awk '{print $1}')
-cat scripts/template.ovf | sed "s/{{vmdk_file_size}}/${vmdk_file_size}/" >  ${ovf}
+vmdk_file_size=$(vmdk-convert -i ${vmdk} | jq .capacity)
+vmdk_populated_size=$(vmdk-convert -i ${vmdk} | jq .used)
+version=$(cat build/version)
+cat scripts/template.ovf | sed "s/{{vmdk_file_size}}/${vmdk_file_size}/" > ${ovf}
+sed -i "s/{{vmdk_populated_size}}/${vmdk_populated_size}/" ${ovf}
+sed -i "s/{{version}}/${version}/" ${ovf}
 
 # Generate manifest file
 cd ${DST_DIR}

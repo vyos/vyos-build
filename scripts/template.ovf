@@ -5,7 +5,7 @@
   </References>
   <DiskSection>
     <Info>Virtual disk information</Info>
-    <Disk ovf:capacity="4" ovf:capacityAllocationUnits="byte * 2^30" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:populatedSize="0"/>
+    <Disk ovf:capacity="4" ovf:capacityAllocationUnits="byte * 2^30" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:populatedSize="{{vmdk_populated_size}}"/>
   </DiskSection>
   <NetworkSection>
     <Info>The list of logical networks</Info>
@@ -111,5 +111,11 @@
       <vmw:Config ovf:required="false" vmw:key="powerOpInfo.resetType" vmw:value="soft"/>
       <vmw:Config ovf:required="false" vmw:key="powerOpInfo.suspendType" vmw:value="soft"/>
     </VirtualHardwareSection>
+    <ProductSection>
+      <Info>VyOS is a Linux-based network operating system that provides software-based network routing, firewall, and VPN functionality.</Info>
+      <Product>VyOS</Product>
+      <Vendor>VyOS maintainers and contributors</Vendor>
+      <Version>{{version}}</Version>
+    </ProductSection>
   </VirtualSystem>
 </Envelope>
