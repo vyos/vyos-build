@@ -25,6 +25,13 @@ else
    echo "Your system has vmdk-convert."
 fi
 
+if [ ! $(which ovftool) ]; then
+   echo "Your system doesn't have ovftool. Please install it from https://www.vmware.com/support/developer/ovf/."
+   exit 1
+else
+   echo "Your system has ovftool."
+fi
+
 export PACKER_BUILD_DIR=packer_build
 export PACKER_LOG_PATH=${PACKER_BUILD_DIR}/build_vmware_ovf.log
 export PACKER_LOG=1
@@ -43,13 +50,25 @@ qemu-img convert -f raw ${source_image} -O vmdk -o adapter_type=lsilogic ${tmp_v
 vmdk-convert ${tmp_vmdk} ${vmdk}
 
 # Generate OVF
-vmdk_file_size=$(vmdk-convert -i ${vmdk} | jq .capacity)
+echo 'Generating OVF file...'
+vmdk_file_size=$(du --bytes ${vmdk} | cut -f1)
 vmdk_populated_size=$(vmdk-convert -i ${vmdk} | jq .used)
 version=$(cat build/version)
-cat scripts/template.ovf | sed "s/{{vmdk_file_size}}/${vmdk_file_size}/" > ${ovf}
-sed -i "s/{{vmdk_populated_size}}/${vmdk_populated_size}/" ${ovf}
-sed -i "s/{{version}}/${version}/" ${ovf}
+sed scripts/template.ovf \
+  -e "s/{{vmdk_file_size}}/${vmdk_file_size}/" \
+  -e "s/{{vmdk_populated_size}}/${vmdk_populated_size}/" \
+  -e "s/{{version}}/${version}/" \
+  > ${ovf}
 
 # Generate manifest file
 cd ${DST_DIR}
 openssl sha1 *.vmdk *.ovf > vyos_vmware_image.mf
+
+# Convert the OVF to signed OVA...
+echo 'Converting the OVF to signed OVA...'
+private_key=${PRIVATE_KEY_PATH:-"../../key/privatekey.pem"}
+if [ ! -f ${private_key} ]; then
+  echo 'Please put your key to "key" directory in repository root, or set PRIVATE_KEY_PATH to environment variables.'
+  exit 1
+fi
+ovftool --privateKey=${PRIVATE_KEY_PATH} vyos_vmware_image.ovf vyos_vmware_image.ova

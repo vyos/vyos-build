@@ -44,12 +44,12 @@ qemu:
 	@scripts/check-vm-build-env
 	@scripts/build-qemu-image
 
-.PHONY: vmware-ovf
+.PHONY: vmware-ova
 .ONESHELL:
-vmware-ovf:
+vmware-ova:
 	@set -e
 	@scripts/check-vm-build-env
-	@scripts/build-vmware-ovf
+	@scripts/build-vmware-ova
 
 .PHONY: clean
 .ONESHELL:
