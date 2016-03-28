@@ -1,0 +1,17 @@
+#!/bin/bash
+
+for i in packages/*; do
+  if [ -d $i/debian ]; then
+    N='--'
+    NP='-+'
+    while [ "$N" != "$NP" ]; do
+       NP=$N
+       N=`cd $i;LC_ALL=C dpkg-checkbuilddeps 2>&1 | sed 's/.*://;s/(.*)//;'`
+       apt-get install $N
+    done
+    if [ "$N" != "" ]; then
+      echo "Warning: Can't satisfy some deps of $i: $N"
+       N=`cd $i;LC_ALL=C dpkg-checkbuilddeps 2>&1 `
+    fi
+  fi
+done
