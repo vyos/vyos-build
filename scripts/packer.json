@@ -46,7 +46,7 @@
         "<enter><wait10><wait10>",
         "reboot<enter><wait5>",
         "Yes<enter><wait3m>",
-        "vyos<enter><wait>",
+        "vyos<enter><wait5>",
         "vyos<enter><wait10>",
         "configure<enter><wait5>",
         "set interface ethernet eth0 address dhcp<enter><wait5>",

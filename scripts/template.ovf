@@ -78,7 +78,7 @@
         <rasd:ElementName>disk0</rasd:ElementName>
         <rasd:HostResource>ovf:/disk/vmdisk1</rasd:HostResource>
         <rasd:InstanceID>7</rasd:InstanceID>
-        <rasd:Parent>4</rasd:Parent>
+        <rasd:Parent>3</rasd:Parent>
         <rasd:ResourceType>17</rasd:ResourceType>
       </Item>
       <Item>
