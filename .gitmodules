@@ -124,3 +124,13 @@
 [submodule "packages/vyos-kernel"]
 	path = packages/vyos-kernel
 	url = https://github.com/vyos/vyos-kernel.git
+[submodule "packages/ddclient"]
+	path = packages/ddclient
+	url = https://github.com/vyos/ddclient.git
+[submodule "packages/vyatta-dhcp3-client"]
+	path = packages/vyatta-dhcp3-client
+	url = https://github.com/vyos/vyatta-dhcp3.git
+	branch = current
+[submodule "packages/xtables-addons"]
+	path = packages/xtables-addons
+	url = https://github.com/mickvav/xtables-addons.git
