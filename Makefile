@@ -44,6 +44,13 @@ qemu:
 	@scripts/check-vm-build-env
 	@scripts/build-qemu-image
 
+.PHONY: vmware
+.ONESHELL:
+vmware:
+	@set -e
+	@scripts/check-vm-build-env
+	@scripts/build-vmware-image
+
 .PHONY: clean
 .ONESHELL:
 clean:

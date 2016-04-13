@@ -52,10 +52,31 @@ Individual packages may have other build dependencies. If some packages are miss
 Before you can build an image, you need to configure your build. 
 
 To build an image, use the following commands:
-    ./configure
-    make iso
+
+```
+./configure
+make iso
+```
 
 The ./configure script has a number of options that you can see by calling it with --help
+
+## Building the images for virtualization platforms
+
+* QEMU
+
+Run following command after building the ISO image.
+
+```
+make qemu
+```
+
+* VMware
+
+Run following command after building the QEMU image.
+
+```
+make vmware
+```
 
 # Development process
 

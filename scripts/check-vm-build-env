@@ -26,7 +26,7 @@ import util
 
 deps = {
     'packages': [
-      'make',
+      'jq',
       'qemu-system-x86',
       'qemu-utils'
     ],

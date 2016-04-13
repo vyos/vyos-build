@@ -27,4 +27,4 @@ export PACKER_LOG=1
 
 mkdir -p ${PACKER_BUILD_DIR}
 
-packer build -only=qemu scripts/packer.json
+packer build -only=qemu-image scripts/packer.json
