@@ -51,6 +51,14 @@ vmware:
 	@scripts/check-vm-build-env
 	@scripts/build-vmware-image
 
+.PHONY: clearfog
+.ONESHELL:
+clearfog: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	cd $(build_dir)
+	@../scripts/build-clearfog-legacy
+
 .PHONY: clean
 .ONESHELL:
 clean:
@@ -61,6 +69,8 @@ clean:
 	rm -f config/binary config/bootstrap config/chroot config/common config/source
 	rm -f build.log
 	rm -f vyos-*.iso
+	rm -f *.img
+	rm -f *.xz
 
 .PHONY: purge
 purge:
