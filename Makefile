@@ -57,7 +57,7 @@ clearfog: clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
-	@../scripts/build-clearfog-legacy
+	@../scripts/build-clearfog-image
 
 .PHONY: clean
 .ONESHELL:
