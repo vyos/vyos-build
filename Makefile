@@ -51,6 +51,13 @@ vmware:
 	@scripts/check-vm-build-env
 	@scripts/build-vmware-image
 
+.PHONY: hyperv
+.ONESHELL:
+hyperv:
+	@set -e
+	@scripts/check-vm-build-env
+	@scripts/build-hyperv-image
+
 .PHONY: clearfog
 .ONESHELL:
 clearfog: clean prepare
