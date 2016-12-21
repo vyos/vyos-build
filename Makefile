@@ -16,6 +16,7 @@ prepare:
 	rm -rf build/config/*
 	@scripts/live-build-config
 	cp -r data/live-build-config/* build/config/
+	@scripts/import-local-packages
 
 	@scripts/make-version-file
 
