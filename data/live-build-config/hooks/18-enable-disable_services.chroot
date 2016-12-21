@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo I: Disabling services.
+echo I: Enabling/Disabling services.
 systemctl disable exim4
 /usr/sbin/update-rc.d -f exim4 remove
 systemctl disable isc-dhcp-server
@@ -25,3 +25,4 @@ systemctl disable dnsmasq
 /usr/sbin/update-rc.d -f dnsmasq remove
 systemctl disable lldpd
 /usr/sbin/update-rc.d -f lldpd remove
+systemctl enable ssh-session-cleanup
