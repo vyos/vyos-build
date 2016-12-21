@@ -49,7 +49,9 @@ lb config noauto \
         --mirror-chroot {{debian_mirror}} \
         --mirror-chroot-security {{debian_mirror}} \
         --mirror-binary {{debian_mirror}} \
-        --mirror-binary-security {{debian_mirror}}
+        --mirror-binary-security {{debian_security_mirror}} \
+        --archive-areas "main contrib non-free" \
+        --firmware-chroot true
         "${@}"
 """
 

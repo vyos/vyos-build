@@ -1,2 +1,1 @@
 deb http://dev.packages.vyos.net/vyos current main
-deb http://security.debian.org/ jessie/updates main
