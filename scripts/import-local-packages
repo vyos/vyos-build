@@ -7,5 +7,7 @@ mkdir -p $LOCAL_PKG_DIR
 FILES=packages/*.deb
 for f in $FILES
 do
-  cp $f $LOCAL_PKG_DIR
+  if [ -e "$f" ]; then
+    cp $f $LOCAL_PKG_DIR
+  fi
 done
