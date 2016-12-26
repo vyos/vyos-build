@@ -3,4 +3,9 @@
 LOCAL_PKG_DIR=build/config/packages.chroot
 
 mkdir -p $LOCAL_PKG_DIR
-cp packages/*.deb $LOCAL_PKG_DIR
+
+FILES=packages/*.deb
+for f in $FILES
+do
+  cp $f $LOCAL_PKG_DIR
+done
