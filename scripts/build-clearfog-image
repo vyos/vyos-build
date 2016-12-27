@@ -122,12 +122,12 @@ fi
 
 
 menuentry "VyOS $version (Serial console)" {
-        linux /boot/"$version"/vmlinuz boot=live systemd.show_status=1 quiet vyatta-union=/boot/"$version" console=ttyS0,115200n8
+        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=ttyS0,115200n8
         initrd /boot/"$version"/initrd.img
 }
 
 menuentry "Lost password change $version (Serial console)" {
-        linux /boot/"$version"/vmlinuz boot=live quiet systemd.show_status=1 vyatta-union=/boot/"$version" console=ttyS0,115200n8 init=/opt/vyatta/sbin/standalone_root_pw_reset
+        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=ttyS0,115200n8 init=/opt/vyatta/sbin/standalone_root_pw_reset
         initrd /boot/"$version"/initrd.img
 }
 EOF
