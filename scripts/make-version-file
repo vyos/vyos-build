@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+#
 # Copyright (C) 2016 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
@@ -19,7 +20,6 @@
 #   that is included in the image and used by 'show version' command
 #   and install/upgrade scripts.
 
-from __future__ import print_function
 import os
 import datetime
 import json

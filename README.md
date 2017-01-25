@@ -44,7 +44,7 @@ There are several directories with their own purpose:
 
 To build a VyOS image, you need a machine that runs Debian Jessie. Other build hosts are not supported.
 
-Several packages are required for building the ISO and all packages, namely live-build, pbuilder, python-pystache and devscripts.
+Several packages are required for building the ISO and all packages, namely python3, live-build, pbuilder, python3-pystache and devscripts.
 Individual packages may have other build dependencies. If some packages are missing, build scripts will tell you.
 
 ## Building the ISO image

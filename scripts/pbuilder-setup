@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2015 VyOS maintainers and contributors
 #
@@ -50,4 +50,3 @@ result = os.system(pbuilder_create_command)
 if result > 0:
     print("pbuilder environment bootstrap failed")
     sys.exit(1)
-

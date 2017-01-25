@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+#
 # Copyright (C) 2016 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
@@ -14,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # File: query-config
-# Purpose: Extracts field values a flat JSON file,
+# Purpose: Extracts field values from a flat JSON file,
 #          for use in languages that can't handle JSON easily,
 #          (I'm looking at you, Bourne shell!)
 
