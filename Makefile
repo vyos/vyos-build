@@ -29,7 +29,8 @@ iso: clean prepare
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
-	ln -nsf live-image-amd64.hybrid.iso vyos-`cat version`-`dpkg --print-architecture`.iso
+	cd ..
+	@scripts/copy-image
 
 .PHONY: prepare-package-env
 .ONESHELL:
