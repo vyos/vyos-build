@@ -9,7 +9,7 @@ For building stable release images, refer to the vyos/build-iso repository.
 # What is VyOS
 
 VyOS is an open source operating system for network devices (routers, firewalls and so on).
-If you want to use it in your network, check out download and installation instructions at http://vyos.net
+If you want to use it in your network, check out download and installation instructions at https://vyos.io
 
 If you want to modify VyOS and/or join its development, read on.
 
