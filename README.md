@@ -3,8 +3,9 @@ VyOS toplevel build
 
 # WARNING
 
-This is repository is for the ongoing work on porting VyOS to Debian Jessie. It is not yet ready to use.
-For building stable release images, refer to the vyos/build-iso repository.
+This repository is for building the VyOS version that is to become 1.2.0 and that is currently in beta testing.
+For 1.1.x, use the build-iso repository.
+
 
 # What is VyOS
 
