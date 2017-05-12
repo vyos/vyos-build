@@ -3,4 +3,3 @@
 echo I: Show systemd statuson boot.
 
 echo "ShowStatus=yes" >> /etc/systemd/system.conf
-echo "SysVConsole=yes" >> /etc/systemd/system.conf
