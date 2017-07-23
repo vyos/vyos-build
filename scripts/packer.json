@@ -17,7 +17,6 @@
       "disk_size": 4096,
       "format": "raw",
       "headless": true,
-      "accelerator": "tcg",
       "ssh_host_port_min": 2222,
       "ssh_host_port_max": 2229,
       "ssh_username": "vyos",
