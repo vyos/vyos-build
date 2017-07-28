@@ -37,12 +37,12 @@ export PACKER_BUILD_DIR=packer_build
 DST_DIR=${PACKER_BUILD_DIR}/vmware
 mkdir -p ${DST_DIR}
 
-# Convert raw image to VMDK
+# Convert qcow2 image to VMDK
 source_image=${PACKER_BUILD_DIR}/qemu/vyos_qemu_image.img
 tmp_vmdk=${DST_DIR}/tmp.vmdk
 vmdk=${DST_DIR}/vyos_vmware_image.vmdk
 ovf=${DST_DIR}/vyos_vmware_image.ovf
-qemu-img convert -f raw ${source_image} -O vmdk -o adapter_type=lsilogic ${tmp_vmdk}
+qemu-img convert -f qcow2 ${source_image} -O vmdk -o adapter_type=lsilogic ${tmp_vmdk}
 vmdk-convert ${tmp_vmdk} ${vmdk}
 
 # Generate OVF

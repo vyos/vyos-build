@@ -20,7 +20,7 @@
 
 BUILD_DIR=$(scripts/query-json build/build-config.json build_dir)
 BUILD_ARCH=$(scripts/query-json build/build-config.json architecture)
-VERSION=$(cat $BUILD_DIR/version)
+export VERSION=$(cat $BUILD_DIR/version)
 
 export ISO_IMAGE=./build/live-image-$BUILD_ARCH.hybrid.iso
 export ISO_MD5_SUM=$(md5sum ${ISO_IMAGE} | awk '{print $1}')

@@ -2,7 +2,11 @@
   "variables": {
     "iso_url": "{{env `ISO_IMAGE`}}",
     "iso_checksum": "{{env `ISO_MD5_SUM`}}",
-    "output_directory": "{{env `PACKER_BUILD_DIR`}}"
+    "output_directory": "{{env `PACKER_BUILD_DIR`}}",
+    "box_tag": "{{env `VAGRANT_BOX_NAME`}}",
+    "cloud_token": "{{env `VAGRANT_CLOUD_ACCESS_TOKEN`}}",
+    "version": "{{env `VERSION`}}",
+    "box_base_url": "{{env `BOX_BASE_URL`}}"
   },
   "builders":
   [
@@ -15,7 +19,7 @@
       "output_directory": "{{user `output_directory`}}/qemu",
       "shutdown_command": "sudo halt -p",
       "disk_size": 4096,
-      "format": "raw",
+      "format": "qcow2",
       "headless": true,
       "ssh_host_port_min": 2222,
       "ssh_host_port_max": 2229,
@@ -90,5 +94,24 @@
         "scripts/packer-scripts/vmware.sh"
       ]
     }
+  ],
+  "post-processors": [
+    [
+      {
+        "type": "vagrant",
+        "only": ["qemu-image"],
+        "vagrantfile_template": "scripts/Vagrantfile",
+        "output": "{{user `output_directory`}}/vagrant-libvirt/vyos_vagrant_libvirt.box",
+        "keep_input_artifact": "true"
+      },
+      {
+        "type": "vagrant-cloud",
+        "only": ["qemu-image"],
+        "box_tag": "{{user `box_tag`}}",
+        "access_token": "{{user `cloud_token`}}",
+        "version": "{{user `version`}}",
+        "box_download_url": "{{user `box_base_url`}}/vyos-{{user `version`}}-vagrant-libvirt.box"
+      }
+    ]
   ]
 }
