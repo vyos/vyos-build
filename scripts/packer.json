@@ -102,7 +102,7 @@
         "only": ["qemu-image"],
         "vagrantfile_template": "scripts/Vagrantfile",
         "output": "{{user `output_directory`}}/vagrant-libvirt/vyos_vagrant_libvirt.box",
-        "keep_input_artifact": "true"
+        "keep_input_artifact": true
       },
       {
         "type": "vagrant-cloud",
