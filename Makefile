@@ -46,6 +46,13 @@ qemu:
 	@scripts/check-vm-build-env
 	@scripts/build-qemu-image
 
+.PHONY: vagrant-libvirt
+.ONESHELL:
+vagrant-libvirt:
+	@set -e
+	@scripts/check-vm-build-env
+	@scripts/build-vagrant-libvirt-box
+
 .PHONY: vmware
 .ONESHELL:
 vmware:

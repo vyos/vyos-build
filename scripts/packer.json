@@ -2,11 +2,7 @@
   "variables": {
     "iso_url": "{{env `ISO_IMAGE`}}",
     "iso_checksum": "{{env `ISO_MD5_SUM`}}",
-    "output_directory": "{{env `PACKER_BUILD_DIR`}}",
-    "box_tag": "{{env `VAGRANT_BOX_NAME`}}",
-    "cloud_token": "{{env `VAGRANT_CLOUD_ACCESS_TOKEN`}}",
-    "version": "{{env `VERSION`}}",
-    "box_base_url": "{{env `BOX_BASE_URL`}}"
+    "output_directory": "{{env `PACKER_BUILD_DIR`}}"
   },
   "builders":
   [
@@ -61,57 +57,6 @@
         "save<enter><wait5>",
         "exit<enter><wait5>"
       ]
-    },
-    {
-      "name": "vmware-image",
-      "type": "qemu",
-      "iso_url": "{{user `output_directory`}}/qemu/vyos_qemu_image.img",
-      "iso_checksum_type": "none",
-      "output_directory": "{{user `output_directory`}}/vmware",
-      "shutdown_command": "sudo halt -p",
-      "disk_image": true,
-      "disk_size": 4096,
-      "format": "raw",
-      "headless": true,
-      "accelerator": "tcg",
-      "ssh_host_port_min": 2222,
-      "ssh_host_port_max": 2229,
-      "ssh_username": "vyos",
-      "ssh_password": "vyos",
-      "ssh_port": 22,
-      "ssh_wait_timeout": "300s",
-      "vm_name": "vyos_vmware_image.img",
-      "net_device": "virtio-net",
-      "disk_interface": "virtio",
-      "boot_wait": "5s"
     }
-  ],
-  "provisioners": [
-    {
-      "type": "shell",
-      "only": ["vmware-image"],
-      "scripts": [
-        "scripts/packer-scripts/vmware.sh"
-      ]
-    }
-  ],
-  "post-processors": [
-    [
-      {
-        "type": "vagrant",
-        "only": ["qemu-image"],
-        "vagrantfile_template": "scripts/Vagrantfile",
-        "output": "{{user `output_directory`}}/vagrant-libvirt/vyos_vagrant_libvirt.box",
-        "keep_input_artifact": true
-      },
-      {
-        "type": "vagrant-cloud",
-        "only": ["qemu-image"],
-        "box_tag": "{{user `box_tag`}}",
-        "access_token": "{{user `cloud_token`}}",
-        "version": "{{user `version`}}",
-        "box_download_url": "{{user `box_base_url`}}/vyos-{{user `version`}}-vagrant-libvirt.box"
-      }
-    ]
   ]
 }
