@@ -97,6 +97,11 @@ args['distribution'] = defaults.DEBIAN_DISTRIBUTION
 args['build_dir'] = os.path.join(os.getcwd(), defaults.BUILD_DIR)
 args['pbuilder_config'] = defaults.PBUILDER_CONFIG
 
+# Check the build environment and dependencies
+env_check_retval = os.system("scripts/check-build-env")
+if env_check_retval > 0:
+    print("Build environment check failed, fix the issues and retry")
+
 
 # Save to file
 distutils.dir_util.mkpath(defaults.BUILD_DIR)

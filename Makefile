@@ -5,13 +5,14 @@ all:
 	@echo "Make what specifically?"
 	@echo "The most common target is 'iso'"
 
+.PHONY: check_build_config
+check_build_config:
+	@scripts/check-config
+
 .PHONY: prepare
 prepare:
 	@set -e
 	@echo "Starting VyOS ISO image build"
-
-	@scripts/check-build-env
-	@scripts/check-config
 
 	rm -rf build/config/*
 	@scripts/live-build-config
@@ -24,7 +25,7 @@ prepare:
 
 .PHONY: iso
 .ONESHELL:
-iso: clean prepare
+iso: check_build_config clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
