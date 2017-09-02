@@ -26,3 +26,5 @@ systemctl disable dnsmasq
 systemctl disable lldpd
 /usr/sbin/update-rc.d -f lldpd remove
 systemctl enable ssh-session-cleanup
+/usr/sbin/update-rc.d -f conntrackd remove
+systemctl disable conntrackd
