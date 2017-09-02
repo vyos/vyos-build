@@ -130,3 +130,6 @@
 [submodule "packages/vyos-cfg-avahi"]
 	path = packages/vyos-cfg-avahi
 	url = https://github.com/c-po/vyos-cfg-avahi.git
+[submodule "packages/vyos-bcast-relay"]
+	path = packages/vyos-bcast-relay
+	url = https://github.com/c-po/vyos-bcast-relay.git
