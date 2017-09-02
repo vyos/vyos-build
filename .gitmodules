@@ -127,3 +127,6 @@
 [submodule "packages/vyos-1x"]
 	path = packages/vyos-1x
 	url = https://github.com/vyos/vyos-1x.git
+[submodule "packages/vyos-cfg-avahi"]
+	path = packages/vyos-cfg-avahi
+	url = https://github.com/c-po/vyos-cfg-avahi.git
