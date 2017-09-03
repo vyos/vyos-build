@@ -28,5 +28,7 @@ systemctl disable lldpd
 systemctl enable ssh-session-cleanup
 /usr/sbin/update-rc.d -f conntrackd remove
 systemctl disable conntrackd
+/usr/sbin/update-rc.d -f fail2ban remove
+systemctl disable fail2ban
 /usr/sbin/update-rc.d -f avahi-daemon remove
 systemctl disable avahi-daemon
