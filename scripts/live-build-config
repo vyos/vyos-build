@@ -47,7 +47,7 @@ lb config noauto \
         --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown" \
         --mirror-bootstrap {{debian_mirror}} \
         --mirror-chroot {{debian_mirror}} \
-        --mirror-chroot-security {{debian_mirror}} \
+        --mirror-chroot-security {{debian_security_mirror}} \
         --mirror-binary {{debian_mirror}} \
         --mirror-binary-security {{debian_security_mirror}} \
         --archive-areas "main contrib non-free" \
