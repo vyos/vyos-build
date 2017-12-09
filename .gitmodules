@@ -61,9 +61,6 @@
 [submodule "packages/vyatta-eventwatch"]
 	path = packages/vyatta-eventwatch
 	url = https://github.com/vyos/vyatta-eventwatch.git
-[submodule "packages/vyatta-cron"]
-	path = packages/vyatta-cron
-	url = https://github.com/vyos/vyatta-cron.git
 [submodule "packages/vyatta-webproxy"]
 	path = packages/vyatta-webproxy
 	url = https://github.com/vyos/vyatta-webproxy.git
