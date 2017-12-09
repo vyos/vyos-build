@@ -28,5 +28,5 @@ systemctl disable lldpd
 systemctl enable ssh-session-cleanup
 /usr/sbin/update-rc.d -f conntrackd remove
 systemctl disable conntrackd
-/usr/sbin/update-rc.d -f avahi-daemon remove
-systemctl disable avahi-daemon
+/usr/sbin/update-rc.d -f mdns-repeater remove
+systemctl disable mdns-repeater
