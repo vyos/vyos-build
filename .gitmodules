@@ -124,9 +124,9 @@
 [submodule "packages/vyos-1x"]
 	path = packages/vyos-1x
 	url = https://github.com/vyos/vyos-1x.git
-[submodule "packages/vyos-bcast-relay"]
-	path = packages/vyos-bcast-relay
-	url = https://github.com/c-po/vyos-bcast-relay.git
 [submodule "packages/mdns-repeater"]
 	path = packages/mdns-repeater
 	url = https://github.com/vyos/mdns-repeater.git
+[submodule "packages/udp-broadcast-relay"]
+	path = packages/udp-broadcast-relay
+	url = https://github.com/vyos/udp-broadcast-relay.git
