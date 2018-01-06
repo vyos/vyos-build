@@ -30,3 +30,5 @@ systemctl enable ssh-session-cleanup
 systemctl disable conntrackd
 /usr/sbin/update-rc.d -f mdns-repeater remove
 systemctl disable mdns-repeater
+/usr/sbin/update-rc.d -f udp-broadcast-relay remove
+systemctl disable udp-broadcast-relay{1.99}
