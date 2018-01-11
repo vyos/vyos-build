@@ -66,7 +66,7 @@ debug = build_config['debug']
 print("Setting up additional APT entries")
 vyos_repo_entry = "deb {0} {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
 
-apt_file = os.path.join(defaults.BUILD_DIR, defaults.VYOS_REPO_FILE)
+apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
 
 if debug:
     print("Adding these entries to {0}:".format(apt_file))
