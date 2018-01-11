@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2015 VyOS maintainers and contributors
+# Copyright (C) 2018, VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -52,6 +52,7 @@ options = {
    'debian-mirror': ('Debian repository mirror for ISO build', lambda: defaults.DEBIAN_MIRROR, None),
    'debian-security-mirror': ('Debian security updated mirror', lambda: defaults.DEBIAN_SECURITY_MIRROR, None),
    'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', lambda: defaults.DEBIAN_MIRROR, None),
+   'vyos-mirror': ('VyOS package mirror', lambda: defaults.VYOS_MIRROR, None),
    'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development']),
    'version': ('Version number (release builds only)', None, None)
 }
@@ -96,6 +97,7 @@ if args['build_type'] == 'development':
 args['distribution'] = defaults.DEBIAN_DISTRIBUTION
 args['build_dir'] = os.path.join(os.getcwd(), defaults.BUILD_DIR)
 args['pbuilder_config'] = defaults.PBUILDER_CONFIG
+args['vyos_branch'] = defaults.VYOS_BRANCH
 
 # Check the build environment and dependencies
 env_check_retval = os.system("scripts/check-build-env")
