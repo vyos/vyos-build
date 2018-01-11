@@ -60,11 +60,19 @@ lb config noauto \
 with open(defaults.BUILD_CONFIG, 'r') as f:
      build_config = json.load(f)
 
+debug = build_config['debug']
+
 # Add the additional repositories to package lists
 print("Setting up additional APT entries")
 vyos_repo_entry = "deb {0} {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
 
-with open(os.path.join(defaults.BUILD_DIR, defaults.VYOS_REPO_FILE), 'w') as f:
+apt_file = os.path.join(defaults.BUILD_DIR, defaults.VYOS_REPO_FILE)
+
+if debug:
+    print("Adding these entries to {0}:".format(apt_file))
+    print("\t", vyos_repo_entry)
+
+with open(apt_file, 'w') as f:
     f.write(vyos_repo_entry)
 
 # Configure live-build
@@ -72,8 +80,8 @@ with open(os.path.join(defaults.BUILD_DIR, defaults.VYOS_REPO_FILE), 'w') as f:
 lb_config_command = pystache.render(lb_config_tmpl, build_config)
 
 print("Configuring live-build")
-os.chdir(defaults.BUILD_DIR)
 
+os.chdir(defaults.BUILD_DIR)
 result = os.system(lb_config_command)
 if result > 0:
     print("live-build config failed")

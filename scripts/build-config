@@ -43,6 +43,12 @@ def field_to_option(s):
 def get_default_build_by():
     return "{user}@{host}".format(user= getpass.getuser(), host=platform.node())
 
+def get_validator(optdict, name):
+    try:
+        return optdict[name][2]
+    except KeyError:
+        return None
+
 
 # Options dict format:
 # '$option_name_without_leading_dashes': { ('$help_string', $default_value_generator_thunk, $value_checker_thunk) }
@@ -66,12 +72,15 @@ for k, v in options.items():
     else:
         parser.add_argument('--' + k, type=str, help=help_string, default=default_value_thunk())
 
+# The debug option is a bit special since it's different type
+parser.add_argument('--debug', help="Enable debug output", action='store_true')
+
 args = vars(parser.parse_args())
 
 # Validate options
 for k, v in args.items():
     key = field_to_option(k)
-    func = options[key][2]
+    func = get_validator(options, k)
     if func is not None:
         if not func(v):
             print("{v} is not a valid value for --{o} option".format(o=key, v=v))
