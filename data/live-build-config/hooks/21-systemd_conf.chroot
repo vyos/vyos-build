@@ -1,5 +1,0 @@
-#!/bin/sh
-
-echo I: Show systemd statuson boot.
-
-echo "ShowStatus=yes" >> /etc/systemd/system.conf
