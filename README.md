@@ -93,4 +93,4 @@ This is hard to change in existing code, so this is just the way it is, for now.
 All new code goes to the 'current' branch. When it's time for a code freeze, a new branch is created
 for the release, and new code from 'current' is backported to the release branch as needed.
 
-For branch naming we use chemical elements (hydrogen, helium, ...)
+For branch naming we use chemical elements (hydrogen, helium, ...).
