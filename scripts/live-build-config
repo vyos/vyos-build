@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2015 VyOS maintainers and contributors
+# Copyright (C) 2018 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -36,7 +36,7 @@ lb config noauto \
         --architectures {{architecture}} \
         --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay" \
         --linux-flavours {{architecture}}-vyos \
-        --linux-packages linux-image-4.4.95 \
+        --linux-packages linux-image-4.4.113 \
         --bootloader syslinux \
         --binary-images iso-hybrid \
         --debian-installer false \
@@ -44,7 +44,7 @@ lb config noauto \
         --iso-application "VyOS" \
         --iso-publisher "{{build_by}}" \
         --iso-volume "VyOS" \
-        --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown" \
+        --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-transport-https" \
         --mirror-bootstrap {{debian_mirror}} \
         --mirror-chroot {{debian_mirror}} \
         --mirror-chroot-security {{debian_security_mirror}} \
@@ -60,11 +60,28 @@ lb config noauto \
 with open(defaults.BUILD_CONFIG, 'r') as f:
      build_config = json.load(f)
 
+debug = build_config['debug']
+
+# Add the additional repositories to package lists
+print("Setting up additional APT entries")
+vyos_repo_entry = "deb {0} {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
+
+apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
+
+if debug:
+    print("Adding these entries to {0}:".format(apt_file))
+    print("\t", vyos_repo_entry)
+
+with open(apt_file, 'w') as f:
+    f.write(vyos_repo_entry)
+
+# Configure live-build
+
 lb_config_command = pystache.render(lb_config_tmpl, build_config)
 
 print("Configuring live-build")
-os.chdir(defaults.BUILD_DIR)
 
+os.chdir(defaults.BUILD_DIR)
 result = os.system(lb_config_command)
 if result > 0:
     print("live-build config failed")

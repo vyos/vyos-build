@@ -10,6 +10,7 @@ socat
 telnet
 tcpdump
 nano
-vim-tiny
+vim
 screen
 minicom
+wakeonlan
