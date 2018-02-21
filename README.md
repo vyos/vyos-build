@@ -58,11 +58,14 @@ To build the docker image
 docker build -t vyos-builder $PATH_TO_Dockerfile
 ```
 
-To run and the docker image once is created:
+To run the docker image:
 
 ```
 docker run --privileged -v /HOST_PATH/images:/vyos --name=vyos_node_builder -d vyos-builder bash
 ```
+* docker container must be run with --privileged flag
+* is recommended to run the container with a volume mapped in order to easy exprort images built 
+to the "external" world
 
 To connect to the docker image once is running:
 ```
