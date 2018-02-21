@@ -47,6 +47,30 @@ To build a VyOS image, you need a machine that runs Debian Jessie. Other build h
 
 Several packages are required for building the ISO and all packages, namely python3, live-build, pbuilder, python3-pystache and devscripts.
 Individual packages may have other build dependencies. If some packages are missing, build scripts will tell you.
+## Building the ISO image inside a docker container
+
+Using Dockerfile you can create your own docker container that can be used to build a VyOS ISO image.
+The Dockerfile contains some of the most used packages needed for a VyOs build ISO process.
+
+To build the docker image
+
+```
+docker build -t vyos-builder $PATH_TO_Dockerfile
+```
+
+To run and the docker image once is created:
+
+```
+docker run --privileged -v /HOST_PATH/images:/vyos --name=vyos_node_builder -d vyos-builder bash
+```
+
+To connect to the docker image once is running:
+```
+docker exec -it vyos_node_builder bash
+```
+
+After the docker container is running you can git clone the vyos-build repository inside the container 
+and follow up the bellow instructions in order to build the VyOs ISO image 
 
 ## Building the ISO image
 
