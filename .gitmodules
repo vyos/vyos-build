@@ -130,3 +130,6 @@
 [submodule "packages/udp-broadcast-relay"]
 	path = packages/udp-broadcast-relay
 	url = https://github.com/vyos/udp-broadcast-relay.git
+[submodule "packages/vyos-keepalived"]
+	path = packages/vyos-keepalived
+	url = https://github.com/vyos/vyos-keepalived.git
