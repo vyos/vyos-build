@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (C) 2016 VyOS maintainers and contributors
+# Copyright (C) 2018 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -25,16 +25,18 @@ import datetime
 import json
 import uuid
 
+import git
+
 import defaults
 import util
 
+# Load the build config
 util.check_build_config()
 with open(defaults.BUILD_CONFIG, 'r') as f:
      build_config = json.load(f)
 
-
+# Create a build timestamp
 now = datetime.datetime.today()
-
 build_timestamp = now.strftime("%Y%m%d%H%M")
 
 # FIXME: use aware rather than naive object
@@ -43,9 +45,23 @@ build_date = now.strftime("%a %d %b %Y %H:%M UTC")
 # Assign a (hopefully) unique identifier to the build (UUID)
 build_id = str(uuid.uuid4())
 
+# Create a build version
 if build_config['build_type'] == 'development':
-    version = "999.{0}".format(build_timestamp)
+    try:
+        # Load the branch to version mapping file
+        with open('data/versions') as f:
+            version_mapping = json.load(f)
+
+        repo = git.Repo('.')
+        git_branch = repo.active_branch.name
+        branch_version = version_mapping[git_branch]
+
+        version = "{0}-rolling+{1}".format(branch_version, build_timestamp)
+    except Exception as e:
+        print("Could not build a version string specific to git branch, falling back to default: {0}".format(str(e)))
+        version = "999.{0}".format(build_timestamp)
 else:
+    # Release build, use the version from ./configure arguments
     version = build_config['version']
 
 version_data = {

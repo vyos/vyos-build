@@ -32,7 +32,8 @@ deps = {
        'live-build',
        'pbuilder',
        'devscripts',
-       'python3-pystache'
+       'python3-pystache',
+       'python3-git'
     ],
    'binaries': []
 }
