@@ -21,14 +21,14 @@ systemctl disable ssh
 /usr/sbin/update-rc.d -f ssh remove
 systemctl disable openvpn
 /usr/sbin/update-rc.d -f openvpn remove
-systemctl disable dnsmasq
-/usr/sbin/update-rc.d -f dnsmasq remove
 systemctl disable lldpd
 /usr/sbin/update-rc.d -f lldpd remove
 systemctl enable ssh-session-cleanup
-/usr/sbin/update-rc.d -f conntrackd remove
 systemctl disable conntrackd
-/usr/sbin/update-rc.d -f mdns-repeater remove
+/usr/sbin/update-rc.d -f conntrackd remove
 systemctl disable mdns-repeater
-/usr/sbin/update-rc.d -f udp-broadcast-relay remove
+/usr/sbin/update-rc.d -f mdns-repeater remove
 systemctl disable udp-broadcast-relay{1.99}
+/usr/sbin/update-rc.d -f udp-broadcast-relay remove
+systemctl disable pdns-recursor
+/usr/sbin/update-rc.d -f pdns-recursor remove
