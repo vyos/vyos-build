@@ -61,7 +61,8 @@ curl -XPOST -d "version[version]=${version}" \
 echo
 
 # Create provider
-curl -XPOST -d "provider[name]=${PROVIDER}" -d "provider[url]=${VAGRANT_BOX_BASE_URL}/vyos-${VERSION}-vagrant-${PROVIDER}.box" \
+urlencoded_version=$(cat build/version | sed 's/+/%2B/')
+curl -XPOST -d "provider[name]=${PROVIDER}" -d "provider[url]=${VAGRANT_BOX_BASE_URL}/vyos-${urlencoded_version}-vagrant-${PROVIDER}.box" \
   https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/version/${version}/providers?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
 echo
 
