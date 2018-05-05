@@ -54,16 +54,19 @@ fi
 PROVIDER=libvirt
 
 # Create version
-curl -XPOST -d "version[version]=${VERSION}" \
+date=$(date -u +%Y%m%d)
+version=$(echo "$date.0.0")
+curl -XPOST -d "version[version]=${version}" \
   https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/versions?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
 echo
 
 # Create provider
-curl -XPOST -d "provider[name]=${PROVIDER}" -d "provider[url]=${VAGRANT_BOX_BASE_URL}/vyos-${VERSION}-vagrant-${PROVIDER}.box" \
-  https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/version/${VERSION}/providers?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
+urlencoded_version=$(cat build/version | sed 's/+/%2B/')
+curl -XPOST -d "provider[name]=${PROVIDER}" -d "provider[url]=${VAGRANT_BOX_BASE_URL}/vyos-${urlencoded_version}-vagrant-${PROVIDER}.box" \
+  https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/version/${version}/providers?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
 echo
 
 # Release version
 curl -XPUT \
-  https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/version/${VERSION}/release?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
+  https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/version/${version}/release?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
 echo
