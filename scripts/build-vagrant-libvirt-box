@@ -55,8 +55,9 @@ PROVIDER=libvirt
 
 # Create version
 major=$(cat build/version | cut -d'+' -f2 | rev | cut -c 5- | rev)
-sub=$(cat build/version | cut -d'+' -f2 | rev | cut -c 1-4 | rev)
-version=$(echo "$major.$sub.0")
+sub=$(cat build/version | cut -d'+' -f2 | rev | cut -c 3-4 | rev)
+minor=$(cat build/version | cut -d'+' -f2 | rev | cut -c 1-2 | rev)
+version=$(echo "$major.$sub.$minor")
 curl -XPOST -d "version[version]=${version}" \
   https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/versions?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
 echo
