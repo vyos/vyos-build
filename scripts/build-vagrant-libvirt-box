@@ -54,8 +54,9 @@ fi
 PROVIDER=libvirt
 
 # Create version
-date=$(date -u +%Y%m%d)
-version=$(echo "$date.0.0")
+major=$(cat build/version | cut -d'+' -f2 | rev | cut -c 5- | rev)
+sub=$(cat build/version | cut -d'+' -f2 | rev | cut -c 1-4 | rev)
+version=$(echo "$major.$sub.0")
 curl -XPOST -d "version[version]=${version}" \
   https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/versions?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
 echo
