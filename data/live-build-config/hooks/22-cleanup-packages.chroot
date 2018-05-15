@@ -11,4 +11,4 @@ for p in $UNWANTED_PKGS; do
   apt-get -y remove $p
 done
 
-apt-get -y autoremove
+#apt-get -y autoremove

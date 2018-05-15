@@ -54,7 +54,6 @@ lb config noauto \
         --firmware-chroot true \
         --updates true \
         --security true \
-        --apt-recommends false \
         --apt-indices false
         "${@}"
 """
