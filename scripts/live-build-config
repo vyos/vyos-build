@@ -53,7 +53,9 @@ lb config noauto \
         --archive-areas "main contrib non-free" \
         --firmware-chroot true \
         --updates true \
-        --security true
+        --security true \
+        --apt-recommends false \
+        --apt-indices false
         "${@}"
 """
 
