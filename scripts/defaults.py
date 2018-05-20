@@ -33,7 +33,7 @@ PBUILDER_DIR = os.path.join(BUILD_DIR, 'pbuilder')
 LB_CONFIG_DIR = os.path.join(BUILD_DIR, 'config')
 CHROOT_INCLUDES_DIR = os.path.join(LB_CONFIG_DIR, 'includes.chroot')
 
-VYOS_MIRROR = 'http://dev.packages.vyos.net/repositories/current/vyos'
+VYOS_MIRROR = 'http://dev.packages.vyos.net/repositories/current'
 
 VYOS_BRANCH = 'current'
 
