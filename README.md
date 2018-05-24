@@ -56,6 +56,57 @@ $ sudo chroot vyos-chroot
 
 Several packages are required for building the ISO and all packages, namely python3, live-build, pbuilder, python3-pystache and devscripts.
 Individual packages may have other build dependencies. If some packages are missing, build scripts will tell you.
+## Building the ISO image inside a docker container
+
+Using Dockerfile you can create your own docker container that can be used to build a VyOS ISO image.
+The Dockerfile contains some of the most used packages needed for a VyOs build ISO process.
+
+```
+squashfs-tools           # Required for squashfs file system
+git                      # Required, for cloning the source
+autoconf                 # Required, for generating build scripts
+dpkg-dev                 # Required, used in build scripts
+live-helper              # Required, for ISO build
+syslinux                 # Required, for ISO build
+genisoimage              # Required, for ISO build
+make                     # Required, for ISO build
+lsb-release              # Required, used by configure script
+fakechroot               # Required, for ISO build
+devscripts               # Optional, for building submodules (kernel etc)
+kernel-package           # Optional, for building the kernel
+libtool                  # Optional, for building certain packages (eg vyatta-op-vpn)
+libglib2.0-dev           # Optional, for building vyatta-cfg 
+libboost-filesystem-dev  # Optional, for building vyatta-cfg
+libapt-pkg-dev           # Optional, for building vyatta-cfg
+flex                     # Optional, for building vyatta-cfg
+bison                    # Optional, for building vyatta-cfg
+libperl-dev              # Optional, for building vyatta-cfg
+libnfnetlink-dev         # Optional, for building vyatta-cfg-vpn
+vim                      # Optional, vim, vi, nano or other text editor
+```
+
+To build the docker image
+
+```
+docker build -t vyos-builder $PATH_TO_Dockerfile
+```
+
+To run the docker image:
+
+```
+docker run --privileged -v /HOST_PATH/images:/vyos --name=vyos_node_builder -d vyos-builder bash
+```
+* docker container must be run with --privileged flag
+* is recommended to run the container with a volume mapped in order to easy export built VyOs ISO images 
+to the "external" world
+
+To connect to the docker image once is running:
+```
+docker exec -it vyos_node_builder bash
+```
+
+After the docker container is running you can git clone the vyos-build repository inside the container 
+and follow up the bellow instructions in order to build the VyOs ISO image 
 
 ## Building the ISO image
 
