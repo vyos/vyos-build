@@ -66,7 +66,7 @@ squashfs-tools           # Required for squashfs file system
 git                      # Required, for cloning the source
 autoconf                 # Required, for generating build scripts
 dpkg-dev                 # Required, used in build scripts
-live-helper              # Required, for ISO build
+live-build               # Required, for ISO build
 syslinux                 # Required, for ISO build
 genisoimage              # Required, for ISO build
 make                     # Required, for ISO build
