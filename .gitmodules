@@ -136,3 +136,6 @@
 [submodule "packages/vyatta-iproute"]
 	path = packages/vyatta-iproute
 	url = https://github.com/vyos/vyatta-iproute.git
+[submodule "packages/vyatta-quagga"]
+	path = packages/vyatta-quagga
+	url = https://github.com/vyos/vyatta-quagga.git
