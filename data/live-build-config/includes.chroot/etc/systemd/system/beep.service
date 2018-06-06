@@ -12,4 +12,3 @@ ExecStart=/usr/bin/beep -f 130 -l 100 -n -f 262 -l 100 -n -f 330 -l 100 -n -f 39
 
 [Install]
 WantedBy=getty.target
-Alias=beep.service
