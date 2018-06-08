@@ -56,7 +56,7 @@ if build_config['build_type'] == 'development':
         git_branch = repo.active_branch.name
         branch_version = version_mapping[git_branch]
 
-        version = "{0}-rolling-{1}".format(branch_version, build_timestamp)
+        version = "{0}-rolling+{1}".format(branch_version, build_timestamp)
     except Exception as e:
         print("Could not build a version string specific to git branch, falling back to default: {0}".format(str(e)))
         version = "999.{0}".format(build_timestamp)
@@ -71,7 +71,9 @@ version_data = {
     'build_id': build_id
 }
 
-with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'opt/vyatta/etc/version.json'), 'w') as f:
+
+os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos'), exist_ok=True)
+with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos/version.json'), 'w') as f:
     json.dump(version_data, f)
 
 # For backwards compatibility with 'add system image' script from older versions
