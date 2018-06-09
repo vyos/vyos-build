@@ -1,10 +1,10 @@
 VyOS toplevel build
 ===================
 
-# WARNING
+# Important!
 
-This repository is for building the VyOS version that is to become 1.2.0 and that is currently in beta testing.
-For 1.1.x, use the build-iso repository.
+This repository is for building the VyOS version 1.2.0 and above.
+For VyOS 1.1.x, use the build-iso repository.
 
 
 # What is VyOS
@@ -43,23 +43,25 @@ There are several directories with their own purpose:
 
 ## Prerequisites
 
-To build a VyOS image, you need Debian8 "Jessie" environment (with jessie-backports repository). You can create it with [debootstrap](https://wiki.debian.org/Debootstrap) on Debian, Ubuntu and many distributions. To create Debian8 "Jessie" environment under vyos-chroot directory, run below commands.
+To build a VyOS image, you need Debian 8 "Jessie" environment (with jessie-backports repository). You can create it with [debootstrap](https://wiki.debian.org/Debootstrap) on Debian, Ubuntu and many other distributions. To create a Debian 8 "Jessie" environment under vyos-chroot directory, run these commands:
 
 ```
-$ sudo apt install debootstrap (Note: This is on Debian/Ubuntu, adjust it with your favorite distro package manager)
+$ sudo apt-get install debootstrap # (Note: This is on Debian/Ubuntu, adjust it for your favorite distro package manager)
 $ sudo debootstrap jessie vyos-chroot
 $ sudo chroot vyos-chroot
 
 # echo "deb http://deb.debian.org/debian jessie-backports main" >> /etc/apt/sources.list
-# apt update
+# apt-get update
 ```
 
-Several packages are required for building the ISO and all packages, namely python3, live-build, pbuilder, python3-pystache and devscripts.
-Individual packages may have other build dependencies. If some packages are missing, build scripts will tell you.
+Several packages are required for building the ISO: python3, live-build, pbuilder, python3-pystache. The ./configure script
+will warn you if any dependencies are missing.
+Individual packages may have other build dependencies. If some dependencies are missing, package build scripts will tell you.
+
 ## Building the ISO image inside a docker container
 
 Using Dockerfile you can create your own docker container that can be used to build a VyOS ISO image.
-The Dockerfile contains some of the most used packages needed for a VyOs build ISO process.
+The Dockerfile contains some of the most used packages needed for a VyOS build ISO process.
 
 ```
 squashfs-tools           # Required for squashfs file system
@@ -85,7 +87,7 @@ libnfnetlink-dev         # Optional, for building vyatta-cfg-vpn
 vim                      # Optional, vim, vi, nano or other text editor
 ```
 
-To build the docker image
+To build the docker image:
 
 ```
 docker build -t vyos-builder $PATH_TO_Dockerfile
@@ -97,7 +99,7 @@ To run the docker image:
 docker run --privileged -v /HOST_PATH/images:/vyos --name=vyos_node_builder -d vyos-builder bash
 ```
 * docker container must be run with --privileged flag
-* is recommended to run the container with a volume mapped in order to easy export built VyOs ISO images 
+* is recommended to run the container with a volume mapped in order to easy export built VyOS ISO images 
 to the "external" world
 
 To connect to the docker image once is running:
@@ -106,7 +108,7 @@ docker exec -it vyos_node_builder bash
 ```
 
 After the docker container is running you can git clone the vyos-build repository inside the container 
-and follow up the bellow instructions in order to build the VyOs ISO image 
+and follow up the bellow instructions in order to build the VyOS ISO image 
 
 ## Building the ISO image
 
@@ -152,5 +154,9 @@ This is hard to change in existing code, so this is just the way it is, for now.
 
 All new code goes to the 'current' branch. When it's time for a code freeze, a new branch is created
 for the release, and new code from 'current' is backported to the release branch as needed.
+
+In packages that originate from VyOS the master branch is kept in sync with "current", but we still use
+"current" as default branch for uniformity. When the last legacy package is gone, we will switch to using
+the master branch and retire "current".
 
 For branch naming we use chemical elements (hydrogen, helium, ...).
