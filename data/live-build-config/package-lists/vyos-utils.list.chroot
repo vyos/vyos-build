@@ -15,3 +15,5 @@ minicom
 wakeonlan
 iperf
 iperf3
+iftop
+lsof
