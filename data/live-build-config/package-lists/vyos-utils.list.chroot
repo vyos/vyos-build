@@ -16,3 +16,6 @@ wakeonlan
 iperf
 iperf3
 beep
+iftop
+lsof
+openssh-client

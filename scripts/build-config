@@ -30,7 +30,6 @@ import os
 import getpass
 import platform
 import json
-import distutils.dir_util
 
 import defaults
 
@@ -115,7 +114,8 @@ if env_check_retval > 0:
 
 
 # Save to file
-distutils.dir_util.mkpath(defaults.BUILD_DIR)
-
+os.makedirs(defaults.BUILD_DIR, exist_ok=True)
+print("Saving the build config to {0}".format(defaults.BUILD_CONFIG))
 with open(defaults.BUILD_CONFIG, 'w') as f:
-    json.dump(args, f)
+    json.dump(args, f, indent=4, sort_keys=True)
+    print("\n", file=f)

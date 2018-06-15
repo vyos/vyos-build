@@ -72,7 +72,8 @@ version_data = {
 }
 
 
-with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'opt/vyatta/etc/version.json'), 'w') as f:
+os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos'), exist_ok=True)
+with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos/version.json'), 'w') as f:
     json.dump(version_data, f)
 
 # For backwards compatibility with 'add system image' script from older versions
