@@ -1,0 +1,14 @@
+[Unit]
+Description=play sound when you can login
+Requires=getty.target
+After=getty.target
+#Requires=multi-user.target
+#After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/bin/beep -f 130 -l 100 -n -f 262 -l 100 -n -f 330 -l 100 -n -f 392 -l 100 -n -f 523 -l 100 -n -f 660 -l 100 -n -f 784 -l 300 -n -f 660 -l 300
+
+[Install]
+WantedBy=getty.target
