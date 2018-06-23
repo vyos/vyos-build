@@ -1,0 +1,8 @@
+grub2
+grub-pc
+open-vm-tools
+qemu-guest-agent
+
+mlnx-ofed-kernel-modules
+iser-modules
+ofed-scripts

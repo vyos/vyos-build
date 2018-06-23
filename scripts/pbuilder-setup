@@ -14,25 +14,39 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# File: check-config
+# File: pbuilder-setup
 # Purpose:
-#   Checks if the build config file (build/build-config.json) exists.
-#   This is to prevent accidental execution of plumbing make targets
-#   from going too far and failing with confusing errors.
+#   Bootstraps a Debian environment for use by pbuilder.
 
 
 import sys
+import os
 import json
+import distutils.dir_util
+
+import pystache
 
 import defaults
+import util
 
+util.check_build_config()
 
-print("Checking build configuration")
+pbuilder_create_cmd_tmpl= """
+    sudo pbuilder --create \
+                  --configfile {{pbuilder_config}}
+"""
 
-try:
-    with open(defaults.BUILD_CONFIG, 'r') as f:
-        build_config = json.load(f)
-except:
-    print("Build config does not exist or is not a valid JSON file")
-    print("Please run the ./configure script and try again")
+with open(defaults.BUILD_CONFIG, 'r') as f:
+     build_config = json.load(f)
+
+pbuilder_create_command = pystache.render(pbuilder_create_cmd_tmpl, build_config)
+
+print("Creating a pbuilder environment")
+#os.chdir(defaults.BUILD_DIR)
+
+distutils.dir_util.mkpath(defaults.PBUILDER_DIR)
+
+result = os.system(pbuilder_create_command)
+if result > 0:
+    print("pbuilder environment bootstrap failed")
     sys.exit(1)

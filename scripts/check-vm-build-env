@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2015 VyOS maintainers and contributors
+# Copyright (C) 2016 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -14,10 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# File: check-build-env
+# File: check-vm-build-env
 # Purpose:
-#   Checks if packages required for package and ISO image build
-#   are installed.
+#   Checks if packages required for VM image build are installed.
 
 
 import os
@@ -27,15 +26,11 @@ import util
 
 deps = {
     'packages': [
-       'sudo',
-       'make',
-       'live-build',
-       'pbuilder',
-       'devscripts',
-       'python3-pystache',
-       'python3-git'
+      'jq',
+      'qemu-system-x86',
+      'qemu-utils'
     ],
-   'binaries': []
+   'binaries': ['packer']
 }
 
 print("Checking if packages required for VyOS image build are installed")
@@ -48,7 +43,9 @@ if not missing:
     sys.exit(0)
 else:
     checker.print_missing_deps()
+    if 'packer' in missing['binaries']:
+        print("Your system does not have Packer.")
+        print("Please install Packer from https://www.packer.io/downloads.html.")
     sys.exit(1)
 
 sys.exit(0)
-

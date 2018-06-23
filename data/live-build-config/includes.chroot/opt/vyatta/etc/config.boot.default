@@ -1,4 +1,5 @@
 system {
+    host-name vyos
     login {
         user vyos {
             authentication {

@@ -1,0 +1,158 @@
+#!/bin/sh
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 2 or later as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-clearfog-image
+# Purpose:
+# Build VyOS image for for Solidrun clearfog.
+
+lb bootstrap
+lb chroot
+lb installer
+lb binary_chroot
+lb chroot_devpts install
+lb chroot_proc install
+lb chroot_selinuxfs install
+lb chroot_sysfs install
+lb chroot_hosts install
+lb chroot_resolv install
+lb chroot_hostname install
+lb chroot_sysv-rc install
+lb chroot_upstart install
+lb chroot_apt install-binary
+lb chroot_archives chroot install
+lb binary_rootfs
+lb binary_manifest
+lb binary_package-lists
+lb binary_linux-image
+lb binary_memtest
+lb binary_grub
+lb binary_grub2
+lb binary_syslinux
+lb binary_disk
+lb binary_loadlin
+lb binary_win32-loader
+lb binary_includes
+lb binary_hooks
+lb binary_checksums
+
+# get vyos build version
+version=$(cat version)
+dateymd=$(date +%Y%m%d)
+
+# create sd-card image and partition it
+qemu-img create -f raw sr-a38x-cf-vyos-"$dateymd"-testing.img 1.8G
+parted --script sr-a38x-cf-vyos-"$dateymd"-testing.img mklabel msdos
+parted --script sr-a38x-cf-vyos-"$dateymd"-testing.img mkpart primary fat16 8192s 60
+parted --script sr-a38x-cf-vyos-"$dateymd"-testing.img mkpart primary ext2 60 1900
+parted --script sr-a38x-cf-vyos-"$dateymd"-testing.img set 1 boot on
+
+# mount image and create filesystems
+losetup /dev/loop0 sr-a38x-cf-vyos-"$dateymd"-testing.img
+partprobe /dev/loop0
+mkfs.vfat -n EFI -F 16 -I /dev/loop0p1
+mkfs.ext2 -L persistence /dev/loop0p2
+
+# mount image partitions
+mkdir -p /boot/efi
+mount /dev/loop0p1 /boot/efi
+mkdir -p /mnt
+mount /dev/loop0p2 /mnt
+
+# setup files on image
+mkdir -p /mnt/boot/grub
+mkdir -p /mnt/boot/"$version"/rw
+echo "/ union" > /mnt/persistence.conf
+cp binary/live/filesystem.squashfs /mnt/boot/"$version"/"$version.squashfs"
+cp binary/live/initrd.img-* /mnt/boot/"$version"/initrd.img
+cp binary/live/vmlinuz-* /mnt/boot/"$version"/vmlinuz
+cp ../tools/armada-388-clearfog.dtb /boot/efi/armada-388-clearfog.dtb
+
+# create boot script
+cat > /boot/efi/boot.script << EOF
+# load DTB
+echo "Loading armada-388-clearfog.dtb"
+load mmc 0:1 \$fdt_addr_r armada-388-clearfog.dtb
+fdt addr \$fdt_addr_r 20000
+
+# load efi
+echo "Loading EFI image ..."
+load mmc 0:1 \$loadaddr EFI/debian/grubarm.efi
+
+# Sleep a while so the MMC driver can settle down
+echo "Sleeping 5 seconds ..."
+sleep 5
+
+# boot
+echo "Booting ..."
+bootefi \$loadaddr
+EOF
+
+# compile boot script for u-boot
+mkimage -A arm -O linux -T script -C none -a 0 -e 0 -d /boot/efi/boot.script /boot/efi/boot.scr
+
+# create grub config file to include
+cat > load.cfg << EOF
+set root=(hd0,msdos2)
+set prefix=(hd0,msdos2)/boot/grub
+devicetree (hd0,msdos1)/armada-388-clearfog.dtb
+insmod normal
+normal
+EOF
+
+# create grub menu
+cat > /mnt/boot/grub/grub.cfg << EOF
+set default=0
+set timeout=5
+
+echo -n Press ESC to enter the Grub menu...
+if sleep --verbose --interruptible 5 ; then
+	terminal_input console serial
+fi
+
+
+menuentry "VyOS $version (Serial console)" {
+        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=ttyS0,115200n8
+        initrd /boot/"$version"/initrd.img
+}
+
+menuentry "Lost password change $version (Serial console)" {
+        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=ttyS0,115200n8 init=/opt/vyatta/sbin/standalone_root_pw_reset
+        initrd /boot/"$version"/initrd.img
+}
+EOF
+
+# install efi grub to image
+grub-install  --efi-directory /boot/efi --boot-directory /mnt/boot -d /usr/lib/grub/arm-efi /dev/loop0
+
+# create grub efi executable
+grub-mkimage -O arm-efi -p /boot/grub -d /usr/lib/grub/arm-efi -c load.cfg \
+ext2 iso9660 linux echo configfile \
+search_label search_fs_file search \
+search_fs_uuid ls normal gzio \
+png fat gettext font minicmd \
+gfxterm gfxmenu video video_fb \
+part_msdos part_gpt > /boot/efi/EFI/debian/grubarm.efi
+
+# unmount image partitions
+umount /mnt
+umount /boot/efi
+
+# write u-boot to image
+dd if=../tools/u-boot-spl.kwb of=/dev/loop0 bs=512 seek=1
+
+# unmount image
+sudo losetup -D
+
+# compress image
+xz -v sr-a38x-cf-vyos-"$dateymd"-testing.img

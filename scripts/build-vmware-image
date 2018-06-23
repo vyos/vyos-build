@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-vmware-image
+# Purpose:
+#   Build VyOS OVA and OVF for VMware.
+
+if [ ! $(which vmdk-convert) ]; then
+   echo "Your system doesn't have vmdk-convert. Please install it from https://github.com/vmware/open-vmdk."
+   exit 1
+else
+   echo "Your system has vmdk-convert."
+fi
+
+if [ ! $(which ovftool) ]; then
+   echo "Your system doesn't have ovftool. Please install it from https://www.vmware.com/support/developer/ovf/."
+   exit 1
+else
+   echo "Your system has ovftool."
+fi
+
+export PACKER_BUILD_DIR=packer_build
+
+DST_DIR=${PACKER_BUILD_DIR}/vmware
+mkdir -p ${DST_DIR}
+
+# Convert qcow2 image to VMDK
+source_image=${PACKER_BUILD_DIR}/qemu/vyos_qemu_image.img
+tmp_vmdk=${DST_DIR}/tmp.vmdk
+vmdk=${DST_DIR}/vyos_vmware_image.vmdk
+ovf=${DST_DIR}/vyos_vmware_image.ovf
+qemu-img convert -f qcow2 ${source_image} -O vmdk -o adapter_type=lsilogic ${tmp_vmdk}
+vmdk-convert ${tmp_vmdk} ${vmdk}
+
+# Generate OVF
+echo 'Generating OVF file...'
+vmdk_file_size=$(du --bytes ${vmdk} | cut -f1)
+vmdk_populated_size=$(vmdk-convert -i ${vmdk} | jq .used)
+version=$(cat build/version)
+sed scripts/template.ovf \
+  -e "s/{{vmdk_file_size}}/${vmdk_file_size}/" \
+  -e "s/{{vmdk_populated_size}}/${vmdk_populated_size}/" \
+  -e "s/{{version}}/${version}/" \
+  > ${ovf}
+
+# Generate manifest file
+cd ${DST_DIR}
+openssl sha1 *.vmdk *.ovf > vyos_vmware_image.mf
+
+# Convert the OVF to signed OVA...
+echo 'Converting the OVF to signed OVA...'
+private_key=${PRIVATE_KEY_PATH:-"../../key/privatekey.pem"}
+if [ ! -f ${private_key} ]; then
+  echo 'Please put your key to "key/privatekey.pem" in repository root, or set PRIVATE_KEY_PATH to environment variables.'
+  exit 1
+fi
+ovftool --privateKey=${PRIVATE_KEY_PATH} vyos_vmware_image.ovf vyos_vmware_image-signed.ova
+
+# Convert the OVF to signed OVF...
+echo 'Converting the OVF to signed OVF...'
+ovftool --privateKey=${PRIVATE_KEY_PATH} vyos_vmware_image.ovf vyos_vmware_image-signed.ovf

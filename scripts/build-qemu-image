@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-qemu-image
+# Purpose:
+#   Build VyOS raw image for qemu.
+
+BUILD_DIR=$(scripts/query-json build/build-config.json build_dir)
+BUILD_ARCH=$(scripts/query-json build/build-config.json architecture)
+export VERSION=$(cat $BUILD_DIR/version)
+
+export ISO_IMAGE=./build/live-image-$BUILD_ARCH.hybrid.iso
+export ISO_MD5_SUM=$(md5sum ${ISO_IMAGE} | awk '{print $1}')
+export PACKER_BUILD_DIR=packer_build
+export PACKER_LOG_PATH=${PACKER_BUILD_DIR}/build.log
+export PACKER_LOG=1
+
+mkdir -p ${PACKER_BUILD_DIR}
+
+packer build -only=qemu-image scripts/packer.json

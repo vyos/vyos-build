@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo I: Creating kernel symlinks.
+cd /boot
+ln -s initrd.img-* initrd.img
+ln -s vmlinuz-* vmlinuz

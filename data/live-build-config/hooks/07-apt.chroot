@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ -e /cdrom/vyatta-pubkey.gpg ] ; then
+    apt-key add /cdrom/vyatta-pubkey.gpg
+elif [ -e /vyatta-pubkey.gpg ] ; then
+    apt-key add /vyatta-pubkey.gpg
+    rm -f /vyatta-pubkey.gpg
+fi

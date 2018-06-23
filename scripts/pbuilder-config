@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #
 # Copyright (C) 2015 VyOS maintainers and contributors
 #
@@ -14,25 +14,41 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# File: check-config
+# File: pbuilder-config
 # Purpose:
-#   Checks if the build config file (build/build-config.json) exists.
-#   This is to prevent accidental execution of plumbing make targets
-#   from going too far and failing with confusing errors.
+#   Generates a pbuilderrc file for use by package build scripts.
 
 
 import sys
+import os
 import json
 
+import pystache
+
 import defaults
+import util
 
+util.check_build_config()
 
-print("Checking build configuration")
+pbuilder_config_tmpl = """
 
-try:
-    with open(defaults.BUILD_CONFIG, 'r') as f:
-        build_config = json.load(f)
-except:
-    print("Build config does not exist or is not a valid JSON file")
-    print("Please run the ./configure script and try again")
-    sys.exit(1)
+BASETGZ={{build_dir}}/base.tgz
+BUILDPLACE={{build_dir}}/pbuilder/
+MIRRORSITE={{pbuilder_debian_mirror}}
+BUILDRESULT={{build_dir}}/pbuilder/result/
+
+DISTRIBUTION={{distribution}}
+
+ARCHITECTURE={{architecture}}
+
+"""
+
+with open(defaults.BUILD_CONFIG, 'r') as f:
+     build_config = json.load(f)
+
+pbuilder_config = pystache.render(pbuilder_config_tmpl, build_config)
+
+print("Configuring pbuilder")
+
+with open(defaults.PBUILDER_CONFIG, 'w+') as f:
+    f.write(pbuilder_config)

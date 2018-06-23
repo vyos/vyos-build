@@ -1,0 +1,42 @@
+#!/usr/bin/python3
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: query-config
+# Purpose: Extracts field values from a flat JSON file,
+#          for use in languages that can't handle JSON easily,
+#          (I'm looking at you, Bourne shell!)
+
+
+import sys
+import json
+
+import defaults
+import util
+
+if len(sys.argv) < 3:
+    print("Usage: {0} <flat JSON file> <config field name>".format(sys.argv[0]))
+    sys.exit(1)
+
+# Note: lack of error handling is deliberate, if some field is expected to be there
+#       but isn't, it's better if the failure will be obvious and spectacular
+
+file = sys.argv[1]
+key = sys.argv[2]
+
+with open(file, 'r') as f:
+     json_data = json.load(f)
+
+print(json_data[key])

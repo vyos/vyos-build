@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# hack live script that tries to mount ext[23] floppies as root
+# remove user settings live config scripts
+
+sed -e '/ln -s "${devname}"/,/return 0/ s/^/: FIXME/' \
+    -i /usr/share/initramfs-tools/scripts/live
+
+rm -rf /lib/live/config/0030-live-debconfig_passwd
+rm -rf /lib/live/config/0030-user-setup
+rm -rf /lib/live/config/0040-sudo

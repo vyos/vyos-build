@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Clean up packages that were installed for dependencies but are no longer needed
+# and packages installed by metapackages that we'll never need
+
+UNWANTED_PKGS="dahdi-firmware-nonfree \
+               firmware-crystalhd firmware-ivtv \
+               firmware-samsung"
+
+for p in $UNWANTED_PKGS; do
+  apt-get -y remove $p
+done
+
+#apt-get -y autoremove

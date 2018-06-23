@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-vagrant-libvirt-box
+# Purpose:
+#   Build VyOS Vagrant libvirt box.
+
+export PACKER_BUILD_DIR=packer_build
+
+DST_DIR=${PACKER_BUILD_DIR}/vagrant-libvirt
+BOX_DIR=${DST_DIR}/box
+mkdir -p ${BOX_DIR}
+
+# Copy qcow2 image
+cp -p packer_build/qemu/vyos_qemu_image.img ${BOX_DIR}/box.img
+
+# Put metadata.json and Vagrantfile
+echo '{"format":"qcow2","provider":"libvirt","virtual_size":4}' > ${BOX_DIR}/metadata.json
+cat <<EOF > ${BOX_DIR}/Vagrantfile
+Vagrant.configure("2") do |config|
+  config.vm.synced_folder './', '/vagrant',
+                          type: "rsync",
+                          owner: 'vyos',
+                          group: 'users',
+                          mount_options: ['dmode=775,fmode=775']
+  config.ssh.username = "vyos"
+  config.ssh.password = "vyos"
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.driver = "kvm"
+  end
+end
+EOF
+
+# Create box
+box=${DST_DIR}/vyos_vagrant_libvirt.box
+tar -C ${BOX_DIR} -czvf ${box} metadata.json Vagrantfile box.img
+if [ "$?" = "0" ]; then
+  echo "Vagrant libvirt box successfully created to ./${box}"
+fi
+
+PROVIDER=libvirt
+
+# Create version
+major=$(cat build/version | cut -d'+' -f2 | cut -d'-' -f1 | rev | cut -c 5- | rev)
+sub=$(cat build/version | cut -d'+' -f2 | cut -d'-' -f1 | rev | cut -c 3-4 | rev)
+minor=$(cat build/version | cut -d'+' -f2 | cut -d'-' -f1 | rev | cut -c 1-2 | rev)
+version=$(echo "$major.$sub.$minor")
+curl -XPOST -d "version[version]=${version}" \
+  https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/versions?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
+echo
+
+# Create provider
+urlencoded_version=$(cat build/version | sed 's/+/%2B/')
+curl -XPOST -d "provider[name]=${PROVIDER}" -d "provider[url]=${VAGRANT_BOX_BASE_URL}/vyos-${urlencoded_version}-vagrant-${PROVIDER}.box" \
+  https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/version/${version}/providers?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
+echo
+
+# Release version
+curl -XPUT \
+  https://app.vagrantup.com/api/v1/box/${VAGRANT_BOX_NAME}/version/${version}/release?access_token=${VAGRANT_CLOUD_ACCESS_TOKEN}
+echo

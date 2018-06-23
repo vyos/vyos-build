@@ -1,0 +1,62 @@
+{
+  "variables": {
+    "iso_url": "{{env `ISO_IMAGE`}}",
+    "iso_checksum": "{{env `ISO_MD5_SUM`}}",
+    "output_directory": "{{env `PACKER_BUILD_DIR`}}"
+  },
+  "builders":
+  [
+    {
+      "name": "qemu-image",
+      "type": "qemu",
+      "iso_url": "{{user `iso_url`}}",
+      "iso_checksum": "{{user `iso_checksum`}}",
+      "iso_checksum_type": "md5",
+      "output_directory": "{{user `output_directory`}}/qemu",
+      "shutdown_command": "sudo halt -p",
+      "disk_size": 4096,
+      "format": "qcow2",
+      "headless": true,
+      "ssh_host_port_min": 2222,
+      "ssh_host_port_max": 2229,
+      "ssh_username": "vyos",
+      "ssh_password": "vyos",
+      "ssh_port": 22,
+      "ssh_wait_timeout": "300s",
+      "vm_name": "vyos_qemu_image.img",
+      "net_device": "virtio-net",
+      "disk_interface": "virtio",
+      "boot_wait": "5s",
+      "boot_command":
+      [
+        "<enter><wait3m>",
+        "vyos<enter><wait5>",
+        "vyos<wait><enter><wait10>",
+        "install image<enter><wait5>",
+        "<enter><wait5>",
+        "<enter><wait5>",
+        "<enter><wait5>",
+        "Yes<enter><wait5>",
+        "<enter><wait10>",
+        "<enter><wait5>",
+        "<enter><wait5>",
+        "vyos<enter><wait5>",
+        "vyos<enter><wait10>",
+        "<enter><wait10><wait10>",
+        "reboot<enter><wait5>",
+        "Yes<enter><wait3m>",
+        "vyos<enter><wait5>",
+        "vyos<enter><wait10>",
+        "configure<enter><wait5>",
+        "set interface ethernet eth0 address dhcp<enter><wait5>",
+        "set service ssh<enter><wait5>",
+        "commit<enter><wait5>",
+        "save<enter><wait5>",
+        "delete interface ethernet eth0 hw-id<enter><wait5>",
+        "commit<enter><wait5>",
+        "save<enter><wait5>",
+        "exit<enter><wait5>"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+#!/usr/bin/python3
+#
+# Copyright (C) 2018 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: make-version-file
+# Purpose:
+#   Creates version file in live-build chroot includes dir
+#   that is included in the image and used by 'show version' command
+#   and install/upgrade scripts.
+
+import os
+import datetime
+import json
+import uuid
+
+import git
+
+import defaults
+import util
+
+# Load the build config
+util.check_build_config()
+with open(defaults.BUILD_CONFIG, 'r') as f:
+     build_config = json.load(f)
+
+# Create a build timestamp
+now = datetime.datetime.today()
+build_timestamp = now.strftime("%Y%m%d%H%M")
+
+# FIXME: use aware rather than naive object
+build_date = now.strftime("%a %d %b %Y %H:%M UTC")
+
+# Assign a (hopefully) unique identifier to the build (UUID)
+build_id = str(uuid.uuid4())
+
+# Create a build version
+if build_config['build_type'] == 'development':
+    try:
+        # Load the branch to version mapping file
+        with open('data/versions') as f:
+            version_mapping = json.load(f)
+
+        repo = git.Repo('.')
+        git_branch = repo.active_branch.name
+        branch_version = version_mapping[git_branch]
+
+        version = "{0}-rolling+{1}".format(branch_version, build_timestamp)
+    except Exception as e:
+        print("Could not build a version string specific to git branch, falling back to default: {0}".format(str(e)))
+        version = "999.{0}".format(build_timestamp)
+else:
+    # Release build, use the version from ./configure arguments
+    version = build_config['version']
+
+version_data = {
+    'version': version,
+    'built_by': build_config['build_by'],
+    'built_on': build_date,
+    'build_id': build_id
+}
+
+
+os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos'), exist_ok=True)
+with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos/version.json'), 'w') as f:
+    json.dump(version_data, f)
+
+# For backwards compatibility with 'add system image' script from older versions
+# we need a file in old format so that script can find out the version of the image
+# for upgrade
+with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'opt/vyatta/etc/version'), 'w') as f:
+    print("Version: {0}".format(version), file=f)
+
+# Leaky abstraction: we want ISO file name include version number,
+# but we probably don't want to  have a separate build step just for this,
+# neither we want to use lengthy paths in makefiles
+with open(os.path.join(defaults.BUILD_DIR, 'version'), 'w') as f:
+    print(version, file=f)

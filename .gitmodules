@@ -1,0 +1,141 @@
+[submodule "packages/vyatta-bash"]
+	path = packages/vyatta-bash
+	url = https://github.com/vyos/vyatta-bash.git
+[submodule "packages/vyatta-cfg"]
+	path = packages/vyatta-cfg
+	url = https://github.com/vyos/vyatta-cfg.git
+[submodule "packages/vyatta-op"]
+	path = packages/vyatta-op
+	url = https://github.com/vyos/vyatta-op.git
+[submodule "packages/vyatta-cfg-system"]
+	path = packages/vyatta-cfg-system
+	url = https://github.com/vyos/vyatta-cfg-system.git
+[submodule "packages/vyatta-cfg-firewall"]
+	path = packages/vyatta-cfg-firewall
+	url = https://github.com/vyos/vyatta-cfg-firewall.git
+[submodule "packages/vyatta-op-firewall"]
+	path = packages/vyatta-op-firewall
+	url = https://github.com/vyos/vyatta-op-firewall.git
+[submodule "packages/vyatta-cfg-vpn"]
+	path = packages/vyatta-cfg-vpn
+	url = https://github.com/vyos/vyatta-cfg-vpn.git
+[submodule "packages/vyatta-op-vpn"]
+	path = packages/vyatta-op-vpn
+	url = https://github.com/vyos/vyatta-op-vpn.git
+[submodule "packages/vyatta-cfg-qos"]
+	path = packages/vyatta-cfg-qos
+	url = https://github.com/vyos/vyatta-cfg-qos.git
+[submodule "packages/vyatta-op-qos"]
+	path = packages/vyatta-op-qos
+	url = https://github.com/vyos/vyatta-op-qos.git
+[submodule "packages/vyatta-cfg-op-pppoe"]
+	path = packages/vyatta-cfg-op-pppoe
+	url = https://github.com/vyos/vyatta-cfg-op-pppoe.git
+[submodule "packages/vyatta-openvpn"]
+	path = packages/vyatta-openvpn
+	url = https://github.com/vyos/vyatta-openvpn.git
+[submodule "packages/vyatta-conntrack"]
+	path = packages/vyatta-conntrack
+	url = https://github.com/vyos/vyatta-conntrack.git
+[submodule "packages/vyatta-conntrack-sync"]
+	path = packages/vyatta-conntrack-sync
+	url = https://github.com/vyos/vyatta-conntrack-sync.git
+[submodule "packages/vyatta-nat"]
+	path = packages/vyatta-nat
+	url = https://github.com/vyos/vyatta-nat.git
+[submodule "packages/vyatta-config-mgmt"]
+	path = packages/vyatta-config-mgmt
+	url = https://github.com/vyos/vyatta-config-mgmt.git
+[submodule "packages/vyatta-config-migrate"]
+	path = packages/vyatta-config-migrate
+	url = https://github.com/vyos/vyatta-config-migrate.git
+[submodule "packages/vyatta-zone"]
+	path = packages/vyatta-zone
+	url = https://github.com/vyos/vyatta-zone.git
+[submodule "packages/vyatta-cluster"]
+	path = packages/vyatta-cluster
+	url = https://github.com/vyos/vyatta-cluster.git
+[submodule "packages/vyatta-vrrp"]
+	path = packages/vyatta-vrrp
+	url = https://github.com/vyos/vyatta-vrrp.git
+[submodule "packages/vyatta-eventwatch"]
+	path = packages/vyatta-eventwatch
+	url = https://github.com/vyos/vyatta-eventwatch.git
+[submodule "packages/vyatta-webproxy"]
+	path = packages/vyatta-webproxy
+	url = https://github.com/vyos/vyatta-webproxy.git
+[submodule "packages/vyatta-webgui"]
+	path = packages/vyatta-webgui
+	url = https://github.com/vyos/vyatta-webgui.git
+[submodule "packages/vyatta-cfg-quagga"]
+	path = packages/vyatta-cfg-quagga
+	url = https://github.com/vyos/vyatta-cfg-quagga.git
+[submodule "packages/vyatta-op-quagga"]
+	path = packages/vyatta-op-quagga
+	url = https://github.com/vyos/vyatta-op-quagga.git
+[submodule "packages/vyatta-cfg-dhcp-server"]
+	path = packages/vyatta-cfg-dhcp-server
+	url = https://github.com/vyos/vyatta-cfg-dhcp-server.git
+[submodule "packages/vyatta-cfg-dhcp-relay"]
+	path = packages/vyatta-cfg-dhcp-relay
+	url = https://github.com/vyos/vyatta-cfg-dhcp-relay.git
+[submodule "packages/vyatta-op-dhcp-server"]
+	path = packages/vyatta-op-dhcp-server
+	url = https://github.com/vyos/vyatta-op-dhcp-server.git
+[submodule "packages/vyatta-wireless"]
+	path = packages/vyatta-wireless
+	url = https://github.com/vyos/vyatta-wireless.git
+[submodule "packages/vyatta-wirelessmodem"]
+	path = packages/vyatta-wirelessmodem
+	url = https://github.com/vyos/vyatta-wirelessmodem.git
+[submodule "packages/vyatta-wanloadbalance"]
+	path = packages/vyatta-wanloadbalance
+	url = https://github.com/vyos/vyatta-wanloadbalance.git
+[submodule "packages/vyatta-netflow"]
+	path = packages/vyatta-netflow
+	url = https://github.com/vyos/vyatta-netflow.git
+[submodule "packages/vyatta-lldp"]
+	path = packages/vyatta-lldp
+	url = https://github.com/vyos/vyatta-lldp.git
+[submodule "packages/vyatta-ipv6-rtradv"]
+	path = packages/vyatta-ipv6-rtradv
+	url = https://github.com/vyos/vyatta-ipv6-rtradv.git
+[submodule "packages/vyatta-ravpn"]
+	path = packages/vyatta-ravpn
+	url = https://github.com/vyos/vyatta-ravpn.git
+[submodule "packages/vyos-pppoe-server"]
+	path = packages/vyos-pppoe-server
+	url = https://github.com/vyos/vyos-pppoe-server.git
+[submodule "packages/vyos-nhrp"]
+	path = packages/vyos-nhrp
+	url = https://github.com/vyos/vyos-nhrp.git
+[submodule "packages/vyos-igmpproxy"]
+	path = packages/vyos-igmpproxy
+	url = https://github.com/vyos/vyos-igmpproxy.git
+[submodule "packages/vyatta-util"]
+	path = packages/vyatta-util
+	url = https://github.com/vyos/vyatta-util.git
+[submodule "packages/vyos-world"]
+	path = packages/vyos-world
+	url = https://github.com/vyos/vyos-world.git
+[submodule "packages/vyos-kernel"]
+	path = packages/vyos-kernel
+	url = https://github.com/vyos/vyos-kernel.git
+[submodule "packages/vyos-1x"]
+	path = packages/vyos-1x
+	url = https://github.com/vyos/vyos-1x.git
+[submodule "packages/mdns-repeater"]
+	path = packages/mdns-repeater
+	url = https://github.com/vyos/mdns-repeater.git
+[submodule "packages/udp-broadcast-relay"]
+	path = packages/udp-broadcast-relay
+	url = https://github.com/vyos/udp-broadcast-relay.git
+[submodule "packages/vyos-keepalived"]
+	path = packages/vyos-keepalived
+	url = https://github.com/vyos/vyos-keepalived.git
+[submodule "packages/vyatta-iproute"]
+	path = packages/vyatta-iproute
+	url = https://github.com/vyos/vyatta-iproute.git
+[submodule "packages/vyatta-quagga"]
+	path = packages/vyatta-quagga
+	url = https://github.com/vyos/vyatta-quagga.git

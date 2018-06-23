@@ -1,0 +1,34 @@
+#!/bin/sh
+
+echo I: Enabling/Disabling services.
+systemctl disable exim4
+/usr/sbin/update-rc.d -f exim4 remove
+systemctl disable isc-dhcp-server
+/usr/sbin/update-rc.d -f isc-dhcp-server remove
+systemctl disable isc-dhcp-relay
+/usr/sbin/update-rc.d -f isc-dhcp-relay remove
+systemctl disable nfacctd
+/usr/sbin/update-rc.d -f nfacctd remove
+systemctl disable pmacctd
+/usr/sbin/update-rc.d -f pmacctd remove
+systemctl disable sfacctd
+/usr/sbin/update-rc.d -f sfacctd remove
+systemctl disable uacctd
+/usr/sbin/update-rc.d -f uacctd remove
+systemctl disable lighttpd
+/usr/sbin/update-rc.d -f lighttpd remove
+systemctl disable ssh
+/usr/sbin/update-rc.d -f ssh remove
+systemctl disable openvpn
+/usr/sbin/update-rc.d -f openvpn remove
+systemctl disable lldpd
+/usr/sbin/update-rc.d -f lldpd remove
+systemctl enable ssh-session-cleanup
+systemctl disable conntrackd
+/usr/sbin/update-rc.d -f conntrackd remove
+systemctl disable mdns-repeater
+/usr/sbin/update-rc.d -f mdns-repeater remove
+systemctl disable udp-broadcast-relay{1.99}
+/usr/sbin/update-rc.d -f udp-broadcast-relay remove
+systemctl disable pdns-recursor
+/usr/sbin/update-rc.d -f pdns-recursor remove

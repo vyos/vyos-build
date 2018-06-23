@@ -1,0 +1,20 @@
+menuentry "VyOS  (KVM console)" {
+        linux /boot//vmlinuz boot=live quiet vyos-union=/boot/ console=ttyS0,9600 console=tty0
+        initrd /boot//initrd.img
+}
+
+menuentry "VyOS  (Serial console)" {
+        linux /boot//vmlinuz boot=live quiet vyos-union=/boot/ console=tty0 console=ttyS0,9600
+        initrd /boot//initrd.img
+}
+
+menuentry "Lost password change  (KVM console)" {
+        linux /boot//vmlinuz boot=live quiet vyos-union=/boot/ console=ttyS0,9600 console=tty0 init=/opt/vyatta/sbin/standalone_root_pw_reset
+        initrd /boot//initrd.img
+}
+
+menuentry "Lost password change  (Serial console)" {
+        linux /boot//vmlinuz boot=live quiet vyos-union=/boot/ console=tty0 console=ttyS0,9600 init=/opt/vyatta/sbin/standalone_root_pw_reset
+        initrd /boot//initrd.img
+}
+
