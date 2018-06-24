@@ -1,11 +1,13 @@
 VyOS toplevel build
 ===================
 
-# Important!
-
 This repository is for building the VyOS version 1.2.0 and above.
 For VyOS 1.1.x, use the build-iso repository.
 
+# Table Of Contents
+- [About](#what-is-vyos)
+- [Build VyOS](#building-vyos-installation-images)
+- [Development Process](#development-process)
 
 # What is VyOS
 
