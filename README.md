@@ -145,13 +145,15 @@ with `--help`
 
 ## Building the images for virtualization platforms
 
-* QEMU
+### QEMU
+
 Run following command after building the ISO image.
 ```bash
 $ make qemu
 ```
 
-* VMware
+### VMware
+
 Run following command after building the QEMU image.
 ```bash
 $ make vmware
