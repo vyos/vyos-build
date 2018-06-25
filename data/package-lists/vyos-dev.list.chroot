@@ -1,2 +1,4 @@
 gdb
 strace
+aptitude
+apt-rdepends
