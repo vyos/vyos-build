@@ -22,6 +22,7 @@
 
 import sys
 import os
+import shutil
 import json
 
 import pystache
@@ -78,6 +79,30 @@ if debug:
 with open(apt_file, 'w') as f:
     f.write(vyos_repo_entry)
     f.write(vyos_debian_repo_entry)
+
+# Add custom APT entries
+if build_config['custom_apt_entry']:
+    custom_apt_file = os.path.join(build_config['build_dir'], defaults.CUSTOM_REPO_FILE)
+    entries = "\n".join(build_config['custom_apt_entry'])
+    if debug:
+        print("Adding custom APT entries:")
+        print(entries)
+    with open(custom_apt_file, 'w') as f:
+        f.write(entries)
+
+# Add custom APT keys
+if build_config['custom_apt_key']:
+    key_dir = os.path.join(build_config['build_dir'], defaults.ARCHIVES_DIR)
+    for k in build_config['custom_apt_key']:
+        dst_name = '{0}.key.chroot'.format(os.path.basename(k))
+        shutil.copy(k, os.path.join(key_dir, dst_name))
+
+# Add custom packages
+if build_config['custom_packages']:
+    package_list_file = os.path.join(build_config['build_dir'], defaults.CUSTOM_PACKAGE_LIST_FILE)
+    packages = "\n".join(build_config['custom_packages'])
+    with open (package_list_file, 'w') as f:
+        f.write(packages)
 
 # Configure live-build
 

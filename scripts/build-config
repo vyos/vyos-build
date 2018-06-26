@@ -59,6 +59,7 @@ options = {
    'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', lambda: defaults.DEBIAN_MIRROR, None),
    'vyos-mirror': ('VyOS package mirror', lambda: defaults.VYOS_MIRROR, None),
    'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development']),
+   'custom-packages': ('Custom packages to install from repositories', lambda: '', None),
    'version': ('Version number (release builds only)', None, None)
 }
 
@@ -73,6 +74,10 @@ for k, v in options.items():
 
 # The debug option is a bit special since it's different type
 parser.add_argument('--debug', help="Enable debug output", action='store_true')
+
+# Custom APT entry and APT key options can be used multiple times
+parser.add_argument('--custom-apt-entry', help="Custom APT entry", action='append')
+parser.add_argument('--custom-apt-key', help="Custom APT key file", action='append')
 
 args = vars(parser.parse_args())
 
@@ -106,6 +111,13 @@ args['distribution'] = defaults.DEBIAN_DISTRIBUTION
 args['build_dir'] = os.path.join(os.getcwd(), defaults.BUILD_DIR)
 args['pbuilder_config'] = defaults.PBUILDER_CONFIG
 args['vyos_branch'] = defaults.VYOS_BRANCH
+
+# Convert a whitespace-separated string of custom packages to a list
+if args['custom_packages']:
+    args['custom_packages'] = re.split(r'\s+', args['custom_packages'])
+else:
+    args['custom_packages'] = []
+
 
 # Check the build environment and dependencies
 env_check_retval = os.system("scripts/check-build-env")

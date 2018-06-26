@@ -37,4 +37,8 @@ VYOS_MIRROR = 'http://dev.packages.vyos.net/repositories/current'
 
 VYOS_BRANCH = 'current'
 
+ARCHIVES_DIR = 'config/archives/'
+
 VYOS_REPO_FILE = 'config/archives/vyos.list.chroot'
+CUSTOM_REPO_FILE = 'config/archives/custom.list.chroot'
+CUSTOM_PACKAGE_LIST_FILE = 'config/package-lists/custom.list.chroot'
