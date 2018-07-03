@@ -278,16 +278,7 @@ VyOS scripts do not use it, but people certainlt do.
 
 ## Naming Conventions
 
-### Git Tags
-Tag naming convention is `VYOS_<arch>_<MAJOR>.<MINOR>.<BUGFIX>(-RC)`.
-
-#### Examples
-* `VYOS_X86-64_1.2.0-rc1`
-* `VYOS_X86-64_1.2.0-rc2`
-* `VYOS_X86-64_1.2.0`
-* `VYOS_ARM_1.2.0-rc1`
-
-## Git Branches
+### Git Branches
 The default branch that contains the most recent VyOS code is called `current`
 rather than `master`. We know it's confusing, but it's not easy to fix. In a
 nutshell, the code we inherited from Vyatta Core had its `master` branch so out
