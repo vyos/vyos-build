@@ -28,6 +28,7 @@ RUN apt-get update &&\
       bison \
       libperl-dev \
       libnfnetlink-dev \
+      python3-git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR ~
