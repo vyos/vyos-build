@@ -3,7 +3,8 @@
 # in order to easy exprort images built to "external" world 
 FROM debian:jessie
 
-RUN apt-get update &&\
+RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/apt/sources.list &&\
+    apt-get update &&\
     apt-get install -y \
       vim \
       git \
