@@ -139,3 +139,6 @@
 [submodule "packages/vyatta-quagga"]
 	path = packages/vyatta-quagga
 	url = https://github.com/vyos/vyatta-quagga.git
+[submodule "packages/vyos-wireguard"]
+	path = packages/vyos-wireguard
+	url = https://github.com/vyos/vyos-wireguard
