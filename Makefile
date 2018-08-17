@@ -77,6 +77,14 @@ clearfog: clean prepare
 	cd $(build_dir)
 	@../scripts/build-clearfog-image
 
+.PHONY: azure
+.ONESHELL:
+azure: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	cd $(build_dir)
+	@../scripts/build-azure-image
+
 .PHONY: clean
 .ONESHELL:
 clean:
@@ -89,6 +97,7 @@ clean:
 	rm -f vyos-*.iso
 	rm -f *.img
 	rm -f *.xz
+	rm -f *.vhd
 
 .PHONY: purge
 purge:
