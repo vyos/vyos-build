@@ -1,0 +1,151 @@
+#!/bin/sh
+#
+# Copyright (C) 2018 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 2 or later as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-clearfog-image
+# Purpose:
+# Build VyOS image for Azure.
+
+lb bootstrap
+
+lb chroot
+lb installer
+lb binary_chroot
+lb chroot_devpts install
+lb chroot_proc install
+lb chroot_selinuxfs install
+lb chroot_sysfs install
+lb chroot_hosts install
+lb chroot_resolv install
+lb chroot_hostname install
+lb chroot_sysv-rc install
+lb chroot_upstart install
+lb chroot_apt install-binary
+lb chroot_archives chroot install
+lb binary_rootfs
+lb binary_manifest
+lb binary_package-lists
+lb binary_linux-image
+lb binary_memtest
+lb binary_grub
+lb binary_grub2
+lb binary_syslinux
+lb binary_disk
+lb binary_loadlin
+lb binary_win32-loader
+lb binary_includes
+lb binary_hooks
+lb binary_checksums
+
+# get vyos build version
+version=$(cat version)
+dateymd=$(date +%Y%m%d)
+
+######################################
+### Prepare the HDD (format, ext.) ###
+######################################
+PARTED=/sbin/parted
+OUTPUT=VyOS-"$dateymd".vhd
+IMAGE_SIZE=512
+qemu-img create ${OUTPUT} ${IMAGE_SIZE}M
+
+${PARTED} -s ${OUTPUT} mktable msdos
+${PARTED} -s -a optimal ${OUTPUT} mkpart primary ext4 1Mi 100%
+${PARTED} -s ${OUTPUT} set 1 boot on
+RESULT_KPARTX=`kpartx -asv ${OUTPUT} 2>&1`
+
+if echo "${RESULT_KPARTX}" | grep "^add map" ; then
+	LOOP_DEVICE=$(echo ${RESULT_KPARTX} | cut -d" " -f3)
+	LOOPRAW_DEVICE=${LOOP_DEVICE%p*}
+	echo "kpartx mounted using: ${LOOP_DEVICE} via ${LOOPRAW_DEVICE}"
+else
+	echo "It seems kpartx didn't mount the image correctly: exiting."
+	exit 1
+fi
+
+cleanup(){
+	error=$?
+	[ ! -d "${MOUNT_DIR}" ] && return
+	if [ "$error" -gt 0 ]; then
+		echo
+		echo "Error $error"
+	else
+		echo "Finished."
+	fi
+
+	set +e
+
+	sync
+	umount -l ${MOUNT_DIR}
+	rmdir ${MOUNT_DIR}
+
+        umount devpts-live
+        umount proc-live
+        umount sysfs-live
+
+	dmsetup remove --deferred ${LOOP_DEVICE}
+	losetup -d /dev/${LOOPRAW_DEVICE}
+	exit $error
+}
+trap "cleanup" EXIT TERM INT
+
+mkfs.ext4 /dev/mapper/${LOOP_DEVICE} -L persistence
+UUID=$(blkid -o value -s UUID /dev/mapper/${LOOP_DEVICE})
+
+# No fsck because of X days without checks
+tune2fs -i 0 /dev/mapper/${LOOP_DEVICE}
+
+MOUNT_DIR=`mktemp -d -t build-debimg.XXXXXX`
+mount /dev/mapper/${LOOP_DEVICE} ${MOUNT_DIR}
+
+########################
+### Setting-up files ###
+########################
+mkdir -p ${MOUNT_DIR}/boot/grub
+mkdir -p ${MOUNT_DIR}/boot/"$version"/rw
+
+echo "/ union" > ${MOUNT_DIR}/persistence.conf
+cp binary/live/filesystem.squashfs ${MOUNT_DIR}/boot/"$version"/"$version.squashfs"
+cp binary/live/initrd.img ${MOUNT_DIR}/boot/"$version"/initrd.img
+cp binary/live/vmlinuz ${MOUNT_DIR}/boot/"$version"/vmlinuz
+
+########################
+### Create grub menu ###
+########################
+cat > ${MOUNT_DIR}/boot/grub/grub.cfg << EOF
+set timeout=5
+set default=0
+
+menuentry "VyOS $version (Serial console)" {
+        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 consoleblank=0 systemd.show_status=true
+        initrd /boot/"$version"/initrd.img
+}
+
+menuentry "Lost password change $version (Serial console)" {
+        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 consoleblank=0 systemd.show_status=true init=/opt/vyatta/sbin/standalone_root_pw_reset
+        initrd /boot/"$version"/initrd.img
+}
+EOF
+
+
+#############################
+### Setting-up bootloader ###
+#############################
+grub-install  --boot-directory ${MOUNT_DIR}/boot --force --no-floppy --skip-fs-probe /dev/${LOOPRAW_DEVICE}
+
+###################
+### HOOK SCRIPT ###
+###################
+fstrim ${MOUNT_DIR}
+
+../scripts/vhd.py ${OUTPUT}
