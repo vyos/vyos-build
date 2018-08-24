@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+
+# The Cisco Unity plugin, that implements a proprietary extension
+# for IPsec split tunneling, interfers with DMVPN
+#
+# Since we do not do remote access IPsec, the simplest solution
+# is to disable it entirely from the start.
+
+import re
+
+# Disable the cisco_unity option in charon.conf
+with open('/etc/strongswan.d/charon.conf', 'r') as f:
+    charon_conf = f.read()
+
+    charon_conf = re.sub(r'# (cisco_unity = no)', r"\1", charon_conf)
+
+with open('/etc/strongswan.d/charon.conf', 'w') as f:
+    f.write(charon_conf)
+
+
+# Prevent the unity plugin from loading
+
+with open('/etc/strongswan.d/charon/unity.conf', 'r') as f:
+    unity_conf = f.read()
+
+    unity_conf = re.sub(r'load = yes', r'load = no', unity_conf)
+
+with open('/etc/strongswan.d/charon/unity.conf', 'w') as f:
+    f.write(unity_conf)
