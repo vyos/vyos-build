@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+
+# For FRR to work in VyOS as expected we need a few fixups
+#
+# 1. Enable daemons we use in /etc/frr/daemons
+# 2. Set the VRF backend of Zebra to netns (-n option) in /etc/frr/daemons.conf
+#    Otherwise multiple routing tables for PBR won't work
+# 3. Create empty configs for daemons with use
+#    That is to make them possible to start on boot before config is loaded
+#
+
+import os
+
+daemons = """
+zebra=yes
+bgpd=yes
+ospfd=yes
+ospf6d=yes
+ripd=yes
+ripngd=yes
+isisd=no
+pimd=no
+ldpd=no
+nhrpd=no
+eigrpd=no
+babeld=no
+sharpd=no
+pbrd=no
+bfdd=no
+"""
+
+daemons_conf = """
+vtysh_enable=yes
+zebra_options="  -s 90000000 --daemon -A 127.0.0.1 -n"
+bgpd_options="   --daemon -A 127.0.0.1"
+ospfd_options="  --daemon -A 127.0.0.1"
+ospf6d_options=" --daemon -A ::1"
+ripd_options="   --daemon -A 127.0.0.1"
+ripngd_options=" --daemon -A ::1"
+isisd_options="  --daemon -A 127.0.0.1"
+pimd_options="  --daemon -A 127.0.0.1"
+ldpd_options="  --daemon -A 127.0.0.1"
+nhrpd_options="  --daemon -A 127.0.0.1"
+eigrpd_options="  --daemon -A 127.0.0.1"
+babeld_options="  --daemon -A 127.0.0.1"
+sharpd_options="  --daemon -A 127.0.0.1"
+pbrd_options="  --daemon -A 127.0.0.1"
+staticd_options="  --daemon -A 127.0.0.1"
+bfdd_options="  --daemon -A 127.0.0.1"
+
+watchfrr_enable=yes
+watchfrr_options=(-d -r /usr/sbin/servicebBfrrbBrestartbB%s -s /usr/sbin/servicebBfrrbBstartbB%s -k /usr/sbin/servicebBfrrbBstopbB%s -b bB)
+
+valgrind_enable=no
+valgrind=/usr/bin/valgrind
+"""
+
+with open("/etc/frr/daemons", "w") as f:
+    f.write(daemons)
+
+with open("/etc/frr/daemons.conf", "w") as f:
+    f.write(daemons_conf)
+
+# Create empty daemon configs so that they start properly
+for name in ["zebra.conf", "bgpd.conf", "ospfd.conf", "ospf6d.conf", "ripd.conf", "ripngd.conf"]:
+    open(os.path.join("/etc/frr", name), 'a').close()
