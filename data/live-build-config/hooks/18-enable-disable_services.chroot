@@ -32,3 +32,5 @@ systemctl disable udp-broadcast-relay{1.99}
 /usr/sbin/update-rc.d -f udp-broadcast-relay remove
 systemctl disable pdns-recursor
 /usr/sbin/update-rc.d -f pdns-recursor remove
+
+systemctl enable frr.service
