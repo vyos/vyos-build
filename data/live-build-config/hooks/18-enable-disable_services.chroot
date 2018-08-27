@@ -34,3 +34,5 @@ systemctl disable pdns-recursor
 /usr/sbin/update-rc.d -f pdns-recursor remove
 
 systemctl disable frr.service
+
+systemctl disable tftpd-hpa.service
