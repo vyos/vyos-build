@@ -36,5 +36,3 @@ systemctl disable tftp-hpa
 /usr/sbin/update-rc.d -f tftp-hpa remove
 
 systemctl disable frr.service
-
-systemctl disable tftpd-hpa.service
