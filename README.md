@@ -77,8 +77,8 @@ package build scripts will tell you.
 ## Building the ISO image inside a docker container
 
 Using our `Dockerfile` you can create your own Docker container that can be used
-to build a VyOS ISO image. The `Dockerfile` contains some of the most used
-packages needed for a VyOS build ISO process.
+to build a VyOS ISO image. The `Dockerfile` contains all of the
+packages needed for the VyOS build ISO process.
 
 ```
 squashfs-tools           # Required for squashfs file system
@@ -111,23 +111,19 @@ docker build -t vyos-builder $PATH_TO_Dockerfile
 
 To run the docker image:
 ```
-docker run --privileged -v /HOST_PATH/images:/vyos --name=vyos_node_builder -d vyos-builder bash
+docker run -it --privileged -v /HOST_PATH_OF_VYOS_BUILD_REPO:/vyos vyos-builder bash
 ```
+
+This will drop you into a bash shell with this vyos-build repo mounted at /vyos.
+Then follow the instructions bellow to build VyOS.
 
 NOTE:
 
 * Docker container must be run with `--privileged` flag
-* We recommended to run the container with a volume mapped in order to easy
-  export built VyOS ISO images to the "external" world
+* The volume map mounts the vyos-build repo on your host machine into the /vyos
+  folder in the docker container. This means that everything built can be found
+  in the build folder in this repo on the host.
 
-To connect to the docker image once is running:
-```
-docker exec -it vyos_node_builder bash
-```
-
-After the docker container is running you can git clone the vyos-build repository
-inside the container and follow up the bellow instructions in order to build the
-VyOS ISO image
 
 ## Building the ISO image
 
