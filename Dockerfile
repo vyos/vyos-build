@@ -1,6 +1,6 @@
 # Must be run with --privileged flag
-# Recommended to run the container with a volume mapped 
-# in order to easy exprort images built to "external" world 
+# Recommended to run the container with a volume mapped
+# in order to easy exprort images built to "external" world
 FROM debian:jessie
 
 RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/apt/sources.list &&\
@@ -30,6 +30,21 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       libperl-dev \
       libnfnetlink-dev \
       python3-git \
+      jq \
+      qemu-system-x86 \
+      qemu-utils \
+      quilt \
+      python3-lxml \
+      python3-setuptools \
+      python3-nose \
+      python3-coverage \
     && rm -rf /var/lib/apt/lists/*
+
+#install packer
+RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
+  jq -r -M '.current_version')"; \
+  echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\
+  curl -K- | gzip -d > /usr/bin/packer
+RUN chmod +x /usr/bin/packer
 
 WORKDIR ~
