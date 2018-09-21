@@ -77,8 +77,8 @@ package build scripts will tell you.
 ## Building the ISO image inside a docker container
 
 Using our `Dockerfile` you can create your own Docker container that can be used
-to build a VyOS ISO image. The `Dockerfile` contains all of the packages needed
-for the VyOS build ISO process.
+to build a VyOS ISO image. The `Dockerfile` contains some of the most used
+packages needed to build a VyOS ISO, a qemu image, and several of the submodules.
 
 ```
 squashfs-tools           # Required for squashfs file system
@@ -102,6 +102,15 @@ bison                    # Optional, for building vyatta-cfg
 libperl-dev              # Optional, for building vyatta-cfg
 libnfnetlink-dev         # Optional, for building vyatta-cfg-vpn
 vim                      # Optional, vim, vi, nano or other text editor
+jq                       # Optional, for qemu build
+qemu-system-x86          # Optional, for qemu build
+qemu-utils               # Optional, for qemu build
+packer                   # Optional, for qemu build
+quilt                    # Optional, for building vyos-1x
+python3-lxml             # Optional, for building vyos-1x
+python3-setuptools       # Optional, for building vyos-1x
+python3-nose             # Optional, for building vyos-1x
+python3-coverage         # Optional, for building vyos-1x
 ```
 
 To build the docker image:
@@ -117,7 +126,7 @@ docker run -it --privileged -v /HOST_PATH_OF_VYOS_BUILD_REPO:/vyos -w="/vyos" vy
 ```
 
 This will drop you into a bash shell with this vyos-build repo mounted at /vyos.
-Then follow the instructions bellow to build the VyOS iso.
+Then follow the instructions bellow to build the VyOS iso and qemu image.
 
 ### MacOS and Windows
 
