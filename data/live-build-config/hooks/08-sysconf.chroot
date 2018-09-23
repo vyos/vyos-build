@@ -29,8 +29,6 @@ update_sysctl_conf ()
 
 update_sysctl_conf kernel.printk "4 4 1 7" \
     "the following stops low-level messages on console"
-update_sysctl_conf net.ipv4.conf.default.arp_filter 1 \
-    "reset promiscous arp response"
 update_sysctl_conf net.ipv4.conf.all.promote_secondaries 1 \
     "promote secondaries with removal of primary address"
 update_sysctl_conf net.ipv4.ip_forward 1 \
