@@ -35,4 +35,5 @@ systemctl disable pdns-recursor
 systemctl disable tftpd-hpa.service
 /usr/sbin/update-rc.d -f tftpd-hpa.service remove
 
+systemctl disable strongswan.service
 systemctl disable frr.service
