@@ -5,6 +5,11 @@ source /opt/vyatta/sbin/install-functions
 NEWVER=`mount | grep /mnt/inst_root`
 NEWVER=${NEWVER#*upperdir=/live/image/boot/}
 NEWVER=${NEWVER%/live-rw*}
+
+# For upgrading from 1.1.8 and older:
+# Set the correct disk label and create persistence configs
+# Live CD persistence settings have changed in Debian Jessie
+# and the system will not find its persistence dir otherwise
 DISK_LABEL=`mount | grep /live/image | awk '{print $1}' | grep dev`
 
 if [ -d "/live/image" ]; then
@@ -14,4 +19,6 @@ if [ -d "/live/image" ]; then
 	fi
 	rm -f /live/image/boot/"${NEWVER}"/live-rw/etc/fstab
 	mv /live/image/boot/"${NEWVER}"/live-rw /live/image/boot/"${NEWVER}"/rw
+
+        touch /live/image/boot/"${NEWVER}"/rw/config/.upgraded
 fi
