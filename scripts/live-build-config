@@ -37,7 +37,7 @@ lb config noauto \
         --architectures {{architecture}} \
         --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay" \
         --linux-flavours {{architecture}}-vyos \
-        --linux-packages linux-image-4.14.65 \
+        --linux-packages linux-image-4.14.75 \
         --bootloader syslinux \
         --binary-images iso-hybrid \
         --debian-installer false \
