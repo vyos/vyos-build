@@ -12,7 +12,7 @@ system {
     syslog {
         global {
             facility all {
-                level notice
+                level info
             }
             facility protocols {
                 level debug
