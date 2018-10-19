@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+#
+
+### BEGIN INIT INFO
+# Provides:          isc-dhcpv6-relay
+# Required-Start:    $remote_fs $network
+# Required-Stop:     $remote_fs $network
+# Should-Start:      $local_fs
+# Should-Stop:       $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: IPv6 DHCP relay
+# Description:       Dynamic Host Configuration Protocol Relay for IPv6
+### END INIT INFO
+
+# It is not safe to start if we don't have a default configuration...
+if [ ! -f /etc/default/isc-dhcpv6-relay ]; then
+	echo "/etc/default/isc-dhcpv6-relay does not exist! - Aborting..."
+	exit 1
+fi
+
+# Source init functions
+. /lib/lsb/init-functions
+
+# Read init script configuration (interfaces the daemon should listen on
+# and the DHCP server we should forward requests to.)
+[ -f /etc/default/isc-dhcpv6-relay ] && . /etc/default/isc-dhcpv6-relay
+
+DHCRELAYPID=/var/run/dhcv6relay.pid
+
+case "$1" in
+	start)
+		start-stop-daemon --start --quiet --pidfile $DHCRELAYPID \
+			--exec /usr/sbin/dhcrelay -- -q $OPTIONS -pf $DHCRELAYPID
+		;;
+	stop)
+		start-stop-daemon --stop --quiet --pidfile $DHCRELAYPID
+		;;
+	restart | force-reload)
+		$0 stop
+		sleep 2
+		$0 start
+		;;
+	*)
+		echo "Usage: /etc/init.d/isc-dhcpv6-relay {start|stop|restart|force-reload}"
+		exit 1
+esac
+
+exit 0
