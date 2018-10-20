@@ -142,3 +142,6 @@
 [submodule "packages/vyos-strongswan"]
 	path = packages/vyos-strongswan
 	url = https://github.com/vyos/vyos-strongswan
+[submodule "packages/vyos-frr"]
+	path = packages/vyos-frr
+	url = https://github.com/vyos/vyos-frr.git
