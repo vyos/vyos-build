@@ -19,3 +19,6 @@ iftop
 lsof
 openssh-client
 haveged
+htop
+atop
+iotop
