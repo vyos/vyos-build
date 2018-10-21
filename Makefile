@@ -82,6 +82,9 @@ clearfog: clean prepare
 azure: clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
+	cp tools/cloud-init/99-walinuxagent.chroot build/config/hooks/
+	cp tools/cloud-init/vyos-azure.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
 	cd $(build_dir)
 	@../scripts/build-azure-image
 

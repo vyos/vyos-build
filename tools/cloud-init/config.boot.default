@@ -1,0 +1,30 @@
+system {
+    syslog {
+        global {
+            facility all {
+                level info
+            }
+            facility protocols {
+                level debug
+            }
+        }
+    }
+    ntp {
+        server "0.pool.ntp.org"
+        server "1.pool.ntp.org"
+        server "2.pool.ntp.org"
+    }
+    console {
+        device ttyS0 {
+            speed 9600
+        }
+    }
+    config-management {
+        commit-revisions 100
+    }
+}
+
+interfaces {
+    loopback lo {
+    }
+}
