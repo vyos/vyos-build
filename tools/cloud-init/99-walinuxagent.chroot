@@ -11,6 +11,7 @@ sed -ie 's,rfc3442-classless-static-routes,disabled-\0,' /etc/dhcp/dhclient.conf
 rm -f /etc/ssh/ssh_host_*
 rm -f /var/log/waagent.log
 rm -r /var/cache/apt/*
+mkdir -p /var/cache/apt/archives
 rm -r /var/lib/apt/lists/*
 
 # prevent systemd message flooding
