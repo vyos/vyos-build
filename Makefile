@@ -82,11 +82,23 @@ clearfog: clean prepare
 azure: clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
-	cp tools/cloud-init/99-walinuxagent.chroot build/config/hooks/
-	cp tools/cloud-init/vyos-azure.list.chroot build/config/package-lists/
-	cp -f tools/cloud-init/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
+	cp tools/cloud-init/azure/99-walinuxagent.chroot build/config/hooks/
+	cp tools/cloud-init/azure/vyos-azure.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/azure/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
 	cd $(build_dir)
 	@../scripts/build-azure-image
+
+.PHONY: GCE
+.ONESHELL:
+GCE: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
+	cp tools/cloud-init/GCE/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/GCE/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
+	cd $(build_dir)
+	@../scripts/build-GCE-image
 
 .PHONY: clean
 .ONESHELL:
@@ -101,6 +113,8 @@ clean:
 	rm -f *.img
 	rm -f *.xz
 	rm -f *.vhd
+	rm -f *.raw
+	rm -f *.tar.gz
 
 .PHONY: purge
 purge:
