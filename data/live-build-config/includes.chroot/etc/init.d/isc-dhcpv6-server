@@ -23,8 +23,6 @@ DHCPD_DEFAULT="${DHCPD_DEFAULT:-/etc/default/isc-dhcpv6-server}"
 # It is not safe to start if we don't have a default configuration...
 if [ ! -f "$DHCPD_DEFAULT" ]; then
 	echo "$DHCPD_DEFAULT does not exist! - Aborting..."
-	if [ "$DHCPD_DEFAULT" = "/etc/default/isc-dhcpv6-server" ]; then
-	fi
 	exit 0
 fi
 
