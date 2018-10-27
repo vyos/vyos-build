@@ -32,10 +32,6 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       python3-git \
       parted \
       kpartx \
-      grub-common \
-      grub-pc \
-      grub-pc-bin \
-      grub2-common \
       jq \
       qemu-system-x86 \
       qemu-utils \
