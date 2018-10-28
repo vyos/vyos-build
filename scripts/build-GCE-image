@@ -12,9 +12,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# File: build-azure-image
+# File: build-GCE-image
 # Purpose:
-# Build VyOS image for Azure.
+# Build VyOS image for Google cloud.
 
 lb bootstrap
 
@@ -55,9 +55,10 @@ dateymd=$(date +%Y%m%d)
 ### Prepare the HDD (format, ext.) ###
 ######################################
 PARTED=/sbin/parted
-OUTPUT=VyOS-"$dateymd".vhd
-IMAGE_SIZE=512
-qemu-img create ${OUTPUT} ${IMAGE_SIZE}M
+OUTPUT=disk.raw
+OUTPUTGZ=VyOS-"$dateymd".tar.gz
+IMAGE_SIZE=2
+qemu-img create -f raw ${OUTPUT} ${IMAGE_SIZE}G
 
 ${PARTED} -s ${OUTPUT} mktable msdos
 ${PARTED} -s -a optimal ${OUTPUT} mkpart primary ext4 1Mi 100%
@@ -127,12 +128,12 @@ set timeout=5
 set default=0
 
 menuentry "VyOS $version (Serial console)" {
-        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=tty0 console=ttyS0,115200n8 earlyprintk=ttyS0,115200 consoleblank=0 systemd.show_status=true
+        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=tty0 console=ttyS0,38400n8d earlyprintk=ttyS0,38400 consoleblank=0 systemd.show_status=true
         initrd /boot/"$version"/initrd.img
 }
 
 menuentry "Lost password change $version (Serial console)" {
-        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=tty0 console=ttyS0,115200n8 earlyprintk=ttyS0,115200 consoleblank=0 systemd.show_status=true init=/opt/vyatta/sbin/standalone_root_pw_reset
+        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=tty0 console=ttyS0,38400n8d earlyprintk=ttyS0,38400 consoleblank=0 systemd.show_status=true init=/opt/vyatta/sbin/standalone_root_pw_reset
         initrd /boot/"$version"/initrd.img
 }
 EOF
@@ -147,5 +148,6 @@ grub-install  --boot-directory ${MOUNT_DIR}/boot --force --no-floppy --skip-fs-p
 ### HOOK SCRIPT ###
 ###################
 fstrim ${MOUNT_DIR}
+sync
 
-../scripts/vhd.py ${OUTPUT}
+tar -Sczf ${OUTPUTGZ} ${OUTPUT}

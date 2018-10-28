@@ -73,9 +73,6 @@
 [submodule "packages/vyatta-op-quagga"]
 	path = packages/vyatta-op-quagga
 	url = https://github.com/vyos/vyatta-op-quagga.git
-[submodule "packages/vyatta-cfg-dhcp-relay"]
-	path = packages/vyatta-cfg-dhcp-relay
-	url = https://github.com/vyos/vyatta-cfg-dhcp-relay.git
 [submodule "packages/vyatta-op-dhcp-server"]
 	path = packages/vyatta-op-dhcp-server
 	url = https://github.com/vyos/vyatta-op-dhcp-server.git
@@ -142,3 +139,9 @@
 [submodule "packages/pmacct"]
 	path = packages/pmacct
 	url = https://github.com/vyos/pmacct
+[submodule "packages/vyos-strongswan"]
+	path = packages/vyos-strongswan
+	url = https://github.com/vyos/vyos-strongswan
+[submodule "packages/vyos-frr"]
+	path = packages/vyos-frr
+	url = https://github.com/vyos/vyos-frr.git

@@ -30,6 +30,8 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       libperl-dev \
       libnfnetlink-dev \
       python3-git \
+      parted \
+      kpartx \
       jq \
       qemu-system-x86 \
       qemu-utils \
