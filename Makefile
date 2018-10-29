@@ -114,6 +114,16 @@ AWS: clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: oracle
+.ONESHELL:
+oracle: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
+	cp tools/cloud-init/OCI/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cd $(build_dir)
+	@../scripts/build-oracle-image
+
 .PHONY: clean
 .ONESHELL:
 clean:
@@ -129,6 +139,7 @@ clean:
 	rm -f *.vhd
 	rm -f *.raw
 	rm -f *.tar.gz
+	rm -f *.qcow2
 
 .PHONY: purge
 purge:
