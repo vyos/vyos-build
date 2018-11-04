@@ -106,9 +106,6 @@
 [submodule "packages/vyos-nhrp"]
 	path = packages/vyos-nhrp
 	url = https://github.com/vyos/vyos-nhrp.git
-[submodule "packages/vyos-igmpproxy"]
-	path = packages/vyos-igmpproxy
-	url = https://github.com/vyos/vyos-igmpproxy.git
 [submodule "packages/vyatta-util"]
 	path = packages/vyatta-util
 	url = https://github.com/vyos/vyatta-util.git
