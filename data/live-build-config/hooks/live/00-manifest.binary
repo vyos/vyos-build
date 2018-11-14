@@ -1,4 +1,4 @@
 #!/bin/sh
 
 echo I: Backwards compat packages.txt
-echo "ii  vyatta-version " > binary/live/packages.txt
+echo "ii  vyatta-version " > live/packages.txt
