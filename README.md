@@ -48,12 +48,12 @@ There are several directories with their own purpose:
 
 ## Prerequisites
 
-To build a VyOS image, you need Debian 8 "Jessie" environment (with jessie-backports repository).
-You can create it with [debootstrap](https://wiki.debian.org/Debootstrap) on Debian, Ubuntu and many
-other distributions. To create a Debian 8 "Jessie" environment under vyos-chroot
-directory, run these commands:
+To build a VyOS 1.2.0 image, you need Debian 8 "Jessie" environment (with jessie-backports repository).
 
-Note: This is on Debian/Ubuntu, adjust it for your favorite distro package manager!
+If you do not have a Debian Jessie machine, you may create a chroot environment with the
+[debootstrap](https://wiki.debian.org/Debootstrap) tool.
+
+For example, on another version of Debian or another Debian-based distro, these commands will work:
 
 ```bash
 $ sudo apt-get install debootstrap
@@ -63,6 +63,9 @@ $ sudo chroot vyos-chroot
 $ echo "deb http://deb.debian.org/debian jessie-backports main" >> /etc/apt/sources.list
 $ apt-get update
 ```
+
+If you are working on a Debian Jessie machine, no special preparation is needed, you only
+need to enable jessie-backports and install build dependencies. 
 
 Several packages are required for building the ISO:
 * `python3`
