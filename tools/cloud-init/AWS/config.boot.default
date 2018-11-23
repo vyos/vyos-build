@@ -1,4 +1,14 @@
 system {
+    host-name vyos
+    login {
+        user vyos {
+            authentication {
+                encrypted-password "*"
+                plaintext-password ""
+            }
+            level admin
+        }
+    }
     syslog {
         global {
             facility all {
