@@ -27,6 +27,8 @@ DEBIAN_SECURITY_MIRROR = 'http://ftp.nl.debian.org/debian-security'
 
 DEBIAN_DISTRIBUTION = 'jessie'
 
+SALT_MIRROR = 'http://repo.saltstack.com/apt/debian/8/amd64/2017.7'
+
 PBUILDER_CONFIG = os.path.join(BUILD_DIR, 'pbuilderrc')
 PBUILDER_DIR = os.path.join(BUILD_DIR, 'pbuilder')
 
