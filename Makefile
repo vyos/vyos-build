@@ -100,6 +100,14 @@ GCE: clean prepare
 	cd $(build_dir)
 	@../scripts/build-GCE-image
 
+.PHONY: qcow2
+.ONESHELL:
+qcow2: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	cd $(build_dir)
+	@../scripts/build-qcow2-image
+
 .PHONY: AWS
 .ONESHELL:
 AWS: clean prepare
