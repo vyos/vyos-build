@@ -3,3 +3,4 @@ grub-pc
 open-vm-tools
 qemu-guest-agent
 hyperv-daemons
+xe-guest-utilities
