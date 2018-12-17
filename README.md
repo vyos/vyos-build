@@ -163,7 +163,10 @@ Building the strongswan package is for now only doable on a Linux system because
 `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is needed to enable ipv6 inside the container. tests will fail if you don't have it.
 
 ```bash
-$ docker run -it -v /HOST_PATH/:/vyos  --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder bash -c 'cd /vyos/packages/vyos-strongswan && dpkg-buildpackage -uc -us -tc -b'
+$ docker run -it -v /HOST_PATH/:/vyos  --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder \
+    bash -c '\
+      cd /vyos/packages/vyos-strongswan &&\
+      dpkg-buildpackage -uc -us -tc -b'
 ```
 
 
