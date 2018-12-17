@@ -153,6 +153,23 @@ After the docker container is running you can git clone the vyos-build repositor
 inside the container and follow up the bellow instructions in order to build the
 VyOS ISO image
 
+## Building subpackages inside Docker
+### Strongswan
+
+Prior to executing this you need to checkout and update the packages/vyos-strongswan submodule
+Building the strongswan package is for now only doable on a Linux system because tests fail when running on windows and OSX systems
+`/HOST_PATH/` is the path to your vyos_build directory. if youre in the vyos-build directory it can me replaced with `$(pwd)`
+
+`--sysctl net.ipv6.conf.lo.disable_ipv6=0` is needed to enable ipv6 inside the container. tests will fail if you don't have it.
+
+```bash
+$ docker run -it -v /HOST_PATH/:/vyos  --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder \
+    bash -c '\
+      cd /vyos/packages/vyos-strongswan &&\
+      dpkg-buildpackage -uc -us -tc -b'
+```
+
+
 ## Building the ISO image
 
 Before you can build an image, you need to configure your build.

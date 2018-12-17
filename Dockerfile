@@ -41,6 +41,30 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       python3-nose \
       python3-coverage
 
+# Packages needed for building vyos-strongswan
+RUN apt-get install -y -t jessie-backports \
+      debhelper &&\
+    apt-get install -y \
+      dh-apparmor \
+      gperf \
+      iptables-dev \
+      libcap-dev \
+      libgcrypt20-dev \
+      libgmp3-dev \
+      libldap2-dev \
+      libpam0g-dev \
+      libsystemd-dev \
+      libgmp-dev \
+      iptables \
+      xl2tpd \
+      libcurl4-openssl-dev \
+      libcurl4-openssl-dev \
+      libkrb5-dev \
+      libsqlite3-dev \
+      libssl-dev \
+      libxml2-dev \
+      pkg-config
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
     apt-get update &&\
