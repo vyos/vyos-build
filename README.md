@@ -154,19 +154,53 @@ inside the container and follow up the bellow instructions in order to build the
 VyOS ISO image
 
 ## Building subpackages inside Docker
-### Strongswan
-
-Prior to executing this you need to checkout and update the packages/vyos-strongswan submodule
-Building the strongswan package is for now only doable on a Linux system because tests fail when running on windows and OSX systems
-`/HOST_PATH/` is the path to your vyos_build directory. if youre in the vyos-build directory it can me replaced with `$(pwd)`
-
-`--sysctl net.ipv6.conf.lo.disable_ipv6=0` is needed to enable ipv6 inside the container. tests will fail if you don't have it.
-
+Prior to building packages you need to checkout and update the submodules you want to compile
 ```bash
-$ docker run -it -v /HOST_PATH/:/vyos  --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder \
-    bash -c '\
-      cd /vyos/packages/vyos-strongswan &&\
-      dpkg-buildpackage -uc -us -tc -b'
+git submodule update --init packages/PACKAGENAME
+cd packages/PACKAGENAME
+git checkout BRANCH
+```
+`PACKAGENAME` is the name of the package you want to compile
+`BRANCH` is for Crux(1.2) `crux`, for latest rolling use `current`
+
+
+### Pulling all packages
+Use this with caution, only run this on a unmodified newly cloned repository
+```bash
+for dir in packages/*; do
+  git submodule update --init $dir
+  pushd $dir
+  git checkout current
+  popd
+done
+```
+### Building packages
+Most packages can be built by using the vyos-builder docker container with the same parameters, the vyos-builder container should include all dependencies for compiling supported packages.
+The script `./scripts/build-docker-subpackages` is created to automate the process of building packages, just execute it in the root of vyos-build to start compilation on all supported packages that are checked out. 
+
+NOTE: Prior to executing this script you need to create/build the `vyos-builder` container and checkout all packages you want to compile. 
+
+### Building one package
+the script above runs a docker container for every build it does. this is also possible to do by hand using: 
+Ecevuted from the root directory of vyos-build
+```bash
+$ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder dpkg-buildpackage -uc -us -tc -b
+```
+NOTE: `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is only needed when building vyos-strongswan and can be ignored on other packages
+NOTE: Prior to executing this you need to checkout and update the submodules you want to recompile
+NOTE: vyos-strongswan will only compile on a linux system, running on osx or windows migth result in a unittest lockup. (it never exits)
+
+Packages that are known to not build using this procedure:
+```
+pmacct          - Unmet build dependencies: libpcap-dev libpq-dev libmysqlclient-dev libgeoip-dev librabbitmq-dev libjansson-dev librdkafka-dev libnetfilter-log-dev
+vyatta-util     - dh_clean: mv -Tf debian/.debhelper/bucket/files/47da33933b3825049bbc04871747a9598ce90fd45a438b6a8a58b74bf6d73a4d.tmp config/config.guess returned exit code 1
+vyos-keepalived - Unmet build dependencies: libnl-3-dev libnl-genl-3-dev libpopt-dev libsnmp-dev
+
+vyatta-quagga   - Not needed anymore 
+vyos-1x         - Unmet build dependencies: whois libvyosconfig0
+vyos-frr        - Alott of requirements, scary stuff...
+vyos-kernel     - Need special build instructions
+vyos-wireguard  - Needs special build instructions
 ```
 
 

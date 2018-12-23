@@ -65,6 +65,29 @@ RUN apt-get install -y -t jessie-backports \
       libxml2-dev \
       pkg-config
 
+# Package needed for mdns-repeater
+RUN apt-get install -y -t jessie-backports \
+      dh-systemd
+
+# Packages needed for vyatta-bash
+RUN apt-get install -y \
+      libncurses5-dev \
+      locales
+
+# Packages needed for vyatta-cfg
+RUN apt-get install -y \
+      libboost-filesystem-dev
+
+# Packages needed for vyatta-iproute
+RUN apt-get install -y \
+      libatm1-dev \
+      libdb-dev
+
+# Packages needed for vyatta-webgui
+RUN apt-get install -y \
+      libexpat1-dev \
+      subversion
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
     apt-get update &&\

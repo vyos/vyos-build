@@ -1,0 +1,66 @@
+#!/bin/bash 
+#set -x
+if [ ! -d "packages" ]; then
+  echo "This script needs to be executed inside the top root of vyos-build"
+  exit 1
+fi
+
+echo "Cleaning up buildfiles..."
+rm -rf packages/*.deb
+rm -rf packages/*.changes
+echo "-----------------------------------------------------"
+
+for PKG in mdns-repeater \
+           pmacct \
+           udp-broadcast-relay \
+           vyatta-bash \
+           vyatta-cfg \
+           vyatta-cfg-firewall \
+           vyatta-cfg-op-pppoe \
+           vyatta-cfg-qos \
+           vyatta-cfg-quagga \
+           vyatta-cfg-system \
+           vyatta-cfg-vpn \
+           vyatta-cluster \
+           vyatta-config-mgmt \
+           vyatta-config-migrate \
+           vyatta-conntrack \
+           vyatta-conntrack-sync \
+           vyatta-eventwatch \
+           vyatta-iproute \
+           vyatta-ipv6-rtradv \
+           vyatta-lldp \
+           vyatta-nat \
+           vyatta-netflow \
+           vyatta-op \
+           vyatta-op-dhcp-server \
+           vyatta-op-firewall \
+           vyatta-op-qos \
+           vyatta-op-quagga \
+           vyatta-op-vpn \
+           vyatta-openvpn \
+           vyatta-ravpn \
+           vyatta-util \
+           vyatta-vrrp \
+           vyatta-wanloadbalance \
+           vyatta-webgui \
+           vyatta-webproxy \
+           vyatta-wireless \
+           vyatta-wirelessmodem \
+           vyatta-zone \
+           vyos-keepalived \
+           vyos-nhrp \
+           vyos-pppoe-server \
+           vyos-strongswan \
+           vyos-world \
+           ; do
+  if [ -d "packages/$PKG/debian" ]; then
+    echo "Building package: $PKG"
+    docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/$PKG --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder dpkg-buildpackage -uc -us -tc -b >packages/$PKG.buildlog 2>&1
+    if [ $? -ne 0 ]; then
+      echo "FAILED to build package $PKG, look in $PKG.buildlog to examine the fault"
+    fi
+  else
+    echo "Did not find source for: $PKG"
+  fi
+done
