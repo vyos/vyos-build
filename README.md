@@ -184,7 +184,10 @@ NOTE: Prior to executing this script you need to create/build the `vyos-builder`
 the script above runs a docker container for every build it does. this is also possible to do by hand using: 
 Ecevuted from the root directory of vyos-build
 ```bash
-$ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder dpkg-buildpackage -uc -us -tc -b
+$ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
+             --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+             vyos-builder \
+             dpkg-buildpackage -uc -us -tc -b
 ```
 NOTE: `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is only needed when building vyos-strongswan and can be ignored on other packages
 NOTE: Prior to executing this you need to checkout and update the submodules you want to recompile
