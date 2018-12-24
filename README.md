@@ -195,10 +195,7 @@ NOTE: vyos-strongswan will only compile on a linux system, running on osx or win
 
 Packages that are known to not build using this procedure:
 ```
-pmacct          - Unmet build dependencies: libpcap-dev libpq-dev libmysqlclient-dev libgeoip-dev librabbitmq-dev libjansson-dev librdkafka-dev libnetfilter-log-dev
-vyatta-util     - dh_clean: mv -Tf debian/.debhelper/bucket/files/47da33933b3825049bbc04871747a9598ce90fd45a438b6a8a58b74bf6d73a4d.tmp config/config.guess returned exit code 1
-vyos-keepalived - Unmet build dependencies: libnl-3-dev libnl-genl-3-dev libpopt-dev libsnmp-dev
-
+vyatta-util     - Not needed anymore
 vyatta-quagga   - Not needed anymore 
 vyos-1x         - Unmet build dependencies: whois libvyosconfig0
 vyos-frr        - Alott of requirements, scary stuff...
