@@ -88,6 +88,24 @@ RUN apt-get install -y \
       libexpat1-dev \
       subversion
 
+# Packages needed for pmacct
+RUN apt-get install -y \
+      libpcap-dev \
+      libpq-dev \
+      libmysqlclient-dev \
+      libgeoip-dev \
+      librabbitmq-dev \
+      libjansson-dev \
+      librdkafka-dev \
+      libnetfilter-log-dev
+
+# Packages needed for vyos-keepalived
+RUN apt-get install -y \
+      libnl-3-dev \
+      libnl-genl-3-dev \
+      libpopt-dev \
+      libsnmp-dev
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
     apt-get update &&\
