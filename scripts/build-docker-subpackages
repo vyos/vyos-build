@@ -73,7 +73,6 @@ for PKG in mdns-repeater \
            vyos-strongswan \
            vyos-world \
            ; do
-  break;
   if [ -d "packages/$PKG/debian" ]; then
     status_start "Building package: $PKG"
     docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/$PKG \
