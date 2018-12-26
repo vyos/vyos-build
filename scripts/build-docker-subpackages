@@ -97,33 +97,49 @@ if [ -f "packages/vyos-kernel/Makefile" ]; then
                --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
                vyos-builder \
                bash -c '../../scripts/build-kernel' >packages/vyos-kernel.buildlog 2>&1
-      if [ $? -ne 0 ]; then
-      status_fail
-      error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
-    else
-      status_ok
-    fi
+  if [ $? -ne 0 ]; then
+    status_fail
+    error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
+  else
+    VERSION=$(grep "^VERSION" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+    PATCHLEVEL=$(grep "^PATCHLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+    SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+    ARCH=$(dpkg --print-architecture)
+    sed -i.bak "s/--linux-packages .* \\\/--linux-packages linux-image-$VERSION\.$PATCHLEVEL\.$SUBLEVEL \\\/" scripts/live-build-config 
+    status_ok
+  fi
 else
   status_skip "No source for: vyos-kernel"
 fi
 
+
+
 # WIREGUARD
 if [ -d "packages/vyos-wireguard/debian" ]; then
-  status_start "Building package: vyos-wireguard"
   if [ -f "packages/vyos-kernel/Makefile" ]; then
-    docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/vyos-wireguard \
-               --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
-               vyos-builder \
-               bash -c 'KERNELDIR=/vyos/packages/vyos-kernel dpkg-buildpackage -uc -us -tc -b' >packages/vyos-wireguard.buildlog 2>&1
-    if [ $? -ne 0 ]; then
-      status_fail
-      error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
+    status_start "Building package: vyos-wireguard"
+    if  grep -q "KBUILD_OUTPUT" packages/vyos-kernel/Makefile; then
+      VERSION=$(grep "^VERSION" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+      PATCHLEVEL=$(grep "^PATCHLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+      SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+      ARCH=$(dpkg --print-architecture)
+      echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" > packages/vyos-wireguard/debian/wireguard-modules.install
+      docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/vyos-wireguard \
+                 --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+                 vyos-builder \
+                 bash -c 'KERNELDIR=/vyos/packages/vyos-kernel dpkg-buildpackage -uc -us -tc -b' >packages/vyos-wireguard.buildlog 2>&1
+      if [ $? -ne 0 ]; then
+        status_fail
+        error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
+      else
+        status_ok
+      fi
     else
-      status_ok
+      status_fail
+      error_msg "Failed to build package vyos-wireguard, no kernel source found\n"
     fi
   else
-    status_fail
-    error_msg "Failed to build package vyos-wireguard, no kernel source found\n"
+    seeor_msg "Something wrong with the kernel module?"
   fi
 else 
     status_skip "No source for: vyos-wireguard"
