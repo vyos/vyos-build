@@ -175,14 +175,22 @@ for dir in packages/*; do
 done
 ```
 ### Building packages
-Most packages can be built by using the vyos-builder docker container with the same parameters, the vyos-builder container should include all dependencies for compiling supported packages.
-The script `./scripts/build-docker-subpackages` is created to automate the process of building packages, just execute it in the root of vyos-build to start compilation on all supported packages that are checked out. 
+The script `./scripts/build-submodules` is created to automate the process of building packages, execute it in the root of `vyos-build` to start compilation on all supported packages that are checked out. 
+
+The easiest way to compile is with the `vyos-builder` docker container, it includes all dependencies for compiling supported packages.
+
+```bash
+$ docker run --rm -it -v $(pwd):/vyos -w /vyos \
+             --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+             vyos-builder \
+             ./scripts/build-submodules
+```
 
 NOTE: Prior to executing this script you need to create/build the `vyos-builder` container and checkout all packages you want to compile. 
 
 ### Building one package
-the script above runs a docker container for every build it does. this is also possible to do by hand using: 
-Ecevuted from the root directory of vyos-build
+the script above runs all package build inside a docker container, this is also possible to do by hand using: 
+Executed from the root directory of vyos-build
 ```bash
 $ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
