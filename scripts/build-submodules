@@ -118,7 +118,7 @@ if [ -f "packages/vyos-kernel/Makefile" ]; then
     PATCHLEVEL=$(grep "^PATCHLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
     SUBLEVEL=$(grep "^SUBLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
     ARCH=$(dpkg --print-architecture)
-    sed -i.bak "s/--linux-packages .* \\\/--linux-packages linux-image-$VERSION\.$PATCHLEVEL\.$SUBLEVEL \\\/" $ROOTDIR/scripts/live-build-config 
+    echo "$VERSION.$PATCHLEVEL.$SUBLEVEL" > $ROOTDIR/data/kernel_version
     status_ok
   fi
   popd > /dev/null
