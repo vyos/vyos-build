@@ -125,6 +125,11 @@ env_check_retval = os.system("scripts/check-build-env")
 if env_check_retval > 0:
     print("Build environment check failed, fix the issues and retry")
 
+# Get the kernel version from data/kernel_version
+with open("data/kernel_version") as f:
+    kernel_version = f.read().strip()
+    args['kernel_version'] = kernel_version
+
 
 # Save to file
 os.makedirs(defaults.BUILD_DIR, exist_ok=True)
