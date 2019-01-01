@@ -157,3 +157,36 @@ if [ -d "packages/vyos-wireguard/debian" ]; then
 else 
     status_skip "No source for: vyos-wireguard"
 fi
+
+
+# ACCEL-PPP
+if [ -d "packages/vyos-accel-ppp/debian" ]; then
+  if [ -f "packages/vyos-kernel/Makefile" ]; then
+    status_start "Building package: vyos-accel-ppp"
+    if  grep -q "KBUILD_OUTPUT" packages/vyos-kernel/Makefile; then
+      VERSION=$(grep "^VERSION" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+      PATCHLEVEL=$(grep "^PATCHLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+      SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+      ARCH=$(dpkg --print-architecture)
+      pushd packages/vyos-accel-ppp > /dev/null
+      #echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" > debian/wireguard-modules.install
+      echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" > debian/vyos-accel-ppp-ipoe-kmod.install
+      sed -i "s#[0-9].[0-9][0-9].[0-9]-amd64-vyos#$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos#g" debian/rules
+      KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b >$PKGDIR/vyos-accel-ppp.buildlog 2>&1
+      if [ $? -ne 0 ]; then
+        status_fail
+        error_msg "Failed to build package vyos-accel-ppp, look in vyos-accel-ppp.buildlog to examine the fault\n"
+      else
+        status_ok
+      fi
+      popd > /dev/null
+    else
+      status_fail
+      error_msg "Failed to build package vyos-accel-ppp, no kernel source found\n"
+    fi
+  else
+    seeor_msg "Something wrong with the kernel module?"
+  fi
+else 
+    status_skip "No source for: vyos-accel-ppp"
+fi
