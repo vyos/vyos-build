@@ -142,3 +142,6 @@
 [submodule "packages/vyos-frr"]
 	path = packages/vyos-frr
 	url = https://github.com/vyos/vyos-frr.git
+[submodule "packages/vyos-accel-ppp"]
+	path = packages/vyos-accel-ppp
+	url = https://github.com/vyos/vyos-accel-ppp.git
