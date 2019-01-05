@@ -113,8 +113,14 @@ RUN apt-get install -y \
       libmnl-dev
 
 # Packages needed for kernel
-RuN apt-get install -y \
+RUN apt-get install -y \
       libelf-dev
+
+# Packages needed for vyos-accel-ppp
+RUN apt-get install -y \
+      cdbs \
+      cmake \
+      liblua5.1-dev
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
