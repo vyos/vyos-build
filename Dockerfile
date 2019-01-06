@@ -4,8 +4,7 @@
 FROM debian:jessie
 
 RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/apt/sources.list &&\
-    apt-get update &&\
-    apt-get install -y \
+    apt-get update && apt-get install -y \
       vim \
       git \
       make \
@@ -117,7 +116,7 @@ RUN apt-get install -y \
       libelf-dev
 
 # Packages needed for vyos-accel-ppp
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       cdbs \
       cmake \
       liblua5.1-dev
