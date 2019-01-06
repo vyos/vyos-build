@@ -5,7 +5,6 @@ if [ ! -d "packages" ]; then
   exit 1
 fi
 
-
 print_help() {
   echo "Script for building all subpackages to vyos"
   echo "Execute this sctipt from the root of the vyos-build directory"
@@ -20,6 +19,7 @@ print_help() {
   echo ""
   echo "Parameters:"
   echo "  --init-packages      - Initiate all subpackages before building"
+  echo "  --verbose|-v         - Enable verbose output"
 }
 
 while test $# -gt 0
@@ -32,6 +32,9 @@ do
     --init-packages)
       INIT_PACKAGES=1
       ;;
+    --verbose|-v)
+      VERBOSE=1
+      ;;
     *)
       (>&2 echo "Error: Argument $1 is not valid")
       echo ""
@@ -42,24 +45,23 @@ do
   shift
 done
 
-
 status_start() {
-echo -ne "[    ] $1"
+    echo -ne "[    ] $1"
 }
 status_ok() {
-echo -ne "\r[\e[32m OK \e[39m]\n"
+    echo -ne "\r[\e[32m OK \e[39m]\n"
 }
 
 status_fail() {
-echo -ne "\r[\e[31mFAIL\e[39m]\n"
+    echo -ne "\r[\e[31mFAIL\e[39m]\n"
 }
 
 status_skip() {
-echo -ne "\r[SKIP] $1\n"
+    echo -ne "\r[SKIP] $1\n"
 }
 
 error_msg() {
-echo -ne "      $1\n"
+    echo -ne "      $1\n"
 }
 ROOTDIR="$(pwd)"
 PKGDIR="$(pwd)/packages"
@@ -170,9 +172,13 @@ build_kernel() {
   )
   if [ $? -ne 0 ]; then
     status_fail
+    if [ $VERBOSE ]; then
+        cat $PKGDIR/vyos-kernel.buildlog
+    fi
     error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
     return 1
   fi
+
   VERSION=$(grep "^VERSION" Makefile | grep -Eo '[0-9]{1,4}')
   PATCHLEVEL=$(grep "^PATCHLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
   SUBLEVEL=$(grep "^SUBLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
@@ -216,6 +222,9 @@ build_wireguard() {
   )
   if [ $? -ne 0 ]; then
     status_fail
+    if [ $VERBOSE ]; then
+        cat $PKGDIR/vyos-wireguard.buildlog
+    fi
     error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
     return 2
   fi
@@ -249,13 +258,15 @@ build_accel-ppp() {
 
   ( set -e
     pushd packages/vyos-accel-ppp > /dev/null
-    #echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" > debian/wireguard-modules.install
     echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" > debian/vyos-accel-ppp-ipoe-kmod.install
     sed -i "s#[0-9].[0-9][0-9].[0-9]-amd64-vyos#$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos#g" debian/rules
     KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b >$PKGDIR/vyos-accel-ppp.buildlog 2>&1
   )
   if [ $? -ne 0 ]; then
     status_fail
+    if [ $VERBOSE ]; then
+        cat $PKGDIR/vyos-accel-ppp.buildlog
+    fi
     error_msg "Failed to build package vyos-accel-ppp, look in vyos-accel-ppp.buildlog to examine the fault\n"
     return 1
   fi
