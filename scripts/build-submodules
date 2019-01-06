@@ -1,5 +1,5 @@
-#!/bin/bash 
-#set -x
+#!/bin/bash
+
 if [ ! -d "packages" ]; then
   echo "This script needs to be executed inside the top root of vyos-build"
   exit 1
@@ -13,7 +13,7 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
   echo "or from the vyos-builder docker container"
   echo "docker instructions"
   echo "Build the container:"
-  echo "  docker build -t vyos-builder ." 
+  echo "  docker build -t vyos-builder ."
   echo "Compile packages:"
   echo "  docker run --rm -it -v $(pwd):/vyos -w /vyos --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder scripts/build-docker-subpaclages"
 fi
@@ -112,6 +112,7 @@ if [ -f "packages/vyos-kernel/Makefile" ]; then
   bash -c '../../scripts/build-kernel' >$PKGDIR/vyos-kernel.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
+    cat $PKGDIR/vyos-kernel.buildlog
     error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
   else
     VERSION=$(grep "^VERSION" Makefile | grep -Eo '[0-9]{1,4}')
@@ -142,6 +143,7 @@ if [ -d "packages/vyos-wireguard/debian" ]; then
       bash -c 'KERNELDIR=/vyos/packages/vyos-kernel dpkg-buildpackage -uc -us -tc -b' >$PKGDIR/vyos-wireguard.buildlog 2>&1
       if [ $? -ne 0 ]; then
         status_fail
+        cat $PKGDIR/vyos-wireguard.buildlog
         error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
       else
         status_ok
@@ -154,7 +156,7 @@ if [ -d "packages/vyos-wireguard/debian" ]; then
   else
     seeor_msg "Something wrong with the kernel module?"
   fi
-else 
+else
     status_skip "No source for: vyos-wireguard"
 fi
 
@@ -175,6 +177,7 @@ if [ -d "packages/vyos-accel-ppp/debian" ]; then
       KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b >$PKGDIR/vyos-accel-ppp.buildlog 2>&1
       if [ $? -ne 0 ]; then
         status_fail
+        cat $PKGDIR/vyos-accel-ppp.buildlog
         error_msg "Failed to build package vyos-accel-ppp, look in vyos-accel-ppp.buildlog to examine the fault\n"
       else
         status_ok

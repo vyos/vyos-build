@@ -145,14 +145,10 @@ pipeline {
                 sh 'scripts/build-submodules'
             }
         }
-        stage('Show Dir') {
+        stage('Build ISO') {
             steps {
                 sh 'ls -al'
                 sh 'ls -al packages'
-            }
-        }
-        stage('Build ISO') {
-            steps {
                 sh 'sudo make iso'
             }
         }
