@@ -142,6 +142,7 @@ pipeline {
         }
         stage('Build Packages') {
             steps {
+                sh 'git submodule update --remote'
                 sh 'scripts/build-submodules'
             }
         }
