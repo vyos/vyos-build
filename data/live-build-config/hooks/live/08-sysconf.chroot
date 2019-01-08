@@ -40,6 +40,8 @@ update_sysctl_conf net.core.rmem_max 223232 \
     "maximize netlink buffers"
 update_sysctl_conf net.ipv4.conf.all.send_redirects 0 \
     "disable IPv4 ICMP redirects"
+update_sysctl_conf net.ipv4.conf.default.send_redirects 0 \
+    "disable IPv4 ICMP redirects"
 
 # Local Variables:
 # mode: shell-script
