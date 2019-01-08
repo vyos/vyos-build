@@ -241,7 +241,7 @@ build_accel-ppp() {
     return 0
   fi
 
-  if [ -f "packages/vyos-kernel/Makefile" ]; then
+  if [ ! -f "packages/vyos-kernel/Makefile" ]; then
     error_msg "Something wrong with the kernel module?"
     return 1
   fi
