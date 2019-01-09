@@ -122,6 +122,18 @@ RUN apt-get update && apt-get install -y \
       cmake \
       liblua5.1-dev
 
+# Packages needed for vyos-frr
+RUN sudo apt-get update && sudo apt-get install -y \
+      texinfo \
+      imagemagick \
+      groff \
+      hardening-wrapper \
+      gawk \
+      chrpath \
+      libjson0 \
+      libjson0-dev \
+      python-ipaddr
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
     apt-get update &&\

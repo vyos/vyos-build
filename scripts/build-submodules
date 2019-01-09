@@ -145,6 +145,7 @@ for PKG in mdns-repeater \
            vyatta-wireless \
            vyatta-wirelessmodem \
            vyatta-zone \
+           vyos-frr \
            vyos-keepalived \
            vyos-nhrp \
            vyos-pppoe-server \
