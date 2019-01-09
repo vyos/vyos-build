@@ -5,6 +5,7 @@ FROM debian:jessie
 
 RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/apt/sources.list &&\
     apt-get update && apt-get install -y \
+      gosu \
       vim \
       git \
       make \
@@ -143,10 +144,12 @@ RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packe
     curl -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
 
+COPY scripts/docker-entrypoint.sh /usr/local/bin/
 # Create vyos_bld user account and enable sudo
-RUN useradd -ms /bin/bash -u 1006 --gid users vyos_bld && \
-    usermod -aG sudo vyos_bld && \
-    echo "%sudo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+#RUN useradd -ms /bin/bash -u 1006 --gid users vyos_bld && \
+#    usermod -aG sudo vyos_bld && \
+#    echo "%sudo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-USER vyos_bld
-WORKDIR /home/vyos_bld
+#USER vyos_bld
+#WORKDIR /home/vyos_bld
+ENTRYPOINT ["docker-entrypoint.sh"]
