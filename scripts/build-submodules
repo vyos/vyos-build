@@ -247,7 +247,8 @@ build_accel-ppp() {
   fi
 
   if [ ! -f "packages/vyos-kernel/Makefile" ]; then
-    error_msg "Something wrong with the kernel module?"
+    status_fail
+    error_msg "No Makefile found in kernel package"
     return 1
   fi
 
