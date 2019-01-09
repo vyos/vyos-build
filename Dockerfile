@@ -44,7 +44,7 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       python3-coverage
 
 # Packages needed for building vyos-strongswan
-RUN apt-get install -y -t jessie-backports \
+RUN apt-get update && apt-get install -y -t jessie-backports \
       debhelper &&\
     apt-get install -y \
       dh-apparmor \
@@ -68,30 +68,30 @@ RUN apt-get install -y -t jessie-backports \
       pkg-config
 
 # Package needed for mdns-repeater
-RUN apt-get install -y -t jessie-backports \
+RUN apt-get update && apt-get install -y -t jessie-backports \
       dh-systemd
 
 # Packages needed for vyatta-bash
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libncurses5-dev \
       locales
 
 # Packages needed for vyatta-cfg
-RUN apt-get install -y \
+RUN apt-get update &&apt-get install -y \
       libboost-filesystem-dev
 
 # Packages needed for vyatta-iproute
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libatm1-dev \
       libdb-dev
 
 # Packages needed for vyatta-webgui
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libexpat1-dev \
       subversion
 
 # Packages needed for pmacct
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libpcap-dev \
       libpq-dev \
       libmysqlclient-dev \
@@ -102,18 +102,18 @@ RUN apt-get install -y \
       libnetfilter-log-dev
 
 # Packages needed for vyos-keepalived
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libnl-3-dev \
       libnl-genl-3-dev \
       libpopt-dev \
       libsnmp-dev
 
 # Pavkages needed for wireguard
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libmnl-dev
 
 # Packages needed for kernel
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libelf-dev
 
 # Packages needed for vyos-accel-ppp
