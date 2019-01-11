@@ -21,7 +21,7 @@ pipeline {
         dockerfile {
             filename 'Dockerfile'
             label 'jessie-amd64'
-            args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0'
+            args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
         }
     }
 
@@ -44,8 +44,7 @@ pipeline {
                 sh '''
                     #!/bin/sh
                     ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
-                    ls -al
-                    ls -al packages
+                    ls -al packages/*.deb
                     sudo make iso
                 '''
             }

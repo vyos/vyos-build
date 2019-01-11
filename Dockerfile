@@ -123,7 +123,7 @@ RUN apt-get update && apt-get install -y \
       liblua5.1-dev
 
 # Packages needed for vyos-frr
-RUN sudo apt-get update && sudo apt-get install -y \
+RUN apt-get update && apt-get install -y \
       texinfo \
       imagemagick \
       groff \
@@ -156,12 +156,9 @@ RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packe
     curl -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
 
-COPY scripts/docker-entrypoint.sh /usr/local/bin/
-# Create vyos_bld user account and enable sudo
-#RUN useradd -ms /bin/bash -u 1006 --gid users vyos_bld && \
-#    usermod -aG sudo vyos_bld && \
-#    echo "%sudo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# Allow password-less 'sudo' for all users in group 'sudo'
+RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
+    chmod a+s /usr/sbin/useradd /usr/sbin/gosu /usr/sbin/usermod
 
-#USER vyos_bld
-#WORKDIR /home/vyos_bld
+COPY scripts/docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
