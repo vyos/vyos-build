@@ -50,6 +50,11 @@ pipeline {
                 '''
             }
         }
+        stage('Deploy') {
+            steps {
+                archiveArtifacts artifacts: 'build/vyos-*-rolling*.iso', fingerprint: true
+            }
+        }
     }
 
     post {
