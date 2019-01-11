@@ -18,8 +18,13 @@ fi
 # Notify user about selected UID/GID
 echo "Current UID/GID: $NEW_UID/$NEW_GID"
 
-useradd --shell /bin/bash -u $NEW_UID -g $NEW_GID -o -m $USER_NAME
-usermod -aG sudo $USER_NAME
+# Create UNIX group on the fly if it does not exist
+if ! grep -q $NEW_GID /etc/group; then
+    groupadd --gid $NEW_GID $USER_NAME
+fi
+
+useradd --shell /bin/bash --uid $NEW_UID --gid $NEW_GID --non-unique --create-home $USER_NAME
+usermod --append --groups sudo $USER_NAME
 sudo chown $NEW_UID:$NEW_GID /home/$USER_NAME
 export HOME=/home/$USER_NAME
 
