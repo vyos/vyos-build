@@ -160,6 +160,10 @@ for PKG in mdns-repeater \
            vyos-world \
            ; do
   build_package "$PKG"
+  ERRCODE=$?
+  if [ "$ERRCODE" -ne "0" ]; then
+      exit $ERRCODE
+  fi
 done
 
 
@@ -192,6 +196,10 @@ build_kernel() {
   status_ok
 }
 build_kernel
+ERRCODE=$?
+if [ "$ERRCODE" -ne "0" ]; then
+    exit $ERRCODE
+fi
 
 
 # WIREGUARD
@@ -236,7 +244,10 @@ build_wireguard() {
   status_ok
 }
 build_wireguard
-
+ERRCODE=$?
+if [ "$ERRCODE" -ne "0" ]; then
+    exit $ERRCODE
+fi
 
 # ACCEL-PPP
 build_accel-ppp() {
@@ -279,3 +290,7 @@ build_accel-ppp() {
   status_ok
 }
 build_accel-ppp
+ERRCODE=$?
+if [ "$ERRCODE" -ne "0" ]; then
+    exit $ERRCODE
+fi
