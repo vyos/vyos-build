@@ -66,21 +66,6 @@ error_msg() {
 ROOTDIR="$(pwd)"
 PKGDIR="$(pwd)/packages"
 
-initiate_package() {
-  PKG=$1
-  status_start "Initializing subpackage: $PKG"
-  ( set -e
-    git submodule update --init packages/$PKG  >>$PKGDIR/$PKG.buildlog 2>&1
-    cd $PKGDIR/$PKG
-    git checkout current
-  )
-  if [ $? -ne 0 ]; then
-    status_fail "Failed to initiate package $PKG, look in $PKG.buildlog to examine the fault\n"
-    return 1
-  fi
-  status_ok
-  return 0
-}
 
 build_package() {
   PKG=$1
@@ -89,10 +74,10 @@ build_package() {
     status_skip "No source for: $PKG"
     return 1
   fi
-  ( set -e
-    cd $PKGDIR/$PKG > /dev/null
-    dpkg-buildpackage -uc -us -tc -b >>$PKGDIR/$PKG.buildlog 2>&1
-  )
+  ( set -e; set -x
+    cd $PKGDIR/$PKG
+    dpkg-buildpackage -uc -us -tc -b
+  ) >>$PKGDIR/$PKG.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
     error_msg "Failed to build package $PKG, look in $PKG.buildlog to examine the fault\n"
@@ -108,6 +93,28 @@ rm -rf $PKGDIR/*.buildlog
 echo "-----------------------------------------------------"
 echo "Starting build process for all packages"
 echo ""
+
+initialize_packages() {
+  status_start "Initializing packages"
+  (
+    set -x
+    git submodule update --init --recursive
+    git submodule update --remote
+  ) >>$PKGDIR/init-packages.buildlog 2>&1
+  if [ $? -ne 0 ]; then
+      status_fail
+      if [ $VERBOSE ]; then
+          cat $PKGDIR/init-packages.buildlog
+      fi
+      error_msg "Failed to update all package, look in init-packages.buildlog to examine the fault\n"
+      return 1
+  fi
+  status_ok
+}
+if [ $INIT_PACKAGES ]; then
+  initialize_packages
+fi
+
 for PKG in mdns-repeater \
            pmacct \
            udp-broadcast-relay \
@@ -145,15 +152,13 @@ for PKG in mdns-repeater \
            vyatta-wireless \
            vyatta-wirelessmodem \
            vyatta-zone \
+           vyos-frr \
            vyos-keepalived \
            vyos-nhrp \
            vyos-pppoe-server \
            vyos-strongswan \
            vyos-world \
            ; do
-  if [ $INIT_PACKAGES ]; then
-    initiate_package "$PKG"
-  fi
   build_package "$PKG"
 done
 
@@ -166,10 +171,10 @@ build_kernel() {
     return 0
   fi
 
-  ( set -e
+  ( set -e; set -x
     cd packages/vyos-kernel > /dev/null
-    bash -c '../../scripts/build-kernel' >$PKGDIR/vyos-kernel.buildlog 2>&1
-  )
+    bash -c '../../scripts/build-kernel'
+  ) >>$PKGDIR/vyos-kernel.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
     if [ $VERBOSE ]; then
@@ -215,11 +220,11 @@ build_wireguard() {
   SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
   ARCH=$(dpkg --print-architecture)
   # Collect kernel information
-  ( set -e
-    pushd packages/vyos-wireguard > /dev/null
-    echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" > debian/wireguard-modules.install
-    bash -c 'KERNELDIR=/vyos/packages/vyos-kernel dpkg-buildpackage -uc -us -tc -b' >$PKGDIR/vyos-wireguard.buildlog 2>&1
-  )
+  ( set -e; set -x
+    cd packages/vyos-wireguard
+    echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" | tee debian/wireguard-modules.install
+    bash -c 'KERNELDIR=/vyos/packages/vyos-kernel dpkg-buildpackage -uc -us -tc -b'
+  ) >>$PKGDIR/vyos-wireguard.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
     if [ $VERBOSE ]; then
@@ -230,7 +235,7 @@ build_wireguard() {
   fi
   status_ok
 }
-(build_wireguard)
+build_wireguard
 
 
 # ACCEL-PPP
@@ -242,7 +247,8 @@ build_accel-ppp() {
   fi
 
   if [ ! -f "packages/vyos-kernel/Makefile" ]; then
-    error_msg "Something wrong with the kernel module?"
+    status_fail
+    error_msg "No Makefile found in kernel package"
     return 1
   fi
 
@@ -256,12 +262,12 @@ build_accel-ppp() {
   SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
   ARCH=$(dpkg --print-architecture)
 
-  ( set -e
+  ( set -e; set -x
     pushd packages/vyos-accel-ppp > /dev/null
-    echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" > debian/vyos-accel-ppp-ipoe-kmod.install
+    echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" | tee debian/vyos-accel-ppp-ipoe-kmod.install
     sed -i "s#[0-9].[0-9][0-9].[0-9]-amd64-vyos#$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos#g" debian/rules
-    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b >$PKGDIR/vyos-accel-ppp.buildlog 2>&1
-  )
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b
+  ) >>$PKGDIR/vyos-accel-ppp.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
     if [ $VERBOSE ]; then
