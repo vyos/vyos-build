@@ -18,7 +18,6 @@ fi
 # Notify user about selected UID/GID
 echo "Current UID/GID: $NEW_UID/$NEW_GID"
 
-# Create user called "docker" with selected UID
 useradd --shell /bin/bash -u $NEW_UID -g $NEW_GID -o -m $USER_NAME
 usermod -aG sudo $USER_NAME
 sudo chown $NEW_UID:$NEW_GID /home/$USER_NAME
