@@ -17,6 +17,7 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       python3-pystache \
       squashfs-tools \
       autoconf \
+      automake \
       dpkg-dev \
       syslinux \
       genisoimage \
@@ -41,11 +42,11 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       python3-lxml \
       python3-setuptools \
       python3-nose \
-      python3-coverage
+      python3-coverage \
+      python3-sphinx
 
 # Packages needed for building vyos-strongswan
-RUN apt-get update && apt-get install -y -t jessie-backports \
-      debhelper &&\
+RUN apt-get update && apt-get install -y -t jessie-backports debhelper &&\
     apt-get install -y \
       dh-apparmor \
       gperf \
@@ -122,9 +123,11 @@ RUN apt-get update && apt-get install -y \
       cmake \
       liblua5.1-dev
 
-# Packages needed for vyos-frr
+# Packages needed for frr
 RUN apt-get update && apt-get install -y \
+      libreadline-dev \
       texinfo \
+      pkg-config \
       imagemagick \
       groff \
       hardening-wrapper \
@@ -132,7 +135,21 @@ RUN apt-get update && apt-get install -y \
       chrpath \
       libjson0 \
       libjson0-dev \
-      python-ipaddr
+      python-ipaddr \
+      python3-dev \
+      python3-pip \
+      libc-ares-dev \
+      libc-ares2
+
+# 3rd-party depndencies required for building FRR, see
+# http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
+RUN pip3 install pytest
+RUN git clone https://github.com/opensourcerouting/libyang /tmp/libyang && \
+    cd /tmp/libyang && \
+    git checkout -b tmp origin/tmp && \
+    mkdir build; cd build && \
+    cmake -DENABLE_LYD_PRIV=ON .. && \
+    make && make install
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
