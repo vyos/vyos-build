@@ -64,13 +64,13 @@ error_msg() {
     echo -ne "      $1\n"
 }
 ROOTDIR="$(pwd)"
-PKGDIR="$(pwd)/packages"
-
+PKGDIR="$ROOTDIR/packages"
+SCRIPTDIR="$ROOTDIR/scripts"
 
 build_package() {
   PKG=$1
   status_start "Building package: $PKG"
-  if [ ! -d "packages/$PKG/debian" ]; then
+  if [ ! -d "$PKGDIR/$PKG/debian" ]; then
     status_skip "No source for: $PKG"
     return 1
   fi
@@ -170,14 +170,14 @@ done
 # KERNEL
 build_kernel() {
   status_start "Building-package: vyos-kernel"
-  if [ ! -f "packages/vyos-kernel/Makefile" ]; then
+  if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
     status_skip "No source for: vyos-kernel"
     return 0
   fi
 
   ( set -e; set -x
-    cd packages/vyos-kernel > /dev/null
-    bash -c '../../scripts/build-kernel'
+    cd $PKGDIR/vyos-kernel > /dev/null
+    bash -c "$SCRIPTDIR/build-kernel"
   ) >>$PKGDIR/vyos-kernel.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
@@ -188,9 +188,9 @@ build_kernel() {
     return 1
   fi
 
-  VERSION=$(grep "^VERSION" Makefile | grep -Eo '[0-9]{1,4}')
-  PATCHLEVEL=$(grep "^PATCHLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
-  SUBLEVEL=$(grep "^SUBLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
+  VERSION=$(grep "^VERSION" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  PATCHLEVEL=$(grep "^PATCHLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  SUBLEVEL=$(grep "^SUBLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
   ARCH=$(dpkg --print-architecture)
   echo "$VERSION.$PATCHLEVEL.$SUBLEVEL" > $ROOTDIR/data/kernel_version
   status_ok
@@ -206,32 +206,32 @@ fi
 build_wireguard() {
   status_start "Building package: vyos-wireguard"
 
-  if [ ! -d "packages/vyos-wireguard/debian" ]; then
+  if [ ! -d "$PKGDIR/vyos-wireguard/debian" ]; then
     status_skip "No source for: vyos-wireguard"
     return 0
   fi
 
-  if [ ! -f "packages/vyos-kernel/Makefile" ]; then
+  if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
     status_fail
     error_msg "No Makefile found in kernel package"
     return 1
   fi
 
-  if  ! grep -q "KBUILD_OUTPUT" packages/vyos-kernel/Makefile; then
+  if  ! grep -q "KBUILD_OUTPUT" $PKGDIR/vyos-kernel/Makefile; then
     status_fail
     error_msg "Failed to build package vyos-wireguard, no kernel source found\n"
     return 1
   fi
 
-  VERSION=$(grep "^VERSION" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
-  PATCHLEVEL=$(grep "^PATCHLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
-  SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  VERSION=$(grep "^VERSION" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  PATCHLEVEL=$(grep "^PATCHLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  SUBLEVEL=$(grep "^SUBLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
   ARCH=$(dpkg --print-architecture)
   # Collect kernel information
   ( set -e; set -x
-    cd packages/vyos-wireguard
+    cd $PKGDIR/vyos-wireguard
     echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" | tee debian/wireguard-modules.install
-    bash -c 'KERNELDIR=/vyos/packages/vyos-kernel dpkg-buildpackage -uc -us -tc -b'
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b
   ) >>$PKGDIR/vyos-wireguard.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
@@ -252,29 +252,29 @@ fi
 # ACCEL-PPP
 build_accel-ppp() {
   status_start "Building package: vyos-accel-ppp"
-  if [ ! -d "packages/vyos-accel-ppp/debian" ]; then
+  if [ ! -d "$PKGDIR/vyos-accel-ppp/debian" ]; then
     status_skip "No source for: vyos-accel-ppp"
     return 0
   fi
 
-  if [ ! -f "packages/vyos-kernel/Makefile" ]; then
+  if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
     status_fail
     error_msg "No Makefile found in kernel package"
     return 1
   fi
 
-  if ! grep -q "KBUILD_OUTPUT" packages/vyos-kernel/Makefile; then
+  if ! grep -q "KBUILD_OUTPUT" $PKGDIR/vyos-kernel/Makefile; then
     status_fail
     error_msg "Failed to build package vyos-accel-ppp, no kernel source found\n"
   fi
   # Collect kernel information
-  VERSION=$(grep "^VERSION" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
-  PATCHLEVEL=$(grep "^PATCHLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
-  SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  VERSION=$(grep "^VERSION" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  PATCHLEVEL=$(grep "^PATCHLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  SUBLEVEL=$(grep "^SUBLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
   ARCH=$(dpkg --print-architecture)
 
   ( set -e; set -x
-    pushd packages/vyos-accel-ppp > /dev/null
+    cd $PKGDIR/vyos-accel-ppp
     echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" | tee debian/vyos-accel-ppp-ipoe-kmod.install
     sed -i "s#[0-9].[0-9][0-9].[0-9]-amd64-vyos#$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos#g" debian/rules
     KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b
