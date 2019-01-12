@@ -3,9 +3,9 @@ VyOS toplevel build
 
 # Important!
 
-This repository is for building the VyOS version 1.2.0 and above.
-For VyOS 1.1.x, use the build-iso repository.
+This repository is for building the VyOS versions 1.2.x and above.
 
+For VyOS 1.1, use the [build-iso](https://github.com/vyos/build-iso) repository.
 
 # What is VyOS
 
@@ -48,12 +48,14 @@ There are several directories with their own purpose:
 
 ## Prerequisites
 
-To build a VyOS 1.2.0 image, you need Debian 8 "Jessie" environment (with jessie-backports repository).
+To build a VyOS 1.2.0 image, you need Debian 8 "Jessie" environment (with
+jessie-backports repository).
 
-If you do not have a Debian Jessie machine, you may create a chroot environment with the
-[debootstrap](https://wiki.debian.org/Debootstrap) tool.
+If you do not have a Debian Jessie machine, you may create a chroot environment
+with the [debootstrap](https://wiki.debian.org/Debootstrap) tool.
 
-For example, on another version of Debian or another Debian-based distro, these commands will work:
+For example, on another version of Debian or another Debian-based distro, these
+commands will work:
 
 ```bash
 $ sudo apt-get install debootstrap
@@ -64,8 +66,9 @@ $ echo "deb http://deb.debian.org/debian jessie-backports main" >> /etc/apt/sour
 $ apt-get update
 ```
 
-If you are working on a Debian Jessie machine, no special preparation is needed, you only
-need to enable jessie-backports and install build dependencies. 
+If you are working on a Debian Jessie machine, no special preparation is needed,
+you only need to enable jessie-backports and install build dependencies. An
+up-to-date depnedency list can be found in out [Dockerfile](docker/Dockerfile).
 
 Several packages are required for building the ISO:
 * `python3`
@@ -79,9 +82,11 @@ package build scripts will tell you.
 
 ## Building the ISO image inside a docker container
 
-Using our `Dockerfile` you can create your own Docker container that can be used
-to build a VyOS ISO image. The `Dockerfile` contains some of the most used
-packages needed to build a VyOS ISO, a qemu image, and several of the submodules.
+Using our [Dockerfile](docker/Dockerfile) you create your own Docker container
+that is used to build a VyOS ISO image or other required VyOS packages. The
+[Dockerfile](docker/Dockerfile) contains some of the most used packages needed
+to build a VyOS ISO, a qemu image, and several of the submodules. Please note
+that this is not complete and only gives you a brief overview!
 
 ```
 squashfs-tools           # Required for squashfs file system
@@ -114,70 +119,73 @@ python3-lxml             # Optional, for building vyos-1x
 python3-setuptools       # Optional, for building vyos-1x
 python3-nose             # Optional, for building vyos-1x
 python3-coverage         # Optional, for building vyos-1x
+...
 ```
 
-To build the docker image:
-```
-docker build -t vyos-builder $PATH_TO_Dockerfile
-```
+To build the docker image ensure you have a working [Docker](https://www.docker.com)
+environment and then run the following commands:
 
-### Linux
-
-To run the docker image:
-```
-docker run -it --privileged -v /HOST_PATH_OF_VYOS_BUILD_REPO:/vyos -w="/vyos" vyos-builder bash
+```bash
+$ docker build -t vyos-builder docker
 ```
 
-This will drop you into a bash shell with this vyos-build repo mounted at /vyos.
-Then follow the instructions bellow to build the VyOS iso and qemu image.
-
-### MacOS and Windows
-
-To run the docker image:
-```
-docker run -dt --privileged -v /HOST_PATH/images:/vyos --name=vyos_node_builder vyos-builder bash
+Run the newly built container:
+```bash
+$ docker run --rm -it --privileged -v $(pwd):/vyos -w /vyos vyos-builder bash
 ```
 
-NOTE:
+This will drop you into a bash shell with this vyos-build repo mounted at
+`/vyos`. Then follow the instructions bellow to build the VyOS ISO and QEMU
+image.
+
+```bash
+vyos_bld@948a2be7c52c:/vyos$ uname -a
+Linux 948a2be7c52c 3.16.0-7-amd64 #1 SMP Debian 3.16.59-1 (2018-10-03) x86_64 GNU/Linux
+```
+
+**NOTE:**
 
 * Docker container must be run with `--privileged` flag
 * We recommended to run the container with a volume mapped in order to easy
   export built VyOS ISO images to the "external" world
+* UNIX ownership is automatically inherited from your host directory but can be
+  altered by specifying the following environment variables when running the
+  container: `-e GOSU_UID=$(id -u)` and/or `-e GOSU_GID=$(id -g)`
 
-To connect to the docker image once is running:
-```
-docker exec -it vyos_node_builder bash
-```
-
-After the docker container is running you can git clone the vyos-build repository
-inside the container and follow up the bellow instructions in order to build the
-VyOS ISO image
+After the Docker container is running you can follow up the instructions below in
+order to build the VyOS ISO image.
 
 ## Building subpackages inside Docker
+
 Prior to building packages you need to checkout and update the submodules you want to compile
+
 ```bash
-git submodule update --init packages/PACKAGENAME
-cd packages/PACKAGENAME
-git checkout BRANCH
+$ git submodule update --init packages/PACKAGENAME
+$ cd packages/PACKAGENAME
+$ git checkout BRANCH
 ```
+
 `PACKAGENAME` is the name of the package you want to compile
-`BRANCH` is for Crux(1.2) `crux`, for latest rolling use `current`
+`BRANCH` is `crux` for VyOS 1.2.x, latest rolling releases use `current`
 
+Fetching all submodules at once and update them to the recent remote branches
+`HEAD` is done by calling:
 
-### Pulling all packages
-Use this with caution, only run this on a unmodified newly cloned repository
 ```bash
-for dir in packages/*; do
-  git submodule update --init $dir
-  pushd $dir
-  git checkout current
-  popd
-done
+$ git submodule update --init --recursive
+$ git submodule update --remotes
 ```
-### Building packages
-The script `./scripts/build-submodules` is created to automate the process of building packages, execute it in the root of `vyos-build` to start compilation on all supported packages that are checked out. 
 
-The easiest way to compile is with the `vyos-builder` docker container, it includes all dependencies for compiling supported packages.
+### Building packages
+
+The [scripts/build-submodules](scripts/build-submodules) script is used to
+automate the process of building (in the future) all VyOS related packages that
+are not part of the upstream Debian version. Execute it in the root of the
+`vyos-build` directory to start compilation on all supported packages that are
+checked out.
+
+The easiest way to compile is with the above mentioned [Docker](docker/Dockerfile)
+container, it includes all dependencies for compiling supported packages.
 
 ```bash
 $ docker run --rm -it -v $(pwd):/vyos -w /vyos \
@@ -186,37 +194,52 @@ $ docker run --rm -it -v $(pwd):/vyos -w /vyos \
              ./scripts/build-submodules
 ```
 
-NOTE: Prior to executing this script you need to create/build the `vyos-builder` container and checkout all packages you want to compile. 
+**NOTE:** `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is required to build the
+`vyos-strongswan` package
 
-### Building one package
-the script above runs all package build inside a docker container, this is also possible to do by hand using: 
-Executed from the root directory of vyos-build
+**NOTE:** Prior to executing this script you need to create or build the Docker
+container and checkout all packages you want to compile.
+
+### Building a single package
+
+The script above runs all package build inside the Docker container, this is also
+possible to do by hand using:
+
+Executed from the root of `vyos-build`
+
 ```bash
 $ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
              vyos-builder \
              dpkg-buildpackage -uc -us -tc -b
 ```
-NOTE: `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is only needed when building vyos-strongswan and can be ignored on other packages
-NOTE: Prior to executing this you need to checkout and update the submodules you want to recompile
-NOTE: vyos-strongswan will only compile on a linux system, running on osx or windows migth result in a unittest lockup. (it never exits)
 
-Packages that are known to not build using this procedure:
+**NOTE:** `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is only needed when
+building `vyos-strongswan` and can be ignored on other packages.
+
+**NOTE:** Prior to executing this you need to checkout and update the submodules
+you want to recompile!
+
+**NOTE:** `vyos-strongswan` will only compile on a Linux system, running on macOS
+or Windows migth result in a unittest deadlock (it never exits).
+
+Packages that are known to not build using this procedure (as of now):
+
 ```
 vyatta-util     - Not needed anymore
-vyatta-quagga   - Not needed anymore 
+vyatta-quagga   - Not needed anymore
 vyos-1x         - Unmet build dependencies: whois libvyosconfig0
 vyos-frr        - Alott of requirements, scary stuff...
 vyos-kernel     - Need special build instructions
 vyos-wireguard  - Needs special build instructions
 ```
 
-
 ## Building the ISO image
 
 Before you can build an image, you need to configure your build.
 
 To build an image, use the following commands:
+
 ```bash
 $ ./configure
 $ make iso
@@ -230,6 +253,7 @@ with `--help`
 ### QEMU
 
 Run following command after building the ISO image.
+
 ```bash
 $ make qemu
 ```
@@ -237,6 +261,7 @@ $ make qemu
 ### VMware
 
 Run following command after building the QEMU image.
+
 ```bash
 $ make vmware
 ```
@@ -262,8 +287,6 @@ In packages that originate from VyOS the master branch is kept in sync with
 last legacy package is gone, we will switch to using the `master` branch and
 retire `current`.
 
-For branch naming we use chemical elements:
-* hydrogen
-* helium
-* lithium
+For branch naming we switched to use constellations:
+* `crux`
 * ...
