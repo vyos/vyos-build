@@ -190,3 +190,6 @@
 	path = packages/vyos-accel-ppp
 	url = https://github.com/vyos/vyos-accel-ppp.git
 	branch = current
+[submodule "packages/frr"]
+	path = packages/frr
+	url = https://github.com/FRRouting/frr.git
