@@ -152,7 +152,6 @@ for PKG in mdns-repeater \
            vyatta-wireless \
            vyatta-wirelessmodem \
            vyatta-zone \
-           vyos-frr \
            vyos-keepalived \
            vyos-nhrp \
            vyos-pppoe-server \
@@ -165,7 +164,6 @@ for PKG in mdns-repeater \
       exit $ERRCODE
   fi
 done
-
 
 # KERNEL
 build_kernel() {
