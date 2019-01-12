@@ -68,7 +68,7 @@ $ apt-get update
 
 If you are working on a Debian Jessie machine, no special preparation is needed,
 you only need to enable jessie-backports and install build dependencies. An
-up-to-date depnedency list can be found in out [Dockerfile](docker/Dockerfile).
+up-to-date dependency list can be found in our [Dockerfile](docker/Dockerfile).
 
 Several packages are required for building the ISO:
 * `python3`
