@@ -19,7 +19,7 @@ print_help() {
   echo ""
   echo "Parameters:"
   echo "  --init-packages      - Initiate all subpackages before building"
-  echo "  --verbose|-v         - Enable verbose output"
+  echo "  --verbose            - Enable verbose output"
 }
 
 while test $# -gt 0
@@ -32,7 +32,7 @@ do
     --init-packages)
       INIT_PACKAGES=1
       ;;
-    --verbose|-v)
+    --verbose)
       VERBOSE=1
       ;;
     *)
@@ -114,6 +114,29 @@ initialize_packages() {
 if [ $INIT_PACKAGES ]; then
   initialize_packages
 fi
+
+build_frr() {
+  # FRR upstream version is specified here
+  FRR_VER="debian/frr-6.0.2-1"
+  PKG=frr
+  status_start "Building package: $PKG (Git commit/tag: $FRR_VER)"
+  if [ ! -f "$PKGDIR/$PKG/README.md" ]; then
+    status_skip "No source for: $PKG"
+    return 1
+  fi
+  ( set -e; set -x
+    cd $PKGDIR/$PKG
+    git checkout $FRR_VER
+    dpkg-buildpackage -uc -us -tc -b
+  ) >>$PKGDIR/$PKG.buildlog 2>&1
+  if [ $? -ne 0 ]; then
+    status_fail
+    error_msg "Failed to build package $PKG, look in $PKG.buildlog to examine the fault\n"
+    return 2
+  fi
+  status_ok
+}
+build_frr
 
 for PKG in mdns-repeater \
            pmacct \
