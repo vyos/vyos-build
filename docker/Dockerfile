@@ -123,6 +123,28 @@ RUN apt-get update && apt-get install -y \
       cmake \
       liblua5.1-dev
 
+# Prerequisites for building FRR from source
+# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
+#
+# librtr
+RUN apt-get update && apt-get install -y \
+    doxygen \
+    libssh-dev
+
+RUN export RTRLIB_COMMIT="v0.6.3" && \
+    git clone https://github.com/rtrlib/rtrlib.git && \
+    cd rtrlib && git checkout $RTRLIB_COMMIT && \
+    dpkg-buildpackage -uc -us -tc -b && dpkg -i ../*.deb
+
+# Prerequisites for building FRR from source
+# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
+#
+RUN export LIBYANG_COMMIT="v0.16-r2" && \
+    git clone https://github.com/CESNET/libyang.git && \
+    cd libyang && git checkout $LIBYANG_COMMIT && mkdir build && cd build && \
+    cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr .. && \
+    make && make install
+
 # Packages needed for frr
 RUN apt-get update && apt-get install -y \
       libreadline-dev \
@@ -137,19 +159,10 @@ RUN apt-get update && apt-get install -y \
       libjson0-dev \
       python-ipaddr \
       python3-dev \
-      python3-pip \
+      python3-pytest \
+      install-info \
       libc-ares-dev \
       libc-ares2
-
-# 3rd-party depndencies required for building FRR, see
-# http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
-RUN pip3 install pytest
-RUN git clone https://github.com/opensourcerouting/libyang /tmp/libyang && \
-    cd /tmp/libyang && \
-    git checkout -b tmp origin/tmp && \
-    mkdir build; cd build && \
-    cmake -DENABLE_LYD_PRIV=ON .. && \
-    make && make install
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\

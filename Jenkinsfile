@@ -50,20 +50,11 @@ pipeline {
                 '''
             }
         }
-        stage('Deploy') {
-            steps {
-                archiveArtifacts artifacts: 'build/vyos-*-rolling*.iso', fingerprint: true
-            }
-        }
     }
 
     post {
         always {
             echo 'One way or another, I have finished'
-            // change build dir file permissions so wen can cleanup as regular
-            // user (jenkins) afterwards
-            sh 'sudo chmod -R 777 .'
-            echo 'No cleanup for now ....'
             deleteDir() /* cleanup our workspace */
         }
     }
