@@ -201,7 +201,6 @@ for PKG in mdns-repeater \
            vyatta-op-vpn \
            vyatta-openvpn \
            vyatta-ravpn \
-           vyatta-vrrp \
            vyatta-wanloadbalance \
            vyatta-webgui \
            vyatta-webproxy \

@@ -74,10 +74,6 @@
 	path = packages/vyatta-cluster
 	url = https://github.com/vyos/vyatta-cluster.git
 	branch = current
-[submodule "packages/vyatta-vrrp"]
-	path = packages/vyatta-vrrp
-	url = https://github.com/vyos/vyatta-vrrp.git
-	branch = current
 [submodule "packages/vyatta-eventwatch"]
 	path = packages/vyatta-eventwatch
 	url = https://github.com/vyos/vyatta-eventwatch.git
