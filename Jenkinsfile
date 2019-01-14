@@ -55,6 +55,9 @@ pipeline {
     post {
         always {
             echo 'One way or another, I have finished'
+            // the 'build' directory got elevated permissions during the build
+            // cdjust permissions so it can be cleaned up by the regular user
+            sh 'sudo chmod -R 777 build/'
             deleteDir() /* cleanup our workspace */
         }
     }
