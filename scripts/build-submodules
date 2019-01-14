@@ -153,8 +153,8 @@ build_frr() {
     #       /usr/lib/x86_64-linux-gnu/libyang.so.0.16"
     #
     # It is "overruled" by
-    sed '/dh_systemd_enable frr.service/ a override_dh_shlibdeps:\n\tdh_shlibdeps \
-        --dpkg-shlibdeps-params=--ignore-missing-info\n' -i debian/rules
+    sed '/dh_systemd_enable frr.service/ a \\noverride_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info\n' -i debian/rules
+
 
     # Build Debian Package
     debuild --no-lintian --set-envvar=WANT_SNMP=1 --set-envvar=WANT_RPKI=1 \
