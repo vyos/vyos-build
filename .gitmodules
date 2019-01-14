@@ -126,10 +126,6 @@
 	path = packages/vyatta-ravpn
 	url = https://github.com/vyos/vyatta-ravpn.git
 	branch = current
-[submodule "packages/vyos-pppoe-server"]
-	path = packages/vyos-pppoe-server
-	url = https://github.com/vyos/vyos-pppoe-server.git
-	branch = current
 [submodule "packages/vyos-nhrp"]
 	path = packages/vyos-nhrp
 	url = https://github.com/vyos/vyos-nhrp.git

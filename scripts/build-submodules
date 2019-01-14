@@ -209,7 +209,6 @@ for PKG in mdns-repeater \
            vyatta-zone \
            vyos-keepalived \
            vyos-nhrp \
-           vyos-pppoe-server \
            vyos-strongswan \
            vyos-world \
            ; do
