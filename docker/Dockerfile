@@ -162,7 +162,9 @@ RUN apt-get update && apt-get install -y \
       python3-pytest \
       install-info \
       libc-ares-dev \
-      libc-ares2
+      libc-ares2 \
+      libzmq3 \
+      libzmq3-dev
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
