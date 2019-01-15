@@ -20,6 +20,7 @@ print_help() {
   echo "Parameters:"
   echo "  --init-packages      - Initiate all subpackages before building"
   echo "  --verbose            - Enable verbose output"
+  echo "  --build-[packagename] - build only selected packages"
 }
 
 BUILDLIST=""
