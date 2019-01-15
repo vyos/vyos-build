@@ -22,6 +22,8 @@ print_help() {
   echo "  --verbose            - Enable verbose output"
 }
 
+BUILDLIST=""
+
 while test $# -gt 0
 do
   case "$1" in
@@ -34,6 +36,10 @@ do
       ;;
     --verbose)
       VERBOSE=1
+      ;;
+    --build-*)
+      VAL=$(sed s/^--build-//g <<< $1)
+      BUILDLIST="$BUILDLIST $VAL"
       ;;
     *)
       (>&2 echo "Error: Argument $1 is not valid")
@@ -67,8 +73,26 @@ ROOTDIR="$(pwd)"
 PKGDIR="$ROOTDIR/packages"
 SCRIPTDIR="$ROOTDIR/scripts"
 
+package_in_buildlist() {
+  # Return true if buildlist is not set
+  if [ -z "$BUILDLIST" ]; then
+    return 0
+  fi
+
+  if [[ $BUILDLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
+    return 0
+  fi
+  
+  return 1
+
+ 
+}
+
 build_package() {
   PKG=$1
+  if ! package_in_buildlist $1; then
+    return 0
+  fi
   status_start "Building package: $PKG"
   if [ ! -d "$PKGDIR/$PKG/debian" ]; then
     status_skip "No source for: $PKG"
@@ -119,6 +143,10 @@ build_frr() {
   # FRR upstream version is specified here
   FRR_VER="debian/frr-6.0.2-1"
   PKG=frr
+  if ! package_in_buildlist "frr"; then
+    return 0
+  fi
+
   status_start "Building package: $PKG (Git commit/tag: $FRR_VER)"
   if [ ! -f "$PKGDIR/$PKG/README.md" ]; then
     status_skip "No source for: $PKG"
@@ -190,6 +218,9 @@ done
 
 # KERNEL
 build_kernel() {
+  if ! package_in_buildlist "vyos-kernel"; then
+    return 0
+  fi
   status_start "Building-package: vyos-kernel"
   if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
     status_skip "No source for: vyos-kernel"
@@ -225,6 +256,9 @@ fi
 
 # WIREGUARD
 build_wireguard() {
+  if ! package_in_buildlist "vyos-wireguard"; then
+    return 0
+  fi
   status_start "Building package: vyos-wireguard"
 
   if [ ! -d "$PKGDIR/vyos-wireguard/debian" ]; then
@@ -272,6 +306,9 @@ fi
 
 # ACCEL-PPP
 build_accel-ppp() {
+  if ! package_in_buildlist "accel-ppp"; then
+    return 0
+  fi
   status_start "Building package: vyos-accel-ppp"
   if [ ! -d "$PKGDIR/vyos-accel-ppp/debian" ]; then
     status_skip "No source for: vyos-accel-ppp"
