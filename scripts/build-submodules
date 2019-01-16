@@ -64,7 +64,7 @@ status_fail() {
 }
 
 status_skip() {
-    echo -ne "\r[SKIP] $1\n"
+    echo -ne "\r[SKIP] $1\033[K\n"
 }
 
 error_msg() {
