@@ -74,10 +74,6 @@
 	path = packages/vyatta-cluster
 	url = https://github.com/vyos/vyatta-cluster.git
 	branch = current
-[submodule "packages/vyatta-vrrp"]
-	path = packages/vyatta-vrrp
-	url = https://github.com/vyos/vyatta-vrrp.git
-	branch = current
 [submodule "packages/vyatta-eventwatch"]
 	path = packages/vyatta-eventwatch
 	url = https://github.com/vyos/vyatta-eventwatch.git
@@ -129,10 +125,6 @@
 [submodule "packages/vyatta-ravpn"]
 	path = packages/vyatta-ravpn
 	url = https://github.com/vyos/vyatta-ravpn.git
-	branch = current
-[submodule "packages/vyos-pppoe-server"]
-	path = packages/vyos-pppoe-server
-	url = https://github.com/vyos/vyos-pppoe-server.git
 	branch = current
 [submodule "packages/vyos-nhrp"]
 	path = packages/vyos-nhrp
@@ -193,3 +185,12 @@
 [submodule "packages/frr"]
 	path = packages/frr
 	url = https://github.com/FRRouting/frr.git
+	branch = master
+[submodule "packages/conntrack-tools"]
+	path = packages/conntrack-tools
+	url = https://github.com/vyos/conntrack-tools.git
+	branch = current
+[submodule "packages/eventwatchd"]
+	path = packages/eventwatchd
+	url = https://github.com/vyos/eventwatchd.git
+	branch = current

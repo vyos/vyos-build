@@ -141,8 +141,6 @@ if [ $INIT_PACKAGES ]; then
 fi
 
 build_frr() {
-  # FRR upstream version is specified here
-  FRR_VER="debian/frr-6.0.2-1"
   PKG=frr
   if ! package_in_buildlist "frr"; then
     return 0
@@ -153,10 +151,44 @@ build_frr() {
     status_skip "No source for: $PKG"
     return 1
   fi
+
   ( set -e; set -x
     cd $PKGDIR/$PKG
-    git checkout $FRR_VER
-    dpkg-buildpackage -uc -us -tc -b
+
+    # Run bootstrap.sh and make a dist tarball
+    # http://docs.frrouting.org/projects/dev-guide/en/latest/packaging-debian.html
+    ./bootstrap.sh
+    ./configure --with-pkg-extra-version=-vyos
+    make dist
+
+    # Create backports debian sources
+    mv debianpkg debian
+    make -f debian/rules backports
+
+    # Create a new directory to build the package and populate with package source.
+    mkdir frrpkg
+    cd frrpkg
+    tar xf ../frr_*.orig.tar.gz
+    cd frr*
+    source /etc/os-release
+    ls -al ../../frr_*${ID}${VERSION_ID}*
+    tar xf ../../frr_*${ID}${VERSION_ID}*.debian.tar.xz
+
+    # As libyang is not (yet) build and installed as native Debian package FRR
+    # build system reports the following error:
+    #
+    #   "dpkg-shlibdeps: error: no dependency information found for
+    #       /usr/lib/x86_64-linux-gnu/libyang.so.0.16"
+    #
+    # It is "overruled" by
+    sed '/dh_systemd_enable frr.service/ a \\noverride_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info\n' -i debian/rules
+
+
+    # Build Debian Package
+    debuild --no-lintian --set-envvar=WANT_SNMP=1 --set-envvar=WANT_RPKI=1 \
+        --set-envvar=WANT_CUMULUS_MODE=0 -b -uc -us
+
+    mv ../frr_*.deb $PKGDIR
   ) >>$PKGDIR/$PKG.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
@@ -170,6 +202,8 @@ build_frr
 for PKG in mdns-repeater \
            pmacct \
            udp-broadcast-relay \
+           conntrack-tools \
+           eventwatchd \
            vyatta-bash \
            vyatta-cfg \
            vyatta-cfg-firewall \
@@ -197,7 +231,6 @@ for PKG in mdns-repeater \
            vyatta-op-vpn \
            vyatta-openvpn \
            vyatta-ravpn \
-           vyatta-vrrp \
            vyatta-wanloadbalance \
            vyatta-webgui \
            vyatta-webproxy \
@@ -206,7 +239,6 @@ for PKG in mdns-repeater \
            vyatta-zone \
            vyos-keepalived \
            vyos-nhrp \
-           vyos-pppoe-server \
            vyos-strongswan \
            vyos-world \
            ; do
