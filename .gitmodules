@@ -185,3 +185,8 @@
 [submodule "packages/frr"]
 	path = packages/frr
 	url = https://github.com/FRRouting/frr.git
+	branch = master
+[submodule "packages/conntrack-tools"]
+	path = packages/conntrack-tools
+	url = https://github.com/vyos/conntrack-tools.git
+	branch = current

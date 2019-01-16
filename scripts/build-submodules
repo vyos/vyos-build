@@ -174,6 +174,7 @@ build_frr
 for PKG in mdns-repeater \
            pmacct \
            udp-broadcast-relay \
+           conntrack-tools \
            vyatta-bash \
            vyatta-cfg \
            vyatta-cfg-firewall \
