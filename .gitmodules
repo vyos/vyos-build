@@ -190,3 +190,7 @@
 	path = packages/conntrack-tools
 	url = https://github.com/vyos/conntrack-tools.git
 	branch = current
+[submodule "packages/eventwatchd"]
+	path = packages/eventwatchd
+	url = https://github.com/vyos/eventwatchd.git
+	branch = current
