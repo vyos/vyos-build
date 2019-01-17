@@ -91,7 +91,7 @@ package_in_buildlist() {
 
 build_package() {
   PKG=$1
-  COMMITID=$(git log --pretty=format:'%h' -n 1--git-dir $PKGDIR/$PKG)
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
   if ! package_in_buildlist $1; then
     return 0
   fi
@@ -116,7 +116,7 @@ echo "Cleaning up buildfiles..."
 rm -rf $PKGDIR/*.deb
 rm -rf $PKGDIR/*.changes
 rm -rf $PKGDIR/*.buildlog
-COMMITID=$(git log --pretty=format:'%h' -n 1--git-dir $PKGDIR)
+COMMITID=$(cd $PKGDIR; git rev-parse --short=10 HEAD)
 echo "-----------------------------------------------------"
 echo "Starting build process for all packages"
 echo "vyos-build Commit ID: $COMMITID"
@@ -256,7 +256,7 @@ build_kernel() {
   if ! package_in_buildlist "vyos-kernel"; then
     return 0
   fi
-  COMMITID=$(git log --pretty=format:'%h' -n 1--git-dir $PKGDIR/$PKG)
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
   status_start "Building-package: vyos-kernel   Commit ID:$COMMITID"
   if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
     status_skip "No source for: vyos-kernel"
@@ -296,7 +296,7 @@ build_wireguard() {
   if ! package_in_buildlist "vyos-wireguard"; then
     return 0
   fi
-  COMMITID=$(git log --pretty=format:'%h' -n 1--git-dir $PKGDIR/$PKG)
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
   status_start "Building package: vyos-wireguard    Commit ID:$COMMITID"
 
   if [ ! -d "$PKGDIR/vyos-wireguard/debian" ]; then
@@ -348,7 +348,7 @@ build_accel-ppp() {
   if ! package_in_buildlist "accel-ppp"; then
     return 0
   fi
-  COMMITID=$(git log --pretty=format:'%h' -n 1--git-dir $PKGDIR/$PKG)
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
   status_start "Building package: vyos-accel-ppp   Commit ID: $COMMITID"
   if [ ! -d "$PKGDIR/vyos-accel-ppp/debian" ]; then
     status_skip "No source for: vyos-accel-ppp"
