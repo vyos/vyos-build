@@ -217,4 +217,6 @@
 	path = packages/libvyosconfig
 	url = https://github.com/vyos/libvyosconfig.git
 	branch = master
-
+[submodule "packages/vyos-vmwaretools-scripts"]
+	path = packages/vyos-vmwaretools-scripts
+	url = https://github.com/vyos/vyos-vmwaretools-scripts.git
