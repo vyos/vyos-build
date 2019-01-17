@@ -220,3 +220,7 @@
 [submodule "packages/vyos-vmwaretools-scripts"]
 	path = packages/vyos-vmwaretools-scripts
 	url = https://github.com/vyos/vyos-vmwaretools-scripts.git
+[submodule "vyos-xe-guest-utilities"]
+	path = vyos-xe-guest-utilities
+	url = https://github.com/vyos/vyos-xe-guest-utilities.git
+
