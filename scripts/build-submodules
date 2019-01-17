@@ -20,7 +20,10 @@ print_help() {
   echo "Parameters:"
   echo "  --init-packages      - Initiate all subpackages before building"
   echo "  --verbose            - Enable verbose output"
+  echo "  --build-[packagename] - build only selected packages"
 }
+
+BUILDLIST=""
 
 while test $# -gt 0
 do
@@ -34,6 +37,10 @@ do
       ;;
     --verbose)
       VERBOSE=1
+      ;;
+    --build-*)
+      VAL=$(sed s/^--build-//g <<< $1)
+      BUILDLIST="$BUILDLIST $VAL"
       ;;
     *)
       (>&2 echo "Error: Argument $1 is not valid")
@@ -57,7 +64,7 @@ status_fail() {
 }
 
 status_skip() {
-    echo -ne "\r[SKIP] $1\n"
+    echo -ne "\r[SKIP] $1\033[K\n"
 }
 
 error_msg() {
@@ -67,9 +74,28 @@ ROOTDIR="$(pwd)"
 PKGDIR="$ROOTDIR/packages"
 SCRIPTDIR="$ROOTDIR/scripts"
 
+package_in_buildlist() {
+  # Return true if buildlist is not set
+  if [ -z "$BUILDLIST" ]; then
+    return 0
+  fi
+
+  if [[ $BUILDLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
+    return 0
+  fi
+  
+  return 1
+
+ 
+}
+
 build_package() {
   PKG=$1
-  status_start "Building package: $PKG"
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  if ! package_in_buildlist $1; then
+    return 0
+  fi
+  status_start "Building package: $PKG     Commit id: $COMMITID"
   if [ ! -d "$PKGDIR/$PKG/debian" ]; then
     status_skip "No source for: $PKG"
     return 1
@@ -90,9 +116,10 @@ echo "Cleaning up buildfiles..."
 rm -rf $PKGDIR/*.deb
 rm -rf $PKGDIR/*.changes
 rm -rf $PKGDIR/*.buildlog
+COMMITID=$(cd $PKGDIR; git rev-parse --short=10 HEAD)
 echo "-----------------------------------------------------"
 echo "Starting build process for all packages"
-echo ""
+echo "vyos-build Commit ID: $COMMITID"
 
 initialize_packages() {
   status_start "Initializing packages"
@@ -117,8 +144,10 @@ fi
 
 build_frr() {
   PKG=frr
-
-  status_start "Building package: $PKG"
+  if ! package_in_buildlist "frr"; then
+    return 0
+  fi
+  status_start "Building package: $PKG (Git commit/tag: $FRR_VER)"
   if [ ! -f "$PKGDIR/$PKG/README.md" ]; then
     status_skip "No source for: $PKG"
     return 1
@@ -229,7 +258,12 @@ done
 
 # KERNEL
 build_kernel() {
-  status_start "Building-package: vyos-kernel"
+  PKG="vyos-kernel"
+  if ! package_in_buildlist "vyos-kernel"; then
+    return 0
+  fi
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  status_start "Building-package: vyos-kernel   Commit ID:$COMMITID"
   if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
     status_skip "No source for: vyos-kernel"
     return 0
@@ -264,7 +298,12 @@ fi
 
 # WIREGUARD
 build_wireguard() {
-  status_start "Building package: vyos-wireguard"
+  PKG="vyos-wireguard"
+  if ! package_in_buildlist "vyos-wireguard"; then
+    return 0
+  fi
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  status_start "Building package: vyos-wireguard    Commit ID:$COMMITID"
 
   if [ ! -d "$PKGDIR/vyos-wireguard/debian" ]; then
     status_skip "No source for: vyos-wireguard"
@@ -311,7 +350,12 @@ fi
 
 # ACCEL-PPP
 build_accel-ppp() {
-  status_start "Building package: vyos-accel-ppp"
+  PKG="vyos-accel-ppp"
+  if ! package_in_buildlist "accel-ppp"; then
+    return 0
+  fi
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  status_start "Building package: vyos-accel-ppp   Commit ID: $COMMITID"
   if [ ! -d "$PKGDIR/vyos-accel-ppp/debian" ]; then
     status_skip "No source for: vyos-accel-ppp"
     return 0
