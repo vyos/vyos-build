@@ -206,3 +206,7 @@
 	path = packages/vyos-opennhrp
 	url = https://github.com/vyos/vyos-opennhrp.git
 	branch = current
+[submodule "packages/vyos-salt-minion"]
+	path = packages/vyos-salt-minion
+	url = https://github.com/vyos/vyos-salt-minion.git
+	branch = current

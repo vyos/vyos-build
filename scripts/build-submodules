@@ -214,6 +214,7 @@ for PKG in mdns-repeater \
            vyos-keepalived \
            vyos-nhrp \
            vyos-opennhrp \
+           vyos-salt-minion \
            vyos-strongswan \
            vyos-world \
            ; do
