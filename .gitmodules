@@ -229,3 +229,7 @@
 	path = packages/vyconf
 	url = https://github.com/vyos/vyconf.git
 	branch = master
+[submodule "packages/vyos-netplug"]
+	path = packages/vyos-netplug
+	url = https://github.com/vyos/vyos-netplug.git
+	branch = current

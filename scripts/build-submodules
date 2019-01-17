@@ -243,6 +243,7 @@ for PKG in mdns-repeater \
            vyatta-wirelessmodem \
            vyatta-zone \
            vyos-keepalived \
+           vyos-netplug \
            vyos-nhrp \
            vyos-opennhrp \
            vyos-salt-minion \
