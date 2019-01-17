@@ -213,3 +213,8 @@
 [submodule "packages/rtrlib"]
 	path = packages/rtrlib
 	url = https://github.com/rtrlib/rtrlib.git
+[submodule "packages/libvyosconfig"]
+	path = packages/libvyosconfig
+	url = https://github.com/vyos/libvyosconfig.git
+	branch = master
+

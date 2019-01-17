@@ -178,6 +178,7 @@ for PKG in mdns-repeater \
            eventwatchd \
            ddclient \
            rtrlib \
+           libvyosconfig \
            vyatta-bash \
            vyatta-biosdevname \
            vyatta-cfg \
