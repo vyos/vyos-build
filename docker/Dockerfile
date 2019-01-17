@@ -173,6 +173,13 @@ RUN apt-get update && apt-get install -y \
       libnetfilter-cttimeout-dev \
       libnetfilter-queue-dev
 
+# Packages needed for libvyosconfig
+RUN apt-get update && apt-get install -y \
+      libffi-dev \
+      ocaml-findlib \
+      opam \
+      menhir
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
     apt-get update &&\
