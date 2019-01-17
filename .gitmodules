@@ -202,3 +202,7 @@
 	path = packages/vyatta-biosdevname
 	url = https://github.com/vyos/vyatta-biosdevname.git
 	branch = current
+[submodule "packages/vyos-opennhrp"]
+	path = packages/vyos-opennhrp
+	url = https://github.com/vyos/vyos-opennhrp.git
+	branch = current
