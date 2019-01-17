@@ -194,3 +194,11 @@
 	path = packages/eventwatchd
 	url = https://github.com/vyos/eventwatchd.git
 	branch = current
+[submodule "packages/ddclient"]
+	path = packages/ddclient
+	url = https://github.com/vyos/ddclient.git
+	branch = current
+[submodule "packages/vyatta-biosdevname"]
+	path = packages/vyatta-biosdevname
+	url = https://github.com/vyos/vyatta-biosdevname.git
+	branch = current

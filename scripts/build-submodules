@@ -176,7 +176,9 @@ for PKG in mdns-repeater \
            udp-broadcast-relay \
            conntrack-tools \
            eventwatchd \
+           ddclient \
            vyatta-bash \
+           vyatta-biosdevname \
            vyatta-cfg \
            vyatta-cfg-firewall \
            vyatta-cfg-op-pppoe \
