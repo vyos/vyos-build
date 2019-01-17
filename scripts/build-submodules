@@ -177,6 +177,7 @@ for PKG in mdns-repeater \
            conntrack-tools \
            eventwatchd \
            ddclient \
+           rtrlib \
            vyatta-bash \
            vyatta-biosdevname \
            vyatta-cfg \

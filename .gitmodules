@@ -210,3 +210,6 @@
 	path = packages/vyos-salt-minion
 	url = https://github.com/vyos/vyos-salt-minion.git
 	branch = current
+[submodule "packages/rtrlib"]
+	path = packages/rtrlib
+	url = https://github.com/rtrlib/rtrlib.git
