@@ -3,14 +3,25 @@
 # in order to easy exprort images built to "external" world
 FROM debian:jessie
 
-RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/apt/sources.list &&\
-    apt-get update && apt-get install -y \
-      gosu \
+ENV DEBIAN_FRONTEND noninteractive
+
+# Standard shell should be bash not dash
+RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
+    dpkg-reconfigure dash
+
+RUN apt-get update && apt-get install -y \
+      dialog \
+      apt-utils \
+      locales
+
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
+ENV LANG en_US.utf8
+
+RUN apt-get update && apt-get install -y \
       vim \
       git \
       make \
       sudo \
-      locales \
       live-build \
       pbuilder \
       devscripts \
@@ -28,11 +39,11 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       libglib2.0-dev \
       libboost-filesystem-dev \
       libapt-pkg-dev \
+      libncurses5-dev \
       flex \
       bison \
       libperl-dev \
       libnfnetlink-dev \
-      python3-git \
       parted \
       kpartx \
       jq \
@@ -45,8 +56,14 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/
       python3-coverage \
       python3-sphinx
 
+# Add Debian jessie-backports support
+RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/apt/sources.list && \
+    apt-get update && apt-get install -y -t jessie-backports \
+      python3-git \
+      gosu
+
 # Packages needed for building vyos-strongswan
-RUN apt-get update && apt-get install -y -t jessie-backports debhelper &&\
+RUN apt-get update && apt-get install -y -t jessie-backports debhelper && \
     apt-get install -y \
       dh-apparmor \
       gperf \
@@ -71,11 +88,6 @@ RUN apt-get update && apt-get install -y -t jessie-backports debhelper &&\
 # Package needed for mdns-repeater
 RUN apt-get update && apt-get install -y -t jessie-backports \
       dh-systemd
-
-# Packages needed for vyatta-bash
-RUN apt-get update && apt-get install -y \
-      libncurses5-dev \
-      locales
 
 # Packages needed for vyatta-cfg
 RUN apt-get update &&apt-get install -y \
@@ -176,24 +188,17 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for libvyosconfig
 RUN apt-get update && apt-get install -y \
       libffi-dev \
-      ocaml-findlib \
       opam \
-      menhir
+      mercurial \
+      oasis
 
 # Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list &&\
+RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update &&\
     apt-get install -y -t stretch live-build &&\
     rm -f /etc/apt/sources.list.d/stretch.list &&\
     apt-get update &&\
     rm -rf /var/lib/apt/lists/*
-
-# Standard shell should be bash not dash
-RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
-    DEBIAN_FRONTEND=noninteractive dpkg-reconfigure dash
-
-RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
-ENV LANG en_US.utf8
 
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
