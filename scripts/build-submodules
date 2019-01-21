@@ -249,6 +249,7 @@ for PKG in mdns-repeater \
            vyos-salt-minion \
            vyos-strongswan \
            vyos-world \
+           vyos-1x \
            ; do
   build_package "$PKG"
   ERRCODE=$?
