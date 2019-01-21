@@ -20,6 +20,7 @@ ENV LANG en_US.utf8
 RUN apt-get update && apt-get install -y \
       vim \
       git \
+      curl \
       make \
       sudo \
       live-build \
@@ -137,11 +138,9 @@ RUN apt-get update && apt-get install -y \
 
 # Prerequisites for building FRR from source
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
-#
-# librtr
 RUN apt-get update && apt-get install -y \
-    doxygen \
-    libssh-dev
+      doxygen \
+      libssh-dev
 
 RUN export RTRLIB_COMMIT="v0.6.3" && \
     git clone https://github.com/rtrlib/rtrlib.git && \
@@ -185,19 +184,63 @@ RUN apt-get update && apt-get install -y \
       libnetfilter-cttimeout-dev \
       libnetfilter-queue-dev
 
-# Packages needed for libvyosconfig
+# Packages needed for libvyosconfig && VyConf
 RUN apt-get update && apt-get install -y \
-      libffi-dev \
-      opam \
-      mercurial \
-      oasis
+      libffi-dev
+
+# Packages needed for libvyosconfig
+RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
+    sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
+    opam init --disable-sandboxing && \
+    eval $(opam env) && opam switch create 4.07.0 && \
+    eval $(opam env) && opam install -y oasis && \
+    eval $(opam env) && opam install -y \
+      fileutils \
+      lwt \
+      lwt_ppx \
+      lwt_log \
+      ocplib-endian \
+      ounit \
+      pcre \
+      ppx_deriving_yojson \
+      sha \
+      toml \
+      xml-light \
+      batteries \
+      ocaml-protoc \
+      ctypes-foreign
+
+RUN eval $(opam env) && opam install -y \
+      ctypes
+
+# Build VyConf which is required to build libvyosconfig
+RUN eval $(opam env) && \
+    git clone https://github.com/vyos/vyconf.git && \
+    cd vyconf && \
+    git checkout 0f121c12a84200 && \
+    ./build-setup.sh && \
+    ./configure --enable-tests && \
+    make && \
+    make test && \
+    make install
+
+# Build libvyosconfig
+RUN eval $(opam env) && \
+    git clone https://github.com/vyos/libvyosconfig && \
+    cd libvyosconfig && \
+    git checkout e75e4ae638c49e && \
+    dpkg-buildpackage -uc -us -tc -b && \
+    dpkg -i ../libvyosconfig0_*_amd64.deb
+
+# Packages needed for vyos-1x
+RUN apt-get update && apt-get install -y \
+      whois
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update &&\
-    apt-get install -y -t stretch live-build &&\
-    rm -f /etc/apt/sources.list.d/stretch.list &&\
-    apt-get update &&\
+    apt-get update && apt-get install -y -t stretch live-build && \
+    rm -f /etc/apt/sources.list.d/stretch.list && \
+    apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install packer
