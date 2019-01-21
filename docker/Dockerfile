@@ -186,7 +186,8 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for libvyosconfig && VyConf
 RUN apt-get update && apt-get install -y \
-      libffi-dev
+      libffi-dev \
+      menhir
 
 # Packages needed for libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
