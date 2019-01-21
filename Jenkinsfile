@@ -40,12 +40,23 @@ pipeline {
                 sh 'scripts/build-submodules --verbose'
             }
         }
+
         stage('Build ISO') {
             steps {
                 sh '''
                     #!/bin/sh
+
+                    # we do not want to fetch VyOS packages from the mirror,
+                    # we rather prefer all build by ourself!
+                    sed -i '/vyos_repo_entry/d' scripts/live-build-config
+
+                    # Configure the ISO
                     ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
+
+                    # Debug to see which Debian packages we have so far
                     ls -al packages/*.deb
+
+                    # Finally build our ISO
                     sudo make iso
                 '''
             }
