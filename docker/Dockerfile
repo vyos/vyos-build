@@ -79,7 +79,6 @@ RUN apt-get update && apt-get install -y -t jessie-backports debhelper && \
       iptables \
       xl2tpd \
       libcurl4-openssl-dev \
-      libcurl4-openssl-dev \
       libkrb5-dev \
       libsqlite3-dev \
       libssl-dev \
