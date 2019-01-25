@@ -219,7 +219,7 @@ RUN eval $(opam env) && \
     git clone https://github.com/vyos/vyconf.git && \
     cd vyconf && \
     git checkout 0f121c12a84200 && \
-    opam pin add vyconf.
+    opam pin add vyconf .
 
 # Build libvyosconfig
 RUN eval $(opam env) && \
