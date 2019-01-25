@@ -173,7 +173,7 @@ Fetching all submodules at once and update them to the recent remote branches
 
 ```bash
 $ git submodule update --init --recursive
-$ git submodule update --remotes
+$ git submodule update --remote
 ```
 
 ### Building packages
