@@ -40,7 +40,7 @@ There are several directories with their own purpose:
 
    build/    Used for temporary files used for the build and for build artifacts
    scripts/  Scripts that are used for the build process
-   data/     Data required for buildng the ISO (such as boot splash)
+   data/     Data required for building the ISO (such as boot splash)
    tools/    Scripts that are used for maintainer's tasks automation and other
              purposes, but not during ISO build process
 
@@ -221,7 +221,7 @@ building `vyos-strongswan` and can be ignored on other packages.
 you want to recompile!
 
 **NOTE:** `vyos-strongswan` will only compile on a Linux system, running on macOS
-or Windows migth result in a unittest deadlock (it never exits).
+or Windows might result in a unittest deadlock (it never exits).
 
 Packages that are known to not build using this procedure (as of now):
 
@@ -229,7 +229,7 @@ Packages that are known to not build using this procedure (as of now):
 vyatta-util     - Not needed anymore
 vyatta-quagga   - Not needed anymore
 vyos-1x         - Unmet build dependencies: whois libvyosconfig0
-vyos-frr        - Alott of requirements, scary stuff...
+vyos-frr        - A lot of requirements, scary stuff...
 vyos-kernel     - Need special build instructions
 vyos-wireguard  - Needs special build instructions
 ```
@@ -273,7 +273,7 @@ $ make vmware
 The default branch that contains the most recent VyOS code is called `current`
 rather than `master`. We know it's confusing, but it's not easy to fix. In a
 nutshell, the code we inherited from Vyatta Core had its `master` branch so out
-of sync with everything it was beyong any repair. Vyatta developers used to create
+of sync with everything it was beyond any repair. Vyatta developers used to create
 a new branch not when a release is ready for code freeze, but rather before
 starting to work on a new release. This is hard to change in existing code, so
 this is just the way it is, for now.
