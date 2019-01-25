@@ -208,7 +208,8 @@ RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --o
       xml-light \
       batteries \
       ocaml-protoc \
-      ctypes-foreign
+      ctypes-foreign \
+      menhir
 
 RUN eval $(opam env) && opam install -y \
       ctypes
@@ -218,11 +219,7 @@ RUN eval $(opam env) && \
     git clone https://github.com/vyos/vyconf.git && \
     cd vyconf && \
     git checkout 0f121c12a84200 && \
-    ./build-setup.sh && \
-    ./configure --enable-tests && \
-    make && \
-    make test && \
-    make install
+    opam pin add vyconf.
 
 # Build libvyosconfig
 RUN eval $(opam env) && \
