@@ -233,3 +233,11 @@
 	path = packages/vyos-netplug
 	url = https://github.com/vyos/vyos-netplug.git
 	branch = current
+[submodule "packages/vyos-xe-guest-utilities"]
+	path = packages/vyos-xe-guest-utilities
+	url = http://github.com/vyos/vyos-xe-guest-utilities.git
+	branch = current
+[submodule "packages/igmpproxy"]
+	path = packages/igmpproxy
+	url = https://github.com/vyos/igmpproxy.git
+	branch = current

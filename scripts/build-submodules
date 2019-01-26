@@ -83,10 +83,8 @@ package_in_buildlist() {
   if [[ $BUILDLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
     return 0
   fi
-  
-  return 1
 
- 
+  return 1
 }
 
 build_package() {
@@ -102,7 +100,7 @@ build_package() {
   fi
   ( set -e; set -x
     cd $PKGDIR/$PKG
-    dpkg-buildpackage -uc -us -tc -b
+    dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
   ) >>$PKGDIR/$PKG.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
@@ -130,7 +128,7 @@ initialize_packages() {
   ) >>$PKGDIR/init-packages.buildlog 2>&1
   if [ $? -ne 0 ]; then
       status_fail
-      if [ $VERBOSE ]; then
+      if [ $VERBOSE -eq 1 ]; then
           cat $PKGDIR/init-packages.buildlog
       fi
       error_msg "Failed to update all package, look in init-packages.buildlog to examine the fault\n"
@@ -144,10 +142,11 @@ fi
 
 build_frr() {
   PKG=frr
-  if ! package_in_buildlist "frr"; then
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  if ! package_in_buildlist $1; then
     return 0
   fi
-  status_start "Building package: $PKG (Git commit/tag: $FRR_VER)"
+  status_start "Building package: $PKG Commit id: $COMMITID"
   if [ ! -f "$PKGDIR/$PKG/README.md" ]; then
     status_skip "No source for: $PKG"
     return 1
@@ -155,6 +154,8 @@ build_frr() {
 
   ( set -e; set -x
     cd $PKGDIR/$PKG
+    git clean -dxf
+    git reset --hard
 
     # Run bootstrap.sh and make a dist tarball
     # http://docs.frrouting.org/projects/dev-guide/en/latest/packaging-debian.html
@@ -172,7 +173,6 @@ build_frr() {
     tar xf ../frr_*.orig.tar.gz
     cd frr*
     source /etc/os-release
-    ls -al ../../frr_*${ID}${VERSION_ID}*
     tar xf ../../frr_*${ID}${VERSION_ID}*.debian.tar.xz
 
     # As libyang is not (yet) build and installed as native Debian package FRR
@@ -187,7 +187,8 @@ build_frr() {
 
     # Build Debian Package
     debuild --no-lintian --set-envvar=WANT_SNMP=1 --set-envvar=WANT_RPKI=1 \
-        --set-envvar=WANT_CUMULUS_MODE=0 -b -uc -us
+        --set-envvar=WANT_CUMULUS_MODE=0 -b -uc -us \
+        -j$(cat /proc/cpuinfo | grep processor | wc -l)
 
     mv ../frr_*.deb $PKGDIR
   ) >>$PKGDIR/$PKG.buildlog 2>&1
@@ -207,6 +208,7 @@ for PKG in mdns-repeater \
            eventwatchd \
            ddclient \
            rtrlib \
+           igmpproxy \
            libvyosconfig \
            vyatta-bash \
            vyatta-biosdevname \
@@ -242,6 +244,7 @@ for PKG in mdns-repeater \
            vyatta-wireless \
            vyatta-wirelessmodem \
            vyatta-zone \
+           vyos-xe-guest-utilities \
            vyos-keepalived \
            vyos-netplug \
            vyos-nhrp \
@@ -277,7 +280,7 @@ build_kernel() {
   ) >>$PKGDIR/vyos-kernel.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE ]; then
+    if [ $VERBOSE -eq 1 ]; then
         cat $PKGDIR/vyos-kernel.buildlog
     fi
     error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
@@ -332,11 +335,11 @@ build_wireguard() {
   ( set -e; set -x
     cd $PKGDIR/vyos-wireguard
     echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" | tee debian/wireguard-modules.install
-    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
   ) >>$PKGDIR/vyos-wireguard.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE ]; then
+    if [ $VERBOSE -eq 1 ]; then
         cat $PKGDIR/vyos-wireguard.buildlog
     fi
     error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
@@ -383,11 +386,11 @@ build_accel-ppp() {
     cd $PKGDIR/vyos-accel-ppp
     echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" | tee debian/vyos-accel-ppp-ipoe-kmod.install
     sed -i "s#[0-9].[0-9][0-9].[0-9]-amd64-vyos#$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos#g" debian/rules
-    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
   ) >>$PKGDIR/vyos-accel-ppp.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE ]; then
+    if [ $VERBOSE -eq 1 ]; then
         cat $PKGDIR/vyos-accel-ppp.buildlog
     fi
     error_msg "Failed to build package vyos-accel-ppp, look in vyos-accel-ppp.buildlog to examine the fault\n"

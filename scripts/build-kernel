@@ -27,7 +27,7 @@ case "$ARCH" in
         if [ ${PATCHLEVEL} -lt 14 ]; then
             TARGETS+=" kernel_manual kernel_doc"
         fi
-        CONCURRENCY_LEVEL=4 LOCALVERSION="" make-kpkg --rootcmd fakeroot --initrd --append_to_version -amd64-vyos --revision=$VERSION.$PATCHLEVEL.$SUBLEVEL-1+vyos1+current1 -j4 ${TARGETS}
+        CONCURRENCY_LEVEL=4 LOCALVERSION="" make-kpkg --rootcmd fakeroot --initrd --append_to_version -amd64-vyos --revision=$VERSION.$PATCHLEVEL.$SUBLEVEL-1+vyos1+current1 -j$(cat /proc/cpuinfo | grep processor | wc -l) ${TARGETS}
     ;;
 
     armhf)
