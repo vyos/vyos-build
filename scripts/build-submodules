@@ -100,7 +100,7 @@ build_package() {
   fi
   ( set -e; set -x
     cd $PKGDIR/$PKG
-    dpkg-buildpackage -uc -us -tc -b
+    dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
   ) >>$PKGDIR/$PKG.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
@@ -185,7 +185,8 @@ build_frr() {
 
     # Build Debian Package
     debuild --no-lintian --set-envvar=WANT_SNMP=1 --set-envvar=WANT_RPKI=1 \
-        --set-envvar=WANT_CUMULUS_MODE=0 -b -uc -us
+        --set-envvar=WANT_CUMULUS_MODE=0 -b -uc -us \
+        -j$(cat /proc/cpuinfo | grep processor | wc -l)
 
     mv ../frr_*.deb $PKGDIR
   ) >>$PKGDIR/$PKG.buildlog 2>&1
@@ -332,7 +333,7 @@ build_wireguard() {
   ( set -e; set -x
     cd $PKGDIR/vyos-wireguard
     echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" | tee debian/wireguard-modules.install
-    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
   ) >>$PKGDIR/vyos-wireguard.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
@@ -383,7 +384,7 @@ build_accel-ppp() {
     cd $PKGDIR/vyos-accel-ppp
     echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" | tee debian/vyos-accel-ppp-ipoe-kmod.install
     sed -i "s#[0-9].[0-9][0-9].[0-9]-amd64-vyos#$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos#g" debian/rules
-    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
   ) >>$PKGDIR/vyos-accel-ppp.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
