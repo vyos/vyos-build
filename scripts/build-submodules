@@ -83,10 +83,8 @@ package_in_buildlist() {
   if [[ $BUILDLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
     return 0
   fi
-  
-  return 1
 
- 
+  return 1
 }
 
 build_package() {
@@ -207,6 +205,7 @@ for PKG in mdns-repeater \
            eventwatchd \
            ddclient \
            rtrlib \
+           igmpproxy \
            libvyosconfig \
            vyatta-bash \
            vyatta-biosdevname \
