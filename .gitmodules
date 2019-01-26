@@ -221,10 +221,6 @@
 	path = packages/vyos-vmwaretools-scripts
 	url = https://github.com/vyos/vyos-vmwaretools-scripts.git
 	branch = current
-[submodule "vyos-xe-guest-utilities"]
-	path = vyos-xe-guest-utilities
-	url = https://github.com/vyos/vyos-xe-guest-utilities.git
-	branch = current
 [submodule "packages/vyconf"]
 	path = packages/vyconf
 	url = https://github.com/vyos/vyconf.git
