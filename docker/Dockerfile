@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
       curl \
       make \
       sudo \
+      mc \
       live-build \
       pbuilder \
       devscripts \
@@ -191,10 +192,13 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
-    opam init --disable-sandboxing && \
-    eval $(opam env) && opam switch create 4.07.0 && \
-    eval $(opam env) && opam install -y oasis && \
-    eval $(opam env) && opam install -y \
+    opam init --root=/opt/opam --comp=4.07.0 --disable-sandboxing
+
+RUN eval $(opam env --root=/opt/opam --set-root) && \
+    opam install -y \
+      oasis
+
+RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       fileutils \
       lwt \
       lwt_ppx \
@@ -210,14 +214,14 @@ RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --o
       ocaml-protoc \
       ctypes-foreign
 
-RUN eval $(opam env) && opam install -y \
+RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       ctypes
 
 # Build VyConf which is required to build libvyosconfig
-RUN eval $(opam env) && \
-    git clone https://github.com/vyos/vyconf.git && \
-    cd vyconf && \
-    git checkout 0f121c12a84200 && \
+RUN eval $(opam env --root=/opt/opam --set-root) && \
+    git clone https://github.com/vyos/vyconf.git /tmp/vyconf && \
+    cd /tmp/vyconf && \
+    git checkout v0.1 && \
     ./build-setup.sh && \
     ./configure --enable-tests && \
     make && \
@@ -225,16 +229,20 @@ RUN eval $(opam env) && \
     make install
 
 # Build libvyosconfig
-RUN eval $(opam env) && \
+RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig && \
     cd libvyosconfig && \
-    git checkout e75e4ae638c49e && \
+    git checkout v0.0.4 && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
       whois
+
+# Packages needed for vyos-xe-guest-utilities
+RUN apt-get update && apt-get install -y \
+      golang
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
