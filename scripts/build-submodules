@@ -128,7 +128,7 @@ initialize_packages() {
   ) >>$PKGDIR/init-packages.buildlog 2>&1
   if [ $? -ne 0 ]; then
       status_fail
-      if [ $VERBOSE ]; then
+      if [ $VERBOSE -eq 1 ]; then
           cat $PKGDIR/init-packages.buildlog
       fi
       error_msg "Failed to update all package, look in init-packages.buildlog to examine the fault\n"
@@ -278,7 +278,7 @@ build_kernel() {
   ) >>$PKGDIR/vyos-kernel.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE ]; then
+    if [ $VERBOSE -eq 1 ]; then
         cat $PKGDIR/vyos-kernel.buildlog
     fi
     error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
@@ -337,7 +337,7 @@ build_wireguard() {
   ) >>$PKGDIR/vyos-wireguard.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE ]; then
+    if [ $VERBOSE -eq 1 ]; then
         cat $PKGDIR/vyos-wireguard.buildlog
     fi
     error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
@@ -388,7 +388,7 @@ build_accel-ppp() {
   ) >>$PKGDIR/vyos-accel-ppp.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE ]; then
+    if [ $VERBOSE -eq 1 ]; then
         cat $PKGDIR/vyos-accel-ppp.buildlog
     fi
     error_msg "Failed to build package vyos-accel-ppp, look in vyos-accel-ppp.buildlog to examine the fault\n"
