@@ -23,10 +23,6 @@ if ! grep -q $NEW_GID /etc/group; then
     groupadd --gid $NEW_GID $USER_NAME
 fi
 
-# libvyosconfig depends on OCaml/OPAM so we make sure
-# we can use it
-echo "eval \$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc
-
 useradd --shell /bin/bash --uid $NEW_UID --gid $NEW_GID --non-unique --create-home $USER_NAME
 usermod --append --groups sudo $USER_NAME
 sudo chown $NEW_UID:$NEW_GID /home/$USER_NAME

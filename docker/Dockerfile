@@ -255,5 +255,8 @@ RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packe
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     chmod a+s /usr/sbin/useradd /usr/sbin/groupadd /usr/sbin/gosu /usr/sbin/usermod
 
+# Ensure sure all users have access to our OCAM installation
+RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
