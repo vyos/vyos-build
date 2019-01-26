@@ -142,10 +142,11 @@ fi
 
 build_frr() {
   PKG=frr
-  if ! package_in_buildlist "frr"; then
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  if ! package_in_buildlist $1; then
     return 0
   fi
-  status_start "Building package: $PKG (Git commit/tag: $FRR_VER)"
+  status_start "Building package: $PKG Commit id: $COMMITID"
   if [ ! -f "$PKGDIR/$PKG/README.md" ]; then
     status_skip "No source for: $PKG"
     return 1
