@@ -219,10 +219,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
 
 # Build VyConf which is required to build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
-    git clone https://github.com/vyos/vyconf.git /tmp/vyconf && \
-    cd /tmp/vyconf && \
-    git checkout v0.1 && \
-    opam pin add vyconf .
+    opam pin add vyconf https://github.com/vyos/vyconf.git#v0.1 -y
 
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
