@@ -150,11 +150,16 @@ RUN export RTRLIB_COMMIT="v0.6.3" && \
 # Prerequisites for building FRR from source
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 #
-RUN export LIBYANG_COMMIT="v0.16-r2" && \
-    git clone https://github.com/CESNET/libyang.git && \
+RUN apt-get update && apt-get install -y -t jessie-backports \
+      swig \
+      libcmocka-dev \
+      libcmocka0
+
+RUN export LIBYANG_COMMIT="179da47f2e8de" && \
+    git clone https://github.com/opensourcerouting/libyang.git && \
     cd libyang && git checkout $LIBYANG_COMMIT && mkdir build && cd build && \
-    cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr .. && \
-    make && make install
+    cmake .. && make build-deb && \
+    dpkg -i debs/*.deb
 
 # Packages needed for frr
 RUN apt-get update && apt-get install -y \
