@@ -153,6 +153,8 @@ build_frr() {
 
   ( set -e; set -x
     cd $PKGDIR/$PKG
+    git clean -dxf
+    git reset --hard
 
     # Run bootstrap.sh and make a dist tarball
     # http://docs.frrouting.org/projects/dev-guide/en/latest/packaging-debian.html
@@ -170,7 +172,6 @@ build_frr() {
     tar xf ../frr_*.orig.tar.gz
     cd frr*
     source /etc/os-release
-    ls -al ../../frr_*${ID}${VERSION_ID}*
     tar xf ../../frr_*${ID}${VERSION_ID}*.debian.tar.xz
 
     # As libyang is not (yet) build and installed as native Debian package FRR
