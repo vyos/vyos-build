@@ -175,16 +175,6 @@ build_frr() {
     source /etc/os-release
     tar xf ../../frr_*${ID}${VERSION_ID}*.debian.tar.xz
 
-    # As libyang is not (yet) build and installed as native Debian package FRR
-    # build system reports the following error:
-    #
-    #   "dpkg-shlibdeps: error: no dependency information found for
-    #       /usr/lib/x86_64-linux-gnu/libyang.so.0.16"
-    #
-    # It is "overruled" by
-    sed '/dh_systemd_enable frr.service/ a \\noverride_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info\n' -i debian/rules
-
-
     # Build Debian Package
     debuild --no-lintian --set-envvar=WANT_SNMP=1 --set-envvar=WANT_RPKI=1 \
         --set-envvar=WANT_CUMULUS_MODE=0 -b -uc -us \
