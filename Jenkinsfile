@@ -30,14 +30,16 @@ pipeline {
         stage('Submodule Init') {
             steps {
                 sh '''
-                    git submodule update --init --recursive
-                    git submodule update --remote
+                    git submodule update --init --recursive --remote
                 '''
             }
         }
         stage('Build Packages') {
             steps {
-                sh 'scripts/build-submodules --verbose'
+                sh '''
+                    #!/bin/sh
+                    scripts/build-submodules --verbose
+                '''
             }
         }
 
@@ -68,7 +70,12 @@ pipeline {
             echo 'One way or another, I have finished'
             // the 'build' directory got elevated permissions during the build
             // cdjust permissions so it can be cleaned up by the regular user
-            sh 'sudo chmod -R 777 build/'
+            sh '''
+                #!/bin/bash
+                if [ -d build ]; then
+                    sudo chmod -R 777 build/
+                fi
+            '''
             deleteDir() /* cleanup our workspace */
         }
     }
