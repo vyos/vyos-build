@@ -88,6 +88,15 @@ ROOTDIR="$(pwd)"
 PKGDIR="$ROOTDIR/packages"
 SCRIPTDIR="$ROOTDIR/scripts"
 
+# Source OPAM environment if not already set
+if [ -z "$OPAMROOT" ]; then
+    if [ -x "$(command -v opam)" ]; then
+        eval $(opam env --root=/opt/opam --set-root)
+    else
+        echo "WARNING: 'opam' not installed, can't build VyConf and libvyosconfig"
+    fi
+fi
+
 package_in_buildlist() {
   # Return true if buildlist is not set
   if [ -z "$BUILDLIST" ]; then
