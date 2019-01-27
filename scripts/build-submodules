@@ -24,6 +24,7 @@ print_help() {
 }
 
 BUILDLIST=""
+VERBOSE=0
 
 while test $# -gt 0
 do
@@ -70,6 +71,19 @@ status_skip() {
 error_msg() {
     echo -ne "      $1\n"
 }
+
+verbose_msg() {
+    if [ $VERBOSE -ne 0 ]; then
+        echo "Current Environment:"
+        env
+
+        if [ ! -z "$1" ]; then
+            echo "Logfile:"
+            cat $1
+        fi
+    fi
+}
+
 ROOTDIR="$(pwd)"
 PKGDIR="$ROOTDIR/packages"
 SCRIPTDIR="$ROOTDIR/scripts"
@@ -104,9 +118,7 @@ build_package() {
   ) >>$PKGDIR/$PKG.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE -eq 1 ]; then
-      cat $PKGDIR/$PKG.buildlog
-    fi
+    verbose_msg "$PKGDIR/$PKG.buildlog"
     error_msg "Failed to build package $PKG, look in $PKG.buildlog to examine the fault\n"
     return 2
   fi
@@ -131,9 +143,7 @@ initialize_packages() {
   ) >>$PKGDIR/init-packages.buildlog 2>&1
   if [ $? -ne 0 ]; then
       status_fail
-      if [ $VERBOSE -eq 1 ]; then
-          cat $PKGDIR/init-packages.buildlog
-      fi
+      verbose_msg "$PKGDIR/init-packages.buildlog"
       error_msg "Failed to update all package, look in init-packages.buildlog to examine the fault\n"
       return 1
   fi
@@ -311,9 +321,7 @@ build_kernel() {
   ) >>$PKGDIR/vyos-kernel.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE -eq 1 ]; then
-        cat $PKGDIR/vyos-kernel.buildlog
-    fi
+    verbose_msg "$PKGDIR/vyos-kernel.buildlog"
     error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
     return 1
   fi
@@ -370,9 +378,7 @@ build_wireguard() {
   ) >>$PKGDIR/vyos-wireguard.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE -eq 1 ]; then
-        cat $PKGDIR/vyos-wireguard.buildlog
-    fi
+    verbose_msg "$PKGDIR/vyos-wireguard.buildlog"
     error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
     return 2
   fi
@@ -421,9 +427,7 @@ build_accel-ppp() {
   ) >>$PKGDIR/vyos-accel-ppp.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
-    if [ $VERBOSE -eq 1 ]; then
-        cat $PKGDIR/vyos-accel-ppp.buildlog
-    fi
+    verbose_msg "$PKGDIR/vyos-accel-ppp.buildlog"
     error_msg "Failed to build package vyos-accel-ppp, look in vyos-accel-ppp.buildlog to examine the fault\n"
     return 1
   fi
