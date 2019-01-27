@@ -1,55 +1,207 @@
-#!/bin/bash 
-#set -x
+#!/bin/bash
+
 if [ ! -d "packages" ]; then
   echo "This script needs to be executed inside the top root of vyos-build"
   exit 1
 fi
 
-if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+print_help() {
   echo "Script for building all subpackages to vyos"
   echo "Execute this sctipt from the root of the vyos-build directory"
   echo ""
   echo "This script could be executed from a Debian Jessie installation with all dependencies"
-  echo "or from the vyos-builder docker container"
-  echo "docker instructions"
+  echo "or from the vyos-builder docker container."
+  echo ""
   echo "Build the container:"
-  echo "  docker build -t vyos-builder ." 
+  echo "  docker build -t vyos-builder ."
   echo "Compile packages:"
-  echo "  docker run --rm -it -v $(pwd):/vyos -w /vyos --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder scripts/build-docker-subpaclages"
-fi
+  echo "  docker run --rm -it -v $(pwd):/vyos -w /vyos --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos-builder scripts/build-submodules"
+  echo ""
+  echo "Parameters:"
+  echo "  --init-packages      - Initiate all subpackages before building"
+  echo "  --verbose            - Enable verbose output"
+  echo "  --build-[packagename] - build only selected packages"
+}
+
+BUILDLIST=""
+
+while test $# -gt 0
+do
+  case "$1" in
+    -h|-?|--help)
+      print_help
+      exit 0
+      ;;
+    --init-packages)
+      INIT_PACKAGES=1
+      ;;
+    --verbose)
+      VERBOSE=1
+      ;;
+    --build-*)
+      VAL=$(sed s/^--build-//g <<< $1)
+      BUILDLIST="$BUILDLIST $VAL"
+      ;;
+    *)
+      (>&2 echo "Error: Argument $1 is not valid")
+      echo ""
+      print_help
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 status_start() {
-echo -ne "[    ] $1"
+    echo -ne "[    ] $1"
 }
 status_ok() {
-echo -ne "\r[\e[32m OK \e[39m]\n"
+    echo -ne "\r[\e[32m OK \e[39m]\n"
 }
 
 status_fail() {
-echo -ne "\r[\e[31mFAIL\e[39m]\n"
+    echo -ne "\r[\e[31mFAIL\e[39m]\n"
 }
 
 status_skip() {
-echo -ne "\r[SKIP] $1\n"
+    echo -ne "\r[SKIP] $1\033[K\n"
 }
 
 error_msg() {
-echo -ne "      $1\n"
+    echo -ne "      $1\n"
 }
 ROOTDIR="$(pwd)"
-PKGDIR="$(pwd)/packages"
+PKGDIR="$ROOTDIR/packages"
+SCRIPTDIR="$ROOTDIR/scripts"
+
+package_in_buildlist() {
+  # Return true if buildlist is not set
+  if [ -z "$BUILDLIST" ]; then
+    return 0
+  fi
+
+  if [[ $BUILDLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
+    return 0
+  fi
+
+  return 1
+}
+
+build_package() {
+  PKG=$1
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  if ! package_in_buildlist $1; then
+    return 0
+  fi
+  status_start "Building package: $PKG     Commit id: $COMMITID"
+  if [ ! -d "$PKGDIR/$PKG/debian" ]; then
+    status_skip "No source for: $PKG"
+    return 1
+  fi
+  ( set -e; set -x
+    cd $PKGDIR/$PKG
+    dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
+  ) >>$PKGDIR/$PKG.buildlog 2>&1
+  if [ $? -ne 0 ]; then
+    status_fail
+    error_msg "Failed to build package $PKG, look in $PKG.buildlog to examine the fault\n"
+    return 2
+  fi
+  status_ok
+}
 
 echo "Cleaning up buildfiles..."
 rm -rf $PKGDIR/*.deb
 rm -rf $PKGDIR/*.changes
 rm -rf $PKGDIR/*.buildlog
+COMMITID=$(cd $PKGDIR; git rev-parse --short=10 HEAD)
 echo "-----------------------------------------------------"
 echo "Starting build process for all packages"
-echo ""
+echo "vyos-build Commit ID: $COMMITID"
+
+initialize_packages() {
+  status_start "Initializing packages"
+  (
+    set -x
+    git submodule update --init --recursive
+    git submodule update --remote
+  ) >>$PKGDIR/init-packages.buildlog 2>&1
+  if [ $? -ne 0 ]; then
+      status_fail
+      if [ $VERBOSE -eq 1 ]; then
+          cat $PKGDIR/init-packages.buildlog
+      fi
+      error_msg "Failed to update all package, look in init-packages.buildlog to examine the fault\n"
+      return 1
+  fi
+  status_ok
+}
+if [ $INIT_PACKAGES ]; then
+  initialize_packages
+fi
+
+build_frr() {
+  PKG=frr
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  if ! package_in_buildlist $1; then
+    return 0
+  fi
+  status_start "Building package: $PKG Commit id: $COMMITID"
+  if [ ! -f "$PKGDIR/$PKG/README.md" ]; then
+    status_skip "No source for: $PKG"
+    return 1
+  fi
+
+  ( set -e; set -x
+    cd $PKGDIR/$PKG
+    git clean -dxf
+    git reset --hard
+
+    # Run bootstrap.sh and make a dist tarball
+    # http://docs.frrouting.org/projects/dev-guide/en/latest/packaging-debian.html
+    ./bootstrap.sh
+    ./configure --with-pkg-extra-version=-vyos
+    make dist
+
+    # Create backports debian sources
+    mv debianpkg debian
+    make -f debian/rules backports
+
+    # Create a new directory to build the package and populate with package source.
+    mkdir frrpkg
+    cd frrpkg
+    tar xf ../frr_*.orig.tar.gz
+    cd frr*
+    source /etc/os-release
+    tar xf ../../frr_*${ID}${VERSION_ID}*.debian.tar.xz
+
+    # Build Debian Package
+    debuild --no-lintian --set-envvar=WANT_SNMP=1 --set-envvar=WANT_RPKI=1 \
+        --set-envvar=WANT_CUMULUS_MODE=0 -b -uc -us \
+        -j$(cat /proc/cpuinfo | grep processor | wc -l)
+
+    mv ../frr_*.deb $PKGDIR
+  ) >>$PKGDIR/$PKG.buildlog 2>&1
+  if [ $? -ne 0 ]; then
+    status_fail
+    error_msg "Failed to build package $PKG, look in $PKG.buildlog to examine the fault\n"
+    return 2
+  fi
+  status_ok
+}
+build_frr
+
 for PKG in mdns-repeater \
            pmacct \
            udp-broadcast-relay \
+           conntrack-tools \
+           eventwatchd \
+           ddclient \
+           rtrlib \
+           igmpproxy \
+           libvyosconfig \
            vyatta-bash \
+           vyatta-biosdevname \
            vyatta-cfg \
            vyatta-cfg-firewall \
            vyatta-cfg-op-pppoe \
@@ -76,84 +228,168 @@ for PKG in mdns-repeater \
            vyatta-op-vpn \
            vyatta-openvpn \
            vyatta-ravpn \
-           vyatta-vrrp \
            vyatta-wanloadbalance \
            vyatta-webgui \
            vyatta-webproxy \
            vyatta-wireless \
            vyatta-wirelessmodem \
            vyatta-zone \
+           vyos-xe-guest-utilities \
            vyos-keepalived \
+           vyos-netplug \
            vyos-nhrp \
-           vyos-pppoe-server \
+           vyos-opennhrp \
+           vyos-salt-minion \
            vyos-strongswan \
            vyos-world \
+           vyos-1x \
            ; do
-  if [ -d "packages/$PKG/debian" ]; then
-    status_start "Building package: $PKG"
-    pushd $PKGDIR/$PKG > /dev/null
-    dpkg-buildpackage -uc -us -tc -b >$PKGDIR/$PKG.buildlog 2>&1
-    if [ $? -ne 0 ]; then
-      status_fail
-      error_msg "Failed to build package $PKG, look in $PKG.buildlog to examine the fault\n"
-    else
-      status_ok
-    fi
-    popd > /dev/null
-  else
-    status_skip "No source for: $PKG"
+  build_package "$PKG"
+  ERRCODE=$?
+  if [ "$ERRCODE" -ne "0" ]; then
+      exit $ERRCODE
   fi
 done
 
 # KERNEL
-if [ -f "packages/vyos-kernel/Makefile" ]; then
-  status_start "Building-package: vyos-kernel"
-  pushd packages/vyos-kernel > /dev/null
-  bash -c '../../scripts/build-kernel' >$PKGDIR/vyos-kernel.buildlog 2>&1
+build_kernel() {
+  PKG="vyos-kernel"
+  if ! package_in_buildlist "vyos-kernel"; then
+    return 0
+  fi
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  status_start "Building-package: vyos-kernel   Commit ID:$COMMITID"
+  if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
+    status_skip "No source for: vyos-kernel"
+    return 0
+  fi
+
+  ( set -e; set -x
+    cd $PKGDIR/vyos-kernel > /dev/null
+    bash -c "$SCRIPTDIR/build-kernel"
+  ) >>$PKGDIR/vyos-kernel.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
+    if [ $VERBOSE -eq 1 ]; then
+        cat $PKGDIR/vyos-kernel.buildlog
+    fi
     error_msg "Failed to build package vyos-kernel, look in vyos-kernel.buildlog to examine the fault\n"
-  else
-    VERSION=$(grep "^VERSION" Makefile | grep -Eo '[0-9]{1,4}')
-    PATCHLEVEL=$(grep "^PATCHLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
-    SUBLEVEL=$(grep "^SUBLEVEL" Makefile | grep -Eo '[0-9]{1,4}')
-    ARCH=$(dpkg --print-architecture)
-    echo "$VERSION.$PATCHLEVEL.$SUBLEVEL" > $ROOTDIR/data/kernel_version
-    status_ok
+    return 1
   fi
-  popd > /dev/null
-else
-  status_skip "No source for: vyos-kernel"
+
+  VERSION=$(grep "^VERSION" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  PATCHLEVEL=$(grep "^PATCHLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  SUBLEVEL=$(grep "^SUBLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  ARCH=$(dpkg --print-architecture)
+  echo "$VERSION.$PATCHLEVEL.$SUBLEVEL" > $ROOTDIR/data/kernel_version
+  status_ok
+}
+build_kernel
+ERRCODE=$?
+if [ "$ERRCODE" -ne "0" ]; then
+    exit $ERRCODE
 fi
 
 
-
 # WIREGUARD
-if [ -d "packages/vyos-wireguard/debian" ]; then
-  if [ -f "packages/vyos-kernel/Makefile" ]; then
-    status_start "Building package: vyos-wireguard"
-    if  grep -q "KBUILD_OUTPUT" packages/vyos-kernel/Makefile; then
-      VERSION=$(grep "^VERSION" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
-      PATCHLEVEL=$(grep "^PATCHLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
-      SUBLEVEL=$(grep "^SUBLEVEL" packages/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
-      ARCH=$(dpkg --print-architecture)
-      pushd packages/vyos-wireguard > /dev/null
-      echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" > debian/wireguard-modules.install
-      bash -c 'KERNELDIR=/vyos/packages/vyos-kernel dpkg-buildpackage -uc -us -tc -b' >$PKGDIR/vyos-wireguard.buildlog 2>&1
-      if [ $? -ne 0 ]; then
-        status_fail
-        error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
-      else
-        status_ok
-      fi
-      popd > /dev/null
-    else
-      status_fail
-      error_msg "Failed to build package vyos-wireguard, no kernel source found\n"
-    fi
-  else
-    seeor_msg "Something wrong with the kernel module?"
+build_wireguard() {
+  PKG="vyos-wireguard"
+  if ! package_in_buildlist "vyos-wireguard"; then
+    return 0
   fi
-else 
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  status_start "Building package: vyos-wireguard    Commit ID:$COMMITID"
+
+  if [ ! -d "$PKGDIR/vyos-wireguard/debian" ]; then
     status_skip "No source for: vyos-wireguard"
+    return 0
+  fi
+
+  if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
+    status_fail
+    error_msg "No Makefile found in kernel package"
+    return 1
+  fi
+
+  if  ! grep -q "KBUILD_OUTPUT" $PKGDIR/vyos-kernel/Makefile; then
+    status_fail
+    error_msg "Failed to build package vyos-wireguard, no kernel source found\n"
+    return 1
+  fi
+
+  VERSION=$(grep "^VERSION" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  PATCHLEVEL=$(grep "^PATCHLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  SUBLEVEL=$(grep "^SUBLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  ARCH=$(dpkg --print-architecture)
+  # Collect kernel information
+  ( set -e; set -x
+    cd $PKGDIR/vyos-wireguard
+    echo "src/wireguard.ko /lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra" | tee debian/wireguard-modules.install
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
+  ) >>$PKGDIR/vyos-wireguard.buildlog 2>&1
+  if [ $? -ne 0 ]; then
+    status_fail
+    if [ $VERBOSE -eq 1 ]; then
+        cat $PKGDIR/vyos-wireguard.buildlog
+    fi
+    error_msg "Failed to build package vyos-wireguard, look in vyos-wireguard.buildlog to examine the fault\n"
+    return 2
+  fi
+  status_ok
+}
+build_wireguard
+ERRCODE=$?
+if [ "$ERRCODE" -ne "0" ]; then
+    exit $ERRCODE
+fi
+
+# ACCEL-PPP
+build_accel-ppp() {
+  PKG="vyos-accel-ppp"
+  if ! package_in_buildlist "accel-ppp"; then
+    return 0
+  fi
+  COMMITID=$(cd $PKGDIR/$PKG; git rev-parse --short=10 HEAD)
+  status_start "Building package: vyos-accel-ppp   Commit ID: $COMMITID"
+  if [ ! -d "$PKGDIR/vyos-accel-ppp/debian" ]; then
+    status_skip "No source for: vyos-accel-ppp"
+    return 0
+  fi
+
+  if [ ! -f "$PKGDIR/vyos-kernel/Makefile" ]; then
+    status_fail
+    error_msg "No Makefile found in kernel package"
+    return 1
+  fi
+
+  if ! grep -q "KBUILD_OUTPUT" $PKGDIR/vyos-kernel/Makefile; then
+    status_fail
+    error_msg "Failed to build package vyos-accel-ppp, no kernel source found\n"
+  fi
+  # Collect kernel information
+  VERSION=$(grep "^VERSION" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  PATCHLEVEL=$(grep "^PATCHLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  SUBLEVEL=$(grep "^SUBLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
+  ARCH=$(dpkg --print-architecture)
+
+  ( set -e; set -x
+    cd $PKGDIR/vyos-accel-ppp
+    echo "lib/modules/$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos/extra/*.ko" | tee debian/vyos-accel-ppp-ipoe-kmod.install
+    sed -i "s#[0-9].[0-9][0-9].[0-9]-amd64-vyos#$VERSION.$PATCHLEVEL.$SUBLEVEL-$ARCH-vyos#g" debian/rules
+    KERNELDIR=$PKGDIR/vyos-kernel dpkg-buildpackage -uc -us -tc -b -j$(cat /proc/cpuinfo | grep processor | wc -l)
+  ) >>$PKGDIR/vyos-accel-ppp.buildlog 2>&1
+  if [ $? -ne 0 ]; then
+    status_fail
+    if [ $VERBOSE -eq 1 ]; then
+        cat $PKGDIR/vyos-accel-ppp.buildlog
+    fi
+    error_msg "Failed to build package vyos-accel-ppp, look in vyos-accel-ppp.buildlog to examine the fault\n"
+    return 1
+  fi
+  status_ok
+}
+build_accel-ppp
+ERRCODE=$?
+if [ "$ERRCODE" -ne "0" ]; then
+    exit $ERRCODE
 fi
