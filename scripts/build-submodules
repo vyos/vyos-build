@@ -104,6 +104,9 @@ build_package() {
   ) >>$PKGDIR/$PKG.buildlog 2>&1
   if [ $? -ne 0 ]; then
     status_fail
+    if [ $VERBOSE -eq 1 ]; then
+      cat $PKGDIR/$PKG.buildlog
+    fi
     error_msg "Failed to build package $PKG, look in $PKG.buildlog to examine the fault\n"
     return 2
   fi
