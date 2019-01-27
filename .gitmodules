@@ -237,3 +237,6 @@
 	path = packages/igmpproxy
 	url = https://github.com/vyos/igmpproxy.git
 	branch = current
+[submodule "packages/libyang"]
+	path = packages/libyang
+	url = https://github.com/opensourcerouting/libyang.git
