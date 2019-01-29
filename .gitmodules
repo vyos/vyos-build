@@ -237,3 +237,7 @@
 	path = packages/igmpproxy
 	url = https://github.com/vyos/igmpproxy.git
 	branch = current
+[submodule "packages/hvinfo"]
+	path = packages/hvinfo
+	url = https://github.com/dmbaturin/hvinfo.git
+	branch = master

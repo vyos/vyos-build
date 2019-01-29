@@ -198,6 +198,7 @@ for PKG in mdns-repeater \
            eventwatchd \
            ddclient \
            rtrlib \
+           hvinfo \
            igmpproxy \
            libvyosconfig \
            vyatta-bash \
