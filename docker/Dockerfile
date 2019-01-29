@@ -234,6 +234,11 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
+# Packages needed for hvinfo
+RUN apt-get update && apt-get install -y \
+      gnat \
+      gprbuild
+
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
       whois
