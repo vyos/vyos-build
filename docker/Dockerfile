@@ -234,6 +234,12 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
+# Packages needed for ipaddrcheck
+RUN apt-get update && apt-get install -y \
+      libpcre3-dev \
+      libcidr-dev \
+      check
+
 # Packages needed for hvinfo
 RUN apt-get update && apt-get install -y \
       gnat \

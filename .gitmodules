@@ -245,3 +245,7 @@
 	path = packages/libyang
     url = https://github.com/opensourcerouting/libyang.git
     branch = debian
+[submodule "packages/ipaddrcheck"]
+	path = packages/ipaddrcheck
+	url = https://github.com/vyos/ipaddrcheck.git
+	branch = master
