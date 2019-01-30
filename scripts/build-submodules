@@ -303,6 +303,7 @@ for PKG in mdns-repeater \
            vyos-opennhrp \
            vyos-salt-minion \
            vyos-strongswan \
+           vyos-vmwaretools-scripts \
            vyos-world \
            vyos-1x \
            ; do
