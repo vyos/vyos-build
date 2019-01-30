@@ -241,3 +241,7 @@
 	path = packages/hvinfo
 	url = https://github.com/dmbaturin/hvinfo.git
 	branch = master
+[submodule "packages/libyang"]
+	path = packages/libyang
+    url = https://github.com/opensourcerouting/libyang.git
+    branch = debian
