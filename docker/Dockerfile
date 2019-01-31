@@ -247,6 +247,13 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       golang
 
+# Packages needed for ipaddrcheck
+RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
+    cd analytics-libcidr && \
+    git checkout 026c611d90a1 && \
+    dpkg-buildpackage -uc -us -tc -b && \
+    dpkg -i ../libcidr*.deb
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch live-build && \
