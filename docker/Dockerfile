@@ -248,6 +248,10 @@ RUN apt-get update && apt-get install -y \
       golang
 
 # Packages needed for ipaddrcheck
+RUN apt-get update && apt-get install -y \
+      check
+# As there is no Debian Jessie/Stretch package for libcidr available but this
+# is required for ipaddrcheck we have to build it from source
 RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
     cd analytics-libcidr && \
     git checkout 026c611d90a1 && \
