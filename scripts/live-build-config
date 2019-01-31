@@ -68,7 +68,7 @@ debug = build_config['debug']
 # Add the additional repositories to package lists
 print("Setting up additional APT entries")
 vyos_repo_entry = "deb {0}/vyos {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
-vyos_debian_repo_entry = "deb {0}/debian {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
+#vyos_debian_repo_entry = "deb {0}/debian {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
 salt_repo_entry = "deb {0} {1} main\n".format(build_config['salt_mirror'], build_config['distribution'])
 
 apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
@@ -76,12 +76,12 @@ apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
 if debug:
     print("Adding these entries to {0}:".format(apt_file))
     print("\t", vyos_repo_entry)
-    print("\t", vyos_debian_repo_entry)
+#    print("\t", vyos_debian_repo_entry)
     print("\t", salt_repo_entry)
 
 with open(apt_file, 'w') as f:
     f.write(vyos_repo_entry)
-    f.write(vyos_debian_repo_entry)
+#    f.write(vyos_debian_repo_entry)
     f.write(salt_repo_entry)
 
 # Add custom APT entries
