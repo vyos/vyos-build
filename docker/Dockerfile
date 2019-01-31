@@ -228,7 +228,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
 
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
-    git clone https://github.com/vyos/libvyosconfig && \
+    git clone https://github.com/vyos/libvyosconfig.git && \
     cd libvyosconfig && \
     git checkout a9817fa26c1be1 && \
     dpkg-buildpackage -uc -us -tc -b && \
