@@ -261,6 +261,7 @@ for PKG in mdns-repeater \
            hvinfo \
            igmpproxy \
            ipaddrcheck \
+           lldpd \
            libvyosconfig \
            vyatta-bash \
            vyatta-biosdevname \

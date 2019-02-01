@@ -248,3 +248,9 @@
 [submodule "packages/ipaddrcheck"]
 	path = packages/ipaddrcheck
 	url = https://github.com/vyos/ipaddrcheck.git
+[submodule "packages/lldpd"]
+	path = packages/lldpd
+	url = https://github.com/vincentbernat/lldpd.git
+[submodule "packages/pdns-recursor"]
+	path = packages/pdns-recursor
+	url = https://salsa.debian.org/dns-team/pdns-recursor.git
