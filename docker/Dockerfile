@@ -258,6 +258,24 @@ RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libcidr*.deb
 
+# Packages needed for lldpd
+RUN apt-get update && apt-get install -y \
+      libbsd-dev \
+      libevent-dev
+
+# Packages needed for pdns-recursor
+RUN apt-get update && apt-get install -y \
+      libboost-context-dev \
+      libboost-dev \
+      libboost-program-options-dev \
+      libboost-test-dev \
+      liblua5.2-dev \
+      libprotobuf-dev \
+      libsodium-dev \
+      protobuf-compiler \
+      publicsuffix \
+      ragel
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch live-build && \
