@@ -52,7 +52,7 @@ def get_validator(optdict, name):
 # Options dict format:
 # '$option_name_without_leading_dashes': { ('$help_string', $default_value_generator_thunk, $value_checker_thunk) }
 options = {
-   'architecture': ('Image target architecture (amd64 or i586 or armhf)', lambda: 'amd64', lambda x: x in ['amd64', 'i586', 'armhf']),
+   'architecture': ('Image target architecture (amd64 or i386 or armhf)', lambda: 'amd64', lambda x: x in ['amd64', 'i386', 'armhf']),
    'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None),
    'debian-mirror': ('Debian repository mirror for ISO build', lambda: defaults.DEBIAN_MIRROR, None),
    'debian-security-mirror': ('Debian security updated mirror', lambda: defaults.DEBIAN_SECURITY_MIRROR, None),
