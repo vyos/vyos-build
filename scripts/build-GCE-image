@@ -127,6 +127,10 @@ cat > ${MOUNT_DIR}/boot/grub/grub.cfg << EOF
 set timeout=5
 set default=0
 
+serial --speed=38400 --unit=0 --word=8 --parity=no --stop=1
+terminal_input serial
+terminal_output serial
+
 menuentry "VyOS $version (Serial console)" {
         linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=tty0 console=ttyS0,38400n8d earlyprintk=ttyS0,38400 consoleblank=0 systemd.show_status=true
         initrd /boot/"$version"/initrd.img
@@ -147,7 +151,9 @@ grub-install  --boot-directory ${MOUNT_DIR}/boot --force --no-floppy --skip-fs-p
 ###################
 ### HOOK SCRIPT ###
 ###################
-fstrim ${MOUNT_DIR}
-sync
 
-tar -Sczf ${OUTPUTGZ} ${OUTPUT}
+fstrim ${MOUNT_DIR}
+umount ${MOUNT_DIR} && {
+  tar -Sczf ${OUTPUTGZ} ${OUTPUT}
+  mount /dev/mapper/${LOOP_DEVICE} ${MOUNT_DIR}
+}
