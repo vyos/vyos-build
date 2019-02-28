@@ -27,6 +27,7 @@ babeld=no
 sharpd=no
 pbrd=no
 bfdd=no
+staticd=yes
 """
 
 daemons_conf = """
