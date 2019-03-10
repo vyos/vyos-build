@@ -59,6 +59,7 @@ options = {
    'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', lambda: defaults.DEBIAN_MIRROR, None),
    'salt-mirror': ('Salt package mirror', lambda: defaults.SALT_MIRROR, None),
    'vyos-mirror': ('VyOS package mirror', lambda: defaults.VYOS_MIRROR, None),
+   'pdns-mirror': ('PowerDNS package mirror', lambda: defaults.PDNS_MIRROR, None),
    'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development']),
    'custom-packages': ('Custom packages to install from repositories', lambda: '', None),
    'version': ('Version number (release builds only)', None, None)
