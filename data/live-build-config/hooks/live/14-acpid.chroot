@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# To be able to properly shutdown bare-metal servers install and
+# configure acpid
+apt-get -y install acpid
+
+cat <<EOF > /etc/acpi/events/powerbtn
+event=button[ /]power
+action=/sbin/poweroff
+EOF
