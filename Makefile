@@ -57,10 +57,14 @@ vagrant-libvirt:
 
 .PHONY: vmware
 .ONESHELL:
-vmware:
+vmware: clean prepare
 	@set -e
-	@scripts/check-vm-build-env
-	@scripts/build-vmware-image
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
+	cp tools/cloud-init/vmware/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp -f tools/cloud-init/vmware/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
+	cd $(build_dir)
+	@../scripts/build-vmware-image
 
 .PHONY: hyperv
 .ONESHELL:
@@ -148,6 +152,10 @@ clean:
 	rm -f *.raw
 	rm -f *.tar.gz
 	rm -f *.qcow2
+	rm -f *.mf
+	rm -f *.ovf
+	rm -f *.ova
+	rm -f *.vmdk
 
 .PHONY: purge
 purge:
