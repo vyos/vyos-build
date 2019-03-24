@@ -343,7 +343,6 @@ build_kernel() {
   PATCHLEVEL=$(grep "^PATCHLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
   SUBLEVEL=$(grep "^SUBLEVEL" $PKGDIR/vyos-kernel/Makefile | grep -Eo '[0-9]{1,4}')
   ARCH=$(dpkg --print-architecture)
-  echo "$VERSION.$PATCHLEVEL.$SUBLEVEL" > $ROOTDIR/data/kernel_version
   status_ok
 }
 build_kernel
