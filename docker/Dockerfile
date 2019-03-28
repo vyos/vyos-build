@@ -1,9 +1,28 @@
-# Must be run with --privileged flag
-# Recommended to run the container with a volume mapped
+# Copyright (C) 2018 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
 # in order to easy exprort images built to "external" world
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Must be run with --privileged flag, recommended to run the container with a
+# volume mapped in order to easy export images
+
 FROM debian:jessie
+LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
+
+COPY sources.list /etc/apt/sources.list
+COPY no--check-valid-until /etc/apt/apt.conf.d/
 
 # Standard shell should be bash not dash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
@@ -24,7 +43,6 @@ RUN apt-get update && apt-get install -y \
       make \
       sudo \
       mc \
-      live-build \
       pbuilder \
       devscripts \
       python3-pystache \
@@ -56,35 +74,18 @@ RUN apt-get update && apt-get install -y \
       python3-setuptools \
       python3-nose \
       python3-coverage \
-      python3-sphinx
-
-# Add Debian jessie-backports support
-RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' | tee -a /etc/apt/sources.list && \
-    apt-get update && apt-get install -y -t jessie-backports \
-      python3-git \
-      gosu
-
-# Packages needed for building vyos-strongswan
-RUN apt-get update && apt-get install -y -t jessie-backports debhelper && \
-    apt-get install -y \
+      python3-sphinx \
+      python3-pystache \
       dh-apparmor \
       gperf \
-      iptables-dev \
-      libcap-dev \
-      libgcrypt20-dev \
-      libgmp3-dev \
-      libldap2-dev \
-      libpam0g-dev \
       libsystemd-dev \
-      libgmp-dev \
-      iptables \
-      xl2tpd \
-      libcurl4-openssl-dev \
-      libkrb5-dev \
-      libsqlite3-dev \
-      libssl-dev \
-      libxml2-dev \
-      pkg-config
+      pkg-config \
+      debhelper
+
+RUN apt-get update && apt-get install -y -t jessie-backports \
+      python3-git \
+      python3-pip \
+      gosu
 
 # Package needed for mdns-repeater
 RUN apt-get update && apt-get install -y -t jessie-backports \
@@ -97,7 +98,8 @@ RUN apt-get update &&apt-get install -y \
 # Packages needed for vyatta-iproute
 RUN apt-get update && apt-get install -y \
       libatm1-dev \
-      libdb-dev
+      libdb-dev \
+      iptables-dev
 
 # Packages needed for vyatta-webgui
 RUN apt-get update && apt-get install -y \
@@ -115,13 +117,6 @@ RUN apt-get update && apt-get install -y \
       librdkafka-dev \
       libnetfilter-log-dev
 
-# Packages needed for vyos-keepalived
-RUN apt-get update && apt-get install -y \
-      libnl-3-dev \
-      libnl-genl-3-dev \
-      libpopt-dev \
-      libsnmp-dev
-
 # Pavkages needed for wireguard
 RUN apt-get update && apt-get install -y \
       libmnl-dev
@@ -136,11 +131,12 @@ RUN apt-get update && apt-get install -y \
       cmake \
       liblua5.1-dev
 
-# Prerequisites for building FRR from source
+# Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 RUN apt-get update && apt-get install -y \
       doxygen \
-      libssh-dev
+      libssh-dev \
+      libssl-dev
 
 RUN export RTRLIB_COMMIT="v0.6.3" && \
     git clone https://github.com/rtrlib/rtrlib.git && \
@@ -161,26 +157,15 @@ RUN export LIBYANG_COMMIT="179da47f2e8de" && \
     cmake .. && make build-deb && \
     dpkg -i debs/*.deb
 
-# Packages needed for frr
+# Packages needed to build frr itself
 RUN apt-get update && apt-get install -y \
-      libreadline-dev \
-      texinfo \
-      pkg-config \
-      imagemagick \
-      groff \
-      hardening-wrapper \
-      gawk \
       chrpath \
-      libjson0 \
-      libjson0-dev \
-      python-ipaddr \
+      install-info \
+      libjson-c-dev \
+      libpython3-dev \
       python3-dev \
       python3-pytest \
-      install-info \
-      libc-ares-dev \
-      libc-ares2 \
-      libzmq3 \
-      libzmq3-dev
+      texinfo
 
 # Packages needed for conntrack-tools
 RUN apt-get update && apt-get install -y \
@@ -224,13 +209,12 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
 
 # Build VyConf which is required to build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
-    opam pin add vyconf https://github.com/vyos/vyconf.git#51d79a3f3e08 -y
+    opam pin add vyconf https://github.com/vyos/vyconf.git#51d79a3f -y
 
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git && \
-    cd libvyosconfig && \
-    git checkout 6b7b7ed091900399 && \
+    cd libvyosconfig && git checkout 9a80a5d3 && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
@@ -263,18 +247,40 @@ RUN apt-get update && apt-get install -y \
       libbsd-dev \
       libevent-dev
 
-# Packages needed for pdns-recursor
+# Packages needed for vyatta-quagga
 RUN apt-get update && apt-get install -y \
-      libboost-context-dev \
-      libboost-dev \
-      libboost-program-options-dev \
-      libboost-test-dev \
-      liblua5.2-dev \
-      libprotobuf-dev \
-      libsodium-dev \
-      protobuf-compiler \
-      publicsuffix \
-      ragel
+      libpam-dev \
+      libcap-dev \
+      libsnmp-dev \
+      gawk
+
+# Packages needed for vyos-strongswan
+RUN apt-get update && apt-get install -y \
+      libkrb5-dev \
+      libssl-dev \
+      libxml2-dev \
+      systemd \
+      libcurl4-openssl-dev \
+      libgcrypt20-dev \
+      libgmp3-dev \
+      libldap2-dev \
+      libsqlite3-dev
+
+# Packages needed for vyos-opennhrp
+RUN apt-get update && apt-get install -y \
+      libc-ares-dev
+
+# Packages needed for ddclient
+RUN apt-get update && apt-get install -y \
+      xmlto
+
+# Update live-build
+RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
+    apt-get update && apt-get install -y -t stretch \
+      live-build && \
+    rm -f /etc/apt/sources.list.d/stretch.list && \
+    apt-get update && \
+    rm -rf /var/lib/apt/lists/*
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
@@ -296,6 +302,9 @@ RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
 
 # Ensure sure all users have access to our OCAM installation
 RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc
+
+# Cleanup
+RUN rm -rf /tmp/*
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
