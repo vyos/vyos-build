@@ -2,7 +2,7 @@
   "architecture": "amd64",
   "debian_mirror": "http://deb.debian.org/debian",
   "debian_security_mirror": "http://deb.debian.org/debian-security",
-  "debian_security_mirror": "http://archive.debian.org/debian",
+  "debian_backports_mirror": "http://archive.debian.org/debian",
   "debian_distribution": "jessie",
   "vyos_mirror": "http://dev.packages.vyos.net/repositories/current",
   "vyos_branch": "current",
