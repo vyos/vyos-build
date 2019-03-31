@@ -45,7 +45,6 @@ RUN apt-get update && apt-get install -y \
       mc \
       pbuilder \
       devscripts \
-      python3-pystache \
       squashfs-tools \
       autoconf \
       automake \
