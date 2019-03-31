@@ -54,9 +54,9 @@ lb config noauto \
         --archive-areas "main contrib non-free" \
         --firmware-chroot false \
         --firmware-binary false \
-        --updates true \
+        --updates false \
         --security true \
-        --backports true \
+        --apt-options "--yes -oAcquire::Check-Valid-Until=false" \
         --apt-indices false
         "${@}"
 """
