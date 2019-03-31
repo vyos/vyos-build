@@ -54,13 +54,9 @@ RUN apt-get update && apt-get install -y \
       lsb-release \
       fakechroot \
       libtool \
-      libglib2.0-dev \
       libapt-pkg-dev \
-      libperl-dev \
-      libnfnetlink-dev \
       parted \
       kpartx \
-      jq \
       qemu-system-x86 \
       qemu-utils \
       quilt \
@@ -70,9 +66,6 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       python3-sphinx \
       python3-pystache \
-      dh-apparmor \
-      gperf \
-      libsystemd-dev \
       pkg-config \
       debhelper
 
@@ -81,12 +74,60 @@ RUN apt-get update && apt-get install -y -t jessie-backports \
       python3-pip \
       gosu
 
+#
+# Building libvyosconf requires a full configured OPAM/OCaml setup
+#
+RUN apt-get update && apt-get install -y \
+      libffi-dev \
+      libpcre3-dev
+
+RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
+    sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
+    opam init --root=/opt/opam --comp=4.07.0 --disable-sandboxing
+
+RUN eval $(opam env --root=/opt/opam --set-root) && \
+    opam install -y \
+      oasis
+
+RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
+      fileutils \
+      lwt \
+      lwt_ppx \
+      lwt_log \
+      ocplib-endian \
+      ounit \
+      pcre \
+      ppx_deriving_yojson \
+      sha \
+      toml \
+      xml-light \
+      batteries \
+      ocaml-protoc \
+      ctypes-foreign \
+      menhir
+
+RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
+      ctypes
+
+# Build VyConf which is required to build libvyosconfig
+RUN eval $(opam env --root=/opt/opam --set-root) && \
+    opam pin add vyconf https://github.com/vyos/vyconf.git#51d79a3f -y
+
+# Build libvyosconfig
+RUN eval $(opam env --root=/opt/opam --set-root) && \
+    git clone https://github.com/vyos/libvyosconfig.git && \
+    cd libvyosconfig && git checkout 9a80a5d3 && \
+    dpkg-buildpackage -uc -us -tc -b && \
+    dpkg -i ../libvyosconfig0_*_amd64.deb
+
 # Package needed for mdns-repeater
 RUN apt-get update && apt-get install -y -t jessie-backports \
       dh-systemd
 
 # Packages needed for vyatta-cfg
-RUN apt-get update &&apt-get install -y \
+RUN apt-get update && apt-get install -y \
+      libglib2.0-dev \
+      libperl-dev \
       libboost-filesystem-dev
 
 # Packages needed for vyatta-iproute
@@ -172,50 +213,6 @@ RUN apt-get update && apt-get install -y \
       libnetfilter-cttimeout-dev \
       libnetfilter-queue-dev
 
-# Packages needed for libvyosconfig && VyConf
-RUN apt-get update && apt-get install -y \
-      libffi-dev
-
-# Packages needed for libvyosconfig
-RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
-    sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
-    opam init --root=/opt/opam --comp=4.07.0 --disable-sandboxing
-
-RUN eval $(opam env --root=/opt/opam --set-root) && \
-    opam install -y \
-      oasis
-
-RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
-      fileutils \
-      lwt \
-      lwt_ppx \
-      lwt_log \
-      ocplib-endian \
-      ounit \
-      pcre \
-      ppx_deriving_yojson \
-      sha \
-      toml \
-      xml-light \
-      batteries \
-      ocaml-protoc \
-      ctypes-foreign \
-      menhir
-
-RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
-      ctypes
-
-# Build VyConf which is required to build libvyosconfig
-RUN eval $(opam env --root=/opt/opam --set-root) && \
-    opam pin add vyconf https://github.com/vyos/vyconf.git#51d79a3f -y
-
-# Build libvyosconfig
-RUN eval $(opam env --root=/opt/opam --set-root) && \
-    git clone https://github.com/vyos/libvyosconfig.git && \
-    cd libvyosconfig && git checkout 9a80a5d3 && \
-    dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libvyosconfig0_*_amd64.deb
-
 # Packages needed for hvinfo
 RUN apt-get update && apt-get install -y \
       gnat \
@@ -232,6 +229,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
       check
+
 # As there is no Debian Jessie/Stretch package for libcidr available but this
 # is required for ipaddrcheck we have to build it from source
 RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
@@ -262,7 +260,10 @@ RUN apt-get update && apt-get install -y \
       libgcrypt20-dev \
       libgmp3-dev \
       libldap2-dev \
-      libsqlite3-dev
+      libsqlite3-dev \
+      dh-apparmor \
+      gperf \
+      libsystemd-dev
 
 # Packages needed for vyos-opennhrp
 RUN apt-get update && apt-get install -y \
@@ -281,6 +282,8 @@ RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sourc
     rm -rf /var/lib/apt/lists/*
 
 # Install packer
+RUN apt-get update && apt-get install -y \
+      jq
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
     echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\
