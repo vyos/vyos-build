@@ -1,0 +1,12 @@
+#!/bin/sh
+
+LPCONF=/etc/locale.nopurge
+
+echo MANDELETE > $LPCONF
+echo DONTBOTHERNEWLOCALE >> $LPCONF
+echo SHOWFREEDSPACE >> $LPCONF
+echo QUICKNDIRTYCALC >> $LPCONF
+echo en >> $LPCONF
+echo en_US.UTF-8 >> $LPCONF
+
+/usr/sbin/localepurge
