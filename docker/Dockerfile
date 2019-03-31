@@ -56,7 +56,6 @@ RUN apt-get update && apt-get install -y \
       kernel-package \
       libtool \
       libglib2.0-dev \
-      libboost-filesystem-dev \
       libapt-pkg-dev \
       libncurses5-dev \
       flex \
