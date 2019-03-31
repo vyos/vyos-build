@@ -36,12 +36,12 @@ lb_config_tmpl = """
 lb config noauto \
         --architectures {{architecture}} \
         --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay" \
-        --linux-flavours {{architecture}}-vyos \
+        --linux-flavours {{kernel_flavor}} \
         --linux-packages linux-image-{{kernel_version}} \
         --bootloader syslinux,grub-efi \
         --binary-images iso-hybrid \
         --debian-installer false \
-        --distribution jessie \
+        --distribution {{distribution}} \
         --iso-application "VyOS" \
         --iso-publisher "{{build_by}}" \
         --iso-volume "VyOS" \
@@ -54,9 +54,9 @@ lb config noauto \
         --archive-areas "main contrib non-free" \
         --firmware-chroot false \
         --firmware-binary false \
-        --updates true \
+        --updates false \
         --security true \
-        --backports true \
+        --apt-options "--yes -oAcquire::Check-Valid-Until=false" \
         --apt-indices false
         "${@}"
 """
@@ -69,24 +69,18 @@ debug = build_config['debug']
 # Add the additional repositories to package lists
 print("Setting up additional APT entries")
 vyos_repo_entry = "deb {0}/vyos {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
-#vyos_debian_repo_entry = "deb {0}/debian {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
-salt_repo_entry = "deb {0} {1} main\n".format(build_config['salt_mirror'], build_config['distribution'])
-pdns_repo_entry = "deb {0} {1}-rec-41 main\n".format(build_config['pdns_mirror'], build_config['distribution'])
+vyos_debian_repo_entry = "deb {0}/debian {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
 
 apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
 
 if debug:
     print("Adding these entries to {0}:".format(apt_file))
     print("\t", vyos_repo_entry)
-#    print("\t", vyos_debian_repo_entry)
-    print("\t", salt_repo_entry)
-    print("\t", pdns_repo_entry)
+    print("\t", vyos_debian_repo_entry)
 
 with open(apt_file, 'w') as f:
     f.write(vyos_repo_entry)
-#    f.write(vyos_debian_repo_entry)
-    f.write(salt_repo_entry)
-    f.write(pdns_repo_entry)
+    f.write(vyos_debian_repo_entry)
 
 # Add custom APT entries
 if build_config['custom_apt_entry']:
@@ -97,6 +91,7 @@ if build_config['custom_apt_entry']:
         print(entries)
     with open(custom_apt_file, 'w') as f:
         f.write(entries)
+        f.write("\n")
 
 # Add custom APT keys
 if build_config['custom_apt_key']:
@@ -106,9 +101,9 @@ if build_config['custom_apt_key']:
         shutil.copy(k, os.path.join(key_dir, dst_name))
 
 # Add custom packages
-if build_config['custom_packages']:
+if build_config['custom_package']:
     package_list_file = os.path.join(build_config['build_dir'], defaults.CUSTOM_PACKAGE_LIST_FILE)
-    packages = "\n".join(build_config['custom_packages'])
+    packages = "\n".join(build_config['custom_package'])
     with open (package_list_file, 'w') as f:
         f.write(packages)
 

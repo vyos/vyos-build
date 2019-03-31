@@ -1,6 +1,5 @@
 grub2
 grub-pc
-open-vm-tools
 qemu-guest-agent
 hyperv-daemons
 vyos-xe-guest-utilities

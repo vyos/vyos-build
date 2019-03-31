@@ -27,7 +27,7 @@ if [ $BUILD_TYPE = "development" ]; then
 fi
 
 # Install grub-pc if it's an x86 build
-if [ $BUILD_ARCH  = 'amd64' -o $BUILD_ARCH = 'i686' ]; then
+if [ $BUILD_ARCH  = 'amd64' -o $BUILD_ARCH = 'i386' ]; then
     cp data/package-lists/vyos-x86.list.chroot build/config/package-lists/
 fi
 

@@ -82,10 +82,6 @@
 	path = packages/vyatta-webproxy
 	url = https://github.com/vyos/vyatta-webproxy.git
 	branch = current
-[submodule "packages/vyatta-webgui"]
-	path = packages/vyatta-webgui
-	url = https://github.com/vyos/vyatta-webgui.git
-	branch = current
 [submodule "packages/vyatta-cfg-quagga"]
 	path = packages/vyatta-cfg-quagga
 	url = https://github.com/vyos/vyatta-cfg-quagga.git
@@ -237,3 +233,20 @@
 	path = packages/igmpproxy
 	url = https://github.com/vyos/igmpproxy.git
 	branch = current
+[submodule "packages/hvinfo"]
+	path = packages/hvinfo
+	url = https://github.com/dmbaturin/hvinfo.git
+	branch = master
+[submodule "packages/libyang"]
+	path = packages/libyang
+    url = https://github.com/opensourcerouting/libyang.git
+    branch = debian
+[submodule "packages/ipaddrcheck"]
+	path = packages/ipaddrcheck
+	url = https://github.com/vyos/ipaddrcheck.git
+[submodule "packages/lldpd"]
+	path = packages/lldpd
+	url = https://github.com/vincentbernat/lldpd.git
+[submodule "packages/pdns-recursor"]
+	path = packages/pdns-recursor
+	url = https://salsa.debian.org/dns-team/pdns-recursor.git

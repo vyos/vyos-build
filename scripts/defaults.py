@@ -21,27 +21,17 @@ import os
 BUILD_DIR = 'build'
 BUILD_CONFIG = os.path.join(BUILD_DIR, 'build-config.json')
 
-# The default mirror was chosen entirely at random
-DEBIAN_MIRROR = 'http://ftp.nl.debian.org/debian'
-DEBIAN_SECURITY_MIRROR = 'http://ftp.nl.debian.org/debian-security'
-
-DEBIAN_DISTRIBUTION = 'jessie'
-
-SALT_MIRROR = 'http://repo.saltstack.com/apt/debian/8/amd64/2017.7'
-PDNS_MIRROR = 'http://repo.powerdns.com/debian'
-
 PBUILDER_CONFIG = os.path.join(BUILD_DIR, 'pbuilderrc')
 PBUILDER_DIR = os.path.join(BUILD_DIR, 'pbuilder')
 
 LB_CONFIG_DIR = os.path.join(BUILD_DIR, 'config')
 CHROOT_INCLUDES_DIR = os.path.join(LB_CONFIG_DIR, 'includes.chroot')
 
-VYOS_MIRROR = 'http://dev.packages.vyos.net/repositories/crux'
-
-VYOS_BRANCH = 'crux'
-
 ARCHIVES_DIR = 'config/archives/'
 
 VYOS_REPO_FILE = 'config/archives/vyos.list.chroot'
 CUSTOM_REPO_FILE = 'config/archives/custom.list.chroot'
 CUSTOM_PACKAGE_LIST_FILE = 'config/package-lists/custom.list.chroot'
+
+DEFAULT_BUILD_FLAVOR = 'data/defaults.json'
+
