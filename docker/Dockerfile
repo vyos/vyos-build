@@ -45,7 +45,6 @@ RUN apt-get update && apt-get install -y \
       mc \
       pbuilder \
       devscripts \
-      python3-pystache \
       squashfs-tools \
       autoconf \
       automake \
@@ -54,14 +53,9 @@ RUN apt-get update && apt-get install -y \
       genisoimage \
       lsb-release \
       fakechroot \
-      kernel-package \
       libtool \
       libglib2.0-dev \
-      libboost-filesystem-dev \
       libapt-pkg-dev \
-      libncurses5-dev \
-      flex \
-      bison \
       libperl-dev \
       libnfnetlink-dev \
       parted \
@@ -123,6 +117,10 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
+      kernel-package \
+      libncurses5-dev \
+      flex \
+      bison \
       libelf-dev
 
 # Packages needed for vyos-accel-ppp
@@ -278,13 +276,6 @@ RUN apt-get update && apt-get install -y \
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch \
       live-build && \
-    rm -f /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && \
-    rm -rf /var/lib/apt/lists/*
-
-# Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && apt-get install -y -t stretch live-build && \
     rm -f /etc/apt/sources.list.d/stretch.list && \
     apt-get update && \
     rm -rf /var/lib/apt/lists/*
