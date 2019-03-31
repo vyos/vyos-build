@@ -53,13 +53,9 @@ RUN apt-get update && apt-get install -y \
       genisoimage \
       lsb-release \
       fakechroot \
-      kernel-package \
       libtool \
       libglib2.0-dev \
       libapt-pkg-dev \
-      libncurses5-dev \
-      flex \
-      bison \
       libperl-dev \
       libnfnetlink-dev \
       parted \
@@ -121,6 +117,10 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
+      kernel-package \
+      libncurses5-dev \
+      flex \
+      bison \
       libelf-dev
 
 # Packages needed for vyos-accel-ppp
