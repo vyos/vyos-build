@@ -2,7 +2,7 @@
 want to run a full blown Hypervisor at that locations. Instead I opted to get
 one of the new Intel Atom C3000 CPUs to spawn VyOS on it.
 
-## Shopping List
+## Shopping Card
 
 * 1x Supermicro CSE-505-203B (19" 1U chassis, inkl. 200W PSU)
 * 1x Supermicro MCP-260-00085-0B (I/O Shield for A2SDi-2C-HLN4F)
@@ -11,6 +11,13 @@ one of the new Intel Atom C3000 CPUs to spawn VyOS on it.
 * 1x Crucial CT4G4DFS824A (4GB DDR4 RAM 2400 MT/s, PC4-19200)
 * 1x SanDisk Ultra Fit 32GB (USB-A 3.0 SDCZ43-032G-G46 mass storage for OS)
 * 1x Supermicro MCP-320-81302-0B (optional FAN tray)
+
+### Optional
+If you wan't to get additional ethernet ports or even 10GE connectivity
+the following optional parts will be required:
+
+* 1x Supermicro RSC-RR1U-E8 (Riser Card)
+* 1x Supermicro MCP-120-00063-0N (Riser Card Bracket)
 
 Latest VyOS rolling releases boot without any problem on this board. You also
 receive a nice IPMI interface realized with an ASPEED AST2400 BMC (no information
