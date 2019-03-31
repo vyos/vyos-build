@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# To get the possibility of reproducible builds we pin to a specific commit
+# of the linux-firmware repository
+COMMIT="7bc246451318b3536d9bfd3c4e46d541a9831b33"
+
+echo I: Retrieving Linux Firmware (commit: ${COMMIT})
+
+wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/linux-firmware-${COMMIT}.tar.gz -P /tmp
+tar xf /tmp/linux-firmware-${COMMIT}.tar.gz -C /lib
+mv /lib/linux-firmware-${COMMIT} /lib/firmware
+
+# We do not need all firmware blobs .. cleanup
+RM_FIRMWARE=" \
+    v4l-cx* \
+    s5p-mfc* \
+    nvidia \
+    amdgpu \
+    i915 \
+    radeon \
+    matrox \
+    mediatek \
+    qed \
+    sb16 \
+    ti-connectivity \
+    ueagle-atm \
+    dvb-* \
+    v4l-* \
+    i915 \
+    qcom \
+    ctfw-* \
+    ct2fw-* \
+    "
+for dir in ${RM_FIRMWARE}; do
+    rm -rf /lib/firmware/${dir}
+done

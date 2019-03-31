@@ -282,13 +282,6 @@ RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sourc
     apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
-# Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && apt-get install -y -t stretch live-build && \
-    rm -f /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && \
-    rm -rf /var/lib/apt/lists/*
-
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
