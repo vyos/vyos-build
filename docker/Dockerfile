@@ -184,17 +184,14 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
 
+# FRR depends on the relatively new libyang library to provide YANG/NETCONF
+# support. Unfortunately, most distributions do not yet offer a libyang package
+# from their repositories. Use prebuild libyang packages
 #
-RUN apt-get update && apt-get install -y -t jessie-backports \
-      swig \
-      libcmocka-dev \
-      libcmocka0
-
-RUN export LIBYANG_COMMIT="179da47f2e8de" && \
-    git clone https://github.com/opensourcerouting/libyang.git && \
-    cd libyang && git checkout $LIBYANG_COMMIT && mkdir build && cd build && \
-    cmake .. && make build-deb && \
-    dpkg -i debs/*.deb
+# https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
+RUN wget -P /tmp https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-8/Debian-AMD64-Packages/libyang-dev_0.16.105-1_amd64.deb && \
+    wget -P /tmp https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-8/Debian-AMD64-Packages/libyang0.16_0.16.105-1_amd64.deb && \
+    dpkg -i /tmp/libyang*_amd64.deb
 
 # Packages needed to build frr itself
 RUN apt-get update && apt-get install -y \
