@@ -177,13 +177,13 @@ RUN apt-get update && apt-get install -y \
       libssh-dev \
       libssl-dev
 
-RUN export RTRLIB_COMMIT="v0.6.3" && \
-    git clone https://github.com/rtrlib/rtrlib.git && \
-    cd rtrlib && git checkout $RTRLIB_COMMIT && \
-    dpkg-buildpackage -uc -us -tc -b && dpkg -i ../*.deb
+# Build rtrlib release 0.6.3
+RUN export RTRLIB_VERSION="0.6.3" && \
+    wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
+    tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
+    cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
+    dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
 
-# Prerequisites for building FRR from source
-# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 #
 RUN apt-get update && apt-get install -y -t jessie-backports \
       swig \
