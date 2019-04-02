@@ -1,12 +1,6 @@
 VyOS toplevel build
 ===================
 
-# Important!
-
-This repository is for building the VyOS versions 1.2.x and above.
-
-For VyOS 1.1, use the [build-iso](https://github.com/vyos/build-iso) repository.
-
 # What is VyOS
 
 VyOS is an open source operating system for network devices (routers, firewalls
