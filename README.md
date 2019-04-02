@@ -80,6 +80,38 @@ The `./configure` script will warn you if any dependencies are missing. Individu
 packages may have other build dependencies. If some dependencies are missing,
 package build scripts will tell you.
 
+## Building the ISO image
+
+Before you can build an image, you need to configure your build.
+
+To build an image, use the following commands:
+
+```bash
+$ ./configure
+$ make iso
+```
+
+The `./configure` script has a number of options that you can see by calling it
+with `--help`
+
+## Building the images for virtualization platforms
+
+### QEMU
+
+Run following command after building the ISO image.
+
+```bash
+$ make qemu
+```
+
+### VMware
+
+Run following command after building the QEMU image.
+
+```bash
+$ make vmware
+```
+
 ## Building the ISO image inside a docker container
 
 Using our [Dockerfile](docker/Dockerfile) you create your own Docker container
@@ -232,38 +264,6 @@ vyos-1x         - Unmet build dependencies: whois libvyosconfig0
 vyos-frr        - A lot of requirements, scary stuff...
 vyos-kernel     - Need special build instructions
 vyos-wireguard  - Needs special build instructions
-```
-
-## Building the ISO image
-
-Before you can build an image, you need to configure your build.
-
-To build an image, use the following commands:
-
-```bash
-$ ./configure
-$ make iso
-```
-
-The `./configure` script has a number of options that you can see by calling it
-with `--help`
-
-## Building the images for virtualization platforms
-
-### QEMU
-
-Run following command after building the ISO image.
-
-```bash
-$ make qemu
-```
-
-### VMware
-
-Run following command after building the QEMU image.
-
-```bash
-$ make vmware
 ```
 
 # Development process
