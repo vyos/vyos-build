@@ -62,6 +62,7 @@ vmware: clean prepare
 	@echo "It's not like I'm building this specially for you or anything!"
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/vmware/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
 	cp -f tools/cloud-init/vmware/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
 	cd $(build_dir)
 	@../scripts/build-vmware-image
@@ -88,6 +89,7 @@ azure: clean prepare
 	@echo "It's not like I'm building this specially for you or anything!"
 	cp tools/cloud-init/azure/99-walinuxagent.chroot build/config/hooks/live/
 	cp tools/cloud-init/azure/vyos-azure.list.chroot build/config/package-lists/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
 	cp -f tools/cloud-init/azure/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
 	cd $(build_dir)
 	@../scripts/build-azure-image
@@ -133,6 +135,7 @@ oracle: clean prepare
 	@echo "It's not like I'm building this specially for you or anything!"
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/OCI/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
 	cd $(build_dir)
 	@../scripts/build-oracle-image
 
