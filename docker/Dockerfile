@@ -16,16 +16,10 @@
 # Must be run with --privileged flag, recommended to run the container with a
 # volume mapped in order to easy export images
 
-FROM debian:jessie
+FROM debian:buster
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
-
-COPY sources.list /etc/apt/sources.list
-COPY no--check-valid-until /etc/apt/apt.conf.d/
-COPY vyos-dev.key /tmp/vyos-dev.key
-
-RUN apt-key add /tmp/vyos-dev.key
 
 # Standard shell should be bash not dash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
@@ -69,13 +63,12 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       python3-sphinx \
       python3-pystache \
-      pkg-config \
-      debhelper
-
-RUN apt-get update && apt-get install -y -t jessie-backports \
       python3-git \
       python3-pip \
-      gosu
+      pkg-config \
+      debhelper \
+      gosu \
+      live-build
 
 #
 # Building libvyosconf requires a full configured OPAM/OCaml setup
@@ -124,7 +117,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
 # Package needed for mdns-repeater
-RUN apt-get update && apt-get install -y -t jessie-backports \
+RUN apt-get update && apt-get install -y \
       dh-systemd
 
 # Packages needed for vyatta-cfg
@@ -161,7 +154,6 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
-      kernel-package \
       libncurses5-dev \
       flex \
       bison \
@@ -224,15 +216,9 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
+      libcidr0 \
+      libcidr-dev \
       check
-
-# As there is no Debian Jessie/Stretch package for libcidr available but this
-# is required for ipaddrcheck we have to build it from source
-RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
-    cd analytics-libcidr && \
-    git checkout 026c611d90a1 && \
-    dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libcidr*.deb
 
 # Packages needed for lldpd
 RUN apt-get update && apt-get install -y \
@@ -268,14 +254,6 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for ddclient
 RUN apt-get update && apt-get install -y \
       xmlto
-
-# Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && apt-get install -y -t stretch \
-      live-build && \
-    rm -f /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && \
-    rm -rf /var/lib/apt/lists/*
 
 # Install packer
 RUN apt-get update && apt-get install -y \
