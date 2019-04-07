@@ -16,7 +16,7 @@
 # Must be run with --privileged flag, recommended to run the container with a
 # volume mapped in order to easy export images
 
-FROM debian:jessie
+FROM debian:buster
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -63,21 +63,13 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       python3-sphinx \
       python3-pystache \
-      pkg-config \
-      debhelper \
-      jq
-
-#
-# Setup Debian Jessie Backports repository
-#
-COPY no--check-valid-until /etc/apt/apt.conf.d/
-RUN echo "deb http://archive.debian.org/debian/ jessie-backports main" \
-      > /etc/apt/sources.list.d/jessie-backports.list
-
-RUN apt-get update && apt-get install -y -t jessie-backports \
       python3-git \
       python3-pip \
-      gosu
+      pkg-config \
+      debhelper \
+      gosu \
+      live-build \
+      jq
 
 # Package needed for mdns-repeater
 RUN apt-get update && apt-get install -y -t jessie-backports \
@@ -135,6 +127,10 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
+# Package needed for mdns-repeater
+RUN apt-get update && apt-get install -y \
+      dh-systemd
+
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
       libglib2.0-dev \
@@ -172,7 +168,6 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
-      kernel-package \
       libncurses5-dev \
       flex \
       bison \
@@ -248,15 +243,9 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
+      libcidr0 \
+      libcidr-dev \
       check
-
-# As there is no Debian Jessie/Stretch package for libcidr available but this
-# is required for ipaddrcheck we have to build it from source
-RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
-    cd analytics-libcidr && \
-    git checkout 026c611d90a1 && \
-    dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libcidr*.deb
 
 # Packages needed for lldpd
 RUN apt-get update && apt-get install -y \
@@ -295,6 +284,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       xmlto
 
+<<<<<<< HEAD
 # Packages needed for keepalived
 RUN apt-get update && apt-get install -y \
       libnl-3-200 \
@@ -320,6 +310,8 @@ RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sourc
     apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
+=======
+>>>>>>> Docker: update build system to Debian Buster
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
