@@ -23,6 +23,9 @@ ENV DEBIAN_FRONTEND noninteractive
 
 COPY sources.list /etc/apt/sources.list
 COPY no--check-valid-until /etc/apt/apt.conf.d/
+COPY vyos-dev.key /tmp/vyos-dev.key
+
+RUN apt-key add /tmp/vyos-dev.key
 
 # Standard shell should be bash not dash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
@@ -184,17 +187,13 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
 
-# FRR depends on the relatively new libyang library to provide YANG/NETCONF
-# support. Unfortunately, most distributions do not yet offer a libyang package
-# from their repositories. Use prebuild libyang packages
-#
-# https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
-RUN wget -P /tmp https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-8/Debian-AMD64-Packages/libyang-dev_0.16.105-1_amd64.deb && \
-    wget -P /tmp https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-8/Debian-AMD64-Packages/libyang0.16_0.16.105-1_amd64.deb && \
-    dpkg -i /tmp/libyang*_amd64.deb
-
 # Packages needed to build frr itself
+# libyang-dev packages are hsoted on dev.packages.vyos.net see
+# https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
+# for more info
 RUN apt-get update && apt-get install -y \
+      libyang-dev \
+      libyang0.16 \
       chrpath \
       install-info \
       libjson-c-dev \
