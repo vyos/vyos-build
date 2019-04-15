@@ -3,6 +3,15 @@
   <References>
     <File ovf:href="vyos_vmware_image.vmdk" ovf:id="file1" ovf:size="{{vmdk_file_size}}"/>
   </References>
+  <ovf:NetworkSection>
+    <ovf:Info>The list of logical networks</ovf:Info>
+    <ovf:Network ovf:name="LAN">
+      <ovf:Description>LAN network</ovf:Description>
+    </ovf:Network>
+    <ovf:Network ovf:name="WAN">
+      <ovf:Description>WAN network</ovf:Description>
+    </ovf:Network>
+  </ovf:NetworkSection>
   <DeploymentOptionSection>
     <Info>List of profiles</Info>
     <Configuration ovf:default="true" ovf:id="1CPU-512MB">
@@ -18,12 +27,6 @@
       <Description ovf:msgid="Large.description">Large hardware profile - 8 vCPUs, 32 GB RAM</Description>
     </Configuration>
   </DeploymentOptionSection>
-  <NetworkSection>
-    <Info>List of logical networks used in the package</Info>
-    <Network ovf:name="Network 1">
-      <Description ovf:msgid="Network_1.description">Network 1</Description>
-    </Network>
-  </NetworkSection>
   <vmw:IpAssignmentSection ovf:required="false" vmw:protocols="IPv4 IPv6" vmw:schemes="ovfenv dhcp">
     <Info>Supported IP assignment schemes</Info>
   </vmw:IpAssignmentSection>
@@ -159,29 +162,39 @@
         <rasd:ResourceType>17</rasd:ResourceType>
       </Item>
       <Item>
-        <rasd:AddressOnParent>1</rasd:AddressOnParent>
-        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
-        <rasd:Connection>Network 1</rasd:Connection>
-        <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">Ethernet adapter on "Network 1"</rasd:ElementName>
-        <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">5</rasd:InstanceID>
-        <rasd:ResourceSubType>vmxnet3</rasd:ResourceSubType>
-        <rasd:ResourceType>10</rasd:ResourceType>
-      </Item>
-      <Item>
         <rasd:Address>0</rasd:Address>
         <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">IDE Controller 0</rasd:ElementName>
-        <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">6</rasd:InstanceID>
+        <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">5</rasd:InstanceID>
         <rasd:ResourceType>5</rasd:ResourceType>
       </Item>
       <Item>
         <rasd:AddressOnParent>0</rasd:AddressOnParent>
         <rasd:AutomaticAllocation>false</rasd:AutomaticAllocation>
         <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">CD/DVD Drive 1</rasd:ElementName>
-        <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">7</rasd:InstanceID>
-        <rasd:Parent>6</rasd:Parent>
+        <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">6</rasd:InstanceID>
+        <rasd:Parent>5</rasd:Parent>
         <rasd:ResourceType>15</rasd:ResourceType>
       </Item>
-      <vmw:Config ovf:required="false" vmw:key="tools.syncTimeWithHost" vmw:value="TRUE"/>
+      <ovf:Item>
+        <rasd:AddressOnParent>7</rasd:AddressOnParent>
+        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
+        <rasd:Connection>LAN</rasd:Connection>
+        <rasd:Description>NIC representing LAN</rasd:Description>
+        <rasd:ElementName>LAN</rasd:ElementName>
+        <rasd:InstanceID>7</rasd:InstanceID>
+        <rasd:ResourceSubType>vmxnet3</rasd:ResourceSubType>
+        <rasd:ResourceType>10</rasd:ResourceType>
+      </ovf:Item>
+      <ovf:Item>
+        <rasd:AddressOnParent>8</rasd:AddressOnParent>
+        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
+        <rasd:Connection>WAN</rasd:Connection>
+        <rasd:Description>NIC representing WAN</rasd:Description>
+        <rasd:ElementName>WAN</rasd:ElementName>
+        <rasd:InstanceID>8</rasd:InstanceID>
+        <rasd:ResourceSubType>vmxnet3</rasd:ResourceSubType>
+        <rasd:ResourceType>10</rasd:ResourceType>
+      </ovf:Item>
     </VirtualHardwareSection>
   </VirtualSystem>
 </ovf:Envelope>
