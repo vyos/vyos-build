@@ -106,6 +106,19 @@ GCE: clean prepare
 	cd $(build_dir)
 	@../scripts/build-GCE-image
 
+.PHONY: GCE-debug
+.ONESHELL:
+GCE-debug: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
+	cp tools/cloud-init/GCE/99-debug-user.chroot build/config/hooks/live/
+	cp tools/cloud-init/GCE/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/GCE/config.boot.default-debug build/config/includes.chroot/opt/vyatta/etc/config.boot.default
+	cd $(build_dir)
+	@../scripts/build-GCE-image
+
 .PHONY: AWS
 .ONESHELL:
 AWS: clean prepare
