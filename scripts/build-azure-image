@@ -56,8 +56,8 @@ dateymd=$(date +%Y%m%d)
 ######################################
 PARTED=/sbin/parted
 OUTPUT=VyOS-"$dateymd".vhd
-IMAGE_SIZE=512
-qemu-img create ${OUTPUT} ${IMAGE_SIZE}M
+IMAGE_SIZE=10
+qemu-img create ${OUTPUT} ${IMAGE_SIZE}G
 
 ${PARTED} -s ${OUTPUT} mktable msdos
 ${PARTED} -s -a optimal ${OUTPUT} mkpart primary ext4 1Mi 100%
