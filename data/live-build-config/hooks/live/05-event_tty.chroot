@@ -22,7 +22,7 @@ if [ -r etc/event.d/tty1 ] ; then
 	stop on runlevel 6
 
 	respawn
-	exec /sbin/getty 9600 ttyS0 vt100
+	exec /sbin/getty 115200 ttyS0 vt100
 
 	EOF
     fi
@@ -30,5 +30,5 @@ fi
 
 if [ -r etc/inittab ] && [ -c dev/ttyS0 ] && grep -q '^#T0:.*getty.*ttyS0' etc/inittab ; then
     echo I: Enable serial console login
-    sed -i '/^#T0:/s|^#.*$|T0:23:respawn:/sbin/getty -L ttyS0 9600 vt100|' etc/inittab
+    sed -i '/^#T0:/s|^#.*$|T0:23:respawn:/sbin/getty -L ttyS0 115200 vt100|' etc/inittab
 fi
