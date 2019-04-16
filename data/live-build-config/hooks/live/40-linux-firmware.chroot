@@ -22,7 +22,6 @@ RM_FIRMWARE=" \
     radeon \
     matrox \
     mediatek \
-    qed \
     sb16 \
     ti-connectivity \
     ueagle-atm \
