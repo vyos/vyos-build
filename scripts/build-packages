@@ -174,7 +174,6 @@ vyos_packages = ['vyatta-bash',
                  'vyos-1x',
                  'vyatta-iproute',
                  'vyatta-quagga',
-                 'vyos-strongswan',
                  'vyos-vmwaretools-scripts',
                  'vyos-netplug',
                  'vyos-xe-guest-utilities',
@@ -203,6 +202,14 @@ pkg_special.append( add_package('ipaddrcheck', branch='master'))
 # Packages where we directly build the upstream source
 pkg_special.append( add_package('hvinfo', url='https://github.com/dmbaturin/hvinfo.git', branch='master') )
 pkg_special.append( add_package('lldpd',  url='https://github.com/vincentbernat/lldpd.git', branch='master', tag='1.0.3') )
+
+# VyOS strongswan ships additional python3-vici packages required by vyos-1x and this is not build by default
+vyos_strongswan_build_cmd = "dpkg-buildpackage -b -us -uc -tc && " \
+                            "autoreconf -i && ./configure --enable-python-eggs && " \
+                            "cd src/libcharon/plugins/vici/python && make && " \
+                            "python3 setup.py --command-packages=stdeb.command bdist_deb && " \
+                            "mv ./deb_dist/*.deb " +  repo_root + "/packages"
+pkg_special.append( add_package('vyos-strongswan', custombuild_cmd=vyos_strongswan_build_cmd) )
 
 #
 # FreeRangeRouting (FRR) packages

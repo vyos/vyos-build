@@ -259,7 +259,9 @@ RUN apt-get update && apt-get install -y \
       libsqlite3-dev \
       dh-apparmor \
       gperf \
-      libsystemd-dev
+      libsystemd-dev \
+      python3-stdeb \
+      python-setuptools
 
 # Packages needed for vyos-opennhrp
 RUN apt-get update && apt-get install -y \
