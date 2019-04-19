@@ -1,19 +1,14 @@
 #!/usr/bin/env python
 
-# The Cisco Unity plugin, that implements a proprietary extension
-# for IPsec split tunneling, interfers with DMVPN
-#
-# Since we do not do remote access IPsec, the simplest solution
-# is to disable it entirely from the start.
+# open-vm-tools settings
 
 import re
 
 vmtools_config = """
 [guestinfo]
-    poll-interval=0
+    poll-interval=30
 
 """
 
-# Disable the 'cisco_unity' option in charon.conf
 with open('/etc/vmware-tools/tools.conf', 'w') as f:
     f.write(vmtools_config)
