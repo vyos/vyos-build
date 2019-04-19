@@ -87,7 +87,7 @@
       <Info/>
       <Annotation>VyOS</Annotation>
     </AnnotationSection>
-    <OperatingSystemSection ovf:id="100" ovf:version="1" vmw:osType="other3xLinux64Guest">
+    <OperatingSystemSection ovf:id="100" ovf:version="1" vmw:osType="debian8_64Guest">
       <Info>Guest Operating System</Info>
       <Description>VyOS</Description>
     </OperatingSystemSection>
@@ -148,9 +148,9 @@
       </Item>
       <Item>
         <rasd:Address xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">0</rasd:Address>
-        <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">SCSI Controller 0 - LSI Logic</rasd:ElementName>
+        <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">SCSI Controller 0</rasd:ElementName>
         <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">3</rasd:InstanceID>
-        <rasd:ResourceSubType>lsilogic</rasd:ResourceSubType>
+        <rasd:ResourceSubType>VirtualSCSI</rasd:ResourceSubType>
         <rasd:ResourceType>6</rasd:ResourceType>
       </Item>
       <Item>

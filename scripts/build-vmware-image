@@ -142,22 +142,22 @@ set timeout=5
 set default=0
 
 menuentry "VyOS  (KVM console)" {
-        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=ttyS0,9600 console=tty0 systemd.show_status=true
+        linux /boot/"$version"/vmlinuz boot=live quiet vyos-union=/boot/"$version" console=ttyS0,115200 console=tty0 systemd.show_status=true
         initrd /boot/"$version"/initrd.img
 }
 
 menuentry "Lost password change  (KVM console)" {
-        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=ttyS0,9600 console=tty0 systemd.show_status=true init=/opt/vyatta/sbin/standalone_root_pw_reset
+        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=ttyS0,115200 console=tty0 systemd.show_status=true init=/opt/vyatta/sbin/standalone_root_pw_reset
         initrd /boot/"$version"/initrd.img
 }
 
 menuentry "VyOS $version (Serial console)" {
-        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=tty0 console=ttyS0,9600n8d consoleblank=0 systemd.show_status=true
+        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=tty0 console=ttyS0,115200n8d consoleblank=0 systemd.show_status=true
         initrd /boot/"$version"/initrd.img
 }
 
 menuentry "Lost password change $version (Serial console)" {
-        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=tty0 console=ttyS0,9600n8d consoleblank=0 systemd.show_status=true init=/opt/vyatta/sbin/standalone_root_pw_reset
+        linux /boot/"$version"/vmlinuz boot=live vyos-union=/boot/"$version" console=tty0 console=ttyS0,115200n8d consoleblank=0 systemd.show_status=true init=/opt/vyatta/sbin/standalone_root_pw_reset
         initrd /boot/"$version"/initrd.img
 }
 EOF
