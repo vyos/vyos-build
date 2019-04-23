@@ -157,9 +157,6 @@ pipeline {
                     # Configure the ISO
                     ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
 
-                    # Debug to see which Debian packages we have so far
-                    ls -al packages/*.deb
-
                     # Finally build our ISO
                     sudo make iso
                 '''
@@ -168,6 +165,12 @@ pipeline {
     }
 
     post {
+        always {
+            archiveArtifacts artifacts: 'build/build.log', fingerprint: true
+        }
+        success {
+            archiveArtifacts artifacts: 'build/vyos*.iso', fingerprint: true
+        }
         cleanup {
             echo 'One way or another, I have finished'
             // the 'build' directory got elevated permissions during the build
