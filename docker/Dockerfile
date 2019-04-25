@@ -157,7 +157,9 @@ RUN apt-get update && apt-get install -y \
       libncurses5-dev \
       flex \
       bison \
-      libelf-dev
+      libelf-dev \
+      bc \
+      kmod
 
 # Packages needed for vyos-accel-ppp
 RUN apt-get update && apt-get install -y \
