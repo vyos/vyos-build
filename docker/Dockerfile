@@ -284,7 +284,6 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       xmlto
 
-<<<<<<< HEAD
 # Packages needed for keepalived
 RUN apt-get update && apt-get install -y \
       libnl-3-200 \
@@ -302,16 +301,6 @@ RUN apt-get update && apt-get install -y \
       python2.7-dev \
       libmysqld-dev
 
-# Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && apt-get install -y -t stretch \
-      live-build && \
-    rm -f /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && \
-    rm -rf /var/lib/apt/lists/*
-
-=======
->>>>>>> Docker: update build system to Debian Buster
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
