@@ -2,15 +2,11 @@
   "architecture": "amd64",
   "debian_mirror": "http://deb.debian.org/debian",
   "debian_security_mirror": "http://deb.debian.org/debian-security",
-  "debian_distribution": "jessie",
+  "debian_distribution": "buster",
   "vyos_mirror": "http://dev.packages.vyos.net/repositories/current",
   "vyos_branch": "current",
   "kernel_version": "4.19.36",
   "kernel_flavor": "amd64-vyos",
-  "additional_repositories": [
-    "deb http://repo.saltstack.com/apt/debian/8/amd64/2017.7 jessie main",
-    "deb http://repo.powerdns.com/debian jessie-rec-41 main",
-    "deb http://archive.debian.org/debian/ jessie-backports main"
-  ],
+  "additional_repositories": [],
   "custom_packages": []
 }
