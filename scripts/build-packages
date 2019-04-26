@@ -82,6 +82,11 @@ def call(bashCommand, log, **kwargs):
         else:
            log.info(lines.decode().rstrip('\n'))
 
+
+    # A last write needed after subprocess ends
+    log.debug(output.read().decode().rstrip('\n'))
+    log.info(error.read().decode().rstrip('\n'))
+
     error.close()
     output.close()
     return sub.returncode
