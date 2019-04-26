@@ -13,7 +13,7 @@ VyOS is not new. It is a fork of Vyatta Core that was created when the open
 source version of it was discontinued. If you are a Vyatta Core user, you can
 upgrade your installation to VyOS.
 
-# What is this repository?
+# About this repository
 
 VyOS is a GNU/Linux distribution based on Debian. Just like any other
 distribution, it consists of multiple packages.
@@ -28,22 +28,33 @@ This is the top level repository that contains links to repositories with VyOS
 specific packages (organized as Git submodules) and scripts and data that are
 used for building those packages and the installation image.
 
-# Structure of this repository
+# Repository Structure
 
 There are several directories with their own purpose:
 
-   build/    Used for temporary files used for the build and for build artifacts
-   scripts/  Scripts that are used for the build process
-   data/     Data required for building the ISO (such as boot splash)
-   tools/    Scripts that are used for maintainer's tasks automation and other
-             purposes, but not during ISO build process
+ * `build/`   Used for temporary files used for the build and for build artifacts
+ * `scripts/` Scripts that are used for the build process
+ * `data/`    Data required for building the ISO (e.g. boot splash/configs)
+ * `tools/`   Scripts that are used for maintainer's tasks automation and other
+              purposes, but not during ISO build process
 
-# Building VyOS installation images
+# Building installation images
 
 ## Prerequisites
 
 To build a VyOS 1.2.0 image, you need Debian 8 "Jessie" environment (with
 jessie-backports repository).
+
+If you are working on a Debian Jessie machine, no special preparation is needed,
+you only need to enable jessie-backports and install build dependencies.
+
+If you are interested which individual packages are required please check our
+[Dockerfile](docker/Dockerfile) which holds the most complete documentation
+of required packages. Listing individual packages here tend to be always
+outdated. We try to list required packages in groups through their inheritance
+in the [Dockerfile](docker/Dockerfile).
+
+### Debootstrap
 
 If you do not have a Debian Jessie machine, you may create a chroot environment
 with the [debootstrap](https://wiki.debian.org/Debootstrap) tool.
@@ -56,68 +67,18 @@ $ sudo apt-get install debootstrap
 $ sudo debootstrap jessie vyos-chroot
 $ sudo chroot vyos-chroot
 
-$ echo "deb http://deb.debian.org/debian jessie-backports main" >> /etc/apt/sources.list
+$ echo "deb http://archive.debian.org/debian/ jessie-backports main" >> /etc/apt/sources.list
 $ apt-get update
 ```
 
-If you are working on a Debian Jessie machine, no special preparation is needed,
-you only need to enable jessie-backports and install build dependencies. An
-up-to-date dependency list can be found in our [Dockerfile](docker/Dockerfile).
+**NOTE:** We recommend to use the Docker build method
 
-Several packages are required for building the ISO:
-* `python3`
-* `live-build`
-* `pbuilder`
-* `python3-pystache`
-
-The `./configure` script will warn you if any dependencies are missing. Individual
-packages may have other build dependencies. If some dependencies are missing,
-package build scripts will tell you.
-
-## Building the ISO image
-
-Before you can build an image, you need to configure your build.
-
-To build an image, use the following commands:
-
-```bash
-$ ./configure
-$ make iso
-```
-
-The `./configure` script has a number of options that you can see by calling it
-with `--help`
-
-## Building the images for virtualization platforms
-
-### QEMU
-
-Run following command after building the ISO image.
-
-```bash
-$ make qemu
-```
-
-### VMware
-
-Run following command after building the QEMU image.
-
-```bash
-$ make vmware
-```
-
-# Building ISO or individual packages via Docker
+### Docker
 
 Using our [Dockerfile](docker/Dockerfile) you create your own Docker container
 that is used to build a VyOS ISO image or other required VyOS packages. The
 [Dockerfile](docker/Dockerfile) contains some of the most used packages needed
 to build a VyOS ISO, a qemu image, and several of the submodules.
-
-If you are interested which individual packages are required please check our
-[Dockerfile](docker/Dockerfile) which holds the most complete documentation
-of required packages. Listing individual packages here tend to be always
-outdated. We try to list required packages in groups through their inheritance
-in the [Dockerfile](docker/Dockerfile).
 
 To build the docker image ensure you have a working [Docker](https://www.docker.com)
 environment and then run the following commands:
@@ -152,16 +113,95 @@ Linux 948a2be7c52c 3.16.0-7-amd64 #1 SMP Debian 3.16.59-1 (2018-10-03) x86_64 GN
 After the Docker container is running you can follow up the instructions below in
 order to build the VyOS ISO image.
 
+## Building the ISO image
+
+The `./configure` script will warn you if any dependencies are missing. Individual
+packages may have other build dependencies. If some dependencies are missing,
+package build scripts will tell you.
+
+```bash
+$ ./configure --help
+usage: configure [-h] [--build-by BUILD_BY] [--version VERSION]
+                 [--pbuilder-debian-mirror PBUILDER_DEBIAN_MIRROR]
+                 [--debian-security-mirror DEBIAN_SECURITY_MIRROR]
+                 [--architecture ARCHITECTURE] [--vyos-mirror VYOS_MIRROR]
+                 [--build-type BUILD_TYPE] [--debian-mirror DEBIAN_MIRROR]
+                 [--debug] [--custom-apt-entry CUSTOM_APT_ENTRY]
+                 [--custom-apt-key CUSTOM_APT_KEY]
+                 [--custom-package CUSTOM_PACKAGE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --build-by BUILD_BY   Builder identifier (e.g. jrandomhacker@example.net)
+  --version VERSION     Version number (release builds only)
+  --pbuilder-debian-mirror PBUILDER_DEBIAN_MIRROR
+                        Debian repository mirror for pbuilder env bootstrap
+  --debian-security-mirror DEBIAN_SECURITY_MIRROR
+                        Debian security updated mirror
+  --architecture ARCHITECTURE
+                        Image target architecture (amd64 or i386 or armhf)
+  --vyos-mirror VYOS_MIRROR
+                        VyOS package mirror
+  --build-type BUILD_TYPE
+                        Build type, release or development
+  --debian-mirror DEBIAN_MIRROR
+                        Debian repository mirror for ISO build
+  --debug               Enable debug output
+  --custom-apt-entry CUSTOM_APT_ENTRY
+                        Custom APT entry
+  --custom-apt-key CUSTOM_APT_KEY
+                        Custom APT key file
+  --custom-package CUSTOM_PACKAGE
+                        Custom package to install from repositories
+```
+
+Before you can build an image, you need to configure your build.
+
+Each build needs to run the `./configure` step first where you can extend your
+ISO by additional packages (`--custom-package`) or specify who build this nice
+ISO image (`--build-by`). If you have local Debian mirrors, you can select them
+by `--debian-mirror` or `--debian-security-mirror`.
+
+```bash
+$ ./configure --custom-package vim --build-by jrandom@hacker.com
+$ sudo make iso
+```
+
+After some time you will find the resulting ISO image in the `build` folder.
+
+### Building images for virtualization platforms
+
+#### QEMU
+
+Run following command after building the ISO image.
+
+```bash
+$ make qemu
+```
+
+#### VMware
+
+Run following command after building the QEMU image.
+
+```bash
+$ make vmware
+```
+
 ## Building subpackages inside Docker
 
+VyOS requires a bunch of packages which are VyOS specific and thus can not be
+found in any Debian Upstream mirrror. Those packages can be found at the VyOS
+GitHub project (https://github.com/vyos) and there is a nice helper script
+available to build and list those individual packages.
+
 [scripts/build-packages](scripts/build-packages) provides an easy interface
-for automate the process of building all VyOS related packages that are not part
+to automate the process of building all VyOS related packages that are not part
 of the upstream Debian version. Execute it in the root of the `vyos-build`
 directory to start compilation.
 
 ```bash
-$ scripts/build-packages -h
-usage: build-packages [-h] [-v] [-c] [-l] [-b BUILD [BUILD ...]] [-f]
+$  scripts/build-packages -h
+usage: build-packages [-h] [-v] [-c] [-l] [-b BUILD [BUILD ...]] [-f] [-p]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -171,6 +211,7 @@ optional arguments:
   -b BUILD [BUILD ...], --build BUILD [BUILD ...]
                         Whitespace separated list of packages to build
   -f, --fetch           Fetch sources only, no build
+  -p, --parallel        Build on all CPUs
 ```
 
 Git repositoriers are automatically fetched and build on demand. If you wan't to
@@ -182,8 +223,7 @@ container, it includes all dependencies for compiling supported packages.
 ```bash
 $ docker run --rm -it -v $(pwd):/vyos -w /vyos \
              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
-             vyos-builder \
-             ./scripts/build-packages
+             vyos-builder scripts/build-packages
 ```
 
 **NOTE:** `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is required to build the
@@ -192,7 +232,7 @@ $ docker run --rm -it -v $(pwd):/vyos -w /vyos \
 **NOTE:** Prior to executing this script you need to create or build the Docker
 container and checkout all packages you want to compile.
 
-### Building a single package
+### Building single package(s)
 
 The script above runs all package build inside the Docker container, this is also
 possible to do by hand using:
@@ -202,8 +242,7 @@ Executed from the root of `vyos-build`
 ```bash
 $ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
-             vyos-builder \
-             ./scripts/build-packages -b <package>
+             vyos-builder scripts/build-packages -b <package>
 ```
 
 **NOTE:** `--sysctl net.ipv6.conf.lo.disable_ipv6=0` is only needed when
