@@ -272,6 +272,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--build', nargs='+', help='Whitespace separated list of packages to build')
     parser.add_argument('-f', '--fetch', action='store_true', help='Fetch sources only, no build')
     parser.add_argument('-p', '--parallel', action='store_true', help='Build on all CPUs')
+    parser.add_argument('--blacklist', nargs='+', help='Do not build/report packages when calling --list')
 
 
     args = parser.parse_args()
@@ -282,6 +283,31 @@ if __name__ == '__main__':
 
     print("Using vyos-build repository ('{}') commit '{}'\n".format(repo_root, repo_sha))
 
+    #
+    # Exclude packages from build process,
+    # also do not list them on --list
+    #
+    if args.blacklist:
+        for exclude in args.blacklist:
+            if exclude in vyos_packages:
+                vyos_packages.remove(exclude)
+                continue
+
+            found = False
+            for pkg in pkg_special:
+                if exclude == pkg['name']:
+                    found = True
+                    # package already formed
+                    pkg_special.remove(pkg)
+                    break
+
+            if not found:
+                print("Invalid choice '" + exclude + "', --list-packages for complete list!")
+                sys.exit(1)
+
+    #
+    # List all available (to be build) packages
+    #
     if args.list_packages:
         print("Individual packages available for build:")
         for pkg in vyos_packages:
