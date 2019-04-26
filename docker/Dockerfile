@@ -68,7 +68,12 @@ RUN apt-get update && apt-get install -y \
       pkg-config \
       debhelper \
       gosu \
-      live-build
+      live-build \
+      jq
+
+# Package needed for mdns-repeater
+RUN apt-get update && apt-get install -y \
+      dh-systemd
 
 #
 # Building libvyosconf requires a full configured OPAM/OCaml setup
@@ -116,10 +121,6 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
-# Package needed for mdns-repeater
-RUN apt-get update && apt-get install -y \
-      dh-systemd
-
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
       libglib2.0-dev \
@@ -141,7 +142,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libpcap-dev \
       libpq-dev \
-      default-libmysqlclient-dev \
+      libmysqlclient-dev \
       libgeoip-dev \
       librabbitmq-dev \
       libjansson-dev \
@@ -181,6 +182,14 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
 
+#
+# Setup VyOS Debian repository
+#
+COPY vyos-dev.key /tmp/vyos-dev.key
+RUN apt-key add /tmp/vyos-dev.key
+RUN echo "deb http://dev.packages.vyos.net/repositories/current/debian/ current main" \
+      > /etc/apt/sources.list.d/vyos.list
+
 # Packages needed to build frr itself
 # libyang-dev packages are hsoted on dev.packages.vyos.net see
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
@@ -195,6 +204,11 @@ RUN apt-get update && apt-get install -y \
       python3-dev \
       python3-pytest \
       texinfo
+
+#
+# Cleanup VyOS Debian Repository
+#
+RUN rm -f /etc/apt/sources.list.d/vyos.list
 
 # Packages needed for conntrack-tools
 RUN apt-get update && apt-get install -y \
@@ -248,6 +262,7 @@ RUN apt-get update && apt-get install -y \
       dh-apparmor \
       gperf \
       libsystemd-dev \
+      python3-stdeb \
       python-setuptools
 
 # Packages needed for vyos-opennhrp
@@ -258,9 +273,14 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       xmlto
 
-# Install packer
+# Packages needed for keepalived
 RUN apt-get update && apt-get install -y \
-      jq
+      libnl-3-200 \
+      libnl-3-dev \
+      libnl-genl-3-200 \
+      libnl-genl-3-dev
+
+# Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
     echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\
