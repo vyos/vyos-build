@@ -1,4 +1,0 @@
-deb http://deb.debian.org/debian/ jessie main
-deb http://deb.debian.org/debian-security/ jessie/updates main
-deb http://archive.debian.org/debian/ jessie-backports main
-deb http://dev.packages.vyos.net/repositories/current/debian/ current main

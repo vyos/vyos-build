@@ -21,12 +21,6 @@ LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
 
-COPY sources.list /etc/apt/sources.list
-COPY no--check-valid-until /etc/apt/apt.conf.d/
-COPY vyos-dev.key /tmp/vyos-dev.key
-
-RUN apt-key add /tmp/vyos-dev.key
-
 # Standard shell should be bash not dash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
     dpkg-reconfigure dash
@@ -73,10 +67,27 @@ RUN apt-get update && apt-get install -y \
       debhelper \
       jq
 
+#
+# Setup Debian Jessie Backports repository
+#
+COPY no--check-valid-until /etc/apt/apt.conf.d/
+RUN echo "deb http://archive.debian.org/debian/ jessie-backports main" \
+      > /etc/apt/sources.list.d/jessie-backports.list
+
 RUN apt-get update && apt-get install -y -t jessie-backports \
       python3-git \
       python3-pip \
       gosu
+
+# Package needed for mdns-repeater
+RUN apt-get update && apt-get install -y -t jessie-backports \
+      dh-systemd
+
+#
+# Remove Debian Jessie Backports repository
+#
+RUN rm -f /etc/apt/sources.list.d/jessie-backports.list \
+          /etc/apt/apt.conf.d/no--check-valid-until
 
 #
 # Building libvyosconf requires a full configured OPAM/OCaml setup
@@ -123,10 +134,6 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     cd libvyosconfig && git checkout 9a80a5d3 && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
-
-# Package needed for mdns-repeater
-RUN apt-get update && apt-get install -y -t jessie-backports \
-      dh-systemd
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
@@ -188,6 +195,14 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
 
+#
+# Setup VyOS Debian repository
+#
+COPY vyos-dev.key /tmp/vyos-dev.key
+RUN apt-key add /tmp/vyos-dev.key
+RUN echo "deb http://dev.packages.vyos.net/repositories/current/debian/ current main" \
+      > /etc/apt/sources.list.d/vyos.list
+
 # Packages needed to build frr itself
 # libyang-dev packages are hsoted on dev.packages.vyos.net see
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
@@ -202,6 +217,11 @@ RUN apt-get update && apt-get install -y \
       python3-dev \
       python3-pytest \
       texinfo
+
+#
+# Cleanup VyOS Debian Repository
+#
+RUN rm -f /etc/apt/sources.list.d/vyos.list
 
 # Packages needed for conntrack-tools
 RUN apt-get update && apt-get install -y \
