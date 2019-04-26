@@ -155,7 +155,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libpcap-dev \
       libpq-dev \
-      libmysqlclient-dev \
+      default-libmysqlclient-dev \
       libgeoip-dev \
       librabbitmq-dev \
       libjansson-dev \
