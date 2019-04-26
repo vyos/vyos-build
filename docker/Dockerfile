@@ -21,9 +21,6 @@ LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
 
-COPY sources.list /etc/apt/sources.list
-COPY no--check-valid-until /etc/apt/apt.conf.d/
-
 # Standard shell should be bash not dash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
     dpkg-reconfigure dash
@@ -45,7 +42,6 @@ RUN apt-get update && apt-get install -y \
       mc \
       pbuilder \
       devscripts \
-      python3-pystache \
       squashfs-tools \
       autoconf \
       automake \
@@ -54,19 +50,10 @@ RUN apt-get update && apt-get install -y \
       genisoimage \
       lsb-release \
       fakechroot \
-      kernel-package \
       libtool \
-      libglib2.0-dev \
-      libboost-filesystem-dev \
       libapt-pkg-dev \
-      libncurses5-dev \
-      flex \
-      bison \
-      libperl-dev \
-      libnfnetlink-dev \
       parted \
       kpartx \
-      jq \
       qemu-system-x86 \
       qemu-utils \
       quilt \
@@ -76,11 +63,16 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       python3-sphinx \
       python3-pystache \
-      dh-apparmor \
-      gperf \
-      libsystemd-dev \
       pkg-config \
-      debhelper
+      debhelper \
+      jq
+
+#
+# Setup Debian Jessie Backports repository
+#
+COPY no--check-valid-until /etc/apt/apt.conf.d/
+RUN echo "deb http://archive.debian.org/debian/ jessie-backports main" \
+      > /etc/apt/sources.list.d/jessie-backports.list
 
 RUN apt-get update && apt-get install -y -t jessie-backports \
       python3-git \
@@ -91,94 +83,19 @@ RUN apt-get update && apt-get install -y -t jessie-backports \
 RUN apt-get update && apt-get install -y -t jessie-backports \
       dh-systemd
 
-# Packages needed for vyatta-cfg
-RUN apt-get update &&apt-get install -y \
-      libboost-filesystem-dev
-
-# Packages needed for vyatta-iproute
-RUN apt-get update && apt-get install -y \
-      libatm1-dev \
-      libdb-dev \
-      iptables-dev
-
-# Packages needed for vyatta-webgui
-RUN apt-get update && apt-get install -y \
-      libexpat1-dev \
-      subversion
-
-# Packages needed for pmacct
-RUN apt-get update && apt-get install -y \
-      libpcap-dev \
-      libpq-dev \
-      default-libmysqlclient-dev \
-      libgeoip-dev \
-      librabbitmq-dev \
-      libjansson-dev \
-      librdkafka-dev \
-      libnetfilter-log-dev
-
-# Pavkages needed for wireguard
-RUN apt-get update && apt-get install -y \
-      libmnl-dev
-
-# Packages needed for kernel
-RUN apt-get update && apt-get install -y \
-      libelf-dev
-
-# Packages needed for vyos-accel-ppp
-RUN apt-get update && apt-get install -y \
-      cdbs \
-      cmake \
-      liblua5.1-dev
-
-# Prerequisites for building rtrlib
-# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
-RUN apt-get update && apt-get install -y \
-      doxygen \
-      libssh-dev \
-      libssl-dev
-
-RUN export RTRLIB_COMMIT="v0.6.3" && \
-    git clone https://github.com/rtrlib/rtrlib.git && \
-    cd rtrlib && git checkout $RTRLIB_COMMIT && \
-    dpkg-buildpackage -uc -us -tc -b && dpkg -i ../*.deb
-
-# Prerequisites for building FRR from source
-# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 #
-RUN apt-get update && apt-get install -y -t jessie-backports \
-      swig \
-      libcmocka-dev \
-      libcmocka0
+# Remove Debian Jessie Backports repository
+#
+RUN rm -f /etc/apt/sources.list.d/jessie-backports.list \
+          /etc/apt/apt.conf.d/no--check-valid-until
 
-RUN export LIBYANG_COMMIT="179da47f2e8de" && \
-    git clone https://github.com/opensourcerouting/libyang.git && \
-    cd libyang && git checkout $LIBYANG_COMMIT && mkdir build && cd build && \
-    cmake .. && make build-deb && \
-    dpkg -i debs/*.deb
-
-# Packages needed to build frr itself
+#
+# Building libvyosconf requires a full configured OPAM/OCaml setup
+#
 RUN apt-get update && apt-get install -y \
-      chrpath \
-      install-info \
-      libjson-c-dev \
-      libpython3-dev \
-      python3-dev \
-      python3-pytest \
-      texinfo
+      libffi-dev \
+      libpcre3-dev
 
-# Packages needed for conntrack-tools
-RUN apt-get update && apt-get install -y \
-      libnetfilter-conntrack-dev \
-      libnetfilter-cthelper0-dev \
-      libnetfilter-cttimeout-dev \
-      libnetfilter-queue-dev
-
-# Packages needed for libvyosconfig && VyConf
-RUN apt-get update && apt-get install -y \
-      libffi-dev
-
-# Packages needed for libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
     opam init --root=/opt/opam --comp=4.07.0 --disable-sandboxing
@@ -218,6 +135,101 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
+# Packages needed for vyatta-cfg
+RUN apt-get update && apt-get install -y \
+      libglib2.0-dev \
+      libperl-dev \
+      libboost-filesystem-dev
+
+# Packages needed for vyatta-iproute
+RUN apt-get update && apt-get install -y \
+      libatm1-dev \
+      libdb-dev \
+      iptables-dev
+
+# Packages needed for vyatta-webgui
+RUN apt-get update && apt-get install -y \
+      libexpat1-dev \
+      subversion
+
+# Packages needed for pmacct
+RUN apt-get update && apt-get install -y \
+      libpcap-dev \
+      libpq-dev \
+      libmysqlclient-dev \
+      libgeoip-dev \
+      librabbitmq-dev \
+      libjansson-dev \
+      librdkafka-dev \
+      libnetfilter-log-dev
+
+# Pavkages needed for wireguard
+RUN apt-get update && apt-get install -y \
+      libmnl-dev
+
+# Packages needed for kernel
+RUN apt-get update && apt-get install -y \
+      kernel-package \
+      libncurses5-dev \
+      flex \
+      bison \
+      libelf-dev
+
+# Packages needed for vyos-accel-ppp
+RUN apt-get update && apt-get install -y \
+      cdbs \
+      cmake \
+      liblua5.1-dev
+
+# Prerequisites for building rtrlib
+# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
+RUN apt-get update && apt-get install -y \
+      doxygen \
+      libssh-dev \
+      libssl-dev
+
+# Build rtrlib release 0.6.3
+RUN export RTRLIB_VERSION="0.6.3" && \
+    wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
+    tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
+    cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
+    dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
+
+#
+# Setup VyOS Debian repository
+#
+COPY vyos-dev.key /tmp/vyos-dev.key
+RUN apt-key add /tmp/vyos-dev.key
+RUN echo "deb http://dev.packages.vyos.net/repositories/current/debian/ current main" \
+      > /etc/apt/sources.list.d/vyos.list
+
+# Packages needed to build frr itself
+# libyang-dev packages are hsoted on dev.packages.vyos.net see
+# https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
+# for more info
+RUN apt-get update && apt-get install -y \
+      libyang-dev \
+      libyang0.16 \
+      chrpath \
+      install-info \
+      libjson-c-dev \
+      libpython3-dev \
+      python3-dev \
+      python3-pytest \
+      texinfo
+
+#
+# Cleanup VyOS Debian Repository
+#
+RUN rm -f /etc/apt/sources.list.d/vyos.list
+
+# Packages needed for conntrack-tools
+RUN apt-get update && apt-get install -y \
+      libnetfilter-conntrack-dev \
+      libnetfilter-cthelper0-dev \
+      libnetfilter-cttimeout-dev \
+      libnetfilter-queue-dev
+
 # Packages needed for hvinfo
 RUN apt-get update && apt-get install -y \
       gnat \
@@ -234,6 +246,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
       check
+
 # As there is no Debian Jessie/Stretch package for libcidr available but this
 # is required for ipaddrcheck we have to build it from source
 RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
@@ -264,7 +277,12 @@ RUN apt-get update && apt-get install -y \
       libgcrypt20-dev \
       libgmp3-dev \
       libldap2-dev \
-      libsqlite3-dev
+      libsqlite3-dev \
+      dh-apparmor \
+      gperf \
+      libsystemd-dev \
+      python3-stdeb \
+      python-setuptools
 
 # Packages needed for vyos-opennhrp
 RUN apt-get update && apt-get install -y \
@@ -274,17 +292,17 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       xmlto
 
+# Packages needed for keepalived
+RUN apt-get update && apt-get install -y \
+      libnl-3-200 \
+      libnl-3-dev \
+      libnl-genl-3-200 \
+      libnl-genl-3-dev
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch \
       live-build && \
-    rm -f /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && \
-    rm -rf /var/lib/apt/lists/*
-
-# Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && apt-get install -y -t stretch live-build && \
     rm -f /etc/apt/sources.list.d/stretch.list && \
     apt-get update && \
     rm -rf /var/lib/apt/lists/*
