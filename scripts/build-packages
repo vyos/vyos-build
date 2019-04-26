@@ -226,13 +226,10 @@ pkg_special.append( add_package('frr', url='https://github.com/FRRouting/frr.git
 #
 # Linux (VyOS) Kernel
 #
-kernel_build_cmd = "export VERSION=$(grep '^VERSION' Makefile | grep -Eo '[0-9]{1,4}') && " \
-                   "export PATCHLEVEL=$(grep '^PATCHLEVEL' Makefile | grep -Eo '[0-9]{1,4}') && " \
-                   "export SUBLEVEL=$(grep '^SUBLEVEL' Makefile | grep -Eo '[0-9]{1,4}') && " \
-                   "echo ${VERSION}.${PATCHLEVEL}.${SUBLEVEL}-amd64-vyos > " + repo_root + "/data/kernel_version && " \
-                   "make x86_64_vyos_defconfig && " \
+kernel_build_cmd = "make x86_64_vyos_defconfig && " \
+                   "echo $(make kernelversion)-amd64-vyos > " + repo_root + "/data/kernel_version && " \
                    "LOCALVERSION='' make-kpkg --rootcmd fakeroot --initrd --append_to_version -amd64-vyos " \
-                   "  --revision=${VERSION}.${PATCHLEVEL}.${SUBLEVEL}-0 kernel_headers kernel_image -j" + str(os.cpu_count())
+                   "  --revision=$(make kernelversion)-1 kernel_headers kernel_image -j" + str(os.cpu_count())
 pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custombuild_cmd=kernel_build_cmd) )
 
 
