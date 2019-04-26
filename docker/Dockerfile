@@ -292,6 +292,13 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       xmlto
 
+# Packages needed for keepalived
+RUN apt-get update && apt-get install -y \
+      libnl-3-200 \
+      libnl-3-dev \
+      libnl-genl-3-200 \
+      libnl-genl-3-dev
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch \
