@@ -183,7 +183,6 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
 
 # Packages needed to build frr itself
-# libyang-dev packages are hsoted on dev.packages.vyos.net see
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
 RUN apt-get update && apt-get install -y \
