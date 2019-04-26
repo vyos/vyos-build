@@ -70,7 +70,8 @@ RUN apt-get update && apt-get install -y \
       python3-sphinx \
       python3-pystache \
       pkg-config \
-      debhelper
+      debhelper \
+      jq
 
 RUN apt-get update && apt-get install -y -t jessie-backports \
       python3-git \
@@ -280,8 +281,6 @@ RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sourc
     rm -rf /var/lib/apt/lists/*
 
 # Install packer
-RUN apt-get update && apt-get install -y \
-      jq
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
     echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\

@@ -228,6 +228,7 @@ pkg_special.append( add_package('frr', url='https://github.com/FRRouting/frr.git
 #
 kernel_build_cmd = "make x86_64_vyos_defconfig && " \
                    "echo $(make kernelversion)-amd64-vyos > " + repo_root + "/data/kernel_version && " \
+                   "sed -i 's/\"kernel_version\": \"[0-9].[0-9][0-9].[0-9]*\"/\"kernel_version\": \"'$(make kernelversion)'\"/' " + repo_root + "/data/defaults.json && " \
                    "LOCALVERSION='' make-kpkg --rootcmd fakeroot --initrd --append_to_version -amd64-vyos " \
                    "  --revision=$(make kernelversion)-1 kernel_headers kernel_image -j" + str(os.cpu_count())
 pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custombuild_cmd=kernel_build_cmd) )
@@ -237,7 +238,7 @@ pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custo
 #
 # WireGuard Kernel Module
 #
-wireguard_build_cmd = "echo 'src/wireguard.ko /lib/modules/'$(cat " + repo_root + "/data/kernel_version) > debian/wireguard-modules.install && " \
+wireguard_build_cmd = "echo 'src/wireguard.ko /lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\") > debian/wireguard-modules.install && " \
                       "KERNELDIR=" + repo_root + "/packages/vyos-kernel dpkg-buildpackage -b -us -uc -tc -j" + str(os.cpu_count())
 pkg_special.append( add_package('vyos-wireguard', custombuild_cmd=wireguard_build_cmd) )
 
@@ -246,8 +247,8 @@ pkg_special.append( add_package('vyos-wireguard', custombuild_cmd=wireguard_buil
 #
 # Accell-PPP Package and Kernel Module
 #
-accel_ppp_build_cmd = "echo 'lib/modules/'$(cat " + repo_root + "/data/kernel_version)'/extra/*.ko' > debian/vyos-accel-ppp-ipoe-kmod.install && " \
-                      "sed -i 's#[0-9].[0-9][0-9].[0-9]*-amd64-vyos#'$(cat " + repo_root + "/data/kernel_version)'#g' debian/rules && " \
+accel_ppp_build_cmd = "echo 'lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")'/extra/*.ko' > debian/vyos-accel-ppp-ipoe-kmod.install && " \
+                      "sed -i 's#[0-9].[0-9][0-9].[0-9]*-amd64-vyos#'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")'#g' debian/rules && " \
                       "KERNELDIR=" + repo_root + "/packages/vyos-kernel dpkg-buildpackage -b -us -uc -tc -j" + str(os.cpu_count())
 pkg_special.append( add_package('vyos-accel-ppp', custombuild_cmd=accel_ppp_build_cmd) )
 
