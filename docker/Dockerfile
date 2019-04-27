@@ -299,6 +299,12 @@ RUN apt-get update && apt-get install -y \
       libnl-genl-3-200 \
       libnl-genl-3-dev
 
+# Packages needed for net-snmp
+RUN apt-get update && apt-get install -y \
+      python-all \
+      python2.7-dev \
+      libmysqld-dev
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch \
