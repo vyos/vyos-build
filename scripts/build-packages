@@ -234,7 +234,7 @@ pkg_special.append( add_package('frr', url='https://github.com/FRRouting/frr.git
 kernel_build_cmd = "make x86_64_vyos_defconfig && " \
                    "echo $(make kernelversion)-amd64-vyos > " + repo_root + "/data/kernel_version && " \
                    "sed -i 's/\"kernel_version\": \"[0-9].[0-9][0-9].[0-9]*\"/\"kernel_version\": \"'$(make kernelversion)'\"/' " + repo_root + "/data/defaults.json && " \
-                   "make bindeb-pkg -j8 LOCALVERSION='-amd64-vyos' KDEB_PKGVERSION=$(make kernelversion)-1 -j $(getconf _NPROCESSORS_ONLN)"
+                   "make bindeb-pkg LOCALVERSION='-amd64-vyos' KDEB_PKGVERSION=$(make kernelversion)-1 -j $(getconf _NPROCESSORS_ONLN)"
 pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custombuild_cmd=kernel_build_cmd) )
 
 
