@@ -330,5 +330,6 @@ RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc
 # Cleanup
 RUN rm -rf /tmp/*
 
+COPY pkg-build.sh /usr/local/bin/pkg-build.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
