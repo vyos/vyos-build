@@ -188,7 +188,6 @@ vyos_packages = ['vyatta-bash',
                  'udp-broadcast-relay',
                  'pmacct',
                  'ddclient',
-                 'igmpproxy',
                  'eventwatchd',
                  'conntrack-tools']
 
