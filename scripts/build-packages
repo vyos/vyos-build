@@ -190,7 +190,6 @@ vyos_packages = ['vyatta-bash',
                  'vyos-salt-minion',
                  'mdns-repeater',
                  'udp-broadcast-relay',
-                 'ddclient',
                  'eventwatchd',
                  'live-boot',
                  'conntrack-tools']
