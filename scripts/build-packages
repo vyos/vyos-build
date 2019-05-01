@@ -201,7 +201,6 @@ pkg_special.append( add_package('ipaddrcheck', branch='master'))
 
 # Packages where we directly build the upstream source
 pkg_special.append( add_package('hvinfo',  url='https://github.com/dmbaturin/hvinfo.git', branch='master') )
-pkg_special.append( add_package('bgpq3', url='https://salsa.debian.org/debian/bgpq3.git', branch='master', tag='debian/0.1.33-1') )
 
 # VyOS strongswan ships additional python3-vici packages required by vyos-1x and this is not build by default
 vyos_strongswan_build_cmd = "dpkg-buildpackage -b -us -uc -tc && " \
