@@ -4,8 +4,7 @@ ipcalc
 sipcalc
 mtr-tiny
 whois
-netcat
-netcat6
+netcat-openbsd
 socat
 telnet
 nano
