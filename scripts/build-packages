@@ -176,7 +176,6 @@ vyos_packages = ['vyatta-bash',
                  'vyatta-ravpn',
                  'vyos-nhrp',
                  'vyos-world',
-                 'vyos-1x',
                  'vyatta-iproute',
                  'vyos-vmwaretools-scripts',
                  'vyos-netplug',
@@ -198,6 +197,7 @@ libvyosconfig_build_cmd = "eval $(opam env --root=/opt/opam --set-root) && " \
                           "dpkg-buildpackage -b -us -uc -tc"
 pkg_special.append( add_package('libvyosconfig', branch='master', custombuild_cmd=libvyosconfig_build_cmd))
 pkg_special.append( add_package('ipaddrcheck', branch='master'))
+pkg_special.append( add_package('vyos-1x', branch='equuleus'))
 
 # Packages where we directly build the upstream source
 pkg_special.append( add_package('hvinfo',  url='https://github.com/dmbaturin/hvinfo.git', branch='master') )
