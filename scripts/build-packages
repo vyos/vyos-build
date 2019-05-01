@@ -158,8 +158,6 @@ vyos_packages = ['vyatta-bash',
                  'vyatta-op-qos',
                  'vyatta-cfg-op-pppoe',
                  'vyatta-openvpn',
-                 'vyatta-conntrack',
-                 'vyatta-conntrack-sync',
                  'vyatta-nat',
                  'vyatta-config-mgmt',
                  'vyatta-config-migrate',
@@ -203,6 +201,8 @@ libvyosconfig_build_cmd = "eval $(opam env --root=/opt/opam --set-root) && " \
 pkg_special.append( add_package('libvyosconfig', branch='master', custombuild_cmd=libvyosconfig_build_cmd))
 pkg_special.append( add_package('ipaddrcheck', branch='master'))
 pkg_special.append( add_package('vyos-1x', branch='equuleus'))
+pkg_special.append( add_package('vyatta-conntrack', branch='equuleus'))
+pkg_special.append( add_package('vyatta-conntrack-sync', branch='equuleus'))
 
 # Packages where we directly build the upstream source
 pkg_special.append( add_package('hvinfo',  url='https://github.com/dmbaturin/hvinfo.git', branch='master') )
