@@ -296,8 +296,12 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libnl-3-200 \
       libnl-3-dev \
+      libnl-nf-3-200 \
+      libnl-nf-3-dev \
+      libipset-dev \
       libnl-genl-3-200 \
-      libnl-genl-3-dev
+      libnl-genl-3-dev \
+      libpopt-dev
 
 # Packages needed for net-snmp
 RUN apt-get update && apt-get install -y \
