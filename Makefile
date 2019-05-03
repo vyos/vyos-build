@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 build_dir := build
 
 .PHONY: all
