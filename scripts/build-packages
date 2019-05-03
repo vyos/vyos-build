@@ -229,6 +229,14 @@ pkg_special.append( add_package('frr', url='https://github.com/FRRouting/frr.git
 
 
 #
+# We use keepalived from Debian Buster
+#
+keepalived_build_cmd = "sed -i 's/debhelper (>= 11)/debhelper (>= 9)/' debian/control && " \
+                       "echo 9 > debian/compat && " \
+                       "dpkg-buildpackage -b -us -uc -tc -j$(getconf _NPROCESSORS_ONLN)"
+pkg_special.append( add_package('keepalived', url='https://salsa.debian.org/ipvs-team/pkg-keepalived.git', branch='master', commit='eae91c81', custombuild_cmd=keepalived_build_cmd) )
+
+#
 # Net-SNMP
 #
 # net-snmp conflicts with already installed libsnmp-dev thus we need to build with -d
