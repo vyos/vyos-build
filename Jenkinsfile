@@ -145,6 +145,12 @@ pipeline {
             }
         }
 
+        stage('List Packages') {
+            steps {
+                sh "find packages/ -maxdepth 1 -type f -print0 | xargs -0r ls"
+            }
+        }
+
         stage('ISO Image') {
             steps {
                 sh '''
