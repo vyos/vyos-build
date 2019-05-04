@@ -68,7 +68,6 @@ do
     echo "Architecture: amd64" >>$deb_pkg_dir/DEBIAN/control
     echo "Maintainer: VyOS Package Maintainers <maintainers@vyos.net>" >>$deb_pkg_dir/DEBIAN/control
     echo "Installed-Size: 9" >>$deb_pkg_dir/DEBIAN/control
-    echo "Depends: linux-image" >>$deb_pkg_dir/DEBIAN/control
     echo "Description: Intel Vendor driver for $dirname" >>$deb_pkg_dir/DEBIAN/control
     echo "  Replacement for the in Kernel drivers" >>$deb_pkg_dir/DEBIAN/control
 
