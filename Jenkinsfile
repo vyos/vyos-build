@@ -174,11 +174,8 @@ pipeline {
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: 'build/build.log', fingerprint: true
-        }
         success {
-            archiveArtifacts artifacts: 'build/vyos*.iso', fingerprint: true
+            archiveArtifacts artifacts: 'build/live-image-*.iso', fingerprint: true
         }
         cleanup {
             echo 'One way or another, I have finished'
