@@ -160,6 +160,9 @@ pipeline {
                     # we rather prefer all build by ourself!
                     sed -i '/vyos_repo_entry/d' scripts/live-build-config
 
+                    # remove debug packages
+                    rm -f packages/*-dbg_*.deb
+
                     # Configure the ISO
                     ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
 
