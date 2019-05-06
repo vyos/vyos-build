@@ -60,6 +60,7 @@ do
         make -j $(cat /proc/cpuinfo | grep processor | wc -l) install
 
     mkdir -p $deb_pkg_dir/DEBIAN
+    echo "9" >$deb_pkg_dir/DEBIAN/compat
     echo "Package: vyos-intel-$dirname" >$deb_pkg_dir/DEBIAN/control
     echo "Version: $version" >>$deb_pkg_dir/DEBIAN/control
     echo "Section: kernel" >>$deb_pkg_dir/DEBIAN/control

@@ -172,6 +172,7 @@ vyos_packages = ['vyatta-bash',
                  'vyatta-lldp',
                  'vyatta-ipv6-rtradv',
                  'vyatta-ravpn',
+                 'vyos-replace',
                  'vyos-nhrp',
                  'vyos-world',
                  'vyatta-iproute',
@@ -221,12 +222,27 @@ pkg_special.append( add_package('frr', url='https://github.com/FRRouting/frr.git
 
 
 #
+# We use keepalived from Debian Buster
+#
+keepalived_build_cmd = "sed -i 's/debhelper (>= 11)/debhelper (>= 9)/' debian/control && " \
+                       "echo 9 > debian/compat && " \
+                       "dpkg-buildpackage -b -us -uc -tc -j$(getconf _NPROCESSORS_ONLN)"
+pkg_special.append( add_package('keepalived', url='https://salsa.debian.org/ipvs-team/pkg-keepalived.git', branch='master', commit='eae91c81', custombuild_cmd=keepalived_build_cmd) )
+
+#
+# Net-SNMP
+#
+# net-snmp conflicts with already installed libsnmp-dev thus we need to build with -d
+net_snmp_build_cmd = "dpkg-buildpackage -b -us -uc -tc -d -j$(getconf _NPROCESSORS_ONLN)"
+pkg_special.append( add_package('net-snmp', custombuild_cmd=net_snmp_build_cmd) )
+
+#
 # Linux (VyOS) Kernel
 #
 kernel_build_cmd = "make x86_64_vyos_defconfig && " \
                    "echo $(make kernelversion)-amd64-vyos > " + repo_root + "/data/kernel_version && " \
                    "sed -i 's/\"kernel_version\": \"[0-9].[0-9][0-9].[0-9]*\"/\"kernel_version\": \"'$(make kernelversion)'\"/' " + repo_root + "/data/defaults.json && " \
-                   "make bindeb-pkg -j8 LOCALVERSION='-amd64-vyos' KDEB_PKGVERSION=$(make kernelversion)-1 -j $(getconf _NPROCESSORS_ONLN)"
+                   "make bindeb-pkg LOCALVERSION='-amd64-vyos' KDEB_PKGVERSION=$(make kernelversion)-1 -j $(getconf _NPROCESSORS_ONLN)"
 pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custombuild_cmd=kernel_build_cmd) )
 
 

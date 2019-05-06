@@ -145,6 +145,12 @@ pipeline {
             }
         }
 
+        stage('List Packages') {
+            steps {
+                sh "find packages/ -maxdepth 1 -type f -print0 | xargs -0r ls"
+            }
+        }
+
         stage('ISO Image') {
             steps {
                 sh '''
@@ -153,6 +159,9 @@ pipeline {
                     # we do not want to fetch VyOS packages from the mirror,
                     # we rather prefer all build by ourself!
                     sed -i '/vyos_repo_entry/d' scripts/live-build-config
+
+                    # remove debug packages
+                    rm -f packages/*-dbg_*.deb
 
                     # Configure the ISO
                     ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
@@ -165,11 +174,8 @@ pipeline {
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: 'build/build.log', fingerprint: true
-        }
         success {
-            archiveArtifacts artifacts: 'build/vyos*.iso', fingerprint: true
+            archiveArtifacts artifacts: 'build/live-image-*.iso', fingerprint: true
         }
         cleanup {
             echo 'One way or another, I have finished'

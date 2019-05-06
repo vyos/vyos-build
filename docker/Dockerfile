@@ -263,8 +263,18 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libnl-3-200 \
       libnl-3-dev \
+      libnl-nf-3-200 \
+      libnl-nf-3-dev \
+      libipset-dev \
       libnl-genl-3-200 \
-      libnl-genl-3-dev
+      libnl-genl-3-dev \
+      libpopt-dev
+
+# Packages needed for net-snmp
+RUN apt-get update && apt-get install -y \
+      python-all \
+      python2.7-dev \
+      libmysqld-dev
 
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
@@ -283,5 +293,6 @@ RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc
 # Cleanup
 RUN rm -rf /tmp/*
 
+COPY pkg-build.sh /usr/local/bin/pkg-build.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

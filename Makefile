@@ -28,13 +28,9 @@ prepare:
 .ONESHELL:
 iso: check_build_config clean prepare
 	@set -e
-	@set -o pipefail
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
-	if [ "$?" != "0" ]; then
-	    exit 1
-	fi
 	cd ..
 	@scripts/copy-image
 
