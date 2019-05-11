@@ -43,7 +43,16 @@ build_timestamp = now.strftime("%Y%m%d%H%M")
 build_date = now.strftime("%a %d %b %Y %H:%M UTC")
 
 # Assign a (hopefully) unique identifier to the build (UUID)
-build_id = str(uuid.uuid4())
+build_uuid = str(uuid.uuid4())
+
+# Initialize Git object from our repository
+repo = git.Repo('.')
+
+# Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
+build_git = repo.head.object.hexsha[:14]
+# If somone played around with the source tree and the build is "dirty", mark it
+if repo.is_dirty():
+    build_git += "-dirty"
 
 # Create a build version
 if build_config['build_type'] == 'development':
@@ -52,7 +61,6 @@ if build_config['build_type'] == 'development':
         with open('data/versions') as f:
             version_mapping = json.load(f)
 
-        repo = git.Repo('.')
         git_branch = repo.active_branch.name
         branch_version = version_mapping[git_branch]
 
@@ -68,9 +76,9 @@ version_data = {
     'version': version,
     'built_by': build_config['build_by'],
     'built_on': build_date,
-    'build_id': build_id
+    'build_uuid': build_uuid,
+    'build_git': build_git
 }
-
 
 os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos'), exist_ok=True)
 with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos/version.json'), 'w') as f:
