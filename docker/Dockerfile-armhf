@@ -16,10 +16,16 @@
 # Must be run with --privileged flag, recommended to run the container with a
 # volume mapped in order to easy export images
 
-FROM debian:jessie
+FROM multiarch/debian-debootstrap:armhf-jessie-slim
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
+
+COPY no--check-valid-until /etc/apt/apt.conf.d/
+RUN echo "deb http://deb.debian.org/debian jessie main" \
+         > /etc/apt/sources.list \
+    && echo "deb http://security.debian.org/debian-security jessie/updates main" \
+         >> /etc/apt/sources.list
 
 # Standard shell should be bash not dash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
@@ -46,7 +52,6 @@ RUN apt-get update && apt-get install -y \
       autoconf \
       automake \
       dpkg-dev \
-      syslinux \
       genisoimage \
       lsb-release \
       fakechroot \
@@ -54,8 +59,6 @@ RUN apt-get update && apt-get install -y \
       libapt-pkg-dev \
       parted \
       kpartx \
-      qemu-system-x86 \
-      qemu-utils \
       quilt \
       python3-lxml \
       python3-setuptools \
@@ -76,8 +79,16 @@ RUN echo "deb http://archive.debian.org/debian/ jessie-backports main" \
 
 RUN apt-get update && apt-get install -y -t jessie-backports \
       python3-git \
-      python3-pip \
+      python3-pip
+
+RUN echo "deb http://deb.debian.org/debian buster main" \
+      > /etc/apt/sources.list.d/buster.list
+
+RUN apt-get update && apt-get install -y \
+      golang \
       gosu
+
+RUN rm -f /etc/apt/sources.list.d/buster.list
 
 # Package needed for mdns-repeater
 RUN apt-get update && apt-get install -y -t jessie-backports \
@@ -133,7 +144,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git && \
     cd libvyosconfig && git checkout 9a80a5d3 && \
     dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libvyosconfig0_*_amd64.deb
+    dpkg -i ../libvyosconfig0_*_armhf.deb
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
@@ -193,7 +204,7 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
     tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
+    dpkg -i ../librtr*_armhf.deb ../librtr*_all.deb
 
 #
 # Setup VyOS Debian repository
@@ -238,10 +249,6 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
       whois
-
-# Packages needed for vyos-xe-guest-utilities
-RUN apt-get update && apt-get install -y \
-      golang
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
@@ -296,13 +303,23 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libnl-3-200 \
       libnl-3-dev \
+      libnl-nf-3-200 \
+      libnl-nf-3-dev \
+      libipset-dev \
       libnl-genl-3-200 \
-      libnl-genl-3-dev
+      libnl-genl-3-dev \
+      libpopt-dev
+
+# Packages needed for net-snmp
+RUN apt-get update && apt-get install -y \
+      python-all \
+      python2.7-dev \
+      libmysqld-dev
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch \
-      live-build && \
+    live-build && \
     rm -f /etc/apt/sources.list.d/stretch.list && \
     apt-get update && \
     rm -rf /var/lib/apt/lists/*
