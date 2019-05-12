@@ -327,7 +327,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sourc
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
-    echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\
+    echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_arm.zip" |\
     curl -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
 
