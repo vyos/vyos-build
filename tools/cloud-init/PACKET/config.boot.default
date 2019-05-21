@@ -3,8 +3,7 @@ system {
     login {
         user vyos {
             authentication {
-                encrypted-password "*"
-                plaintext-password ""
+                plaintext-password "vyos"
             }
             level admin
         }
@@ -25,8 +24,8 @@ system {
         server "2.pool.ntp.org"
     }
     console {
-        device ttyS0 {
-            speed 9600
+        device ttyS1 {
+            speed 115200
         }
     }
     config-management {

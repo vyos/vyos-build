@@ -1,5 +1,5 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<ovf:Envelope xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:vmw="http://www.vmware.com/schema/ovf">
+<?xml version="1.0" encoding="UTF-8"?>
+<ovf:Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vmw="http://www.vmware.com/schema/ovf" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <References>
     <File ovf:href="vyos_vmware_image.vmdk" ovf:id="file1" ovf:size="{{vmdk_file_size}}"/>
   </References>
@@ -39,22 +39,22 @@
     <ProductSection ovf:required="false">
       <Info>VyOS is a Linux-based network operating system that provides software-based network routing, firewall, and VPN functionality.</Info>
       <Product>VyOS</Product>
-      <Vendor>VyOS maintainers and contributors</Vendor>
+      <Vendor>Sentrium S.L.</Vendor>
       <Version>{{version}}</Version>
       <ProductUrl>https://www.vyos.io</ProductUrl>
       <VendorUrl>https://sentrium.io/</VendorUrl>
       <AppUrl/>
       <Category>Appliance user Settings</Category>
-      <Property ovf:key="password" ovf:type="string" ovf:userConfigurable="true" ovf:value="" ovf:qualifiers="MinLen(8)" ovf:password="true">
+      <Property ovf:key="password" ovf:password="true" ovf:qualifiers="MinLen(8)" ovf:type="string" ovf:userConfigurable="true" ovf:value="">
         <Label ovf:msgid="Password.label">Password</Label>
-        <Description ovf:msgid="Password.description">The password for the appliance 'vyos' account. Passwords must be at least 8 characters in length.</Description>
+        <Description ovf:msgid="Password.description">The password for the appliance &apos;vyos&apos; account. Passwords must be at least 8 characters in length.</Description>
       </Property>
-      <Property ovf:key="public-keys" ovf:type="string" ovf:value="" ovf:userConfigurable="true">
+      <Property ovf:key="public-keys" ovf:type="string" ovf:userConfigurable="true" ovf:value="">
         <Label>Public key</Label>
-        <Description>The public ssh key for the appliance 'vyos' account.</Description>
+        <Description>The public ssh key for the appliance &apos;vyos&apos; account.</Description>
       </Property>
       <Category>Appliance IPv4 Network Settings</Category>
-      <Property ovf:key="local-hostname" ovf:type="string" ovf:userConfigurable="true" ovf:value="" ovf:qualifiers="MinLen(0),MaxLen(65535)">
+      <Property ovf:key="local-hostname" ovf:qualifiers="MinLen(0),MaxLen(65535)" ovf:type="string" ovf:userConfigurable="true" ovf:value="">
         <Label>Hostname</Label>
         <Description>The host name for this virtual machine.</Description>
       </Property>
@@ -87,11 +87,11 @@
       <Info/>
       <Annotation>VyOS</Annotation>
     </AnnotationSection>
-    <OperatingSystemSection ovf:id="100" ovf:version="1" vmw:osType="debian8_64Guest">
-      <Info>Guest Operating System</Info>
-      <Description>VyOS</Description>
+    <OperatingSystemSection ovf:id="96" ovf:version="6" vmw:osType="debian8_64Guest">
+      <Info>The operating system installed</Info>
+      <Description>Debian GNU/Linux 8 (64-bit)</Description>
     </OperatingSystemSection>
-    <VirtualHardwareSection ovf:transport="com.vmware.guestInfo" ovf:required="false">
+    <VirtualHardwareSection ovf:required="false" ovf:transport="com.vmware.guestInfo">
       <Info>Virtual Hardware Requirements</Info>
       <System>
         <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
@@ -148,7 +148,7 @@
       </Item>
       <Item>
         <rasd:Address xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">0</rasd:Address>
-        <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">SCSI Controller 0</rasd:ElementName>
+        <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">SCSI Controller 0 - VMware Paravirtual SCSI</rasd:ElementName>
         <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">3</rasd:InstanceID>
         <rasd:ResourceSubType>VirtualSCSI</rasd:ResourceSubType>
         <rasd:ResourceType>6</rasd:ResourceType>
@@ -195,6 +195,8 @@
         <rasd:ResourceSubType>vmxnet3</rasd:ResourceSubType>
         <rasd:ResourceType>10</rasd:ResourceType>
       </ovf:Item>
+      <vmw:Config ovf:required="false" vmw:key="cpuHotAddEnabled" vmw:value="true"/>
+      <vmw:Config ovf:required="false" vmw:key="memoryHotAddEnabled" vmw:value="true"/>
     </VirtualHardwareSection>
   </VirtualSystem>
 </ovf:Envelope>

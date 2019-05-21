@@ -112,7 +112,7 @@ GCE-debug: clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
-	cp tools/cloud-init/GCE/99-debug-user.chroot build/config/hooks/live/
+	cp tools/cloud-init/99-debug-user.chroot build/config/hooks/live/
 	cp tools/cloud-init/GCE/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
 	cp -f tools/cloud-init/GCE/config.boot.default-debug build/config/includes.chroot/opt/vyatta/etc/config.boot.default
@@ -133,6 +133,20 @@ AWS: clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: openstack
+.ONESHELL:
+openstack: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
+	cp tools/cloud-init/openstack/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/openstack/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
 .PHONY: oracle
 .ONESHELL:
 oracle: clean prepare
@@ -141,8 +155,40 @@ oracle: clean prepare
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/OCI/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/OCI/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
 	cd $(build_dir)
 	@../scripts/build-oracle-image
+
+.PHONY: PACKET
+.ONESHELL:
+PACKET: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
+	cp tools/cloud-init/99-disable-networking.chroot build/config/hooks/live/
+	cp tools/cloud-init/PACKET/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/PACKET/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
+.PHONY: PACKET-debug
+.ONESHELL:
+PACKET-debug: clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
+	cp tools/cloud-init/99-debug-user.chroot build/config/hooks/live/
+	cp tools/cloud-init/99-disable-networking.chroot build/config/hooks/live/
+	cp tools/cloud-init/PACKET/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
+	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
+	cp -f tools/cloud-init/PACKET/config.boot.default-debug build/config/includes.chroot/opt/vyatta/etc/config.boot.default
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
 
 .PHONY: clean
 .ONESHELL:
