@@ -287,7 +287,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       python-all \
       python2.7-dev \
-      libmysqld-dev
+      libmariadb-dev
 
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
