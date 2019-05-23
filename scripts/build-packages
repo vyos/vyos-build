@@ -192,6 +192,7 @@ vyos_packages = ['vyatta-bash',
                  'ddclient',
                  'igmpproxy',
                  'eventwatchd',
+                 'live-boot',
                  'conntrack-tools']
 
 # Special packages mean packages which are located no in the VyOS namespace
