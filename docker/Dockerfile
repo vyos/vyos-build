@@ -143,9 +143,12 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyatta-iproute
 RUN apt-get update && apt-get install -y \
+      iptables-dev \
       libatm1-dev \
+      libcap-dev \
       libdb-dev \
-      iptables-dev
+      libelf-dev \
+      libselinux1-dev
 
 # Packages needed for vyatta-webgui
 RUN apt-get update && apt-get install -y \
