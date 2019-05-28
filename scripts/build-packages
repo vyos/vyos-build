@@ -98,7 +98,10 @@ def clone_package(pkg, log):
     First cleanup any possible leftovers from previous builds
     """
 
-    if args.clean:
+    if args.keep:
+        log.debug("Keep possibly modified package '{}'".format(pkg['path']))
+        return False
+    elif args.clean:
         # delete repository from disk
         if os.path.isdir(pkg['path']):
             log.debug("Cleaning '{}'".format(pkg['path']))
@@ -281,6 +284,9 @@ pkg_build = []
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    exclusive = parser.add_mutually_exclusive_group(required=False)
+    exclusive.add_argument('-k', '--keep', action='store_true', help='Keep modified Git repositories')
+
     parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase logging verbosity for each occurance')
     parser.add_argument('-c', '--clean', action='store_true', help='Re-clone required Git repositories')
     parser.add_argument('-l', '--list-packages', action='store_true', help='List all packages to build')
