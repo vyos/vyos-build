@@ -1,5 +1,5 @@
 #!/bin/sh
-
+exit 0
 echo I: Download grub-efi packages.
 
 mkdir -p /usr/share/vyos/packages
