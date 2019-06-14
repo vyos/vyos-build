@@ -213,7 +213,6 @@ pkg_special.append( add_package('hvinfo',  url='https://github.com/dmbaturin/hvi
 pkg_special.append( add_package('lldpd',   url='https://github.com/vincentbernat/lldpd.git', branch='master', tag='1.0.3') )
 pkg_special.append( add_package('ethtool', url='https://salsa.debian.org/kernel-team/ethtool.git', branch='master', tag='debian/1%4.19-1') )
 pkg_special.append( add_package('bgpq3', url='https://salsa.debian.org/debian/bgpq3.git', branch='master', tag='debian/0.1.33-1') )
-pkg_special.append( add_package('vyos-firstboot',  url='https://github.com/jpsutton/vyos-firstboot.git', branch='master') )
 
 # VyOS strongswan ships additional python3-vici packages required by vyos-1x and this is not build by default
 vyos_strongswan_build_cmd = "dpkg-buildpackage -b -us -uc -tc && " \
@@ -282,6 +281,10 @@ pkg_special.append( add_package('vyos-accel-ppp', custombuild_cmd=accel_ppp_buil
 pycdlib_build_cmd = "dpkg-buildpackage -b -us -uc -tc && rm -f ${reporoot}/packages/pycdlib-tools*.deb && rm -f ${reporoot}/packages/python-pycdlib*.deb"
 pkg_special.append( add_package('pycdlib',  url='https://github.com/clalancette/pycdlib.git', branch='master', custombuild_cmd=pycdlib_build_cmd) )
 
+#
+# VyOS first boot configuration support
+# 
+pkg_special.append( add_package('vyos-firstboot',  url='https://github.com/jpsutton/vyos-firstboot.git', branch='master') )
 
 # A list of all packages we will build in the end
 pkg_build = []
