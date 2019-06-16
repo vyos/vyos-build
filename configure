@@ -1,1 +1,1 @@
-scripts/build-config
+scripts/build-config "$@"
