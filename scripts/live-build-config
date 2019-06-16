@@ -35,7 +35,8 @@ util.check_build_config()
 lb_config_tmpl = """
 lb config noauto \
         --architectures {{architecture}} \
-        --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay" \
+        --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console=ttyS0,115200 console=tty0" \
+        --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0" \
         --linux-flavours {{kernel_flavor}} \
         --linux-packages linux-image-{{kernel_version}} \
         --bootloader syslinux,grub-efi \
