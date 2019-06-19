@@ -25,3 +25,4 @@ iotop
 aptitude
 localepurge
 bgpq3
+libnss-myhostname
