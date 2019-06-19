@@ -48,10 +48,7 @@ staticd_options="  --daemon -A 127.0.0.1"
 bfdd_options="  --daemon -A 127.0.0.1"
 
 watchfrr_enable=no
-watchfrr_options=(-d -r /usr/sbin/servicebBfrrbBrestartbB%s -s /usr/sbin/servicebBfrrbBstartbB%s -k /usr/sbin/servicebBfrrbBstopbB%s -b bB)
-
 valgrind_enable=no
-valgrind=/usr/bin/valgrind
 """
 
 with open("/etc/frr/daemons", "w") as f:
