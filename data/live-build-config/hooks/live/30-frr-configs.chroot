@@ -28,9 +28,7 @@ sharpd=no
 pbrd=no
 bfdd=no
 staticd=yes
-"""
 
-daemons_conf = """
 vtysh_enable=yes
 zebra_options="  -s 90000000 --daemon -A 127.0.0.1 -M snmp -n"
 bgpd_options="   --daemon -A 127.0.0.1 -M snmp -M rpki"
@@ -58,9 +56,6 @@ valgrind=/usr/bin/valgrind
 
 with open("/etc/frr/daemons", "w") as f:
     f.write(daemons)
-
-with open("/etc/frr/daemons.conf", "w") as f:
-    f.write(daemons_conf)
 
 # Create empty daemon configs so that they start properly
 for name in ["zebra.conf", "bgpd.conf", "ospfd.conf", "ospf6d.conf", "ripd.conf", "ripngd.conf"]:
