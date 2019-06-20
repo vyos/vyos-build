@@ -177,8 +177,6 @@ vyos_packages = ['vyatta-bash',
                  'vyos-world',
                  'vyatta-iproute',
                  'vyos-vmwaretools-scripts',
-                 'vyos-netplug',
-                 'vyos-xe-guest-utilities',
                  'vyatta-biosdevname',
                  'vyos-opennhrp',
                  'vyos-salt-minion',
@@ -198,6 +196,8 @@ pkg_special.append( add_package('ipaddrcheck', branch='master'))
 pkg_special.append( add_package('vyos-1x', branch='equuleus'))
 pkg_special.append( add_package('vyatta-conntrack', branch='equuleus'))
 pkg_special.append( add_package('vyatta-conntrack-sync', branch='equuleus'))
+pkg_special.append( add_package('vyos-xe-guest-utilities', branch='equuleus'))
+pkg_special.append( add_package('vyos-netplug', branch='equuleus'))
 
 # Packages where we directly build the upstream source
 pkg_special.append( add_package('hvinfo',  url='https://github.com/dmbaturin/hvinfo.git', branch='master') )
