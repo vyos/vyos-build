@@ -38,5 +38,6 @@ systemctl disable tftpd-hpa.service
 systemctl disable strongswan.service
 systemctl disable frr.service
 systemctl disable salt-minion.service
+systemctl disable nginx.service
 
 systemctl enable vyos-hostsd.service
