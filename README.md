@@ -68,7 +68,7 @@ $ sudo debootstrap jessie vyos-chroot
 $ sudo chroot vyos-chroot
 
 $ echo "deb http://archive.debian.org/debian/ jessie-backports main" >> /etc/apt/sources.list
-$ apt-get update
+$ apt-get update -o Acquire::Check-Valid-Until=false
 ```
 
 **NOTE:** We recommend to use the Docker build method
