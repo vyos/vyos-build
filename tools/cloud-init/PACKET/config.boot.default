@@ -1,13 +1,5 @@
 system {
     host-name vyos
-    login {
-        user vyos {
-            authentication {
-                plaintext-password "vyos"
-            }
-            level admin
-        }
-    }
     syslog {
         global {
             facility all {

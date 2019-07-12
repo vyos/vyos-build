@@ -10,6 +10,7 @@ service {
     }
 }
 system {
+    host-name vyos
     syslog {
         global {
             facility all {
