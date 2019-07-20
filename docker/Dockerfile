@@ -283,6 +283,22 @@ RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packe
     curl -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
 
+#
+# live-build: building in docker fails with mounting /proc | /sys
+#
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=919659
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=921815
+# https://salsa.debian.org/installer-team/debootstrap/merge_requests/26
+#
+RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    git clone https://salsa.debian.org/installer-team/debootstrap && \
+    cd debootstrap && \
+    git checkout 1.0.114 && \
+    patch -p1 < ../a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    dch -n "Applying fix for docker image compile" && \
+    dpkg-buildpackage -us -uc && \
+    sudo dpkg -i ../debootstrap*.deb
+
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     chmod a+s /usr/sbin/useradd /usr/sbin/groupadd /usr/sbin/gosu /usr/sbin/usermod
