@@ -72,14 +72,8 @@ RUN apt-get update && apt-get install -y \
       jq
 
 # Package needed for mdns-repeater
-RUN apt-get update && apt-get install -y -t jessie-backports \
+RUN apt-get update && apt-get install -y \
       dh-systemd
-
-#
-# Remove Debian Jessie Backports repository
-#
-RUN rm -f /etc/apt/sources.list.d/jessie-backports.list \
-          /etc/apt/apt.conf.d/no--check-valid-until
 
 #
 # Building libvyosconf requires a full configured OPAM/OCaml setup
