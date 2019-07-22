@@ -26,11 +26,9 @@ eigrpd=no
 babeld=no
 sharpd=no
 pbrd=no
-bfdd=no
+bfdd=yes
 staticd=yes
-"""
 
-daemons_conf = """
 vtysh_enable=yes
 zebra_options="  -s 90000000 --daemon -A 127.0.0.1 -M snmp -n"
 bgpd_options="   --daemon -A 127.0.0.1 -M snmp -M rpki"
@@ -50,17 +48,11 @@ staticd_options="  --daemon -A 127.0.0.1"
 bfdd_options="  --daemon -A 127.0.0.1"
 
 watchfrr_enable=no
-watchfrr_options=(-d -r /usr/sbin/servicebBfrrbBrestartbB%s -s /usr/sbin/servicebBfrrbBstartbB%s -k /usr/sbin/servicebBfrrbBstopbB%s -b bB)
-
 valgrind_enable=no
-valgrind=/usr/bin/valgrind
 """
 
 with open("/etc/frr/daemons", "w") as f:
     f.write(daemons)
-
-with open("/etc/frr/daemons.conf", "w") as f:
-    f.write(daemons_conf)
 
 # Create empty daemon configs so that they start properly
 for name in ["zebra.conf", "bgpd.conf", "ospfd.conf", "ospf6d.conf", "ripd.conf", "ripngd.conf"]:

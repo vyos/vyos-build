@@ -68,7 +68,7 @@ $ sudo debootstrap jessie vyos-chroot
 $ sudo chroot vyos-chroot
 
 $ echo "deb http://archive.debian.org/debian/ jessie-backports main" >> /etc/apt/sources.list
-$ apt-get update
+$ apt-get update -o Acquire::Check-Valid-Until=false
 ```
 
 **NOTE:** We recommend to use the Docker build method
@@ -272,6 +272,9 @@ In packages that originate from VyOS the master branch is kept in sync with
 last legacy package is gone, we will switch to using the `master` branch and
 retire `current`.
 
-For branch naming we switched to use constellations:
-* `crux`
+Post-1.2.0 branches are named after constellations sorted by from smallest to largest.
+There are 88 of them, here's the [complete list](https://en.wikipedia.org/wiki/IAU_designated_constellations_by_area).
+
+* 1.2.0: `crux` (Southern Cross)
+* Future 1.3.0: `equuleus`
 * ...

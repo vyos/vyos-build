@@ -57,7 +57,7 @@ dateymd=$(date +%Y%m%d)
 PARTED=/sbin/parted
 OUTPUT=disk.raw
 OUTPUTQCOW2=VyOS-"$dateymd".qcow2
-IMAGE_SIZE=2
+IMAGE_SIZE=10
 qemu-img create -f raw ${OUTPUT} ${IMAGE_SIZE}G
 
 ${PARTED} -s ${OUTPUT} mktable msdos

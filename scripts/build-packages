@@ -98,7 +98,10 @@ def clone_package(pkg, log):
     First cleanup any possible leftovers from previous builds
     """
 
-    if args.clean:
+    if args.keep:
+        log.debug("Keep possibly modified package '{}'".format(pkg['path']))
+        return False
+    elif args.clean:
         # delete repository from disk
         if os.path.isdir(pkg['path']):
             log.debug("Cleaning '{}'".format(pkg['path']))
@@ -186,7 +189,12 @@ vyos_packages = ['vyatta-bash',
                  'vyatta-conntrack-sync',
                  'vyos-xe-guest-utilities',
                  'vyos-netplug',
-                 'eventwatchd']
+                 'pmacct',
+                 'ddclient',
+                 'igmpproxy',
+                 'eventwatchd',
+                 'live-boot',
+                 'conntrack-tools']
 
 # Special packages mean packages which are located no in the VyOS namespace
 # or require fancy build instructions
@@ -239,7 +247,6 @@ pkg_special.append( add_package('net-snmp', custombuild_cmd=net_snmp_build_cmd) 
 # Linux (VyOS) Kernel
 #
 kernel_build_cmd = "make x86_64_vyos_defconfig && " \
-                   "echo $(make kernelversion)-amd64-vyos > " + repo_root + "/data/kernel_version && " \
                    "sed -i 's/\"kernel_version\": \"[0-9].[0-9][0-9].[0-9]*\"/\"kernel_version\": \"'$(make kernelversion)'\"/' " + repo_root + "/data/defaults.json && " \
                    "make bindeb-pkg LOCALVERSION='-amd64-vyos' KDEB_PKGVERSION=$(make kernelversion)-1 -j $(getconf _NPROCESSORS_ONLN)"
 pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custombuild_cmd=kernel_build_cmd) )
@@ -249,7 +256,7 @@ pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custo
 #
 # WireGuard Kernel Module
 #
-wireguard_build_cmd = "echo 'src/wireguard.ko /lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\") > debian/wireguard-modules.install && " \
+wireguard_build_cmd = "echo 'src/wireguard.ko /lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")-amd64-vyos/extra > debian/wireguard-modules.install && " \
                       "KERNELDIR=" + repo_root + "/packages/vyos-kernel dpkg-buildpackage -b -us -uc -tc -j" + str(os.cpu_count())
 pkg_special.append( add_package('vyos-wireguard', custombuild_cmd=wireguard_build_cmd) )
 
@@ -258,8 +265,8 @@ pkg_special.append( add_package('vyos-wireguard', custombuild_cmd=wireguard_buil
 #
 # Accell-PPP Package and Kernel Module
 #
-accel_ppp_build_cmd = "echo 'lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")'/extra/*.ko' > debian/vyos-accel-ppp-ipoe-kmod.install && " \
-                      "sed -i 's#[0-9].[0-9][0-9].[0-9]*-amd64-vyos#'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")'#g' debian/rules && " \
+accel_ppp_build_cmd = "echo 'lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")-amd64-vyos/extra/*.ko > debian/vyos-accel-ppp-ipoe-kmod.install && " \
+                      "sed -i 's#[0-9].[0-9][0-9].[0-9]*-amd64-vyos#'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")'-amd64-vyos#g' debian/rules && " \
                       "KERNELDIR=" + repo_root + "/packages/vyos-kernel dpkg-buildpackage -b -us -uc -tc -j" + str(os.cpu_count())
 pkg_special.append( add_package('vyos-accel-ppp', custombuild_cmd=accel_ppp_build_cmd) )
 
@@ -272,11 +279,14 @@ pkg_build = []
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    exclusive = parser.add_mutually_exclusive_group(required=False)
+    exclusive.add_argument('-c', '--clean', action='store_true', help='Re-clone required Git repositories')
+    exclusive.add_argument('-k', '--keep', action='store_true', help='Keep modified Git repositories')
+    exclusive.add_argument('-f', '--fetch', action='store_true', help='Fetch sources only, no build')
+
     parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase logging verbosity for each occurance')
-    parser.add_argument('-c', '--clean', action='store_true', help='Re-clone required Git repositories')
     parser.add_argument('-l', '--list-packages', action='store_true', help='List all packages to build')
     parser.add_argument('-b', '--build', nargs='+', help='Whitespace separated list of packages to build')
-    parser.add_argument('-f', '--fetch', action='store_true', help='Fetch sources only, no build')
     parser.add_argument('-p', '--parallel', action='store_true', help='Build on all CPUs')
     parser.add_argument('--blacklist', nargs='+', help='Do not build/report packages when calling --list')
 
