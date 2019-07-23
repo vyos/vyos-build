@@ -16,7 +16,7 @@ system {
         server "2.pool.ntp.org"
     }
     console {
-        device ttyS0 {
+        device ttyS1 {
             speed 115200
         }
     }
