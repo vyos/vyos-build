@@ -75,6 +75,8 @@ $ apt-get update -o Acquire::Check-Valid-Until=false
 
 ### Docker
 
+**NOTE:** Currently the image can only be build with docker on Linux system 
+
 Using our [Dockerfile](docker/Dockerfile) you create your own Docker container
 that is used to build a VyOS ISO image or other required VyOS packages. The
 [Dockerfile](docker/Dockerfile) contains some of the most used packages needed
