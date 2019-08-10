@@ -196,7 +196,7 @@ openssl sha1 *.vmdk *.ovf > vyos_vmware_image.mf
 
 # Convert the OVF to signed OVA...
 echo 'Converting the OVF to signed OVA...'
-private_key=${PRIVATE_KEY_PATH:-"../../key/privatekey.pem"}
+private_key=${PRIVATE_KEY_PATH:-"../key/privatekey.pem"}
 if [ ! -f ${private_key} ]; then
   echo 'Please put your key to "key/privatekey.pem" in repository root, or set PRIVATE_KEY_PATH to environment variables.'
   exit 1
