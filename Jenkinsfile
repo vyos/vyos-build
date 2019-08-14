@@ -67,7 +67,7 @@ setDescription()
 
 pipeline {
     options {
-        disableConcurrentBuilds()
+        disableConequuleusBuilds()
         timeout(time: 4, unit: 'HOURS')
         parallelsAlwaysFailFast()
     }
