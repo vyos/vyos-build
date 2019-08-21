@@ -57,6 +57,7 @@ lb config noauto \
         --firmware-binary false \
         --updates true \
         --security true \
+        --apt-options "--yes -oAPT::Default-Release="equuleus" -oAPT::Get::allow-downgrades=true" \
         --apt-indices false
         "${@}"
 """
