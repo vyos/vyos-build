@@ -1,0 +1,2 @@
+openvpn ALL=(ALL) NOPASSWD: /sbin/ip
+Defaults:openvpn !requiretty
