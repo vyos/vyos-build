@@ -79,100 +79,23 @@ pipeline {
             args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
         }
     }
-
     stages {
-        stage('VyOS Packages') {
+        stage('Configure') {
             steps {
-                script {
-                    def build = [:]
-                    // get a list of available package from scripts/build-packages
-                    packageList = sh(
-                        script: "scripts/build-packages -l | grep '*' | sed -e 's/ \\* //'",
-                        returnStdout: true
-                    ).split("\r?\n")
-
-                    packageList.each { pkg ->
-                        skipList = ['vyos-kernel', 'vyos-wireguard', 'vyos-accel-ppp']
-                        if (pkg in skipList) {
-                            return
-                        }
-
-                        // add each object from 'packageList' to the 'build' array
-                        build[pkg] = {
-                            // we're already in the script{} block, so do our advanced stuff here
-                            sh(
-                                script: "scripts/build-packages -vvv -b ${pkg}",
-                                returnStdout: true
-                            )
-                        }
-                    }
-                    // Still within the 'Script' block, run the parallel array object
-                    parallel build
-                }
-            }
-        }
-
-        stage('Kernel') {
-            steps {
-                sh "scripts/build-packages -vvv -b vyos-kernel"
-            }
-        }
-
-        stage('Kernel Modules') {
-            steps {
-                script {
-                    def build = [:]
-                    kernelModules = ['vyos-wireguard', 'vyos-accel-ppp']
-                    kernelModules.each { pkg ->
-                        // add each object from 'packageList' to the 'build' array
-                        build[pkg] = {
-                            // we're already in the script{} block, so do our advanced stuff here
-                            sh(
-                                script: "scripts/build-packages -vvv -b ${pkg}",
-                                returnStdout: true
-                            )
-                        }
-                    }
-                    // Still within the 'Script' block, run the parallel array object
-                    parallel build
-                }
-            }
-        }
-
-        stage('Intel Drivers') {
-            steps {
-                sh "KSRC=\$(pwd)/packages/vyos-kernel scripts/build-intel-drivers"
-            }
-        }
-
-        stage('List Packages') {
-            steps {
-                sh "find packages/ -maxdepth 1 -type f -print0 | xargs -0r ls"
-            }
-        }
-
-        stage('ISO Image') {
-            steps {
-                sh '''
-                    #!/bin/sh
-
-                    # we do not want to fetch VyOS packages from the mirror,
-                    # we rather prefer all build by ourself!
-                    sed -i '/vyos_repo_entry/d' scripts/live-build-config
-
-                    # remove debug packages
-                    rm -f packages/*-dbg_*.deb
-
-                    # Configure the ISO
+                sh """
+                    pwd
                     ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
-
-                    # Finally build our ISO
+                """
+            }
+        }
+        stage('Build') {
+            steps {
+                sh """
                     sudo make iso
-                '''
+                """
             }
         }
     }
-
     post {
         success {
             archiveArtifacts artifacts: 'build/live-image-*.iso', fingerprint: true
