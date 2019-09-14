@@ -71,6 +71,9 @@ pipeline {
         timeout(time: 4, unit: 'HOURS')
         parallelsAlwaysFailFast()
     }
+    triggers {
+        cron('H 2 * * *')
+    }
     agent {
         dockerfile {
             filename 'Dockerfile'
