@@ -174,6 +174,7 @@ RUN apt-get update && apt-get install -y \
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 RUN apt-get update && apt-get install -y \
+      graphviz \
       doxygen \
       libssh-dev \
       libssl-dev

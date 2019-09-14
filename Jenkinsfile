@@ -1,6 +1,5 @@
 #!/usr/bin/env groovy
-
-// Copyright (C) 2018 VyOS maintainers and contributors
+// Copyright (C) 2019 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -18,7 +17,8 @@
 @NonCPS
 
 def getGitBranchName() {
-    return scm.branches[0].name
+    def branch = scm.branches[0].name
+    return branch.split('/')[-1]
 }
 
 def getGitRepoURL() {
@@ -40,7 +40,6 @@ def setDescription() {
     // build up the main description text
     def description = ""
     description += "<h2>Build VyOS ISO image</h2>"
-    description += "All required Vyatta/VyOS packages are build from source prior to assembling the ISO."
 
     if (isCustomBuild()) {
         description += "<p style='border: 3px dashed red; width: 50%;'>"
@@ -71,6 +70,9 @@ pipeline {
         timeout(time: 4, unit: 'HOURS')
         parallelsAlwaysFailFast()
     }
+    triggers {
+        cron('H 2 * * *')
+    }
     agent {
         dockerfile {
             filename 'Dockerfile'
@@ -79,103 +81,51 @@ pipeline {
             args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
         }
     }
-
     stages {
-        stage('VyOS Packages') {
+        stage('Configure') {
             steps {
-                script {
-                    def build = [:]
-                    // get a list of available package from scripts/build-packages
-                    packageList = sh(
-                        script: "scripts/build-packages -l | grep '*' | sed -e 's/ \\* //'",
-                        returnStdout: true
-                    ).split("\r?\n")
-
-                    packageList.each { pkg ->
-                        skipList = ['vyos-kernel', 'vyos-wireguard', 'vyos-accel-ppp']
-                        if (pkg in skipList) {
-                            return
-                        }
-
-                        // add each object from 'packageList' to the 'build' array
-                        build[pkg] = {
-                            // we're already in the script{} block, so do our advanced stuff here
-                            sh(
-                                script: "scripts/build-packages -vvv -b ${pkg}",
-                                returnStdout: true
-                            )
-                        }
-                    }
-                    // Still within the 'Script' block, run the parallel array object
-                    parallel build
-                }
-            }
-        }
-
-        stage('Kernel') {
-            steps {
-                sh "scripts/build-packages -vvv -b vyos-kernel"
-            }
-        }
-
-        stage('Kernel Modules') {
-            steps {
-                script {
-                    def build = [:]
-                    kernelModules = ['vyos-wireguard', 'vyos-accel-ppp']
-                    kernelModules.each { pkg ->
-                        // add each object from 'packageList' to the 'build' array
-                        build[pkg] = {
-                            // we're already in the script{} block, so do our advanced stuff here
-                            sh(
-                                script: "scripts/build-packages -vvv -b ${pkg}",
-                                returnStdout: true
-                            )
-                        }
-                    }
-                    // Still within the 'Script' block, run the parallel array object
-                    parallel build
-                }
-            }
-        }
-
-        stage('Intel Drivers') {
-            steps {
-                sh "KSRC=\$(pwd)/packages/vyos-kernel scripts/build-intel-drivers"
-            }
-        }
-
-        stage('List Packages') {
-            steps {
-                sh "find packages/ -maxdepth 1 -type f -print0 | xargs -0r ls"
-            }
-        }
-
-        stage('ISO Image') {
-            steps {
-                sh '''
-                    #!/bin/sh
-
-                    # we do not want to fetch VyOS packages from the mirror,
-                    # we rather prefer all build by ourself!
-                    sed -i '/vyos_repo_entry/d' scripts/live-build-config
-
-                    # remove debug packages
-                    rm -f packages/*-dbg_*.deb
-
-                    # Configure the ISO
+                sh """
+                    pwd
                     ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
-
-                    # Finally build our ISO
+                """
+            }
+        }
+        stage('Build') {
+            steps {
+                sh """
                     sudo make iso
-                '''
+                """
             }
         }
     }
-
     post {
         success {
-            archiveArtifacts artifacts: 'build/live-image-*.iso', fingerprint: true
+            // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
+            sshagent(['SSH-dev.packages.vyos.net']) {
+                script {
+                    // build up some fancy groovy variables so we do not need to write/copy
+                    // every option over and over again!
+                    def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
+                    def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
+                    def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+                    def SSH_REMOTE = 'khagen@10.217.48.113'
+
+                    // No need to explicitly check the return code. The pipeline
+                    // will fail if sh returns a non 0 exit code
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
+                    """
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
+                    """
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
+                    """
+                    sh """
+                        scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
+                    """
+                }
+            }
         }
         cleanup {
             echo 'One way or another, I have finished'
