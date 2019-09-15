@@ -56,6 +56,23 @@ def setDescription() {
     item.save()
 }
 
+def setGitHubStatus(message) {
+    if (isCustomBuild())
+        return
+
+    withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
+        sh "env"
+        sh """
+            curl -XPOST -H "Authorization: token ${TOKEN}" https://api.github.com/repos/vyos/vyos-build/statuses/\$(git rev-parse HEAD) -d "{
+              \"state\": \"pending\",
+              \"target_url\": \"${BUILD_URL}\",
+              \"description\": \"${message}\",
+              \"context\": \"continuous-integration/jenkins\"
+            }"
+        """
+    }
+}
+
 /* Only keep the 10 most recent builds. */
 def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '1']],
@@ -84,10 +101,12 @@ pipeline {
     stages {
         stage('Configure') {
             steps {
-                sh """
-                    pwd
-                    ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
-                """
+                script {
+                    setGitHubStatus("Build is pending!")
+                    sh """
+                        ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
+                    """
+                }
             }
         }
         stage('Build') {
@@ -104,29 +123,30 @@ pipeline {
             sshagent(['SSH-dev.packages.vyos.net']) {
                 script {
                     // only deploy ISO if build from official repository
-                    if (! isCustomBuild()) {
-                        // build up some fancy groovy variables so we do not need to write/copy
-                        // every option over and over again!
-                        def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
-                        def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
-                        def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
-                        def SSH_REMOTE = 'khagen@10.217.48.113'
+                    if (isCustomBuild())
+                        return
 
-                        // No need to explicitly check the return code. The pipeline
-                        // will fail if sh returns a non 0 exit code
-                        sh """
-                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                        """
-                        sh """
-                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                        """
-                        sh """
-                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
-                        """
-                        sh """
-                            scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
-                        """
-                    }
+                    // build up some fancy groovy variables so we do not need to write/copy
+                    // every option over and over again!
+                    def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
+                    def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
+                    def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+                    def SSH_REMOTE = 'khagen@10.217.48.113'
+
+                    // No need to explicitly check the return code. The pipeline
+                    // will fail if sh returns a non 0 exit code
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
+                    """
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
+                    """
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
+                    """
+                    sh """
+                        scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
+                    """
                 }
             }
         }
