@@ -84,7 +84,7 @@ setDescription()
 pipeline {
     options {
         disableConcurrentBuilds()
-        timeout(time: 4, unit: 'HOURS')
+        timeout(time: 90, unit: 'MINUTES')
         parallelsAlwaysFailFast()
     }
     triggers {
