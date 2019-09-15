@@ -56,6 +56,24 @@ def setDescription() {
     item.save()
 }
 
+def setGitHubStatus(state, description) {
+    if (isCustomBuild())
+        return
+
+    withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
+        def commitId = sh(returnStdout: true, script: "git rev-parse HEAD").trim()
+        def postBody = [
+                state: "${state}",
+                target_url: "${BUILD_URL}",
+                description: "${description}",
+                context: 'continuous-integration/jenkins',
+        ]
+        def postBodyString = groovy.json.JsonOutput.toJson(postBody)
+        sh "curl 'https://api.github.com/repos/vyos/vyos-build/statuses/${commitId}?access_token=${TOKEN}' \
+                -H 'Content-Type: application/json' -X POST -d '${postBodyString}' -k"
+    }
+}
+
 /* Only keep the 10 most recent builds. */
 def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '1']],
@@ -67,7 +85,7 @@ setDescription()
 pipeline {
     options {
         disableConcurrentBuilds()
-        timeout(time: 4, unit: 'HOURS')
+        timeout(time: 90, unit: 'MINUTES')
         parallelsAlwaysFailFast()
     }
     triggers {
@@ -84,10 +102,12 @@ pipeline {
     stages {
         stage('Configure') {
             steps {
-                sh """
-                    pwd
-                    ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
-                """
+                script {
+                    setGitHubStatus("pending", "Build is pending.")
+                    sh """
+                        ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
+                    """
+                }
             }
         }
         stage('Build') {
@@ -100,9 +120,13 @@ pipeline {
     }
     post {
         success {
-            // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
-            sshagent(['SSH-dev.packages.vyos.net']) {
-                script {
+            script {
+                // only deploy ISO if build from official repository
+                if (isCustomBuild())
+                    return
+
+                // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
+                sshagent(['SSH-dev.packages.vyos.net']) {
                     // build up some fancy groovy variables so we do not need to write/copy
                     // every option over and over again!
                     def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
@@ -125,6 +149,17 @@ pipeline {
                         scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
                     """
                 }
+
+                setGitHubStatus("success", "Build has succeeded!")
+            }
+        }
+        failure {
+            script {
+                // only deploy ISO if build from official repository
+                if (isCustomBuild())
+                    return
+
+                setGitHubStatus("failure", "Build has failed!")
             }
         }
         cleanup {
