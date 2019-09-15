@@ -56,20 +56,21 @@ def setDescription() {
     item.save()
 }
 
-def setGitHubStatus(message) {
+def setGitHubStatus(state, description) {
     if (isCustomBuild())
         return
 
     withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
-        sh "env"
-        sh """
-            curl -XPOST -H "Authorization: token ${TOKEN}" https://api.github.com/repos/vyos/vyos-build/statuses/\$(git rev-parse HEAD) -d "{
-              \"state\": \"pending\",
-              \"target_url\": \"${BUILD_URL}\",
-              \"description\": \"${message}\",
-              \"context\": \"continuous-integration/jenkins\"
-            }"
-        """
+        def commitId = sh(returnStdout: true, script: "git rev-parse HEAD").trim()
+        def postBody = [
+                state: "${state}",
+                target_url: "${BUILD_URL}",
+                description: "${description}",
+                context: 'continuous-integration/jenkins',
+        ]
+        def postBodyString = groovy.json.JsonOutput.toJson(postBody)
+        sh "curl 'https://api.github.com/repos/vyos/vyos-build/statuses/${commitId}?access_token=${TOKEN}' \
+                -H 'Content-Type: application/json' -X POST -d '${postBodyString}' -k"
     }
 }
 
@@ -102,7 +103,7 @@ pipeline {
         stage('Configure') {
             steps {
                 script {
-                    setGitHubStatus("Build is pending!")
+                    setGitHubStatus("pending", "Build pending")
                     sh """
                         ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
                     """
