@@ -103,7 +103,7 @@ pipeline {
         stage('Configure') {
             steps {
                 script {
-                    setGitHubStatus("pending", "Build pending")
+                    setGitHubStatus("pending", "Build is pending.")
                     sh """
                         ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
                     """
@@ -120,13 +120,13 @@ pipeline {
     }
     post {
         success {
-            // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
-            sshagent(['SSH-dev.packages.vyos.net']) {
-                script {
-                    // only deploy ISO if build from official repository
-                    if (isCustomBuild())
-                        return
+            script {
+                // only deploy ISO if build from official repository
+                if (isCustomBuild())
+                    return
 
+                // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
+                sshagent(['SSH-dev.packages.vyos.net']) {
                     // build up some fancy groovy variables so we do not need to write/copy
                     // every option over and over again!
                     def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
@@ -149,6 +149,17 @@ pipeline {
                         scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
                     """
                 }
+
+                setGitHubStatus("success", "Build has succeeded!")
+            }
+        }
+        failure {
+            script {
+                // only deploy ISO if build from official repository
+                if (isCustomBuild())
+                    return
+
+                setGitHubStatus("failure", "Build has failed!")
             }
         }
         cleanup {
