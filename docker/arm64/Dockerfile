@@ -116,7 +116,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git && \
     cd libvyosconfig && git checkout 9a80a5d3 && \
     dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libvyosconfig0_*_amd64.deb
+    dpkg -i ../libvyosconfig0_*.deb
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
@@ -181,7 +181,7 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
     tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
+    dpkg -i ../librtr*.deb
 
 # Packages needed to build frr itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
