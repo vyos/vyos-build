@@ -79,7 +79,7 @@ RUN apt-get update && apt-get install -y \
       libffi-dev \
       libpcre3-dev
 
-RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
+RUN curl -k https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
     opam init --root=/opt/opam --comp=4.07.0 --disable-sandboxing
 
@@ -278,10 +278,10 @@ RUN apt-get update && apt-get install -y \
       libmariadb-dev
 
 # Install packer
-RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
+RUN export LATEST="$(curl -k -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
     echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_arm.zip" |\
-    curl -K- | gzip -d > /usr/bin/packer && \
+    curl -k -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
 
 #
