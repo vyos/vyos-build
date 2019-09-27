@@ -117,6 +117,14 @@ pipeline {
                 """
             }
         }
+        stage('Test') {
+            steps {
+                sh """
+                    cd build/ 
+                    sudo ../scripts/check-qemu-install --debug live-image-amd64.hybrid.iso
+                """
+            }
+        }
     }
     post {
         success {

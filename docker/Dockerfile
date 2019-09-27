@@ -280,6 +280,11 @@ RUN apt-get update && apt-get install -y \
       python2.7-dev \
       libmariadb-dev
 
+# Packages needed for Qemu test-suite
+RUN apt-get update && apt-get install -y \
+      python3-pexpect \
+      qemu-kvm
+
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \

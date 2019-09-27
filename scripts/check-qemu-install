@@ -65,7 +65,10 @@ parser.add_argument('--silent', help='Do not show output on stdout unless an err
 parser.add_argument('--debug', help='Send all debug output to stdout',
                                action='store_true', 
                                default=False)                      
-parser.add_argument('--logfile', help='Log to file')  
+parser.add_argument('--logfile', help='Log to file') 
+parser.add_argument('--no-kvm', help='Disable use of kvm',
+				action='store_true',
+				default=False) 
 
 args = parser.parse_args()
 
@@ -99,7 +102,7 @@ log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
 stl = StreamToLogger(log)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s + %(relativeCreated)-7d - %(levelname)5s - %(message)s')
 
 handler = logging.StreamHandler(sys.stdout)
 if args.silent:
@@ -130,6 +133,14 @@ if not os.path.isfile(args.iso):
     log.error("Unable to find iso image to install")
     sys.exit(1)
 
+if args.no_kvm:
+    log.error("KVM forced off by command line")
+    kvm=False
+elif not os.path.exists("/dev/kvm"):
+    log.error("KVM is not enabled on host, proceeding with software emulation")
+    kvm=False
+else:
+    kvm=True
 
 # Creating diskimage!!
 
@@ -153,12 +164,14 @@ try:
     -m 1G \
     -nic user,model=virtio,mac=52:54:99:12:34:56,hostfwd=tcp::2299-:22 \
     -machine accel=kvm \
-    -cpu host -smp 2 \
+    {CPU} \
+    -smp 2 \
     -vnc 0.0.0.0:99 \
     -nographic \
     -boot d -cdrom {CD} \
+    {KVM} \
     -drive format=raw,file={DISK}
-    """.format(CD=args.iso, DISK=args.disk)
+    """.format(CD=args.iso, DISK=args.disk, KVM="" if kvm else "--no-kvm", CPU="-cpu host" if kvm else "")
     log.debug("Executing command: {}".format(cmd))
     c = pexpect.spawn(cmd, logfile=stl)
 
@@ -172,7 +185,7 @@ try:
         log.warning("Did not find grub countdown window, ignoring")
 
     log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=120)
+    c.expect('[Ll]ogin:', timeout=300)
     c.sendline('vyos')
     c.expect('[Pp]assword:', timeout=10)
     c.sendline('vyos')
@@ -240,11 +253,13 @@ try:
     -m 1G \
     -nic user,model=virtio,mac=52:54:99:12:34:56,hostfwd=tcp::2299-:22
     -machine accel=kvm \
-    -cpu host -smp 2 \
+    {CPU} \
+    -smp 2 \
     -vnc 0.0.0.0:99 \
     -nographic \
+    {KVM} \
     -drive format=raw,file={DISK}
-    """.format(DISK=args.disk)
+    """.format(DISK=args.disk, KVM="" if kvm else "--no-kvm", CPU="-cpu host" if kvm else "")
 
     log.debug('Executing command: {}'.format(cmd))
     c = pexpect.spawn(cmd, logfile=stl)
@@ -259,7 +274,7 @@ try:
         log.warning("Did not find grub countdown window, ignoring")
 
     log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=120)
+    c.expect('[Ll]ogin:', timeout=300)
     c.sendline('vyos')
     c.expect('[Pp]assword:', timeout=10)
     c.sendline('vyos')
