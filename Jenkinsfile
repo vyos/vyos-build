@@ -117,6 +117,15 @@ pipeline {
                 """
             }
         }
+        stage('Test') {
+            steps {
+                sh """
+                    sudo apt-get update && sudo apt-get install -y python3-pexpect qemu-kvm 
+                    cd build/ 
+                    sudo ../scripts/check-qemu-install --debug live-image-amd64.hybrid.iso
+                """
+            }
+        }
     }
     post {
         success {
