@@ -185,7 +185,7 @@ try:
         log.warning("Did not find grub countdown window, ignoring")
 
     log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=120)
+    c.expect('[Ll]ogin:', timeout=300)
     c.sendline('vyos')
     c.expect('[Pp]assword:', timeout=10)
     c.sendline('vyos')
@@ -274,7 +274,7 @@ try:
         log.warning("Did not find grub countdown window, ignoring")
 
     log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=120)
+    c.expect('[Ll]ogin:', timeout=300)
     c.sendline('vyos')
     c.expect('[Pp]assword:', timeout=10)
     c.sendline('vyos')
