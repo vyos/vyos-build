@@ -94,7 +94,6 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile'
-            label 'jessie-amd64'
             dir 'docker'
             args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
         }
