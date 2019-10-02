@@ -147,6 +147,9 @@ pipeline {
                     sh """
                         scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
                     """
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
+                    """
                 }
 
                 setGitHubStatus("success", "Build has succeeded!")
