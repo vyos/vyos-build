@@ -68,7 +68,8 @@ RUN apt-get update && apt-get install -y \
       pkg-config \
       debhelper \
       gosu \
-      live-build \
+      po4a \
+      cpio \
       jq
 
 # Package needed for mdns-repeater
@@ -291,6 +292,20 @@ RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packe
     echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\
     curl -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
+
+#
+# live-build: building with local packages fails due to missing keys
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691
+# https://salsa.debian.org/live-team/live-build/merge_requests/30
+#
+RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+    git clone https://salsa.debian.org/live-team/live-build.git && \
+    cd live-build && \
+    git checkout debian/1%20190311 && \
+    patch -p1 < ../63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+    dch -n "Applying fix for missing archive keys" && \
+    dpkg-buildpackage -us -uc && \
+    sudo dpkg -i ../live-build*.deb
 
 #
 # live-build: building in docker fails with mounting /proc | /sys
