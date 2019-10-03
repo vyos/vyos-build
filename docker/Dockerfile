@@ -179,11 +179,10 @@ RUN apt-get update && apt-get install -y \
       libelf-dev \
       dkms
 
-# Packages needed for vyos-accel-ppp
+# Packages needed for Accel-ppp
 RUN apt-get update && apt-get install -y \
       cdbs \
       cmake \
-      liblua5.1-dev \
       liblua5.2-dev
 
 # Prerequisites for building rtrlib
