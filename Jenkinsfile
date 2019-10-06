@@ -25,11 +25,17 @@ def getGitRepoURL() {
     return scm.userRemoteConfigs[0].url
 }
 
-// Returns true if this is a custom build launched on any project fork,
-// returns false if this is build from git@github.com:vyos/vyos-build.git
+def getGitRepoName() {
+    return getGitRepoURL().split('/').last()
+}
+
+// Returns true if this is a custom build launched on any project fork.
+// Returns false if this is build from git@github.com:vyos/<reponame>.
+// <reponame> can be e.g. vyos-1x.git or vyatta-op.git
 def isCustomBuild() {
-    def gitURI = "git@github.com:vyos/vyos-build.git"
-    def httpURI = "https://github.com/vyos/vyos-build.git"
+    // GitHub organisation base URL
+    def gitURI = 'git@github.com:vyos/' + getGitRepoName()
+    def httpURI = 'https://github.com/vyos/' + getGitRepoName()
 
     return ! ((getGitRepoURL() == gitURI) || (getGitRepoURL() == httpURI))
 }
@@ -56,24 +62,6 @@ def setDescription() {
     item.save()
 }
 
-def setGitHubStatus(state, description) {
-    if (isCustomBuild())
-        return
-
-    withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
-        def commitId = sh(returnStdout: true, script: "git rev-parse HEAD").trim()
-        def postBody = [
-                state: "${state}",
-                target_url: "${BUILD_URL}",
-                description: "${description}",
-                context: 'continuous-integration/jenkins',
-        ]
-        def postBodyString = groovy.json.JsonOutput.toJson(postBody)
-        sh "curl 'https://api.github.com/repos/vyos/vyos-build/statuses/${commitId}?access_token=${TOKEN}' \
-                -H 'Content-Type: application/json' -X POST -d '${postBodyString}' -k"
-    }
-}
-
 /* Only keep the 10 most recent builds. */
 def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '1']],
@@ -94,7 +82,6 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile'
-            label 'jessie-amd64'
             dir 'docker'
             args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
         }
@@ -103,7 +90,6 @@ pipeline {
         stage('Configure') {
             steps {
                 script {
-                    setGitHubStatus("pending", "Build is pending.")
                     sh """
                         ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
                     """
@@ -156,18 +142,10 @@ pipeline {
                     sh """
                         scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
                     """
+                    sh """
+                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
+                    """
                 }
-
-                setGitHubStatus("success", "Build has succeeded!")
-            }
-        }
-        failure {
-            script {
-                // only deploy ISO if build from official repository
-                if (isCustomBuild())
-                    return
-
-                setGitHubStatus("failure", "Build has failed!")
             }
         }
         cleanup {

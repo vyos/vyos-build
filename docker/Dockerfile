@@ -163,13 +163,14 @@ RUN apt-get update && apt-get install -y \
       bison \
       libelf-dev \
       bc \
-      kmod
+      kmod \
+      dkms
 
-# Packages needed for vyos-accel-ppp
+# Packages needed for Accel-ppp
 RUN apt-get update && apt-get install -y \
       cdbs \
       cmake \
-      liblua5.1-dev
+      liblua5.2-dev
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
