@@ -143,9 +143,12 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyatta-iproute
 RUN apt-get update && apt-get install -y \
+      iptables-dev \
       libatm1-dev \
+      libcap-dev \
       libdb-dev \
-      iptables-dev
+      libelf-dev \
+      libselinux1-dev
 
 # Packages needed for vyatta-webgui
 RUN apt-get update && apt-get install -y \
@@ -173,17 +176,19 @@ RUN apt-get update && apt-get install -y \
       libncurses5-dev \
       flex \
       bison \
-      libelf-dev
+      libelf-dev \
+      dkms
 
-# Packages needed for vyos-accel-ppp
+# Packages needed for Accel-ppp
 RUN apt-get update && apt-get install -y \
       cdbs \
       cmake \
-      liblua5.1-dev
+      liblua5.2-dev
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 RUN apt-get update && apt-get install -y \
+      graphviz \
       doxygen \
       libssh-dev \
       libssl-dev
@@ -296,8 +301,18 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libnl-3-200 \
       libnl-3-dev \
+      libnl-nf-3-200 \
+      libnl-nf-3-dev \
+      libipset-dev \
       libnl-genl-3-200 \
-      libnl-genl-3-dev
+      libnl-genl-3-dev \
+      libpopt-dev
+
+# Packages needed for net-snmp
+RUN apt-get update && apt-get install -y \
+      python-all \
+      python2.7-dev \
+      libmysqld-dev
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
