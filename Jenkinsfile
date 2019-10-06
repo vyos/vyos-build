@@ -90,17 +90,16 @@ pipeline {
         stage('Configure') {
             steps {
                 script {
-                    sh """
-                        ./configure --build-by="autobuild@vyos.net" --debian-mirror="http://ftp.us.debian.org/debian/"
-                    """
+                    def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
+                    currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
+
+                    sh './configure --build-by autobuild@vyos.net --debian-mirror http://ftp.us.debian.org/debian/'
                 }
             }
         }
         stage('Build') {
             steps {
-                sh """
-                    sudo make iso
-                """
+                sh 'sudo make iso'
             }
         }
     }
