@@ -39,5 +39,10 @@ systemctl disable strongswan.service
 systemctl disable frr.service
 systemctl disable salt-minion.service
 systemctl disable nginx.service
+systemctl disable pacemaker.service
+systemctl disable corosync.service
+systemctl disable wpa_supplicant.service
+systemctl disable squid.service
+
 
 systemctl enable vyos-hostsd.service
