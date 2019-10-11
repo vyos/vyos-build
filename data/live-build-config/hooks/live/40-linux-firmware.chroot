@@ -2,7 +2,7 @@
 
 # To get the possibility of reproducible builds we pin to a specific commit
 # of the linux-firmware repository
-COMMIT="7bc246451318b3536d9bfd3c4e46d541a9831b33"
+COMMIT="aa95e90b2c638f1ca6647d12b2d1b18284428f9c"
 
 echo I: Retrieving Linux Firmware - commit ${COMMIT}
 
