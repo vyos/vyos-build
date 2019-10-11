@@ -47,3 +47,4 @@ systemctl disable heartbeat.service
 
 
 systemctl enable vyos-hostsd.service
+systemctl enable acpid.service
