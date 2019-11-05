@@ -9,6 +9,10 @@ all:
 check_build_config:
 	@scripts/check-config
 
+.PHONY: vep4600_serial
+vep4600_serial:
+	sed -i 's/union=overlay/union=overlay console=ttyS0,115200n8/g' scripts/live-build-config
+
 .PHONY: prepare
 prepare:
 	@set -e
@@ -185,6 +189,19 @@ PACKET-debug: clean prepare
 	cp tools/cloud-init/PACKET/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
 	cp -f tools/cloud-init/PACKET/config.boot.default-debug build/config/includes.chroot/opt/vyatta/etc/config.boot.default
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
+.PHONY: vep4600
+.ONESHELL:
+vep4600: check_build_config clean vep4600_serial prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/systemd/network
+	cp tools/vep4600/90-vep4600.chroot build/config/hooks/live/
+	cp tools/vep4600/*.link build/config/includes.chroot/etc/systemd/network
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..
