@@ -9,10 +9,6 @@ all:
 check_build_config:
 	@scripts/check-config
 
-.PHONY: vep4600_serial
-vep4600_serial:
-	sed -i 's/union=overlay/union=overlay console=ttyS0,115200n8/g' scripts/live-build-config
-
 .PHONY: prepare
 prepare:
 	@set -e
@@ -196,7 +192,7 @@ PACKET-debug: clean prepare
 
 .PHONY: vep4600
 .ONESHELL:
-vep4600: check_build_config clean vep4600_serial prepare
+vep4600: check_build_config clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	mkdir -p build/config/includes.chroot/etc/systemd/network
