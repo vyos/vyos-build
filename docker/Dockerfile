@@ -115,7 +115,8 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git && \
-    cd libvyosconfig && dpkg-buildpackage -uc -us -tc -b && \
+    cd libvyosconfig && git checkout 5138b5eb && \
+    dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
 # Packages needed for vyatta-cfg
