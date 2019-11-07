@@ -98,40 +98,24 @@ RUN apt-get update && apt-get install -y \
 
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
-    opam init --root=/opt/opam --comp=4.07.0 --disable-sandboxing
-
-RUN eval $(opam env --root=/opt/opam --set-root) && \
-    opam install -y \
-      oasis
+    opam init --root=/opt/opam --comp=4.08.0 --disable-sandboxing
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
-      fileutils \
-      lwt \
-      lwt_ppx \
-      lwt_log \
-      ocplib-endian \
-      ounit \
-      pcre \
-      ppx_deriving_yojson \
-      sha \
-      toml \
-      xml-light \
-      batteries \
-      ocaml-protoc \
+      pcre
+
+RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
+      ctypes \
       ctypes-foreign \
-      menhir
-
-RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
-      ctypes
+      ctypes-build
 
 # Build VyConf which is required to build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
-    opam pin add vyconf https://github.com/vyos/vyconf.git#51d79a3f -y
+    opam pin add vyos1x-config https://github.com/vyos/vyos1x-config.git#550048b3 -y
 
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git && \
-    cd libvyosconfig && git checkout 9a80a5d3 && \
+    cd libvyosconfig && git checkout 5138b5eb && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../libvyosconfig0_*_amd64.deb
 
