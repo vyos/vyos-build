@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y \
       autoconf \
       automake \
       dpkg-dev \
-      syslinux \
+      syslinux-common \
       genisoimage \
       lsb-release \
       fakechroot \
