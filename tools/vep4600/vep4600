@@ -1,0 +1,17 @@
+#!/bin/sh -e
+
+PREREQS=""
+
+prereqs() { echo "$PREREQS"; }
+
+case "$1" in
+    prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+mkdir -p $DESTDIR/etc/systemd/network
+cp -p /etc/systemd/network/*.link $DESTDIR/etc/systemd/network/
