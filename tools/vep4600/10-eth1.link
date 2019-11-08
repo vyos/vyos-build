@@ -1,5 +1,6 @@
 [Match]
-Path=0000:b8:00.0
+Path=pci-0000:b8:00.0*
+Driver=i40e
 
 [Link]
 Name=eth1

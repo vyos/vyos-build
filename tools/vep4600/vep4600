@@ -15,3 +15,14 @@ esac
 
 mkdir -p $DESTDIR/etc/systemd/network
 cp -p /etc/systemd/network/*.link $DESTDIR/etc/systemd/network/
+
+mkdir -p $DESTDIR/lib/udev/rules.d
+cp -p /lib/udev/rules.d/50-firmware.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/50-udev-default.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/55-dm.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/60-cdrom_id.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/60-persistent-storage-dm.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/60-persistent-storage.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/75-net-description.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/80-drivers.rules $DESTDIR/lib/udev/rules.d/
+cp -p /lib/udev/rules.d/80-net-setup-link.rules $DESTDIR/lib/udev/rules.d/
