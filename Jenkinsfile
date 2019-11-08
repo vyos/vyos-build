@@ -84,7 +84,6 @@ pipeline {
             filename 'Dockerfile'
             dir 'docker'
             args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
-            alwaysPull true
         }
     }
     stages {
