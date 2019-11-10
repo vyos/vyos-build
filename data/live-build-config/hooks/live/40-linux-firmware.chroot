@@ -14,9 +14,10 @@ if [ "${ret}" != "200" ]; then
     exit 1
 fi
 
-tar xf /tmp/linux-firmware-${COMMIT}.tar.gz -C /lib
-mv /lib/linux-firmware-${COMMIT} /lib/firmware
-rm -f /tmp/linux-firmware-${COMMIT}.tar.gz
+tar xf /tmp/linux-firmware-${COMMIT}.tar.gz -C /tmp
+mkdir -p /lib/firmware
+mv /tmp/linux-firmware-${COMMIT}/* /lib/firmware
+rm -rf /tmp/linux-firmware-${COMMIT}*
 
 # We do not need all firmware blobs .. cleanup
 RM_FIRMWARE=" \
