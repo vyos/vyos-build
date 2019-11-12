@@ -78,6 +78,10 @@
         <Label>Domain Time Servers</Label>
         <Description>NTP servers for this VM (comma separated). Leave blank if DHCP is desired.</Description>
       </Property>
+      <Property ovf:key="APIKEY" ovf:type="string" ovf:userConfigurable="true">
+        <Label>HTTP API configuration key</Label>
+        <Description>API configuration key. Leave blank to not enable the API.</Description>
+      </Property>
     </ProductSection>
     <ProductSection ovf:class="vm" ovf:required="false">
       <Info>VM specific properties</Info>
