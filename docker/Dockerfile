@@ -63,6 +63,7 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       python3-sphinx \
       python3-pystache \
+      python3-psutil \
       pkg-config \
       debhelper \
       jq
