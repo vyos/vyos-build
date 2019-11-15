@@ -213,6 +213,21 @@ vep4600: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: saf51015I
+.ONESHELL:
+saf51015I: check_build_config clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/systemd/network
+	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
+	cp tools/saf51015I/90-saf51015I.chroot build/config/hooks/live/
+	cp tools/saf51015I/*.link build/config/includes.chroot/etc/systemd/network/
+	cp tools/saf51015I/saf51015I build/config/includes.chroot/usr/share/initramfs-tools/hooks/
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
 .PHONY: clean
 .ONESHELL:
 clean:
