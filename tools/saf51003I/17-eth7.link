@@ -1,0 +1,5 @@
+[Match]
+Path=pci-0000:07:00.2*
+
+[Link]
+Name=eth7
