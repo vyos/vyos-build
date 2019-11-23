@@ -190,6 +190,19 @@ PACKET-debug: clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: vep4600
+.ONESHELL:
+vep4600: check_build_config clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/systemd/network
+	cp tools/vep4600/90-vep4600.chroot build/config/hooks/live/
+	cp tools/vep4600/*.link build/config/includes.chroot/etc/systemd/network
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
 .PHONY: clean
 .ONESHELL:
 clean:

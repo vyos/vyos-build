@@ -65,6 +65,7 @@ RUN apt-get update && apt-get install -y \
       python3-pystache \
       python3-git \
       python3-pip \
+      python3-psutil \
       pkg-config \
       debhelper \
       gosu \
