@@ -1,0 +1,6 @@
+[Match]
+Path=pci-0000:05:00.1*
+
+[Link]
+Name=eth6
+Alias=LAN6
