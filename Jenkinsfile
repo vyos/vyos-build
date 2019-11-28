@@ -147,6 +147,10 @@ pipeline {
                 }
             }
         }
+        failure {
+            archiveArtifacts artifacts: 'build/live-image-amd64.hybrid.iso',
+                allowEmptyArchive: true
+        }
         cleanup {
             echo 'One way or another, I have finished'
             // the 'build' directory got elevated permissions during the build
