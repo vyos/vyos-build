@@ -51,6 +51,7 @@ systemctl disable apt-daily-upgrade.service
 systemctl disable pcscd.service
 systemctl disable man-db.timer
 systemctl disable ntp.service
+systemctl disable igmpproxy.service
 
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
