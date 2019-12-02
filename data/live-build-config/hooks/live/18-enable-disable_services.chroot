@@ -39,5 +39,6 @@ systemctl disable strongswan.service
 systemctl disable frr.service
 systemctl disable salt-minion.service
 systemctl disable nginx.service
+systemctl disable pcscd.service
 
 systemctl enable vyos-hostsd.service
