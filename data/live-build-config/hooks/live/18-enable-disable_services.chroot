@@ -48,6 +48,7 @@ systemctl disable apt-daily.service
 systemctl disable apt-daily.timer
 systemctl disable apt-daily-upgrade.timer
 systemctl disable apt-daily-upgrade.service
+systemctl disable pcscd.service
 
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
