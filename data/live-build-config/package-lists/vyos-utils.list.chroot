@@ -28,3 +28,4 @@ bgpq3
 libnss-myhostname
 ssl-cert
 nginx-light
+ndisc6
