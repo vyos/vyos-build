@@ -44,6 +44,10 @@ systemctl disable corosync.service
 systemctl disable wpa_supplicant.service
 systemctl disable squid.service
 systemctl disable heartbeat.service
+systemctl disable apt-daily.service
+systemctl disable apt-daily.timer
+systemctl disable apt-daily-upgrade.timer
+systemctl disable apt-daily-upgrade.service
 
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
