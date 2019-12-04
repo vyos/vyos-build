@@ -1,5 +1,5 @@
 [Match]
-Path=pci-0000:04:*
+Path=pci-0000:04:00.0
 Driver=igb
 
 [Link]
