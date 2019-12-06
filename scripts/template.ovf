@@ -78,9 +78,18 @@
         <Label>Domain Time Servers</Label>
         <Description>NTP servers for this VM (comma separated). Leave blank if DHCP is desired.</Description>
       </Property>
+      <Category>Appliance API Settings</Category>
       <Property ovf:key="APIKEY" ovf:type="string" ovf:userConfigurable="true">
-        <Label>HTTP API configuration key</Label>
-        <Description>API configuration key. Leave blank to not enable the API.</Description>
+        <Label>API key</Label>
+        <Description>API key to access the VyOS api. If left blank the api wil not be enabled.</Description>
+      </Property>
+      <Property ovf:key="APIPORT" ovf:value="443" ovf:type="int" ovf:userConfigurable="true">
+        <Label>API listening port</Label>
+        <Description>API port to listen on for calls. Leave blank to keep it default '443'.</Description>
+      </Property>
+      <Property ovf:key="APIDEBUG" ovf:value="false" ovf:type="boolean" ovf:userConfigurable="true">
+        <Label>API debug logging</Label>
+        <Description>Enable API debug logging</Description>
       </Property>
     </ProductSection>
     <ProductSection ovf:class="vm" ovf:required="false">
