@@ -83,7 +83,8 @@ RUN apt-get update && apt-get install -y \
 #
 RUN apt-get update && apt-get install -y \
       libffi-dev \
-      libpcre3-dev
+      libpcre3-dev \
+      unzip
 
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
