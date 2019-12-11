@@ -25,6 +25,8 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
     dpkg-reconfigure dash
 
+RUN echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
+
 RUN apt-get update && apt-get install -y \
       dialog \
       apt-utils \
@@ -37,15 +39,14 @@ RUN apt-get update && apt-get install -y \
       vim \
       git \
       curl \
-      make \
       sudo \
       mc \
+      build-essential \
       pbuilder \
       devscripts \
       squashfs-tools \
       autoconf \
       automake \
-      dpkg-dev \
       syslinux \
       genisoimage \
       lsb-release \
