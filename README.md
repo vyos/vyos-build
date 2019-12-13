@@ -253,6 +253,30 @@ building `vyos-strongswan` and can be ignored on other packages.
 **NOTE:** `vyos-strongswan` will only compile on a Linux system, running on macOS
 or Windows might result in a unittest deadlock (it never exits).
 
+#### Building single packages from your own repositories
+
+You can also build packages that are not from the default git repositories,
+for example from your own forks of the official vyos repositories.
+
+First create a directory "packages" at the top level of the vyos-build repository
+and clone your package into it (creating a subdirectory with the package contents).
+Then checkout the correct branch or commit you want to build before building the package.
+
+```bash
+$ mkdir packages
+$ cd packages
+$ git clone git@github.com:myname/vyos-1x.git
+$ cd vyos-1x
+$ git checkout equuleus
+$ cd ../..
+$ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
+             --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+             vyos-builder scripts/build-packages -b vyos-1x
+```
+
+**NOTE:** you need to git pull manually after you commit to the remote and before rebuilding,
+the local repository won't be updated automatically.
+
 # Development process
 
 ## Git branches
