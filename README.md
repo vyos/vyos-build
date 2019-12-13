@@ -277,6 +277,10 @@ $ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
 **NOTE:** you need to git pull manually after you commit to the remote and before rebuilding,
 the local repository won't be updated automatically.
 
+**WARNING:** any packages in the packages directory will be added to the iso during build,
+replacing the upstream ones. Make sure you delete them (both the source directories and built
+deb packages) if you want to build an iso from purely upstream packages.
+
 # Development process
 
 ## Git branches
