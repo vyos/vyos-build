@@ -2,5 +2,5 @@ grub2
 grub-pc
 qemu-guest-agent
 hyperv-daemons
-vyos-xe-guest-utilities
 vyos-netplug
+vyos-xe-guest-utilities

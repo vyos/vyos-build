@@ -102,6 +102,14 @@ pipeline {
                 sh 'sudo make iso'
             }
         }
+        stage('Test') {
+            steps {
+                sh """
+                    cd build
+                    sudo ../scripts/check-qemu-install --debug live-image-amd64.hybrid.iso
+                """
+            }
+        }
     }
     post {
         success {
@@ -138,6 +146,10 @@ pipeline {
                     """
                 }
             }
+        }
+        failure {
+            archiveArtifacts artifacts: 'build/live-image-amd64.hybrid.iso',
+                allowEmptyArchive: true
         }
         cleanup {
             echo 'One way or another, I have finished'

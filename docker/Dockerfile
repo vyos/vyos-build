@@ -16,7 +16,7 @@
 # Must be run with --privileged flag, recommended to run the container with a
 # volume mapped in order to easy export images
 
-FROM debian:jessie
+FROM debian:buster
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -63,32 +63,19 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       python3-sphinx \
       python3-pystache \
+      python3-git \
+      python3-pip \
       python3-psutil \
       pkg-config \
       debhelper \
+      gosu \
+      po4a \
+      cpio \
       jq
 
-#
-# Setup Debian Jessie Backports repository
-#
-COPY no--check-valid-until /etc/apt/apt.conf.d/
-RUN echo "deb http://archive.debian.org/debian/ jessie-backports main" \
-      > /etc/apt/sources.list.d/jessie-backports.list
-
-RUN apt-get update && apt-get install -y -t jessie-backports \
-      python3-git \
-      python3-pip \
-      gosu
-
 # Package needed for mdns-repeater
-RUN apt-get update && apt-get install -y -t jessie-backports \
+RUN apt-get update && apt-get install -y \
       dh-systemd
-
-#
-# Remove Debian Jessie Backports repository
-#
-RUN rm -f /etc/apt/sources.list.d/jessie-backports.list \
-          /etc/apt/apt.conf.d/no--check-valid-until
 
 #
 # Building libvyosconf requires a full configured OPAM/OCaml setup
@@ -145,7 +132,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libpcap-dev \
       libpq-dev \
-      libmysqlclient-dev \
+      default-libmysqlclient-dev \
       libgeoip-dev \
       librabbitmq-dev \
       libjansson-dev \
@@ -158,11 +145,12 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
-      kernel-package \
       libncurses5-dev \
       flex \
       bison \
       libelf-dev \
+      bc \
+      kmod \
       dkms
 
 # Packages needed for Accel-ppp
@@ -191,16 +179,7 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
 
-#
-# Setup VyOS Debian repository
-#
-COPY vyos-dev.key /tmp/vyos-dev.key
-RUN apt-key add /tmp/vyos-dev.key
-RUN echo "deb http://dev.packages.vyos.net/repositories/current/debian/ current main" \
-      > /etc/apt/sources.list.d/vyos.list
-
 # Packages needed to build frr itself
-# libyang-dev packages are hsoted on dev.packages.vyos.net see
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
 RUN apt-get update && apt-get install -y \
@@ -213,11 +192,6 @@ RUN apt-get update && apt-get install -y \
       python3-dev \
       python3-pytest \
       texinfo
-
-#
-# Cleanup VyOS Debian Repository
-#
-RUN rm -f /etc/apt/sources.list.d/vyos.list
 
 # Packages needed for conntrack-tools
 RUN apt-get update && apt-get install -y \
@@ -241,15 +215,9 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
+      libcidr0 \
+      libcidr-dev \
       check
-
-# As there is no Debian Jessie/Stretch package for libcidr available but this
-# is required for ipaddrcheck we have to build it from source
-RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
-    cd analytics-libcidr && \
-    git checkout 026c611d90a1 && \
-    dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libcidr*.deb
 
 # Packages needed for lldpd
 RUN apt-get update && apt-get install -y \
@@ -303,15 +271,12 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       python-all \
       python2.7-dev \
-      libmysqld-dev
+      libmariadb-dev
 
-# Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && apt-get install -y -t stretch \
-      live-build && \
-    rm -f /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && \
-    rm -rf /var/lib/apt/lists/*
+# Packages needed for Qemu test-suite
+RUN apt-get update && apt-get install -y \
+      python3-pexpect \
+      qemu-kvm
 
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
@@ -319,6 +284,36 @@ RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packe
     echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\
     curl -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
+
+#
+# live-build: building with local packages fails due to missing keys
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691
+# https://salsa.debian.org/live-team/live-build/merge_requests/30
+#
+RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+    git clone https://salsa.debian.org/live-team/live-build.git && \
+    cd live-build && \
+    git checkout debian/1%20190311 && \
+    patch -p1 < ../63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+    dch -n "Applying fix for missing archive keys" && \
+    dpkg-buildpackage -us -uc && \
+    sudo dpkg -i ../live-build*.deb
+
+#
+# live-build: building in docker fails with mounting /proc | /sys
+#
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=919659
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=921815
+# https://salsa.debian.org/installer-team/debootstrap/merge_requests/26
+#
+RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    git clone https://salsa.debian.org/installer-team/debootstrap && \
+    cd debootstrap && \
+    git checkout 1.0.114 && \
+    patch -p1 < ../a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    dch -n "Applying fix for docker image compile" && \
+    dpkg-buildpackage -us -uc && \
+    sudo dpkg -i ../debootstrap*.deb
 
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \

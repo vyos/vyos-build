@@ -1,4 +1,4 @@
-# Copyright (C) 2018 VyOS maintainers and contributors
+# Copyright (C) 2019 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # in order to easy exprort images built to "external" world
@@ -16,16 +16,10 @@
 # Must be run with --privileged flag, recommended to run the container with a
 # volume mapped in order to easy export images
 
-FROM multiarch/debian-debootstrap:armhf-jessie-slim
+FROM multiarch/debian-debootstrap:armhf-buster-slim
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
-
-COPY no--check-valid-until /etc/apt/apt.conf.d/
-RUN echo "deb http://deb.debian.org/debian jessie main" \
-         > /etc/apt/sources.list \
-    && echo "deb http://security.debian.org/debian-security jessie/updates main" \
-         >> /etc/apt/sources.list
 
 # Standard shell should be bash not dash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
@@ -66,39 +60,17 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       python3-sphinx \
       python3-pystache \
+      python3-git \
+      python3-pip \
       pkg-config \
       debhelper \
+      gosu \
+      live-build \
       jq
 
-#
-# Setup Debian Jessie Backports repository
-#
-COPY no--check-valid-until /etc/apt/apt.conf.d/
-RUN echo "deb http://archive.debian.org/debian/ jessie-backports main" \
-      > /etc/apt/sources.list.d/jessie-backports.list
-
-RUN apt-get update && apt-get install -y -t jessie-backports \
-      python3-git \
-      python3-pip
-
-RUN echo "deb http://deb.debian.org/debian buster main" \
-      > /etc/apt/sources.list.d/buster.list
-
-RUN apt-get update && apt-get install -y \
-      golang \
-      gosu
-
-RUN rm -f /etc/apt/sources.list.d/buster.list
-
 # Package needed for mdns-repeater
-RUN apt-get update && apt-get install -y -t jessie-backports \
+RUN apt-get update && apt-get install -y \
       dh-systemd
-
-#
-# Remove Debian Jessie Backports repository
-#
-RUN rm -f /etc/apt/sources.list.d/jessie-backports.list \
-          /etc/apt/apt.conf.d/no--check-valid-until
 
 #
 # Building libvyosconf requires a full configured OPAM/OCaml setup
@@ -107,7 +79,7 @@ RUN apt-get update && apt-get install -y \
       libffi-dev \
       libpcre3-dev
 
-RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
+RUN curl -k https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
     opam init --root=/opt/opam --comp=4.07.0 --disable-sandboxing
 
@@ -144,7 +116,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git && \
     cd libvyosconfig && git checkout 9a80a5d3 && \
     dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libvyosconfig0_*_armhf.deb
+    dpkg -i ../libvyosconfig0_*.deb
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
@@ -154,9 +126,12 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyatta-iproute
 RUN apt-get update && apt-get install -y \
+      iptables-dev \
       libatm1-dev \
+      libcap-dev \
       libdb-dev \
-      iptables-dev
+      libelf-dev \
+      libselinux1-dev
 
 # Packages needed for vyatta-webgui
 RUN apt-get update && apt-get install -y \
@@ -167,7 +142,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libpcap-dev \
       libpq-dev \
-      libmysqlclient-dev \
+      default-libmysqlclient-dev \
       libgeoip-dev \
       librabbitmq-dev \
       libjansson-dev \
@@ -180,11 +155,12 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
-      kernel-package \
       libncurses5-dev \
       flex \
       bison \
-      libelf-dev
+      libelf-dev \
+      bc \
+      kmod
 
 # Packages needed for vyos-accel-ppp
 RUN apt-get update && apt-get install -y \
@@ -195,6 +171,7 @@ RUN apt-get update && apt-get install -y \
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 RUN apt-get update && apt-get install -y \
+      graphviz \
       doxygen \
       libssh-dev \
       libssl-dev
@@ -204,18 +181,9 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
     tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../librtr*_armhf.deb ../librtr*_all.deb
-
-#
-# Setup VyOS Debian repository
-#
-COPY vyos-dev.key /tmp/vyos-dev.key
-RUN apt-key add /tmp/vyos-dev.key
-RUN echo "deb http://dev.packages.vyos.net/repositories/current/debian/ current main" \
-      > /etc/apt/sources.list.d/vyos.list
+    dpkg -i ../librtr*.deb
 
 # Packages needed to build frr itself
-# libyang-dev packages are hsoted on dev.packages.vyos.net see
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
 RUN apt-get update && apt-get install -y \
@@ -228,11 +196,6 @@ RUN apt-get update && apt-get install -y \
       python3-dev \
       python3-pytest \
       texinfo
-
-#
-# Cleanup VyOS Debian Repository
-#
-RUN rm -f /etc/apt/sources.list.d/vyos.list
 
 # Packages needed for conntrack-tools
 RUN apt-get update && apt-get install -y \
@@ -250,17 +213,15 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       whois
 
+# Packages needed for vyos-xe-guest-utilities
+RUN apt-get update && apt-get install -y \
+      golang
+
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
+      libcidr0 \
+      libcidr-dev \
       check
-
-# As there is no Debian Jessie/Stretch package for libcidr available but this
-# is required for ipaddrcheck we have to build it from source
-RUN git clone https://github.com/wikimedia/analytics-libcidr.git && \
-    cd analytics-libcidr && \
-    git checkout 026c611d90a1 && \
-    dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libcidr*.deb
 
 # Packages needed for lldpd
 RUN apt-get update && apt-get install -y \
@@ -314,22 +275,30 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       python-all \
       python2.7-dev \
-      libmysqld-dev
-
-# Update live-build
-RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && apt-get install -y -t stretch \
-    live-build && \
-    rm -f /etc/apt/sources.list.d/stretch.list && \
-    apt-get update && \
-    rm -rf /var/lib/apt/lists/*
+      libmariadb-dev
 
 # Install packer
-RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
+RUN export LATEST="$(curl -k -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
     echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_arm.zip" |\
-    curl -K- | gzip -d > /usr/bin/packer && \
+    curl -k -K- | gzip -d > /usr/bin/packer && \
     chmod +x /usr/bin/packer
+
+#
+# live-build: building in docker fails with mounting /proc | /sys
+#
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=919659
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=921815
+# https://salsa.debian.org/installer-team/debootstrap/merge_requests/26
+#
+RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    git clone https://salsa.debian.org/installer-team/debootstrap && \
+    cd debootstrap && \
+    git checkout 1.0.114 && \
+    patch -p1 < ../a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    dch -n "Applying fix for docker image compile" && \
+    dpkg-buildpackage -us -uc && \
+    sudo dpkg -i ../debootstrap*.deb
 
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \

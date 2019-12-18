@@ -11,7 +11,7 @@ current_working_directory = os.getcwd()
 repo_root = subprocess.check_output('git rev-parse --show-toplevel', shell=True, universal_newlines=True).rstrip('\n')
 repo_sha  = subprocess.check_output('git rev-parse --short=12 HEAD', shell=True, universal_newlines=True).rstrip('\n')
 
-def add_package(name, url=None, commit='HEAD', branch='current', tag=None, custombuild_cmd=None):
+def add_package(name, url=None, commit='HEAD', branch='equuleus', tag=None, custombuild_cmd=None):
     """
     Build up source package with URL and build commands executed during the later
     called build_package step.
@@ -157,8 +157,6 @@ vyos_packages = ['vyatta-bash',
                  'vyatta-cfg-qos',
                  'vyatta-op-qos',
                  'vyatta-cfg-op-pppoe',
-                 'vyatta-conntrack',
-                 'vyatta-conntrack-sync',
                  'vyatta-nat',
                  'vyatta-config-mgmt',
                  'vyatta-config-migrate',
@@ -177,17 +175,18 @@ vyos_packages = ['vyatta-bash',
                  'vyos-replace',
                  'vyos-nhrp',
                  'vyos-world',
-                 'vyos-1x',
                  'vyatta-iproute',
                  'vyos-vmwaretools-scripts',
-                 'vyos-netplug',
-                 'vyos-xe-guest-utilities',
                  'vyatta-biosdevname',
                  'vyos-opennhrp',
                  'vyos-salt-minion',
-                 'xl2tpd',
                  'mdns-repeater',
                  'udp-broadcast-relay',
+                 'vyos-1x',
+                 'vyatta-conntrack',
+                 'vyatta-conntrack-sync',
+                 'vyos-xe-guest-utilities',
+                 'vyos-netplug',
                  'pmacct',
                  'ddclient',
                  'igmpproxy',
@@ -207,9 +206,6 @@ pkg_special.append( add_package('ipaddrcheck', branch='master'))
 
 # Packages where we directly build the upstream source
 pkg_special.append( add_package('hvinfo',  url='https://github.com/dmbaturin/hvinfo.git', branch='master') )
-pkg_special.append( add_package('lldpd',   url='https://github.com/vincentbernat/lldpd.git', branch='master', tag='1.0.3') )
-pkg_special.append( add_package('ethtool', url='https://salsa.debian.org/kernel-team/ethtool.git', branch='master', tag='debian/1%4.19-1') )
-pkg_special.append( add_package('bgpq3', url='https://salsa.debian.org/debian/bgpq3.git', branch='master', tag='debian/0.1.33-1') )
 
 # VyOS strongswan ships additional python3-vici packages required by vyos-1x and this is not build by default
 vyos_strongswan_build_cmd = "dpkg-buildpackage -b -us -uc -tc && " \

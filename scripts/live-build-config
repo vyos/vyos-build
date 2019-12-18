@@ -35,8 +35,8 @@ util.check_build_config()
 lb_config_tmpl = """
 lb config noauto \
         --architectures {{architecture}} \
-        --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console=ttyS0,115200 console=tty0" \
-        --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0" \
+        --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
+        --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
         --linux-flavours {{kernel_flavor}} \
         --linux-packages linux-image-{{kernel_version}} \
         --bootloader syslinux,grub-efi \
@@ -46,7 +46,7 @@ lb config noauto \
         --iso-application "VyOS" \
         --iso-publisher "{{build_by}}" \
         --iso-volume "VyOS" \
-        --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-transport-https" \
+        --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-transport-https,gnupg2" \
         --mirror-bootstrap {{debian_mirror}} \
         --mirror-chroot {{debian_mirror}} \
         --mirror-chroot-security {{debian_security_mirror}} \
@@ -55,9 +55,9 @@ lb config noauto \
         --archive-areas "main contrib non-free" \
         --firmware-chroot false \
         --firmware-binary false \
-        --updates false \
+        --updates true \
         --security true \
-        --apt-options "--yes -oAcquire::Check-Valid-Until=false" \
+        --apt-options "--yes -oAPT::Default-Release="equuleus" -oAPT::Get::allow-downgrades=true" \
         --apt-indices false
         "${@}"
 """
@@ -69,19 +69,16 @@ debug = build_config['debug']
 
 # Add the additional repositories to package lists
 print("Setting up additional APT entries")
-vyos_repo_entry = "deb {0}/vyos {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
-vyos_debian_repo_entry = "deb {0}/debian {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
+vyos_repo_entry = "deb {0} {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
 
 apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
 
 if debug:
     print("Adding these entries to {0}:".format(apt_file))
     print("\t", vyos_repo_entry)
-    print("\t", vyos_debian_repo_entry)
 
 with open(apt_file, 'w') as f:
     f.write(vyos_repo_entry)
-    f.write(vyos_debian_repo_entry)
 
 # Add custom APT entries
 if build_config['custom_apt_entry']:
