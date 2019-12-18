@@ -266,9 +266,7 @@ Then checkout the correct branch or commit you want to build before building the
 $ mkdir packages
 $ cd packages
 $ git clone git@github.com:myname/vyos-1x.git
-$ cd vyos-1x
-$ git checkout equuleus
-$ cd ../..
+$ cd ..
 $ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
              vyos-builder scripts/build-packages -b vyos-1x
