@@ -173,7 +173,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for vyos-qat
 RUN apt-get update && apt-get install -y \
      libboost-dev \
-     libudev-dev
+     libudev-dev 
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
@@ -198,19 +198,13 @@ RUN apt-key add /tmp/vyos-dev.key
 RUN echo "deb http://dev.packages.vyos.net/repositories/crux/debian/ crux main" \
       > /etc/apt/sources.list.d/vyos.list
 
-RUN export LIBYANG_COMMIT="179da47f2e8def1907372408a9df97a0dcbc1347" && \
-    wget -P /tmp https://github.com/opensourcerouting/libyang/archive/${LIBYANG_COMMIT}.tar.gz && \
-    tar xf /tmp/${LIBYANG_COMMIT}.tar.gz && \
-    cd libyang-${LIBYANG_COMMIT} && \
-    mkdir build && cd build && \
-    cmake .. && make build-deb && \
-    dpkg -i debs/*.deb
-
 # Packages needed to build frr itself
 # libyang-dev packages are hsoted on dev.packages.vyos.net see
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
 RUN apt-get update && apt-get install -y \
+      libyang-dev \
+      libyang0.16 \
       chrpath \
       install-info \
       libjson-c-dev \
