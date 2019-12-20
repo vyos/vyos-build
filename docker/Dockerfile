@@ -25,6 +25,8 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
     dpkg-reconfigure dash
 
+RUN echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
+
 RUN apt-get update && apt-get install -y \
       dialog \
       apt-utils \
@@ -37,15 +39,14 @@ RUN apt-get update && apt-get install -y \
       vim \
       git \
       curl \
-      make \
       sudo \
       mc \
+      build-essential \
       pbuilder \
       devscripts \
       squashfs-tools \
       autoconf \
       automake \
-      dpkg-dev \
       syslinux \
       genisoimage \
       lsb-release \
@@ -82,7 +83,8 @@ RUN apt-get update && apt-get install -y \
 #
 RUN apt-get update && apt-get install -y \
       libffi-dev \
-      libpcre3-dev
+      libpcre3-dev \
+      unzip
 
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
