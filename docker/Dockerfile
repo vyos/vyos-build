@@ -68,6 +68,7 @@ RUN apt-get update && apt-get install -y \
       debhelper \
       libssl-dev \
       libssl1.0.0 \
+      openssh-client \
       jq
 
 #
