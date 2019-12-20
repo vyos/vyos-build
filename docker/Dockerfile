@@ -72,6 +72,7 @@ RUN apt-get update && apt-get install -y \
       gosu \
       po4a \
       cpio \
+      openssh-client \
       jq
 
 # Package needed for mdns-repeater
