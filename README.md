@@ -1,6 +1,9 @@
 VyOS toplevel build
 ===================
 
+**For the most up-to-date documentation, please read 
+[the online build docs at docs.vyos.io](https://docs.vyos.io/en/latest/contributing/build-vyos.html)**
+
 # What is VyOS
 
 VyOS is an open source operating system for network devices (routers, firewalls
@@ -38,44 +41,7 @@ There are several directories with their own purpose:
  * `tools/`   Scripts that are used for maintainer's tasks automation and other
               purposes, but not during ISO build process
 
-# Building installation images
-
-## Prerequisites
-
-To build a VyOS 1.2.0 image, you need Debian 8 "Jessie" environment (with
-jessie-backports repository).
-
-If you are working on a Debian Jessie machine, no special preparation is needed,
-you only need to enable jessie-backports and install build dependencies.
-
-If you are interested which individual packages are required please check our
-[Dockerfile](docker/Dockerfile) which holds the most complete documentation
-of required packages. Listing individual packages here tend to be always
-outdated. We try to list required packages in groups through their inheritance
-in the [Dockerfile](docker/Dockerfile).
-
-### Debootstrap
-
-If you do not have a Debian Jessie machine, you may create a chroot environment
-with the [debootstrap](https://wiki.debian.org/Debootstrap) tool.
-
-For example, on another version of Debian or another Debian-based distro, these
-commands will work:
-
-```bash
-$ sudo apt-get install debootstrap
-$ sudo debootstrap jessie vyos-chroot
-$ sudo chroot vyos-chroot
-
-$ echo "deb http://archive.debian.org/debian/ jessie-backports main" >> /etc/apt/sources.list
-$ apt-get update -o Acquire::Check-Valid-Until=false
-```
-
-**NOTE:** We recommend to use the Docker build method
-
-### Docker
-
-**NOTE:** Currently the image can only be build with docker on Linux system 
+# Building images using Docker
 
 Using our [Dockerfile](docker/Dockerfile) you create your own Docker container
 that is used to build a VyOS ISO image or other required VyOS packages. The
