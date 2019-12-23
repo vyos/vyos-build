@@ -1,6 +1,9 @@
 VyOS toplevel build
 ===================
 
+**For the most up-to-date documentation, please read 
+[the online build docs at docs.vyos.io](https://docs.vyos.io/en/latest/contributing/build-vyos.html)**
+
 # What is VyOS
 
 VyOS is an open source operating system for network devices (routers, firewalls
@@ -38,44 +41,7 @@ There are several directories with their own purpose:
  * `tools/`   Scripts that are used for maintainer's tasks automation and other
               purposes, but not during ISO build process
 
-# Building installation images
-
-## Prerequisites
-
-To build a VyOS 1.2.0 image, you need Debian 8 "Jessie" environment (with
-jessie-backports repository).
-
-If you are working on a Debian Jessie machine, no special preparation is needed,
-you only need to enable jessie-backports and install build dependencies.
-
-If you are interested which individual packages are required please check our
-[Dockerfile](docker/Dockerfile) which holds the most complete documentation
-of required packages. Listing individual packages here tend to be always
-outdated. We try to list required packages in groups through their inheritance
-in the [Dockerfile](docker/Dockerfile).
-
-### Debootstrap
-
-If you do not have a Debian Jessie machine, you may create a chroot environment
-with the [debootstrap](https://wiki.debian.org/Debootstrap) tool.
-
-For example, on another version of Debian or another Debian-based distro, these
-commands will work:
-
-```bash
-$ sudo apt-get install debootstrap
-$ sudo debootstrap jessie vyos-chroot
-$ sudo chroot vyos-chroot
-
-$ echo "deb http://archive.debian.org/debian/ jessie-backports main" >> /etc/apt/sources.list
-$ apt-get update -o Acquire::Check-Valid-Until=false
-```
-
-**NOTE:** We recommend to use the Docker build method
-
-### Docker
-
-**NOTE:** Currently the image can only be build with docker on Linux system 
+# Building images using Docker
 
 Using our [Dockerfile](docker/Dockerfile) you create your own Docker container
 that is used to build a VyOS ISO image or other required VyOS packages. The
@@ -203,20 +169,24 @@ directory to start compilation.
 
 ```bash
 $  scripts/build-packages -h
-usage: build-packages [-h] [-v] [-c] [-l] [-b BUILD [BUILD ...]] [-f] [-p]
+usage: build-packages [-h] [-c | -k | -f] [-v] [-l] [-b BUILD [BUILD ...]]
+                      [-p] [--blacklist BLACKLIST [BLACKLIST ...]]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -v, --verbose         Increase logging verbosity for each occurance
   -c, --clean           Re-clone required Git repositories
+  -k, --keep            Keep modified Git repositories
+  -f, --fetch           Fetch sources only, no build
+  -v, --verbose         Increase logging verbosity for each occurance
   -l, --list-packages   List all packages to build
   -b BUILD [BUILD ...], --build BUILD [BUILD ...]
                         Whitespace separated list of packages to build
-  -f, --fetch           Fetch sources only, no build
   -p, --parallel        Build on all CPUs
+  --blacklist BLACKLIST [BLACKLIST ...]
+                        Do not build/report packages when calling --list
 ```
 
-Git repositoriers are automatically fetched and build on demand. If you wan't to
+Git repositories are automatically fetched and build on demand. If you want to
 work offline you can fetch all source code first with the `-f` option.
 
 The easiest way to compile is with the above mentioned [Docker](docker/Dockerfile)
@@ -236,8 +206,7 @@ container and checkout all packages you want to compile.
 
 ### Building single package(s)
 
-The script above runs all package build inside the Docker container, this is also
-possible to do by hand using:
+To build a single package use the same script as above but specify packages with `-b`:
 
 Executed from the root of `vyos-build`
 
@@ -262,6 +231,8 @@ First create a directory "packages" at the top level of the vyos-build repositor
 and clone your package into it (creating a subdirectory with the package contents).
 Then checkout the correct branch or commit you want to build before building the package.
 
+Example using `git@github.com:myname/vyos-1x.git` repository to build vyos-1x:
+
 ```bash
 $ mkdir packages
 $ cd packages
@@ -272,10 +243,10 @@ $ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
              vyos-builder scripts/build-packages -b vyos-1x
 ```
 
-**NOTE:** you need to git pull manually after you commit to the remote and before rebuilding,
+**NOTE:** You need to git pull manually after you commit to the remote and before rebuilding,
 the local repository won't be updated automatically.
 
-**WARNING:** any packages in the packages directory will be added to the iso during build,
+**WARNING:** Any packages in the packages directory will be added to the iso during build,
 replacing the upstream ones. Make sure you delete them (both the source directories and built
 deb packages) if you want to build an iso from purely upstream packages.
 
