@@ -197,9 +197,24 @@ vep4600: check_build_config clean prepare
 	@echo "It's not like I'm building this specially for you or anything!"
 	mkdir -p build/config/includes.chroot/etc/systemd/network
 	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
-	cp tools/vep4600/90-vep4600.chroot build/config/hooks/live/
-	cp tools/vep4600/*.link build/config/includes.chroot/etc/systemd/network/
-	cp tools/vep4600/vep4600 build/config/includes.chroot/usr/share/initramfs-tools/hooks/
+	cp tools/dell/90-vep.chroot build/config/hooks/live/
+	cp tools/dell/vep4600/*.link build/config/includes.chroot/etc/systemd/network/
+	cp tools/dell/vep-hook build/config/includes.chroot/usr/share/initramfs-tools/hooks/
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
+.PHONY: vep1400
+.ONESHELL:
+vep1400: check_build_config clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/etc/systemd/network
+	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
+	cp tools/dell/90-vep.chroot build/config/hooks/live/
+	cp tools/dell/vep1400/*.link build/config/includes.chroot/etc/systemd/network/
+	cp tools/dell/vep-hook build/config/includes.chroot/usr/share/initramfs-tools/hooks/
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..
