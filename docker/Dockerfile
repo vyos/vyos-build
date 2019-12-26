@@ -156,21 +156,15 @@ RUN apt-get update && apt-get install -y \
       librdkafka-dev \
       libnetfilter-log-dev
 
-# Pavkages needed for wireguard
-RUN apt-get update && apt-get install -y \
-      libmnl-dev
-
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
+      libmnl-dev \
       kernel-package \
       libncurses5-dev \
       flex \
       bison \
       libelf-dev \
-      dkms
-
-# Packages needed for Accel-ppp
-RUN apt-get update && apt-get install -y \
+      dkms \
       cdbs \
       cmake \
       liblua5.2-dev
