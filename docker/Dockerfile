@@ -227,6 +227,7 @@ RUN apt-get update && apt-get install -y \
       dh-apparmor \
       gperf \
       libsystemd-dev \
+      python3-all \
       python3-stdeb \
       python-setuptools
 
