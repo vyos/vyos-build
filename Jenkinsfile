@@ -62,9 +62,9 @@ def setDescription() {
     item.save()
 }
 
-/* Only keep the 10 most recent builds. */
+// Only keep the 10 most recent builds
 def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '1']],
+    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
 ]
 
 properties(projectProperties)
