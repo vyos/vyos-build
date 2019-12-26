@@ -126,22 +126,6 @@ RUN apt-get update && apt-get install -y \
       libelf-dev \
       libselinux1-dev
 
-# Packages needed for vyatta-webgui
-RUN apt-get update && apt-get install -y \
-      libexpat1-dev \
-      subversion
-
-# Packages needed for pmacct
-RUN apt-get update && apt-get install -y \
-      libpcap-dev \
-      libpq-dev \
-      default-libmysqlclient-dev \
-      libgeoip-dev \
-      librabbitmq-dev \
-      libjansson-dev \
-      librdkafka-dev \
-      libnetfilter-log-dev
-
 # Pavkages needed for wireguard
 RUN apt-get update && apt-get install -y \
       libmnl-dev
@@ -165,7 +149,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for vyos-qat
 RUN apt-get update && apt-get install -y \
      libboost-dev \
-     libudev-dev 
+     libudev-dev
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
@@ -222,11 +206,6 @@ RUN apt-get update && apt-get install -y \
       libcidr-dev \
       check
 
-# Packages needed for lldpd
-RUN apt-get update && apt-get install -y \
-      libbsd-dev \
-      libevent-dev
-
 # Packages needed for vyatta-quagga
 RUN apt-get update && apt-get install -y \
       libpam-dev \
@@ -269,12 +248,6 @@ RUN apt-get update && apt-get install -y \
       libnl-genl-3-200 \
       libnl-genl-3-dev \
       libpopt-dev
-
-# Packages needed for net-snmp
-RUN apt-get update && apt-get install -y \
-      python-all \
-      python2.7-dev \
-      libmariadb-dev
 
 # Packages needed for Qemu test-suite
 RUN apt-get update && apt-get install -y \
