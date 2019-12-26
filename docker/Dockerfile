@@ -145,6 +145,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for pmacct
 RUN apt-get update && apt-get install -y \
       libpcap-dev \
+      libssl-dev \
       libpq-dev \
       libmysqlclient-dev \
       libgeoip-dev \
@@ -175,7 +176,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for vyos-qat
 RUN apt-get update && apt-get install -y \
      libboost-dev \
-     libudev-dev 
+     libudev-dev
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
