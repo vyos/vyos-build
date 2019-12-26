@@ -231,6 +231,7 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
+      fakeroot \
       whois
 
 # Packages needed for vyos-xe-guest-utilities
