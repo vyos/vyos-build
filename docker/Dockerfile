@@ -144,7 +144,8 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       cdbs \
       cmake \
-      liblua5.2-dev
+      liblua5.2-dev \
+      liblua5.3-dev
 
 # Packages needed for vyos-qat
 RUN apt-get update && apt-get install -y \
