@@ -66,6 +66,8 @@ RUN apt-get update && apt-get install -y \
       python3-pystache \
       pkg-config \
       debhelper \
+      libssl-dev \
+      libssl1.0.0 \
       jq
 
 #
