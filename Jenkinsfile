@@ -70,8 +70,27 @@ def projectProperties = [
 properties(projectProperties)
 setDescription()
 
+// Due to long build times on DockerHub we rather build the container by ourself
+// and publish it later on.
+node('Docker') {
+    stage('Build Container') {
+        script {
+            git branch: getGitBranchName(),
+                url: getGitRepoURL()
+
+            // create container name on demand
+            env.DOCKER_IMAGE = "vyos/vyos-build:" + getGitBranchName()
+            sh "docker build -t ${env.DOCKER_IMAGE} docker"
+            withDockerRegistry([credentialsId: "DockerHub"]) {
+                sh "docker push ${env.DOCKER_IMAGE}"
+            }
+        }
+    }
+}
+
 pipeline {
     options {
+        skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 90, unit: 'MINUTES')
         parallelsAlwaysFailFast()
@@ -87,22 +106,18 @@ pipeline {
         }
     }
     stages {
-        stage('Configure') {
+        stage('Build ISO') {
             steps {
                 script {
                     def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
                     sh './configure --build-by autobuild@vyos.net --debian-mirror http://ftp.us.debian.org/debian/'
+                    sh 'sudo make iso'
                 }
             }
         }
-        stage('Build') {
-            steps {
-                sh 'sudo make iso'
-            }
-        }
-        stage('Test') {
+        stage('Test ISO') {
             steps {
                 sh """
                     cd build
