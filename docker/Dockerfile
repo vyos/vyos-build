@@ -126,22 +126,16 @@ RUN apt-get update && apt-get install -y \
       libelf-dev \
       libselinux1-dev
 
-# Pavkages needed for wireguard
-RUN apt-get update && apt-get install -y \
-      libmnl-dev
-
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
+      libmnl-dev \
       libncurses5-dev \
       flex \
       bison \
       libelf-dev \
       bc \
       kmod \
-      dkms
-
-# Packages needed for Accel-ppp
-RUN apt-get update && apt-get install -y \
+      dkms \
       cdbs \
       cmake \
       liblua5.2-dev \
