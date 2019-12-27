@@ -94,6 +94,7 @@ pipeline {
         disableConcurrentBuilds()
         timeout(time: 90, unit: 'MINUTES')
         parallelsAlwaysFailFast()
+        timestamps()
     }
     triggers {
         cron('H 2 * * *')
