@@ -121,8 +121,7 @@ pipeline {
         stage('Test ISO') {
             steps {
                 sh """
-                    cd build
-                    sudo ../scripts/check-qemu-install --debug live-image-amd64.hybrid.iso
+                    sudo scripts/check-qemu-install --debug build/live-image-amd64.hybrid.iso
                 """
             }
         }
