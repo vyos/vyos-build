@@ -299,7 +299,7 @@ try:
         elif i==2:
             log.error("Did not find VyOS-smoketest, this should be an exception")
             #raise Exception("WTF? did not find VyOS-smoketest, this should be an exception")
-    cr(c, '/usr/bin/vyos-smoketest')
+    cr(c, '/usr/sbin/vyos-smoketest')
 
     log.info("Smoke test status")
     #data = c.before.decode()
