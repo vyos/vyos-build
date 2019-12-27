@@ -297,8 +297,8 @@ try:
         elif i==1:
             raise Exception('Set syntax failed :/')
         elif i==2:
-            log.error("Did not find VyOS-smoketest, this should be an exception")
-            #raise Exception("WTF? did not find VyOS-smoketest, this should be an exception")
+            log.error("Did not find VyOS smoketest, this should be an exception")
+            raise Exception("WTF? did not find VyOS smoketest, this should be an exception")
     cr(c, '/usr/bin/vyos-smoketest')
 
     log.info("Smoke test status")
