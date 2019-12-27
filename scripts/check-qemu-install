@@ -32,7 +32,6 @@
 #    [--silent]     only print on errors
 #    [--debug]      print all communication with the device
 
-
 import pexpect
 import sys
 import os
@@ -48,7 +47,6 @@ from datetime import datetime
 
 EXCEPTION = 0
 now = datetime.now()
-
 
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
 parser.add_argument('iso', help='ISO file to install')
@@ -102,7 +100,7 @@ log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
 stl = StreamToLogger(log)
-formatter = logging.Formatter('- %(levelname)5s - %(message)s')
+formatter = logging.Formatter('%(levelname)5s - %(message)s')
 
 handler = logging.StreamHandler(sys.stdout)
 if args.silent:
@@ -115,14 +113,11 @@ else:
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
-
 if args.logfile:
     filehandler = logging.FileHandler(args.logfile)
     filehandler.setLevel(logging.DEBUG)
     filehandler.setFormatter(formatter)
     log.addHandler(filehandler)
-
-
 
 if args.silent:
     output = BytesIO()
@@ -143,15 +138,12 @@ else:
     kvm=True
 
 # Creating diskimage!!
-
 if not os.path.isfile(args.disk):
     log.info("Creating Disk image {}".format(args.disk))
     c = subprocess.check_output(["qemu-img", "create", args.disk, "2G"])
     log.debug(c.decode())
 else:
     log.info("Diskimage already exists, using the existing one")
-
-
 
 try:
     #################################################
@@ -191,7 +183,6 @@ try:
     c.sendline('vyos')
     c.expect(r'vyos@vyos:~\$')
     log.info('Logged in!')
-
 
     #################################################
     # Installing into VyOS system
@@ -242,7 +233,6 @@ try:
         log.error("VM Did not shut down after 300sec, killing")
     c.close()
 
-
     #################################################
     # Booting installed system
     #################################################
@@ -281,7 +271,15 @@ try:
     c.expect(r'vyos@vyos:~\$')
     log.info('Logged in!')
 
-
+    #################################################
+    # Basic Configmode/Opmode switch
+    #################################################
+    log.info("Basic CLI configuration mode test")
+    c.sendline('configure')
+    c.expect(r'vyos@vyos#')
+    c.sendline('run show version')
+    c.sendline('exit')
+    c.expect(r'vyos@vyos:~\$')
 
     #################################################
     # Executing test-suite
@@ -341,8 +339,6 @@ except Exception:
     log.error("An unknown error occured when installing the VyOS system")
     traceback.print_exc()
     EXCEPTION = 1
-
-
 
 #################################################
 # Cleaning up
