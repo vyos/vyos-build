@@ -17,8 +17,8 @@
 # File: check-qemu-install
 # Purpose:
 #  This script installs a system on a emulated qemu host to verify
-#  that the iso produced is installable and boots. 
-#  after the iso is booted from disk it also tries to execute the 
+#  that the iso produced is installable and boots.
+#  after the iso is booted from disk it also tries to execute the
 #  vyos-smoketest script to verify checks there.
 #
 #  For now it will not fail on failed smoketest but will fail on
@@ -52,23 +52,23 @@ now = datetime.now()
 
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
 parser.add_argument('iso', help='ISO file to install')
-parser.add_argument('disk', help='name of disk image file', 
+parser.add_argument('disk', help='name of disk image file',
                             nargs='?',
                             default='testinstall-{}-{}.img'.format(now.strftime('%Y%m%d-%H%M%S'),
                                                                    "%04x" % random.randint(0,65535)))
-parser.add_argument('--keep', help='Do not remove disk-image after installation', 
+parser.add_argument('--keep', help='Do not remove disk-image after installation',
                               action='store_true',
                               default=False)
-parser.add_argument('--silent', help='Do not show output on stdout unless an error has occured', 
+parser.add_argument('--silent', help='Do not show output on stdout unless an error has occured',
                               action='store_true',
-                              default=False)   
+                              default=False)
 parser.add_argument('--debug', help='Send all debug output to stdout',
-                               action='store_true', 
-                               default=False)                      
-parser.add_argument('--logfile', help='Log to file') 
+                               action='store_true',
+                               default=False)
+parser.add_argument('--logfile', help='Log to file')
 parser.add_argument('--no-kvm', help='Disable use of kvm',
 				action='store_true',
-				default=False) 
+				default=False)
 
 args = parser.parse_args()
 
@@ -237,7 +237,7 @@ try:
         if not c.isalive():
             log.info("VM is shut down!")
             break
-        time.sleep(10) 
+        time.sleep(10)
     else:
         log.error("VM Did not shut down after 300sec, killing")
     c.close()
@@ -290,9 +290,9 @@ try:
 
     def cr(child, command):
         child.sendline(command)
-        i = child.expect(['\n +Invalid command:', 
-                        '\n +Set failed', 
-                        'No such file or directory', 
+        i = child.expect(['\n +Invalid command:',
+                        '\n +Set failed',
+                        'No such file or directory',
                         r'\n\S+@\S+[$#]'])
 
         if i==0:
@@ -320,7 +320,7 @@ try:
         if not c.isalive():
             log.info("VM is shut down!")
             break
-        time.sleep(10) 
+        time.sleep(10)
     else:
         log.error("VM Did not shut down after 300sec")
         raise Exception("VM Did not shut down after 300sec")
