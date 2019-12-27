@@ -51,8 +51,6 @@ RUN apt-get update && apt-get install -y \
       fakechroot \
       libtool \
       libapt-pkg-dev \
-      qemu-system-x86 \
-      qemu-utils \
       quilt \
       python3-lxml \
       python3-setuptools \
@@ -260,6 +258,8 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for Qemu test-suite
 RUN apt-get update && apt-get install -y \
       python3-pexpect \
+      qemu-system-x86 \
+      qemu-utils \
       qemu-kvm
 
 # Install packer
