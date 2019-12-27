@@ -102,7 +102,7 @@ log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
 stl = StreamToLogger(log)
-formatter = logging.Formatter('%(asctime)s + %(relativeCreated)-7d - %(levelname)5s - %(message)s')
+formatter = logging.Formatter('- %(levelname)5s - %(message)s')
 
 handler = logging.StreamHandler(sys.stdout)
 if args.silent:
