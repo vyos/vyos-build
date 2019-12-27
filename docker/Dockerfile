@@ -51,8 +51,6 @@ RUN apt-get update && apt-get install -y \
       fakechroot \
       libtool \
       libapt-pkg-dev \
-      parted \
-      kpartx \
       qemu-system-x86 \
       qemu-utils \
       quilt \
