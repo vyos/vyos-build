@@ -245,7 +245,6 @@ try:
     -machine accel=kvm \
     {CPU} \
     -smp 2 \
-    -vnc 0.0.0.0:99 \
     -nographic \
     {KVM} \
     -drive format=raw,file={DISK}
