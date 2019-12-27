@@ -281,7 +281,16 @@ try:
     c.expect(r'vyos@vyos:~\$')
     log.info('Logged in!')
 
-
+    #################################################
+    # Basic Configmode/Opmode switch
+    #################################################
+    log.info("Basic CLI login test")
+    c.sendline('configure')
+    c.expect(r'\n[edit]\nvyos@vyos:~\#')
+    log.info('Switched to configuration mode')
+    c.sendline('exit')
+    c.expect(r'\nexit\nvyos@vyos:~\$')
+    log.info('Switched to operation mode')
 
     #################################################
     # Executing test-suite
