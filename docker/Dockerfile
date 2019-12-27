@@ -127,9 +127,19 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
+      autotools-dev \
       libglib2.0-dev \
+      libboost-filesystem-dev \
+      libapt-pkg-dev \
+      libtool \
+      flex \
+      bison \
       libperl-dev \
-      libboost-filesystem-dev
+      autoconf \
+      automake \
+      pkg-config \
+      cpio
+
 
 # Packages needed for vyatta-iproute
 RUN apt-get update && apt-get install -y \
