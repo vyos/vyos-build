@@ -45,8 +45,6 @@ RUN apt-get update && apt-get install -y \
       pbuilder \
       devscripts \
       squashfs-tools \
-      autoconf \
-      automake \
       syslinux \
       genisoimage \
       lsb-release \
@@ -71,7 +69,6 @@ RUN apt-get update && apt-get install -y \
       debhelper \
       gosu \
       po4a \
-      cpio \
       openssh-client \
       jq
 
