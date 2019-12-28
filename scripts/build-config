@@ -71,7 +71,8 @@ options = {
    'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', lambda: build_defaults['debian_mirror'], None),
    'vyos-mirror': ('VyOS package mirror', lambda: build_defaults["vyos_mirror"], None),
    'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development']),
-   'version': ('Version number (release builds only)', None, None)
+   'version': ('Version number (release builds only)', None, None),
+   'ova-signing-key': ('Private key file for OVA signing', None, lambda f: os.path.exists(f))
 }
 
 # Create the option parser
