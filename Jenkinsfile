@@ -163,7 +163,7 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: 'build/live-image-amd64.hybrid.iso',
+            archiveArtifacts artifacts: '**/live-image-amd64.hybrid.iso',
                 allowEmptyArchive: true
         }
         cleanup {
