@@ -37,8 +37,6 @@ if [ ! -f $private_key ]; then
    exit 1
 fi
 
-exit 1
-
 lb bootstrap
 
 lb chroot
