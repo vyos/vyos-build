@@ -1,5 +1,5 @@
 [Match]
-Path=pci-0000:b6:00.1
+Path=pci-0000:b6:00.3
 Driver=i40e
 
 [Link]

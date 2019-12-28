@@ -209,7 +209,7 @@ RUN export RTRLIB_VERSION="0.6.3" && \
 #
 COPY vyos-dev.key /tmp/vyos-dev.key
 RUN apt-key add /tmp/vyos-dev.key
-RUN echo "deb http://dev.packages.vyos.net/repositories/current/debian/ current main" \
+RUN echo "deb http://dev.packages.vyos.net/repositories/crux/debian/ crux main" \
       > /etc/apt/sources.list.d/vyos.list
 
 # Packages needed to build frr itself

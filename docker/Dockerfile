@@ -25,6 +25,8 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
     dpkg-reconfigure dash
 
+RUN echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
+
 RUN apt-get update && apt-get install -y \
       dialog \
       apt-utils \
@@ -37,15 +39,14 @@ RUN apt-get update && apt-get install -y \
       vim \
       git \
       curl \
-      make \
       sudo \
       mc \
+      build-essential \
       pbuilder \
       devscripts \
       squashfs-tools \
       autoconf \
       automake \
-      dpkg-dev \
       syslinux \
       genisoimage \
       lsb-release \
@@ -65,6 +66,9 @@ RUN apt-get update && apt-get install -y \
       python3-pystache \
       pkg-config \
       debhelper \
+      libssl-dev \
+      libssl1.0.0 \
+      openssh-client \
       jq
 
 #
@@ -94,9 +98,11 @@ RUN rm -f /etc/apt/sources.list.d/jessie-backports.list \
 #
 RUN apt-get update && apt-get install -y \
       libffi-dev \
-      libpcre3-dev
+      libpcre3-dev \
+      unzip
 
-RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh --output /tmp/opam_install.sh && \
+RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh \
+      --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
     opam init --root=/opt/opam --comp=4.08.0 --disable-sandboxing
 
@@ -121,9 +127,25 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
+      autotools-dev \
       libglib2.0-dev \
+      libboost-filesystem-dev \
+      libapt-pkg-dev \
+      libtool \
+      flex \
+      bison \
       libperl-dev \
-      libboost-filesystem-dev
+      autoconf \
+      automake \
+      pkg-config \
+      cpio
+
+# Packages needed for vyatta-cfg-firewall
+RUN apt-get update && apt-get install -y \
+      autotools-dev \
+      autoconf \
+      automake \
+      cpio
 
 # Packages needed for vyatta-iproute
 RUN apt-get update && apt-get install -y \
@@ -142,6 +164,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for pmacct
 RUN apt-get update && apt-get install -y \
       libpcap-dev \
+      libssl-dev \
       libpq-dev \
       libmysqlclient-dev \
       libgeoip-dev \
@@ -150,21 +173,15 @@ RUN apt-get update && apt-get install -y \
       librdkafka-dev \
       libnetfilter-log-dev
 
-# Pavkages needed for wireguard
-RUN apt-get update && apt-get install -y \
-      libmnl-dev
-
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
+      libmnl-dev \
       kernel-package \
       libncurses5-dev \
       flex \
       bison \
       libelf-dev \
-      dkms
-
-# Packages needed for Accel-ppp
-RUN apt-get update && apt-get install -y \
+      dkms \
       cdbs \
       cmake \
       liblua5.2-dev
@@ -172,7 +189,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for vyos-qat
 RUN apt-get update && apt-get install -y \
      libboost-dev \
-     libudev-dev 
+     libudev-dev
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
@@ -194,7 +211,7 @@ RUN export RTRLIB_VERSION="0.6.3" && \
 #
 COPY vyos-dev.key /tmp/vyos-dev.key
 RUN apt-key add /tmp/vyos-dev.key
-RUN echo "deb http://dev.packages.vyos.net/repositories/current/debian/ current main" \
+RUN echo "deb http://dev.packages.vyos.net/repositories/crux/debian/ crux main" \
       > /etc/apt/sources.list.d/vyos.list
 
 # Packages needed to build frr itself
@@ -231,6 +248,7 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
+      fakeroot \
       whois
 
 # Packages needed for vyos-xe-guest-utilities
@@ -275,6 +293,7 @@ RUN apt-get update && apt-get install -y \
       dh-apparmor \
       gperf \
       libsystemd-dev \
+      python3-all \
       python3-stdeb \
       python-setuptools
 
