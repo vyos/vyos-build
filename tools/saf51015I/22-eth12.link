@@ -1,5 +1,0 @@
-[Match]
-Path=pci-0000:0b:00.1*
-
-[Link]
-Name=eth12
