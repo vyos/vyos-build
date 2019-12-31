@@ -228,24 +228,13 @@ vep1400: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
-.PHONY: saf51015I
+.PHONY: edgecore
 .ONESHELL:
-saf51015I: check_build_config clean prepare
+edgecore: check_build_config clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
 	cp tools/vendors_udev/64-vyos-SAF51015I-net.rules build/config/includes.chroot/lib/udev/rules.d/
-	cd $(build_dir)
-	lb build 2>&1 | tee build.log
-	cd ..
-	@scripts/copy-image
-
-.PHONY: saf51003I
-.ONESHELL:
-saf51003I: check_build_config clean prepare
-	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
 	cp tools/vendors_udev/64-vyos-SAF51003I-net.rules build/config/includes.chroot/lib/udev/rules.d/
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
