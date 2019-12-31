@@ -1,6 +1,0 @@
-[Match]
-Path=pci-0000:05:00.2*
-
-[Link]
-Name=eth7
-Alias=LAN7
