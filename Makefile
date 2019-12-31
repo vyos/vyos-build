@@ -233,11 +233,8 @@ vep1400: check_build_config clean prepare
 saf51015I: check_build_config clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/etc/systemd/network
-	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
-	cp tools/saf51015I/90-saf51015I.chroot build/config/hooks/live/
-	cp tools/saf51015I/*.link build/config/includes.chroot/etc/systemd/network/
-	cp tools/saf51015I/saf51015I build/config/includes.chroot/usr/share/initramfs-tools/hooks/
+	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors_udev/64-vyos-SAF51015I-net.rules build/config/includes.chroot/lib/udev/rules.d/
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..
@@ -248,11 +245,8 @@ saf51015I: check_build_config clean prepare
 saf51003I: check_build_config clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/etc/systemd/network
-	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
-	cp tools/saf51003I/90-saf51003I.chroot build/config/hooks/live/
-	cp tools/saf51003I/*.link build/config/includes.chroot/etc/systemd/network/
-	cp tools/saf51003I/saf51003I build/config/includes.chroot/usr/share/initramfs-tools/hooks/
+	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors_udev/64-vyos-SAF51003I-net.rules build/config/includes.chroot/lib/udev/rules.d/
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..

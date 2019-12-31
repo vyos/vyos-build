@@ -1,6 +1,0 @@
-[Match]
-Path=pci-0000:08:00.0*
-
-[Link]
-Name=eth9
-Alias=DMZ

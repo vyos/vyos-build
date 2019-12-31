@@ -1,6 +1,0 @@
-[Match]
-Path=pci-0000:08:00.1*
-
-[Link]
-Name=eth10
-Alias=WAN
