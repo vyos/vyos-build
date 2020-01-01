@@ -1,0 +1,12 @@
+ATTR{[dmi/id]board_name}!="VEP-1400", GOTO="end_dell_nic"
+
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:05:00.1", ENV{VYOS_IFNAME}="eth0",  ATTR{ifalias}="SFP+1"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:05:00.0", ENV{VYOS_IFNAME}="eth1",  ATTR{ifalias}="SFP+2"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.2", ENV{VYOS_IFNAME}="eth2",  ATTR{ifalias}="GE1"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.3", ENV{VYOS_IFNAME}="eth3",  ATTR{ifalias}="GE2"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.0", ENV{VYOS_IFNAME}="eth4",  ATTR{ifalias}="GE3"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.1", ENV{VYOS_IFNAME}="eth5",  ATTR{ifalias}="GE4"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:07:00.1", ENV{VYOS_IFNAME}="eth6",  ATTR{ifalias}="GE5"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:07:00.0", ENV{VYOS_IFNAME}="eth7",  ATTR{ifalias}="GE6"
+
+LABEL="end_dell_nic"
