@@ -203,10 +203,10 @@ openssl sha1 *.vmdk *.ovf > vyos_vmware_image.mf
 
 # Convert the OVF to signed OVA...
 echo 'Converting the OVF to signed OVA...'
-ovftool --privateKey=$private_key vyos_vmware_image.ovf vyos_vmware_image-signed.ova
+ovftool -o --privateKey=$private_key --shaAlgorithm=SHA1 vyos_vmware_image.ovf vyos_vmware_image-signed.ova
 #ovftool vyos_vmware_image.ovf vyos_vmware_image-signed.ova
 
 # Convert the OVF to signed OVF...
 echo 'Converting the OVF to signed OVF...'
-ovftool --privateKey=$private_key vyos_vmware_image.ovf vyos_vmware_image-signed.ovf
+ovftool -o --privateKey=$private_key --shaAlgorithm=SHA1 vyos_vmware_image.ovf vyos_vmware_image-signed.ovf
 #ovftool vyos_vmware_image.ovf vyos_vmware_image-signed.ovf
