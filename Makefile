@@ -241,6 +241,19 @@ edgecore: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: dell
+.ONESHELL:
+dell: check_build_config clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors_udev/64-vyos-VEP4600-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors_udev/64-vyos-VEP1400-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
 .PHONY: clean
 .ONESHELL:
 clean:
