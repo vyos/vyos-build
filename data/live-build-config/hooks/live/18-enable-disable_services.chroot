@@ -53,6 +53,7 @@ systemctl disable man-db.timer
 systemctl disable ntp.service
 systemctl disable igmpproxy.service
 systemctl disable cryptsetup.service
+systemctl disable live-tools.service
 
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
