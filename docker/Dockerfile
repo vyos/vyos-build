@@ -103,10 +103,8 @@ RUN apt-get update && apt-get install -y \
       libpcre3-dev \
       unzip
 
-#Apply fix for https in curl running on armhf
-RUN if dpkg-architecture -iarmhf; then \
-      echo "cacert=/etc/ssl/certs/ca-certificates.crt" >> ~/.curlrc; \
-    fi
+# Update certificate store to not crash ocaml package installf
+RUN dpkg-reconfigure ca-certificates
 
 # Installing OCAML needed to compile libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh \
