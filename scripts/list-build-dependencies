@@ -96,17 +96,17 @@ do
       --output $CTRLFILE --retry 100 --retry-delay 1 --silent
 
     declare -a array
-    declare -i length current
+    declare -i length cnt
 
     array=($(get_build_depends $CTRLFILE))
     length=${#array[@]}
-    current=0
+    cnt=0
 
     echo "# Packages needed to build '$pkg' from https://github.com/vyos/$pkg"
     echo "apt-get install -y \\"
     for name in "${array[@]}"; do
-        current=$((current + 1))
-        if [[ "$current" -eq "$length" ]]; then
+        cnt=$((cnt + 1))
+        if [[ "$cnt" -eq "$length" ]]; then
             echo "  $name"
         else
             echo "  $name \\"
