@@ -82,6 +82,7 @@ curl -L https://github.com/vyos/vyos-world/raw/$GIT_BRANCH/debian/control \
   --output /tmp/vyos-world.control --retry 100 --retry-delay 1 --silent
 
 VYOS_PACKAGES=$(get_runtime_depends /tmp/vyos-world.control)
+rm -f /tmp/vyos-world.control
 for pkg in $VYOS_PACKAGES
 do
     # Check if repo exists
