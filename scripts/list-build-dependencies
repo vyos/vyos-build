@@ -17,6 +17,8 @@
 
 # Parse debian/control like content and extract packages required by the
 # Build-Depends statement. Return a string with all required packages.
+#
+# Code below copied from https://stackoverflow.com/a/47707412 - Thank You!
 get_build_depends () {
     echo $(awk '
         /^Build-Depends:/ || /^ / && deps {
