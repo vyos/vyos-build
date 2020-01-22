@@ -75,8 +75,10 @@ echo "e.g. a native build host or a Docker container"
 echo ""
 echo ""
 
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
 # First we need to get vyos-world so we know all individual packages for VyOS
-curl -L https://github.com/vyos/vyos-world/raw/current/debian/control \
+curl -L https://github.com/vyos/vyos-world/raw/$GIT_BRANCH/debian/control \
   --output /tmp/vyos-world.control --retry 100 --retry-delay 1 --silent
 
 VYOS_PACKAGES=$(get_runtime_depends /tmp/vyos-world.control)
@@ -89,7 +91,7 @@ do
     fi
 
     CTRLFILE=/tmp/$pkg.control
-    curl -L https://github.com/vyos/$pkg/raw/current/debian/control \
+    curl -L https://github.com/vyos/$pkg/raw/$GIT_BRANCH/debian/control \
       --output $CTRLFILE --retry 100 --retry-delay 1 --silent
 
     declare -a array
