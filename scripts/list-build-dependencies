@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2018 VyOS maintainers and contributors
+# Copyright (C) 2020 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # in order to easy exprort images built to "external" world
