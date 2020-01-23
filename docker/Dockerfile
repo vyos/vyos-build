@@ -262,6 +262,21 @@ RUN apt-get update && apt-get install -y \
       qemu-utils \
       qemu-kvm
 
+# Packages needed for vyos-cloud-init
+RUN apt-get update && apt-get install -y \
+      pep8 \
+      pyflakes \
+      python3-configobj \
+      python3-httpretty \
+      python3-jsonpatch \
+      python3-mock \
+      python3-oauthlib \
+      python3-pep8 \
+      python3-pyflakes \
+      python3-serial \
+      python3-unittest2 \
+      python3-yaml
+
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
