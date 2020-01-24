@@ -154,7 +154,10 @@ try:
     cmd = """qemu-system-x86_64 \
     -name "TESTVM" \
     -m 1G \
-    -nic user,model=virtio,mac=52:54:99:12:34:56,hostfwd=tcp::2299-:22 \
+    -nic user,model=virtio,mac=52:54:99:12:34:56 \
+    -nic user,model=virtio,mac=52:54:99:12:34:57 \
+    -nic user,model=virtio,mac=52:54:99:12:34:58 \
+    -nic user,model=virtio,mac=52:54:99:12:34:59 \
     -machine accel=kvm \
     {CPU} \
     -smp 2 \
@@ -240,7 +243,10 @@ try:
     cmd = """qemu-system-x86_64 \
     -name "TESTVM" \
     -m 1G \
-    -nic user,model=virtio,mac=52:54:99:12:34:56,hostfwd=tcp::2299-:22
+    -nic user,model=virtio,mac=52:54:99:12:34:56 \
+    -nic user,model=virtio,mac=52:54:99:12:34:57 \
+    -nic user,model=virtio,mac=52:54:99:12:34:58 \
+    -nic user,model=virtio,mac=52:54:99:12:34:59 \
     -machine accel=kvm \
     {CPU} \
     -smp 2 \
@@ -278,6 +284,7 @@ try:
     c.sendline('run show version')
     c.sendline('exit')
     c.expect(r'vyos@vyos:~\$')
+    c.sendline('show interfaces')
 
     #################################################
     # Executing test-suite
