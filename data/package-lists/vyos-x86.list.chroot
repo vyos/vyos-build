@@ -1,8 +1,8 @@
 grub2
 grub-pc
-open-vm-tools
 qemu-guest-agent
 hyperv-daemons
 vyos-netplug
 vyos-smoketest
 vyos-xe-guest-utilities
+vyos-1x-vmware
