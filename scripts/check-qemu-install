@@ -282,7 +282,6 @@ try:
     c.sendline('run show version')
     c.sendline('exit')
     c.expect(r'vyos@vyos:~\$')
-    c.sendline('show interfaces')
 
     #################################################
     # Executing test-suite
