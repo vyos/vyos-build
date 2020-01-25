@@ -94,6 +94,34 @@ class StreamToLogger(object):
     def flush(self):
         pass
 
+def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
+    kvm = ""
+    cpu = "-cpu host"
+    if not enable_kvm:
+        kvm = "--no-kvm"
+        cpu = ""
+
+    cdrom = ""
+    if iso_img:
+        cdrom = "-boot d -cdrom {}".format(iso_img)
+
+    cmd = 'qemu-system-x86_64 \
+        -name "{NAME}" \
+        -m 1G \
+        -nic user,model=virtio,mac=52:54:99:12:34:56 \
+        -nic user,model=virtio,mac=52:54:99:12:34:57 \
+        -nic user,model=virtio,mac=52:54:99:12:34:58 \
+        -nic user,model=virtio,mac=52:54:99:12:34:59 \
+        -machine accel=kvm \
+        {CPU} \
+        -smp 2 \
+        -nographic \
+        {CD} \
+        {KVM} \
+        -drive format=raw,file={DISK}'.format(NAME=name, CD=cdrom, DISK=disk_img, KVM=kvm, CPU=cpu)
+
+    return cmd
+
 
 # Setting up logger
 log = logging.getLogger()
@@ -150,22 +178,7 @@ try:
     # Installing image to disk
     #################################################
     log.info("Installing system")
-
-    cmd = """qemu-system-x86_64 \
-    -name "TESTVM" \
-    -m 1G \
-    -nic user,model=virtio,mac=52:54:99:12:34:56 \
-    -nic user,model=virtio,mac=52:54:99:12:34:57 \
-    -nic user,model=virtio,mac=52:54:99:12:34:58 \
-    -nic user,model=virtio,mac=52:54:99:12:34:59 \
-    -machine accel=kvm \
-    {CPU} \
-    -smp 2 \
-    -nographic \
-    -boot d -cdrom {CD} \
-    {KVM} \
-    -drive format=raw,file={DISK}
-    """.format(CD=args.iso, DISK=args.disk, KVM="" if kvm else "--no-kvm", CPU="-cpu host" if kvm else "")
+    cmd = get_qemu_cmd("TESTVM", kvm, args.disk, args.iso)
     log.debug("Executing command: {}".format(cmd))
     c = pexpect.spawn(cmd, logfile=stl)
 
@@ -239,22 +252,7 @@ try:
     # Booting installed system
     #################################################
     log.info("Booting installed system")
-
-    cmd = """qemu-system-x86_64 \
-    -name "TESTVM" \
-    -m 1G \
-    -nic user,model=virtio,mac=52:54:99:12:34:56 \
-    -nic user,model=virtio,mac=52:54:99:12:34:57 \
-    -nic user,model=virtio,mac=52:54:99:12:34:58 \
-    -nic user,model=virtio,mac=52:54:99:12:34:59 \
-    -machine accel=kvm \
-    {CPU} \
-    -smp 2 \
-    -nographic \
-    {KVM} \
-    -drive format=raw,file={DISK}
-    """.format(DISK=args.disk, KVM="" if kvm else "--no-kvm", CPU="-cpu host" if kvm else "")
-
+    cmd = get_qemu_cmd("TESTVM", kvm, args.disk)
     log.debug('Executing command: {}'.format(cmd))
     c = pexpect.spawn(cmd, logfile=stl)
 
