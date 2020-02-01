@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# We do not need any documentation on the system. This frees 43MB.
+rm -rf /usr/share/doc /usr/share/doc-base /usr/share/docutils
