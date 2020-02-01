@@ -277,6 +277,10 @@ RUN apt-get update && apt-get install -y \
       python3-unittest2 \
       python3-yaml
 
+# Packages needed for libnss-mapuser
+RUN apt-get update && apt-get install -y \
+      libaudit-dev
+
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \
