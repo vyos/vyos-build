@@ -6,7 +6,6 @@ mtr-tiny
 whois
 netcat-openbsd
 socat
-telnet
 nano
 vim-tiny
 screen
