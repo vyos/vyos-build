@@ -16,7 +16,26 @@
 # Must be run with --privileged flag, recommended to run the container with a
 # volume mapped in order to easy export images
 
+# This Dockerfile is installable on both x86, x86-64, armhf and arm64 systems
+# To install using  native cpu instructionset use the default docker `FROM` statement
+# (Use this to build on an x86/x86-64 pc/server and on an ARM system, eg. RaspberryPi)
 FROM debian:buster
+
+# It is also possible to emulate an arm system inside docker,
+# execution of this emulated system needs to be executed on an x86 or x86-64 host.
+
+# To install an qemu emulated armhf or arm64 cpu comment out the default `FROM` statement
+# and use one of the following instead.
+# ARMHF:
+#FROM multiarch/debian-debootstrap:armhf-buster-slim
+# ARM64:
+#FROM multiarch/debian-debootstrap:arm64-buster-slim
+
+# Prior of installing an emulated qemu build you need to install qemu, qemu-user-static
+# and register qemu inside docker using:
+# `docker run --rm --privileged multiarch/qemu-user-static:register --reset`
+
+
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -45,7 +64,6 @@ RUN apt-get update && apt-get install -y \
       pbuilder \
       devscripts \
       squashfs-tools \
-      syslinux \
       genisoimage \
       lsb-release \
       fakechroot \
@@ -68,6 +86,11 @@ RUN apt-get update && apt-get install -y \
       openssh-client \
       jq
 
+# Syslinux is only supported on x86 and x64 systems
+RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+      apt-get update && apt-get install -y syslinux; \
+    fi
+
 # Package needed for mdns-repeater
 RUN apt-get update && apt-get install -y \
       dh-systemd
@@ -80,10 +103,19 @@ RUN apt-get update && apt-get install -y \
       libpcre3-dev \
       unzip
 
+# Update certificate store to not crash ocaml package installf
+# Apply fix for https in curl running on armhf
+RUN dpkg-reconfigure ca-certificates; \
+    if dpkg-architecture -iarmhf; then \
+      echo "cacert=/etc/ssl/certs/ca-certificates.crt" >> ~/.curlrc; \
+    fi
+
+
+# Installing OCAML needed to compile libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/2.0.2/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
-    opam init --root=/opt/opam --comp=4.08.0 --disable-sandboxing
+    opam init --root=/opt/opam --comp=4.09.0 --disable-sandboxing
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       pcre
@@ -102,7 +134,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git && \
     cd libvyosconfig && git checkout 5138b5eb && \
     dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libvyosconfig0_*_amd64.deb
+    dpkg -i ../libvyosconfig0_*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
@@ -168,7 +200,7 @@ RUN export RTRLIB_VERSION="0.6.3" && \
     wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
     tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../librtr*_amd64.deb ../librtr*_all.deb
+    dpkg -i ../librtr*_$(dpkg-architecture -qDEB_HOST_ARCH).deb ../librtr*_all.deb
 
 # Packages needed to build frr itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
@@ -256,11 +288,14 @@ RUN apt-get update && apt-get install -y \
       libpopt-dev
 
 # Packages needed for Qemu test-suite
-RUN apt-get update && apt-get install -y \
-      python3-pexpect \
-      qemu-system-x86 \
-      qemu-utils \
-      qemu-kvm
+# This is for now only supported on i386 and amd64 platforms
+RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+      apt-get update && apt-get install -y \
+        python3-pexpect \
+        qemu-system-x86 \
+        qemu-utils \
+        qemu-kvm; \
+    fi
 
 # Packages needed for vyos-cloud-init
 RUN apt-get update && apt-get install -y \
@@ -282,12 +317,26 @@ RUN apt-get update && apt-get install -y \
       libaudit-dev
 
 # Install packer
-RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
-    jq -r -M '.current_version')"; \
-    echo "url https://releases.hashicorp.com/packer/"$LATEST"/packer_"$LATEST"_linux_amd64.zip" |\
-    curl -K- | gzip -d > /usr/bin/packer && \
-    chmod +x /usr/bin/packer
+RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+      export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
+      jq -r -M '.current_version')"; \
+      echo "url https://releases.hashicorp.com/packer/${LATEST}/packer_${LATEST}_linux_amd64.zip" |\
+        curl -K- | gzip -d > /usr/bin/packer && \
+      chmod +x /usr/bin/packer; \
+    fi
 
+# Install utillities for building grub and u-boot images
+RUN if dpkg-architecture -iarm64; then \
+    apt-get update && apt-get install -y \
+      dosfstools \
+      u-boot-tools \
+      grub-efi-$(dpkg-architecture -qDEB_HOST_ARCH); \
+    elif dpkg-architecture -iarmhf; then \
+    apt-get update && apt-get install -y \
+      dosfstools \
+      u-boot-tools \
+      grub-efi-arm; \
+    fi
 #
 # live-build: building with local packages fails due to missing keys
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691

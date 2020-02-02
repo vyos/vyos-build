@@ -72,19 +72,76 @@ setDescription()
 
 // Due to long build times on DockerHub we rather build the container by ourself
 // and publish it later on.
-node('Docker') {
-    stage('Build Container') {
-        script {
-            git branch: getGitBranchName(),
-                url: getGitRepoURL()
 
-            // create container name on demand
-            env.DOCKER_IMAGE = "vyos/vyos-build:" + getGitBranchName()
-            sh "docker build -t ${env.DOCKER_IMAGE} docker"
-            withDockerRegistry([credentialsId: "DockerHub"]) {
-                sh "docker push ${env.DOCKER_IMAGE}"
+// create container names on demand
+env.DOCKER_IMAGE =       "vyos/vyos-build:" + getGitBranchName()
+env.DOCKER_IMAGE_ARM =   "vyos/vyos-build:" + getGitBranchName() + "-armhf"
+env.DOCKER_IMAGE_ARM64 = "vyos/vyos-build:" + getGitBranchName() + "-arm64"
+
+node('Docker') {
+    stage('Fetch') {
+        git branch: getGitBranchName(),
+            url: getGitRepoURL()
+    }
+    stage('Build Docker container') {
+        parallel (
+            'x86-64': {
+                    script {
+                        dir('docker') {
+                            sh """
+                                mkdir -p x86-64
+                                cp Dockerfile x86-64/Dockerfile
+                                cp entrypoint.sh x86-64/entrypoint.sh
+
+                                docker build -t ${env.DOCKER_IMAGE} x86-64
+                            """
+                            if ( ! isCustomBuild()) {
+                                withDockerRegistry([credentialsId: "DockerHub"]) {
+                                    sh "docker push ${env.DOCKER_IMAGE}"
+                                }
+
+                            }
+                        }
+                    }
+            },
+            'armhf': {
+                    script {
+                        dir('docker') {
+                            sh """
+                                cp Dockerfile armhf/Dockerfile
+                                cp entrypoint.sh armhf/entrypoint.sh
+                                sed -i 's#^FROM.*#FROM multiarch/debian-debootstrap:armhf-buster-slim#' armhf/Dockerfile
+                                docker build -t ${env.DOCKER_IMAGE_ARM} armhf
+                            """
+                            if ( ! isCustomBuild()) {
+                                withDockerRegistry([credentialsId: "DockerHub"]) {
+                                    sh "docker push ${env.DOCKER_IMAGE_ARM}"
+                                }
+                            }
+                        }
+                    }
+            },
+            'arm64': {
+                    script {
+                        dir('docker') {
+                            sh """
+                                cp Dockerfile arm64/Dockerfile
+                                cp entrypoint.sh arm64/entrypoint.sh
+                                sed -i 's#^FROM.*#FROM multiarch/debian-debootstrap:arm64-buster-slim#' arm64/Dockerfile
+                                docker build -t ${env.DOCKER_IMAGE_ARM64} arm64
+
+                            """
+
+                            if ( ! isCustomBuild()) {
+                                withDockerRegistry([credentialsId: "DockerHub"]) {
+                                    sh "docker push ${env.DOCKER_IMAGE_ARM64}"
+
+                                }
+                            }
+                        }
+                    }
             }
-        }
+        )
     }
 }
 
@@ -92,7 +149,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
         parallelsAlwaysFailFast()
         timestamps()
     }
