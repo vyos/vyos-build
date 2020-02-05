@@ -170,6 +170,7 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
+      rsync \
       libmnl-dev \
       libncurses5-dev \
       flex \
