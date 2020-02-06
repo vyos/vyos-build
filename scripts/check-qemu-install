@@ -293,7 +293,6 @@ try:
         i = child.expect(['\n +Invalid command:',
                         '\n +Set failed',
                         'No such file or directory',
-                        'SMOKETEST FAILED!',
                         r'\n\S+@\S+[$#]'], timeout=1800)
 
         if i==0:
@@ -303,10 +302,7 @@ try:
         elif i==2:
             log.error("Did not find VyOS smoketest, this should be an exception")
             raise Exception("WTF? did not find VyOS smoketest, this should be an exception")
-        elif i==3:
-            log.error("Smoketest failed with an non-zero exitcode")
-
-        cr(c, '/usr/bin/vyos-smoketest || echo "SMOKETEST FAILED!"')
+    cr(c, '/usr/bin/vyos-smoketest')
 
     log.info("Smoke test status")
     #data = c.before.decode()
