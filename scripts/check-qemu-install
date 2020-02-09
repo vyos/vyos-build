@@ -273,6 +273,9 @@ try:
     c.expect(r'vyos@vyos:~\$')
     log.info('Logged in!')
 
+    # additional settling time
+    time.sleep(20)
+
     #################################################
     # Basic Configmode/Opmode switch
     #################################################
