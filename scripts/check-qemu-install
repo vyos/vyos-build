@@ -279,7 +279,6 @@ try:
     log.info("Basic CLI configuration mode test")
     c.sendline('configure')
     c.expect(r'vyos@vyos#')
-    c.sendline('show')
     c.sendline('run show version')
     c.sendline('exit')
     c.expect(r'vyos@vyos:~\$')
