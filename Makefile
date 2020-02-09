@@ -27,12 +27,13 @@ prepare:
 .PHONY: iso
 .ONESHELL:
 iso: check_build_config clean prepare
-	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
 	cd $(build_dir)
-	lb build 2>&1 | tee build.log
+	set -o pipefail
+	lb build 2>&1 | tee build.log; if [ $$? -ne 0 ]; then exit 1; fi
 	cd ..
 	@scripts/copy-image
+	exit 0
 
 .PHONY: prepare-package-env
 .ONESHELL:
