@@ -312,7 +312,7 @@ try:
         pass
     if i==1:
         log.error('Smoketest failed :/')
-        #raise Exception("Smoketest-failed, please look into debug output")
+        raise Exception("Smoketest-failed, please look into debug output")
 
     #log.info("Smoke test status")
     #data = c.before.decode()
