@@ -26,3 +26,4 @@ ssl-cert
 nginx-light
 ndisc6
 systemd-sysv
+ncurses-term
