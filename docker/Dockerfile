@@ -110,7 +110,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       pcre
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
-      ctypes \
+      ctypes.0.16.0 \
       ctypes-foreign \
       ctypes-build
 
