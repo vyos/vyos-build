@@ -176,7 +176,6 @@ vyos_packages = ['vyatta-bash',
                  'vyatta-biosdevname',
                  'vyos-opennhrp',
                  'vyos-salt-minion',
-                 'mdns-repeater',
                  'udp-broadcast-relay',
                  'vyos-1x',
                  'vyatta-conntrack',
@@ -253,6 +252,12 @@ accel_ppp_build_cmd = "echo 'lib/modules/'$(cat " + repo_root + "/data/defaults.
                       "sed -i 's#[0-9].[0-9][0-9].[0-9]*-amd64-vyos#'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")'-amd64-vyos#g' debian/rules && " \
                       "KERNELDIR=" + repo_root + "/packages/vyos-kernel dpkg-buildpackage -b -us -uc -tc -j" + str(os.cpu_count())
 pkg_special.append( add_package('vyos-accel-ppp', custombuild_cmd=accel_ppp_build_cmd) )
+
+#
+# mdns-repeater branch for current is master
+#
+
+pkg_special.append( add_package('mdns-repeater', branch='master') )
 
 
 # A list of all packages we will build in the end
