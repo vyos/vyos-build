@@ -21,3 +21,9 @@ manual_add_modules igb ixgbe ixgbevf i40e i40evf
 
 # include listed modules to initramfs and load them during the boot
 # force_load xxx
+
+# executable to copy to initramfs, with library dependencies
+copy_exec /usr/lib/x86_64-linux-gnu/libnss_dns.so.2
+
+# copy other files ("other" here is a file type, so do not delete this keyword)
+copy_file other /etc/ssl/certs/ca-certificates.crt
