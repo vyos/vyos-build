@@ -273,14 +273,21 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for keepalived
 RUN apt-get update && apt-get install -y \
-      libnl-3-200 \
+      autoconf \
+      debhelper \
+      libglib2.0-dev \
+      libjson-c-dev \
       libnl-3-dev \
-      libnl-nf-3-200 \
-      libnl-nf-3-dev \
-      libipset-dev \
-      libnl-genl-3-200 \
       libnl-genl-3-dev \
-      libpopt-dev
+      libpopt-dev \
+      libsnmp-dev \
+      libssl-dev \
+      libnl-nf-3-dev \
+      libnfnetlink-dev \
+      libipset-dev \
+      iptables-dev \
+      linux-libc-dev \
+      pkg-config
 
 # Packages needed for Qemu test-suite
 # This is for now only supported on i386 and amd64 platforms
