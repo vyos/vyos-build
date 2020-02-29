@@ -11,7 +11,7 @@ current_working_directory = os.getcwd()
 repo_root = subprocess.check_output('git rev-parse --show-toplevel', shell=True, universal_newlines=True).rstrip('\n')
 repo_sha  = subprocess.check_output('git rev-parse --short=12 HEAD', shell=True, universal_newlines=True).rstrip('\n')
 
-def add_package(name, url=None, commit='HEAD', branch='current', tag=None, custombuild_cmd=None):
+def add_package(name, url=None, commit='HEAD', branch='current', tag=None, shallow=True, custombuild_cmd=None):
     """
     Build up source package with URL and build commands executed during the later
     called build_package step.
@@ -32,6 +32,7 @@ def add_package(name, url=None, commit='HEAD', branch='current', tag=None, custo
         'commit': commit,
         'tag': tag,
         'branch': branch,
+        'shallow': shallow,
         'path': repo_root + '/packages/' + name,
         'custombuild_cmd': custombuild_cmd
     }
@@ -98,7 +99,7 @@ def clone_package(pkg, log):
     First cleanup any possible leftovers from previous builds
     """
 
-    if args.keep:
+    if args.keep and os.path.isdir(pkg['path']):
         log.debug("Keep possibly modified package '{}'".format(pkg['path']))
         return False
     elif args.clean:
@@ -114,14 +115,25 @@ def clone_package(pkg, log):
             bashCommand = 'git clean -d -x --force && git reset --hard ' + pkg['commit']
             return call(bashCommand, log)
 
-    # resolve given tag to commit id to use shallow clone
+    if pkg['commit'] and pkg['shallow']:
+        log.debug("Package '{}' has both commit and shallow set, unsetting shallow to do a full clone.".format(pkg['name']))
+        pkg['shallow']=False
+
     bashCommand = 'git clone ' + pkg['url']
+
+    if pkg['shallow']:
+        bashCommand += ' --depth 1'
+
     if pkg['tag']:
         bashCommand += ' --branch ' + pkg['tag']
     elif pkg['branch']:
-        bashCommand += ' --depth 1 --branch ' + pkg['branch']
+        bashCommand += ' --branch ' + pkg['branch']
 
     bashCommand += ' ' + pkg['path']
+
+    if pkg['commit']:
+        bashCommand += ' && cd ' + pkg['path'] + ' && git reset --hard ' + pkg['commit']
+
     return call(bashCommand, log)
 
 
@@ -183,8 +195,7 @@ vyos_packages = ['vyatta-bash',
                  'vyos-xe-guest-utilities',
                  'vyos-netplug',
                  'ddclient',
-                 'live-boot',
-                 'conntrack-tools']
+                 'live-boot']
 
 # Special packages mean packages which are located no in the VyOS namespace
 # or require fancy build instructions
@@ -221,10 +232,7 @@ pkg_special.append( add_package('frr', url='https://github.com/FRRouting/frr.git
 #
 # We use keepalived from Debian Buster
 #
-keepalived_build_cmd = "sed -i 's/debhelper (>= 11)/debhelper (>= 9)/' debian/control && " \
-                       "echo 9 > debian/compat && " \
-                       "dpkg-buildpackage -b -us -uc -tc -j$(getconf _NPROCESSORS_ONLN)"
-pkg_special.append( add_package('keepalived', url='https://salsa.debian.org/ipvs-team/pkg-keepalived.git', branch='master', commit='eae91c81', custombuild_cmd=keepalived_build_cmd) )
+pkg_special.append( add_package('keepalived', url='https://salsa.debian.org/ipvs-team/pkg-keepalived.git', branch='master', commit='eae91c81'))
 
 #
 # Linux (VyOS) Kernel
