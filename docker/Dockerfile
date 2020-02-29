@@ -218,13 +218,6 @@ RUN apt-get update && apt-get install -y \
       python3-pytest \
       texinfo
 
-# Packages needed for conntrack-tools
-RUN apt-get update && apt-get install -y \
-      libnetfilter-conntrack-dev \
-      libnetfilter-cthelper0-dev \
-      libnetfilter-cttimeout-dev \
-      libnetfilter-queue-dev
-
 # Packages needed for hvinfo
 RUN apt-get update && apt-get install -y \
       gnat \

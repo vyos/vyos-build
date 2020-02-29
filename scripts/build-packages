@@ -195,8 +195,7 @@ vyos_packages = ['vyatta-bash',
                  'vyos-xe-guest-utilities',
                  'vyos-netplug',
                  'ddclient',
-                 'live-boot',
-                 'conntrack-tools']
+                 'live-boot']
 
 # Special packages mean packages which are located no in the VyOS namespace
 # or require fancy build instructions
