@@ -322,6 +322,22 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libaudit-dev
 
+# Packages needed for conntrack-tools
+RUN apt-get update && apt-get install -y \
+      bison \
+      debhelper \
+      flex \
+      libmnl-dev \
+      libnetfilter-conntrack-dev \
+      libnetfilter-cthelper0-dev \
+      libnetfilter-cttimeout-dev \
+      libnetfilter-queue-dev \
+      libnfnetlink-dev \
+      libsystemd-dev \
+      autoconf \
+      automake \
+      libtool
+
 # Install packer
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \

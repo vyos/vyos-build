@@ -267,6 +267,8 @@ pkg_special.append( add_package('vyos-accel-ppp', custombuild_cmd=accel_ppp_buil
 
 pkg_special.append( add_package('mdns-repeater', branch='master') )
 
+# conntrack-tools from debian buster (TODO: patch for T1538 or update to latest upstream commit)
+pkg_special.append( add_package('conntrack-tools', url='https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git', branch='master') )
 
 # A list of all packages we will build in the end
 pkg_build = []
