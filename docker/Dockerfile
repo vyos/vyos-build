@@ -336,7 +336,8 @@ RUN apt-get update && apt-get install -y \
       libsystemd-dev \
       autoconf \
       automake \
-      libtool
+      libtool \
+      git-buildpackage
 
 # Install packer
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \

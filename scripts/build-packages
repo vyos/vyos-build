@@ -267,8 +267,24 @@ pkg_special.append( add_package('vyos-accel-ppp', custombuild_cmd=accel_ppp_buil
 
 pkg_special.append( add_package('mdns-repeater', branch='master') )
 
-# conntrack-tools from debian buster (TODO: patch for T1538 or update to latest upstream commit)
-pkg_special.append( add_package('conntrack-tools', url='https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git', branch='master') )
+# conntrack-tools from debian buster with merged upstream git snapshot
+conntrack_tools_upstream_snap_ver = "20200301"
+conntrack_tools_upstream_snap_url = "http://ftp.netfilter.org/pub/conntrack-tools/snapshot"
+conntrack_tools_debian_ver = "1:1.4.5-2" # we don't guarantee that the cloned debian repo is really on this version since gbp import-orig doesn't work on a tag
+conntrack_tools_debian_tag = "debian/" + conntrack_tools_debian_ver.replace(':', '%', 1)
+conntrack_tools_my_upstream_ver = conntrack_tools_debian_ver.split('-')[0] + "+git" + conntrack_tools_upstream_snap_ver
+conntrack_tools_my_ver = conntrack_tools_my_upstream_ver + "-0~vyos13+1"
+conntrack_tools_build_cmd = "cd " + repo_root + "/packages && " \
+                            "wget " + conntrack_tools_upstream_snap_url + "/conntrack-tools-" + conntrack_tools_upstream_snap_ver + ".tar.bz2 && " \
+                            "wget " + conntrack_tools_upstream_snap_url + "/conntrack-tools-" + conntrack_tools_upstream_snap_ver + ".tar.bz2.md5sum && " \
+                            "sed -i 's#/data/ftproot/pub/conntrack-tools/snapshot/##' conntrack-tools-" + conntrack_tools_upstream_snap_ver + ".tar.bz2.md5sum && " \
+                            "md5sum -c conntrack-tools-" + conntrack_tools_upstream_snap_ver + ".tar.bz2.md5sum && " \
+                            "cd " + repo_root + "/packages/conntrack-tools && git fetch origin upstream:upstream && " \
+                            "git config user.email 'maintainers@vyos.net' && git config user.name 'VyOS Package Maintainers' && " \
+                            "gbp import-orig --no-interactive ../conntrack-tools-" + conntrack_tools_upstream_snap_ver + ".tar.bz2 -u '" + conntrack_tools_my_upstream_ver + "' && " \
+                            "gbp dch --git-author --spawn-editor=never --commit --new-version='"+ conntrack_tools_my_ver + "' && " \
+                            "dpkg-buildpackage -uc -us -tc -b -J1" # -J1 is workaround for debian bug #846766
+pkg_special.append( add_package('conntrack-tools', url='https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git', branch='master', custombuild_cmd=conntrack_tools_build_cmd) )
 
 # A list of all packages we will build in the end
 pkg_build = []
