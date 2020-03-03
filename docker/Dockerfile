@@ -322,6 +322,30 @@ RUN apt-get update && apt-get install -y \
       python2.7-dev \
       libmysqld-dev
 
+# Packages needed for vyos-cloud-init
+RUN apt-get update && apt-get install -y \
+      dh-python \
+      dh-systemd \
+      iproute2 \
+      pep8 \
+      po-debconf \
+      pyflakes \
+      python3 \
+      python3-configobj \
+      python3-httpretty \
+      python3-jinja2 \
+      python3-jsonpatch \
+      python3-mock \
+      python3-nose \
+      python3-oauthlib \
+      python3-pep8 \
+      python3-pyflakes \
+      python3-requests \
+      python3-serial \
+      python3-setuptools \
+      python3-six \
+      python3-yaml
+
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
     apt-get update && apt-get install -y -t stretch \
