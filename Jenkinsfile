@@ -217,6 +217,12 @@ pipeline {
                         ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
                     """
                 }
+                //upload to S3
+                withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                    def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
+                    s3Upload( bucket: 'vyos-downloads-rolling', path: 'rolling/' + getGitBranchName() + '/' + ARCH+ '/', workingDir:'build', includePathPattern: 'vyos*.iso' )
+    
+                }
             }
         }
         failure {
