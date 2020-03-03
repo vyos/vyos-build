@@ -339,7 +339,7 @@ RUN apt-get update && apt-get install -y \
       python3-nose \
       python3-oauthlib \
       python3-pep8 \
-      python3-pyflakes \
+      pyflakes \
       python3-requests \
       python3-serial \
       python3-setuptools \
