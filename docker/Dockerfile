@@ -85,7 +85,8 @@ RUN apt-get update && apt-get install -y \
       gosu \
       po4a \
       openssh-client \
-      jq
+      jq \
+      grub2
 
 # Syslinux is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
@@ -339,6 +340,14 @@ RUN if dpkg-architecture -iarm64; then \
       u-boot-tools \
       grub-efi-arm; \
     fi
+
+# Install open-vmdk
+RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
+    unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
+    cd /tmp/open-vmdk-master/ && \
+    make && \
+    make install
+
 #
 # live-build: building with local packages fails due to missing keys
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691

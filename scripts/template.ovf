@@ -5,11 +5,11 @@
   </References>
   <ovf:NetworkSection>
     <ovf:Info>The list of logical networks</ovf:Info>
-    <ovf:Network ovf:name="LAN">
-      <ovf:Description>LAN network</ovf:Description>
-    </ovf:Network>
     <ovf:Network ovf:name="WAN">
       <ovf:Description>WAN network</ovf:Description>
+    </ovf:Network>
+    <ovf:Network ovf:name="LAN">
+      <ovf:Description>LAN network</ovf:Description>
     </ovf:Network>
   </ovf:NetworkSection>
   <DeploymentOptionSection>
@@ -53,7 +53,7 @@
         <Label>Public key</Label>
         <Description>The public ssh key for the appliance &apos;vyos&apos; account.</Description>
       </Property>
-      <Category>Appliance IPv4 Network Settings</Category>
+      <Category>Appliance IPv4 Network Settings (WAN interface)</Category>
       <Property ovf:key="local-hostname" ovf:qualifiers="MinLen(0),MaxLen(65535)" ovf:type="string" ovf:userConfigurable="true" ovf:value="">
         <Label>Hostname</Label>
         <Description>The host name for this virtual machine.</Description>
@@ -90,6 +90,10 @@
       <Property ovf:key="APIDEBUG" ovf:value="false" ovf:type="boolean" ovf:userConfigurable="true">
         <Label>API debug logging</Label>
         <Description>Enable API debug logging</Description>
+      </Property>
+      <Property ovf:key="user-data" ovf:type="string" ovf:userConfigurable="true" ovf:value="">
+        <Label>Cloud-init User-Data</Label>
+        <Description>User-Data, encoded with base64.</Description>
       </Property>
     </ProductSection>
     <ProductSection ovf:class="vm" ovf:required="false">
@@ -191,9 +195,9 @@
       <ovf:Item>
         <rasd:AddressOnParent>7</rasd:AddressOnParent>
         <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
-        <rasd:Connection>LAN</rasd:Connection>
-        <rasd:Description>NIC representing LAN</rasd:Description>
-        <rasd:ElementName>LAN</rasd:ElementName>
+        <rasd:Connection>WAN</rasd:Connection>
+        <rasd:Description>NIC representing WAN</rasd:Description>
+        <rasd:ElementName>WAN</rasd:ElementName>
         <rasd:InstanceID>7</rasd:InstanceID>
         <rasd:ResourceSubType>vmxnet3</rasd:ResourceSubType>
         <rasd:ResourceType>10</rasd:ResourceType>
@@ -201,9 +205,9 @@
       <ovf:Item>
         <rasd:AddressOnParent>8</rasd:AddressOnParent>
         <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
-        <rasd:Connection>WAN</rasd:Connection>
-        <rasd:Description>NIC representing WAN</rasd:Description>
-        <rasd:ElementName>WAN</rasd:ElementName>
+        <rasd:Connection>LAN</rasd:Connection>
+        <rasd:Description>NIC representing LAN</rasd:Description>
+        <rasd:ElementName>LAN</rasd:ElementName>
         <rasd:InstanceID>8</rasd:InstanceID>
         <rasd:ResourceSubType>vmxnet3</rasd:ResourceSubType>
         <rasd:ResourceType>10</rasd:ResourceType>
