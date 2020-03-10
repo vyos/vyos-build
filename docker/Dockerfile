@@ -69,7 +69,8 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       libssl1.0.0 \
       openssh-client \
-      jq
+      jq \
+      grub2
 
 #
 # Setup Debian Jessie Backports repository
@@ -345,6 +346,13 @@ RUN apt-get update && apt-get install -y \
       python3-setuptools \
       python3-six \
       python3-yaml
+
+# Install open-vmdk
+RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
+    unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
+    cd /tmp/open-vmdk-master/ && \
+    make && \
+    make install
 
 # Update live-build
 RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sources.list.d/stretch.list && \
