@@ -313,7 +313,10 @@ RUN apt-get update && apt-get install -y \
       python3-pyflakes \
       python3-serial \
       python3-unittest2 \
-      python3-yaml
+      python3-yaml \
+      python3-jsonschema \
+      python3-contextlib2 \
+      cloud-utils
 
 # Packages needed for libnss-mapuser
 RUN apt-get update && apt-get install -y \
