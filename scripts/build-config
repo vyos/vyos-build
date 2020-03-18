@@ -30,6 +30,7 @@ import os
 import getpass
 import platform
 import json
+import fileinput
 
 import defaults
 
@@ -150,3 +151,9 @@ with open(defaults.BUILD_CONFIG, 'w') as f:
     json.dump(args, f, indent=4, sort_keys=True)
     print("\n", file=f)
 
+# Replace debian mirror in Dockerfile
+print("Setting debian mirror in {0}".format(defaults.DOCKER_DOCKERFILE))
+for line in fileinput.input(defaults.DOCKER_DOCKERFILE, inplace=True):
+    # skip the security mirror
+    line = re.sub(r'https?://(?!security)[\S]* ' + args['distribution'], args['pbuilder_debian_mirror'] + ' ' + args['distribution'], line)
+    print(line, end='')

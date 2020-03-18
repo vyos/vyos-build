@@ -34,3 +34,5 @@ CUSTOM_REPO_FILE = 'config/archives/custom.list.chroot'
 CUSTOM_PACKAGE_LIST_FILE = 'config/package-lists/custom.list.chroot'
 
 DEFAULT_BUILD_FLAVOR = 'data/defaults.json'
+
+DOCKER_DOCKERFILE = 'docker/Dockerfile'
