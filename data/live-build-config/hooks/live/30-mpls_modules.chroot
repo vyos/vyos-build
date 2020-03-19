@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# FRR LDP require loaded MPLS modules before starting FRR daemons
+
+echo I: Enabling autoload MPLS modules
+
+echo "mpls_gso" >> /etc/modules-load.d/mpls.conf
+echo "mpls_iptunnel" >> /etc/modules-load.d/mpls.conf
+echo "mpls_router" >> /etc/modules-load.d/mpls.conf
