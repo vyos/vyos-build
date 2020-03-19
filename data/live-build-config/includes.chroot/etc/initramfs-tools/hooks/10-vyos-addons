@@ -1,0 +1,87 @@
+#!/bin/sh
+PREREQ=""
+prereqs()
+{
+    echo "$PREREQ"
+}
+case $1 in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+. /usr/share/initramfs-tools/hook-functions
+# Begin real processing below this line
+
+# simplified copy_file fucntion from newer initramfs-tools (for better compatibility between versions)
+# $1 = file type (for logging)
+# $2 = file to copy to initramfs
+# $3 (optional) Name for the file on the initramfs
+# Location of the image dir is assumed to be $DESTDIR
+# If the target exists, we leave it and return 1.
+# On any other error, we return >1.
+copy_file() {
+	local type src target link_target
+
+	type="${1}"
+	src="${2}"
+	target="${3:-$2}"
+
+	[ -f "${src}" ] || return 2
+
+	if [ -d "${DESTDIR}/${target}" ]; then
+		target="${target}/${src##*/}"
+	fi
+
+	# check if already copied
+	[ -e "${DESTDIR}/${target}" ] && return 1
+
+	mkdir -p "${DESTDIR}/${target%/*}"
+
+	if [ -h "${src}" ]; then
+		# We don't need to replicate a chain of links completely;
+		# just link directly to the ultimate target
+		link_target="$(readlink -f "${src}")" || return $(($? + 1))
+
+		# Update source for the copy
+		src="${link_target}"
+
+		if [ "${link_target}" != "${target}" ]; then
+			[ "${verbose?}" = "y" ] && echo "Adding ${type}-link ${src}"
+
+			# Create a relative link so it always points
+			# to the right place
+			ln -rs "${DESTDIR}/${link_target}" "${DESTDIR}/${target}"
+		fi
+
+		# Copy the link target if it doesn't already exist
+		target="${link_target}"
+		[ -e "${DESTDIR}/${target}" ] && return 0
+		mkdir -p "${DESTDIR}/${target%/*}"
+	fi
+
+	[ "${verbose}" = "y" ] && echo "Adding ${type} ${src}"
+
+	cp -pP "${src}" "${DESTDIR}/${target}" || return $(($? + 1))
+}
+
+# include listed modules to initramfs but not load them without the necessity
+manual_add_modules igb ixgbe ixgbevf i40e i40evf
+
+# include modules from file (one per line) to initramfs but not load them without the necessity
+# add_modules_from_file /tmp/modlist
+
+# include listed modules to initramfs and load them during the boot
+# force_load xxx
+
+# executable to copy to initramfs, with library dependencies
+copy_exec /lib/x86_64-linux-gnu/libnss_dns.so.2
+
+# missing fsck in initramfs
+copy_exec /sbin/fsck
+copy_exec /sbin/fsck.ext2
+copy_exec /sbin/fsck.ext3
+copy_exec /sbin/fsck.ext4
+
+# copy other files ("other" here is a file type, so do not delete this keyword)
+copy_file other /etc/ssl/certs/ca-certificates.crt
