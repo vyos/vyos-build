@@ -18,11 +18,11 @@
 # Purpose:
 #   Build VyOS raw image for qemu.
 
-BUILD_DIR=$(scripts/query-json build/build-config.json build_dir)
+BUILD_DIR=build
 BUILD_ARCH=$(scripts/query-json build/build-config.json architecture)
 export VERSION=$(cat $BUILD_DIR/version)
 
-export ISO_IMAGE=./build/live-image-$BUILD_ARCH.hybrid.iso
+export ISO_IMAGE=$BUILD_DIR/live-image-$BUILD_ARCH.hybrid.iso
 export ISO_MD5_SUM=$(md5sum ${ISO_IMAGE} | awk '{print $1}')
 export PACKER_BUILD_DIR=packer_build
 export PACKER_LOG_PATH=${PACKER_BUILD_DIR}/build.log

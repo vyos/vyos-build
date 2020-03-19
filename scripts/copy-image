@@ -1,6 +1,6 @@
 #!/bin/sh
 
-BUILD_DIR=$(scripts/query-json build/build-config.json build_dir)
+BUILD_DIR=build
 BUILD_ARCH=$(scripts/query-json build/build-config.json architecture)
 VERSION=$(cat $BUILD_DIR/version)
 

@@ -72,7 +72,7 @@ debug = build_config['debug']
 print("Setting up additional APT entries")
 vyos_repo_entry = "deb {0} {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
 
-apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
+apt_file = os.path.join(os.getcwd(), defaults.BUILD_DIR, defaults.VYOS_REPO_FILE)
 
 if debug:
     print("Adding these entries to {0}:".format(apt_file))
@@ -83,7 +83,7 @@ with open(apt_file, 'w') as f:
 
 # Add custom APT entries
 if build_config['custom_apt_entry']:
-    custom_apt_file = os.path.join(build_config['build_dir'], defaults.CUSTOM_REPO_FILE)
+    custom_apt_file = os.path.join(os.getcwd(), defaults.BUILD_DIR, defaults.CUSTOM_REPO_FILE)
     entries = "\n".join(build_config['custom_apt_entry'])
     if debug:
         print("Adding custom APT entries:")
@@ -94,14 +94,14 @@ if build_config['custom_apt_entry']:
 
 # Add custom APT keys
 if build_config['custom_apt_key']:
-    key_dir = os.path.join(build_config['build_dir'], defaults.ARCHIVES_DIR)
+    key_dir = os.path.join(os.getcwd(), defaults.BUILD_DIR, defaults.ARCHIVES_DIR)
     for k in build_config['custom_apt_key']:
         dst_name = '{0}.key.chroot'.format(os.path.basename(k))
         shutil.copy(k, os.path.join(key_dir, dst_name))
 
 # Add custom packages
 if build_config['custom_package']:
-    package_list_file = os.path.join(build_config['build_dir'], defaults.CUSTOM_PACKAGE_LIST_FILE)
+    package_list_file = os.path.join(os.getcwd(), defaults.BUILD_DIR, defaults.CUSTOM_PACKAGE_LIST_FILE)
     packages = "\n".join(build_config['custom_package'])
     with open (package_list_file, 'w') as f:
         f.write(packages)
