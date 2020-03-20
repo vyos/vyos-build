@@ -16,6 +16,9 @@
 # Purpose:
 # Build VyOS image for Google cloud.
 
+apt-get update && apt-get install -y \
+    grub-pc grub2-common parted kpartx
+
 lb bootstrap
 
 lb chroot
@@ -59,6 +62,12 @@ OUTPUT=disk.raw
 OUTPUTGZ=VyOS-"$dateymd".tar.gz
 IMAGE_SIZE=10
 qemu-img create -f raw ${OUTPUT} ${IMAGE_SIZE}G
+
+LOOPNAME=`losetup -f`
+LOOPMINOR=${LOOPNAME//[^0-9]}
+if [ ! -e $LOOPNAME ]; then
+    mknod $LOOPNAME b 7 $LOOPMINOR
+fi
 
 ${PARTED} -s ${OUTPUT} mktable msdos
 ${PARTED} -s -a optimal ${OUTPUT} mkpart primary ext4 1Mi 100%
