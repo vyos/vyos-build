@@ -391,9 +391,8 @@ RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc
 # Cleanup
 RUN rm -rf /tmp/*
 
-# Do not enable visual mode on right click in vim
-# https://github.com/vim/vim/issues/1326
-RUN echo "set mouse-=a" >> /etc/vim/vimrc
+# Disable mouse in vim
+RUN echo -e "set mouse=\nset ttymouse=" > /etc/vim/vimrc.local
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
