@@ -133,10 +133,10 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
 
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
-    git clone https://github.com/vyos/libvyosconfig.git && \
-    cd libvyosconfig && git checkout 5138b5eb && \
+    git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig && \
+    cd /tmp/libvyosconfig && git checkout 5138b5eb && \
     dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../libvyosconfig0_*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
+    dpkg -i /tmp/libvyosconfig0_*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
 
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
@@ -356,11 +356,11 @@ RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archiv
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691
 # https://salsa.debian.org/live-team/live-build/merge_requests/30
 #
-RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
-    git clone https://salsa.debian.org/live-team/live-build.git && \
-    cd live-build && \
-    git checkout debian/1%20190311 && \
-    patch -p1 < ../63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch \
+      -O /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+    git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build && \
+    cd /tmp/live-build && git checkout debian/1%20190311 && \
+    patch -p1 < /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
     dch -n "Applying fix for missing archive keys" && \
     dpkg-buildpackage -us -uc && \
     sudo dpkg -i ../live-build*.deb
@@ -372,11 +372,11 @@ RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=921815
 # https://salsa.debian.org/installer-team/debootstrap/merge_requests/26
 #
-RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
-    git clone https://salsa.debian.org/installer-team/debootstrap && \
-    cd debootstrap && \
-    git checkout 1.0.114 && \
-    patch -p1 < ../a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch \
+      -O /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    git clone https://salsa.debian.org/installer-team/debootstrap /tmp/debootstrap && \
+    cd /tmp/debootstrap && git checkout 1.0.114 && \
+    patch -p1 < /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
     dch -n "Applying fix for docker image compile" && \
     dpkg-buildpackage -us -uc && \
     sudo dpkg -i ../debootstrap*.deb
