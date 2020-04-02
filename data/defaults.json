@@ -7,6 +7,8 @@
   "vyos_branch": "current",
   "kernel_version": "4.19.112",
   "kernel_flavor": "amd64-vyos",
-  "additional_repositories": [],
+  "additional_repositories": [
+    "deb http://repo.powerdns.com/debian buster-rec-42 main"
+  ],
   "custom_packages": []
 }
