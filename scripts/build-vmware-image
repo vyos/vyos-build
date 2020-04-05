@@ -201,10 +201,10 @@ if [ ! -f ${private_key} ]; then
   echo 'Please put your key to "key/privatekey.pem" in repository root, or set PRIVATE_KEY_PATH to environment variables.'
   exit 1
 fi
-ovftool --privateKey=${PRIVATE_KEY_PATH} vyos_vmware_image.ovf vyos_vmware_image-signed.ova
+ovftool --privateKey=${private_key} vyos_vmware_image.ovf vyos_vmware_image-signed.ova
 #ovftool vyos_vmware_image.ovf vyos_vmware_image-signed.ova
 
 # Convert the OVF to signed OVF...
 echo 'Converting the OVF to signed OVF...'
-ovftool --privateKey=${PRIVATE_KEY_PATH} vyos_vmware_image.ovf vyos_vmware_image-signed.ovf
+ovftool --privateKey=${private_key} vyos_vmware_image.ovf vyos_vmware_image-signed.ovf
 #ovftool vyos_vmware_image.ovf vyos_vmware_image-signed.ovf
