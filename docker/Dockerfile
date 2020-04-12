@@ -300,6 +300,14 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
         qemu-kvm; \
     fi
 
+# Packages needed for building vmware and GCE images
+RUN apt-get update && apt-get install -y \
+      kpartx \
+      parted \
+      udev \
+      grub-pc \
+      grub2-common
+
 # Packages needed for vyos-cloud-init
 RUN apt-get update && apt-get install -y \
       pep8 \
