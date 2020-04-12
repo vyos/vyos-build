@@ -16,6 +16,8 @@
 # Purpose:
 # Build VyOS image for VMWARE.
 
+apt-get update && apt-get install -y kpartx parted udev
+
 if [ ! $(which vmdk-convert) ]; then
    echo "Your system doesn't have vmdk-convert. Please install it from https://github.com/vmware/open-vmdk."
    exit 1
