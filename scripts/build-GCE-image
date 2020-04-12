@@ -16,9 +16,6 @@
 # Purpose:
 # Build VyOS image for Google cloud.
 
-apt-get update && apt-get install -y \
-    grub-pc grub2-common parted kpartx
-
 lb bootstrap
 
 lb chroot
