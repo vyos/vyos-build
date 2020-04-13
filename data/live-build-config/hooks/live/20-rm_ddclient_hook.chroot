@@ -1,3 +1,9 @@
 #!/bin/sh
 
-rm -f /etc/dhcp/dhclient-exit-hooks.d/ddclient
+if [ -f /etc/dhcp/dhclient-exit-hooks.d/ddclient ]; then
+  rm -f /etc/dhcp/dhclient-exit-hooks.d/ddclient
+fi
+
+if [ -f /etc/ddclient.conf ]; then
+  rm -f /etc/ddclient.conf
+fi
