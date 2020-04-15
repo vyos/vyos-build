@@ -218,9 +218,11 @@ pipeline {
                     """
                 }
                 //upload to S3
+                files = findFiles(glob: 'build/vyos*.iso')
                 withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                     def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
-                    s3Upload( bucket: 'vyos-downloads-rolling', path: 'rolling/' + getGitBranchName() + '/' + ARCH+ '/', workingDir:'build', includePathPattern: 'vyos*.iso' )
+                    s3Upload( bucket: 's3-us.vyos.io', path: 'rolling/', workingDir:'build', includePathPattern: 'vyos*.iso' )
+                    s3Copy( fromBucket:'s3-us.vyos.io', fromPath:'rolling/' + files[0].name , toBucket:'s3-us.vyos.io', toPath: 'rolling/vyos-rolling-latest.iso')
     
                 }
             }
