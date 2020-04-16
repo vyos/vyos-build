@@ -124,6 +124,7 @@ args['distribution'] = build_defaults["debian_distribution"]
 args['build_dir'] = os.path.join(os.getcwd(), defaults.BUILD_DIR)
 args['pbuilder_config'] = defaults.PBUILDER_CONFIG
 args['vyos_branch'] = build_defaults["vyos_branch"]
+args['release_train'] = build_defaults["release_train"]
 
 # Add custom packages from build defaults
 if not args['custom_package']:

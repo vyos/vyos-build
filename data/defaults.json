@@ -7,6 +7,7 @@
   "vyos_branch": "crux",
   "kernel_version": "4.19.106",
   "kernel_flavor": "amd64-vyos",
+  "release_train": "crux",
   "additional_repositories": [
     "deb http://repo.saltstack.com/apt/debian/8/amd64/2017.7 jessie main",
     "deb http://archive.debian.org/debian/ jessie-backports main"

@@ -77,7 +77,8 @@ version_data = {
     'built_by': build_config['build_by'],
     'built_on': build_date,
     'build_uuid': build_uuid,
-    'build_git': build_git
+    'build_git': build_git,
+    'release_train': build_config['release_train']
 }
 
 os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos'), exist_ok=True)
