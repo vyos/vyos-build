@@ -7,6 +7,7 @@
   "vyos_branch": "current",
   "kernel_version": "4.19.114",
   "kernel_flavor": "amd64-vyos",
+  "release_train": "equuleus",
   "additional_repositories": [
     "deb http://repo.powerdns.com/debian buster-rec-42 main"
   ],

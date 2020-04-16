@@ -95,6 +95,7 @@ version_data = {
     'build_uuid': build_uuid,
     'build_git': build_git,
     'build_branch': git_branch,
+    'release_train': build_config['release_train'],
     'lts_build': lts_build,
     'build_comment': build_config['build_comment']
 }
