@@ -9,7 +9,6 @@
   "kernel_flavor": "amd64-vyos",
   "additional_repositories": [
     "deb http://repo.saltstack.com/apt/debian/8/amd64/2017.7 jessie main",
-    "deb http://repo.powerdns.com/debian jessie-rec-41 main",
     "deb http://archive.debian.org/debian/ jessie-backports main"
   ],
   "custom_packages": []
