@@ -330,6 +330,10 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libaudit-dev
 
+# Prepare cloud-init
+RUN apt-get install cloud-init
+RUN sed "s/ name: debian/ name: vyos/g"  -i /etc/cloud/cloud.cfg
+
 # Install packer
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
