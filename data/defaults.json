@@ -9,6 +9,7 @@
   "kernel_flavor": "amd64-vyos",
   "release_train": "equuleus",
   "additional_repositories": [
+    "deb http://repo.saltstack.com/apt/debian/9/amd64/2019.2 stretch main",
     "deb http://repo.powerdns.com/debian buster-rec-42 main"
   ],
   "custom_packages": []
