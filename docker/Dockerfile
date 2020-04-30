@@ -248,21 +248,31 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyos-strongswan
 RUN apt-get update && apt-get install -y \
-      libkrb5-dev \
-      libssl-dev \
-      libxml2-dev \
-      systemd \
+      bison \
+      bzip2 \
+      debhelper \
+      dh-apparmor \
+      dpkg-dev \
+      flex \
+      gperf \
+      iptables-dev \
+      libcap-dev \
       libcurl4-openssl-dev \
       libgcrypt20-dev \
       libgmp3-dev \
+      libkrb5-dev \
       libldap2-dev \
+      libnm-dev \
+      libpam0g-dev \
       libsqlite3-dev \
-      dh-apparmor \
-      gperf \
+      libssl-dev \
       libsystemd-dev \
-      python3-all \
-      python3-stdeb \
-      python-setuptools
+      libtool \
+      libxml2-dev \
+      pkg-config \
+      po-debconf \
+      systemd \
+      tzdata
 
 # Packages needed for vyos-opennhrp
 RUN apt-get update && apt-get install -y \
