@@ -85,12 +85,13 @@ RUN apt-get update && apt-get install -y \
       gosu \
       po4a \
       openssh-client \
-      jq \
-      grub2
+      jq
 
-# Syslinux is only supported on x86 and x64 systems
+# Syslinux and Grub2 is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
-      apt-get update && apt-get install -y syslinux; \
+      apt-get update && apt-get install -y \
+        syslinux \
+        grub2; \
     fi
 
 # Package needed for mdns-repeater
@@ -311,12 +312,15 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
     fi
 
 # Packages needed for building vmware and GCE images
-RUN apt-get update && apt-get install -y \
+# This is only supported on i386 and amd64 platforms
+RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+     apt-get update && apt-get install -y \
       kpartx \
       parted \
       udev \
       grub-pc \
-      grub2-common
+      grub2-common; \
+    fi
 
 # Packages needed for vyos-cloud-init
 RUN apt-get update && apt-get install -y \
