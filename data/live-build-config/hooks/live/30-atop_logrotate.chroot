@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+
+# Enable ratation log for atop binari files
+
+atop_lrotate = """
+/run/atop/atop.acct {
+    rotate 0
+    nomissingok
+    size 50M
+    postrotate
+        PIDFILE=/run/atop.pid
+        if [ -e $PIDFILE ] && \
+            ps -p `cat $PIDFILE` | grep 'atop$' > /dev/null
+        then
+            kill -15 `cat $PIDFILE`
+            rm $PIDFILE
+        fi
+        sleep 1
+        /etc/init.d/atop restart
+    endscript
+}
+"""
+
+with open("/etc/logrotate.d/atop", "w") as f:
+    f.write(atop_lrotate)
