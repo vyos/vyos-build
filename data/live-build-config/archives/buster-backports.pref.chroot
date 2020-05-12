@@ -1,0 +1,15 @@
+Package: nftables
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: libnftables1
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: libnftnl11
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: *
+Pin: release n=buster-backports
+Pin-Priority: -10
