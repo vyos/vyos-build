@@ -26,4 +26,5 @@ ssl-cert
 nginx-light
 ndisc6
 systemd-sysv
+systemd-bootchart
 ncurses-term
