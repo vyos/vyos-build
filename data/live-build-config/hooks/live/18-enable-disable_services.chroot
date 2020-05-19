@@ -57,3 +57,5 @@ systemctl disable live-tools.service
 
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
+
+systemctl disable wide-dhcpv6-client
