@@ -56,6 +56,7 @@ ENV LANG en_US.utf8
 
 RUN apt-get update && apt-get install -y \
       vim \
+      vim-autopep8 \
       nano \
       git \
       curl \
@@ -80,6 +81,9 @@ RUN apt-get update && apt-get install -y \
       python3-git \
       python3-pip \
       python3-psutil \
+      python3-flake8 \
+      python3-autopep8 \
+      flake8 \
       pkg-config \
       debhelper \
       gosu \
