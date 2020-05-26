@@ -211,7 +211,7 @@ To build a single package use the same script as above but specify packages with
 Executed from the root of `vyos-build`
 
 ```bash
-$ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
+$ docker run --rm -it -v $(pwd):/vyos -w /vyos \
              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
              vyos-builder scripts/build-packages -b <package>
 ```
@@ -238,7 +238,7 @@ $ mkdir packages
 $ cd packages
 $ git clone git@github.com:myname/vyos-1x.git
 $ cd ..
-$ docker run --rm -it -v $(pwd):/vyos -w /vyos/packages/PACKAGENAME \
+$ docker run --rm -it -v $(pwd):/vyos -w /vyos \
              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
              vyos-builder scripts/build-packages -b vyos-1x
 ```
