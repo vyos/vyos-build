@@ -10,7 +10,6 @@ nano
 vim-tiny
 screen
 minicom
-wakeonlan
 iftop
 lsof
 openssh-client
