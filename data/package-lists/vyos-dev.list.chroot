@@ -1,3 +1,4 @@
 gdb
 strace
 apt-rdepends
+linux-tools
