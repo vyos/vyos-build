@@ -242,15 +242,6 @@ pkg_special.append( add_package('vyos-kernel', branch='linux-vyos-4.19.y', custo
 
 
 #
-# WireGuard Kernel Module
-#
-wireguard_build_cmd = "echo 'src/wireguard.ko /lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")-amd64-vyos/extra > debian/wireguard-modules.install && " \
-                      "KERNELDIR=" + repo_root + "/packages/vyos-kernel dpkg-buildpackage -b -us -uc -tc -j" + str(os.cpu_count())
-pkg_special.append( add_package('vyos-wireguard', custombuild_cmd=wireguard_build_cmd) )
-
-
-
-#
 # Accell-PPP Package and Kernel Module
 #
 accel_ppp_build_cmd = "echo 'lib/modules/'$(cat " + repo_root + "/data/defaults.json | jq '.kernel_version' | tr -d \\\")-amd64-vyos/extra/*.ko > debian/vyos-accel-ppp-ipoe-kmod.install && " \
