@@ -170,8 +170,14 @@ pipeline {
                     def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
-                    sh './configure --build-by autobuild@vyos.net --debian-mirror http://ftp.us.debian.org/debian/'
-                    sh 'sudo make iso'
+                    sh """
+                        ./configure \
+                            --build-by autobuild@vyos.net \
+                            --debian-mirror http://ftp.us.debian.org/debian/ \
+                            --build-type release \
+                            --version 1.3-rolling-$(date +%Y%m%d%H%M)
+                        sudo make iso
+                    """
                 }
             }
         }
