@@ -175,7 +175,7 @@ pipeline {
                             --build-by autobuild@vyos.net \
                             --debian-mirror http://ftp.us.debian.org/debian/ \
                             --build-type release \
-                            --version 1.3-rolling-$(date +%Y%m%d%H%M)
+                            --version 1.3-rolling-\$(date +%Y%m%d%H%M)
                         sudo make iso
                     """
                 }
