@@ -177,9 +177,7 @@ pipeline {
         }
         stage('Test ISO') {
             steps {
-                sh """
-                    sudo make test
-                """
+                sh "sudo make test"
             }
         }
     }
@@ -203,17 +201,8 @@ pipeline {
                     // will fail if sh returns a non 0 exit code
                     sh """
                         ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                    """
-                    sh """
-                        ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                    """
-                    sh """
                         ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
-                    """
-                    sh """
                         scp ${SSH_OPTS} build/vyos*.iso ${SSH_REMOTE}:${SSH_DIR}/
-                    """
-                    sh """
                         ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
                     """
                 }
@@ -223,7 +212,6 @@ pipeline {
                     def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
                     s3Upload( bucket: 's3-us.vyos.io', path: 'rolling/', workingDir:'build', includePathPattern: 'vyos*.iso' )
                     s3Copy( fromBucket:'s3-us.vyos.io', fromPath:'rolling/' + files[0].name , toBucket:'s3-us.vyos.io', toPath: 'rolling/vyos-rolling-latest.iso')
-    
                 }
             }
         }
