@@ -6,7 +6,7 @@ vyos-netplug
 vyos-smoketest
 vyos-xe-guest-utilities
 vyos-1x-vmware
-vyos-firmware
+vyos-linux-firmware
 vyos-intel-i40e
 vyos-intel-i40evf
 vyos-intel-igb
