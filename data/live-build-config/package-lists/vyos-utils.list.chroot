@@ -1,13 +1,10 @@
 nmap
 dnsutils
 ipcalc
-sipcalc
-mtr-tiny
 whois
 netcat-openbsd
 socat
 nano
-vim-tiny
 screen
 minicom
 iftop
