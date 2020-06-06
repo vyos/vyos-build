@@ -2,3 +2,4 @@ gdb
 strace
 apt-rdepends
 tshark
+vim
