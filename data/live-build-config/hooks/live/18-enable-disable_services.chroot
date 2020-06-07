@@ -59,3 +59,4 @@ systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
 
 systemctl disable wide-dhcpv6-client
+systemctl disable lm-sensors
