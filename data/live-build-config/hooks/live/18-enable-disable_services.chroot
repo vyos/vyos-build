@@ -1,40 +1,22 @@
 #!/bin/sh
 
-echo I: Enabling/Disabling services.
-systemctl disable exim4
-/usr/sbin/update-rc.d -f exim4 remove
-systemctl disable isc-dhcp-server
-/usr/sbin/update-rc.d -f isc-dhcp-server remove
-systemctl disable isc-dhcp-relay
-/usr/sbin/update-rc.d -f isc-dhcp-relay remove
-systemctl disable nfacctd
-/usr/sbin/update-rc.d -f nfacctd remove
-systemctl disable pmacctd
-/usr/sbin/update-rc.d -f pmacctd remove
-systemctl disable sfacctd
-/usr/sbin/update-rc.d -f sfacctd remove
-systemctl disable uacctd
-/usr/sbin/update-rc.d -f uacctd remove
-systemctl disable lighttpd
-/usr/sbin/update-rc.d -f lighttpd remove
-systemctl disable ssh
-/usr/sbin/update-rc.d -f ssh remove
-systemctl disable openvpn
-/usr/sbin/update-rc.d -f openvpn remove
-systemctl disable lldpd
-/usr/sbin/update-rc.d -f lldpd remove
-systemctl enable ssh-session-cleanup
-systemctl disable conntrackd
-/usr/sbin/update-rc.d -f conntrackd remove
-systemctl disable mdns-repeater
-/usr/sbin/update-rc.d -f mdns-repeater remove
-systemctl disable udp-broadcast-relay{1.99}
-/usr/sbin/update-rc.d -f udp-broadcast-relay remove
-systemctl disable pdns-recursor
-/usr/sbin/update-rc.d -f pdns-recursor remove
+echo I: Disabling services
+systemctl disable exim4.service
+systemctl disable isc-dhcp-server.service
+systemctl disable isc-dhcp-relay.service
+systemctl disable nfacctd.service
+systemctl disable pmacctd.service
+systemctl disable sfacctd.service
+systemctl disable uacctd.service
+systemctl disable lighttpd.service
+systemctl disable ssh.service
+systemctl disable openvpn.service
+systemctl disable lldpd.service
+systemctl disable conntrackd.service
+systemctl disable mdns-repeater.service
+systemctl disable udp-broadcast-relay{1.99}.service
+systemctl disable pdns-recursor.service
 systemctl disable tftpd-hpa.service
-/usr/sbin/update-rc.d -f tftpd-hpa.service remove
-
 systemctl disable strongswan.service
 systemctl disable frr.service
 systemctl disable salt-minion.service
@@ -54,9 +36,10 @@ systemctl disable ntp.service
 systemctl disable igmpproxy.service
 systemctl disable cryptsetup.service
 systemctl disable live-tools.service
+systemctl disable wide-dhcpv6-client.service
+systemctl disable lm-sensors.service
 
+echo I: Enabling services
+systemctl enable ssh-session-cleanup.service
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
-
-systemctl disable wide-dhcpv6-client
-systemctl disable lm-sensors
