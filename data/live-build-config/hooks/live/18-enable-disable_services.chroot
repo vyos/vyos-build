@@ -38,6 +38,7 @@ systemctl disable cryptsetup.service
 systemctl disable live-tools.service
 systemctl disable wide-dhcpv6-client.service
 systemctl disable lm-sensors.service
+systemctl disable snmpd.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
