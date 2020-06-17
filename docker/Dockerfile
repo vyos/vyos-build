@@ -347,6 +347,10 @@ RUN apt-get update && apt-get install -y \
       python3-six \
       python3-yaml
 
+# Packages needed for libnss-mapuser & libpam-radius
+RUN apt-get update && apt-get install -y \
+      libaudit-dev
+
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
