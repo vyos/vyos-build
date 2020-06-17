@@ -345,7 +345,7 @@ RUN apt-get update && apt-get install -y \
       python3-contextlib2 \
       cloud-utils
 
-# Packages needed for libnss-mapuser
+# Packages needed for libnss-mapuser & libpam-radius
 RUN apt-get update && apt-get install -y \
       libaudit-dev
 
