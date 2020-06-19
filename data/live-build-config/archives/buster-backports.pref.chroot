@@ -10,6 +10,14 @@ Package: libnftnl11
 Pin: release n=buster-backports
 Pin-Priority: 600
 
+Package: conserver-server
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: conserver-client
+Pin: release n=buster-backports
+Pin-Priority: 600
+
 Package: *
 Pin: release n=buster-backports
 Pin-Priority: -10
