@@ -14,7 +14,7 @@ systemctl disable openvpn.service
 systemctl disable lldpd.service
 systemctl disable conntrackd.service
 systemctl disable mdns-repeater.service
-systemctl disable udp-broadcast-relay{1.99}.service
+systemctl disable 'udp-broadcast-relay@*.service'
 systemctl disable pdns-recursor.service
 systemctl disable tftpd-hpa.service
 systemctl disable strongswan.service
