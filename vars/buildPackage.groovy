@@ -88,6 +88,7 @@ def call(description, pkgList) {
                                     userRemoteConfigs: [[url: pkg.scmUrl]]])
                             }
                         }
+                        sh "pwd; ls -al"
                     }
                 }
             }
@@ -105,6 +106,7 @@ def call(description, pkgList) {
                     script {
                         pkgList.each { pkg ->
                             dir(pkg.name) {
+                                sh "pwd; ls -al"
                                 sh pkg.buildCmd
                             }
                         }
