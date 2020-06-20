@@ -167,8 +167,8 @@ pipeline {
         stage('Build ISO') {
             when {
                 not {
-                    # No need to trigger a full ISO build when only the Docker
-                    # container definition changes
+                    // No need to trigger a full ISO build when only the Docker
+                    // container definition changes
                     changeset "**/docker/*"
                 }
             }
@@ -191,8 +191,8 @@ pipeline {
         stage('Test ISO') {
             when {
                 not {
-                    # No need to trigger a full ISO test when only the Docker
-                    # container definition changes
+                    // No need to trigger a full ISO test when only the Docker
+                    // container definition changes
                     changeset "**/docker/*"
                 }
             }
