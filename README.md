@@ -35,11 +35,17 @@ used for building those packages and the installation image.
 
 There are several directories with their own purpose:
 
- * `build/`   Used for temporary files used for the build and for build artifacts
- * `scripts/` Scripts that are used for the build process
- * `data/`    Data required for building the ISO (e.g. boot splash/configs)
- * `tools/`   Scripts that are used for maintainer's tasks automation and other
-              purposes, but not during ISO build process
+ * `build/`    Used for temporary files used for the build and for build artifacts
+ * `data/`     Data required for building the ISO (e.g. boot splash/configs)
+ * `packages/` This directory has two meanings. First it can hold arbitrary *.deb
+               packages which will be embeded into the resulting ISO, but it also
+                holds Jenkins Pipeline definitions for required VyOS packages.
+               Among other things those packages will be: Linux Kernel, FRR,
+               Netfiler...
+ * `scripts/`  Scripts that are used for the build process
+ * `tools/`    Scripts that are used for maintainer's tasks automation and other
+               purposes, but not during ISO build process
+ * `vars/`     Jenkins Pipeline library for reusable functions
 
 # Building images using Docker
 
