@@ -165,6 +165,13 @@ pipeline {
     }
     stages {
         stage('Build ISO') {
+            when {
+                not {
+                    # No need to trigger a full ISO build when only the Docker
+                    # container definition changes
+                    changeset "**/docker/*"
+                }
+            }
             steps {
                 script {
                     def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
@@ -182,6 +189,13 @@ pipeline {
             }
         }
         stage('Test ISO') {
+            when {
+                not {
+                    # No need to trigger a full ISO test when only the Docker
+                    # container definition changes
+                    changeset "**/docker/*"
+                }
+            }
             steps {
                 sh "sudo make test"
             }
