@@ -4,4 +4,5 @@ packer_build/*
 packer_cache/*
 key/*
 packages/*
+!packages/*/
 testinstall*.img
