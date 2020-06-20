@@ -166,10 +166,13 @@ pipeline {
     stages {
         stage('Build ISO') {
             when {
-                not {
-                    // No need to trigger a full ISO build when only the Docker
-                    // container definition changes
-                    changeset "**/docker/*"
+                beforeOptions true
+                beforeAgent true
+                anyOf {
+                    // Do not build full ISO build when Docker container changes
+                    not { changeset "**/docker/*" }
+                    triggeredBy 'TimerTrigger'
+                    triggeredBy cause: "UserIdCause"
                 }
             }
             steps {
@@ -190,10 +193,13 @@ pipeline {
         }
         stage('Test ISO') {
             when {
-                not {
-                    // No need to trigger a full ISO test when only the Docker
-                    // container definition changes
-                    changeset "**/docker/*"
+                beforeOptions true
+                beforeAgent true
+                anyOf {
+                    // Do not build full ISO build when Docker container changes
+                    not { changeset "**/docker/*" }
+                    triggeredBy 'TimerTrigger'
+                    triggeredBy cause: "UserIdCause"
                 }
             }
             steps {
