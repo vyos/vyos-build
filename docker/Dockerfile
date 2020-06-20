@@ -377,6 +377,26 @@ RUN apt-get update && apt-get install -y \
       libjansson-dev \
       python3-all
 
+# Packages needed for libnetfilter-conntrack
+RUN apt-get update && apt-get install -y \
+      libmnl-dev \
+      libnfnetlink-dev \
+      libtool
+
+# Packages needed for conntrack-tools
+RUN apt-get update && apt-get install -y \
+      bison \
+      flex \
+      libmnl-dev \
+      libnetfilter-cthelper0-dev \
+      libnetfilter-cttimeout-dev \
+      libnetfilter-queue-dev \
+      libnfnetlink-dev \
+      libsystemd-dev \
+      autoconf \
+      automake \
+      libtool
+
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
