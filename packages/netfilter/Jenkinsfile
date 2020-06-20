@@ -14,52 +14,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 @NonCPS
-
-def getGitBranchName() {
-    def branch = scm.branches[0].name
-    return branch.split('/')[-1]
-}
-
-def getGitRepoURL() {
-    return scm.userRemoteConfigs[0].url
-}
-
-def getGitRepoName() {
-    return getGitRepoURL().split('/').last()
-}
-
-// Returns true if this is a custom build launched on any project fork.
-// Returns false if this is build from git@github.com:vyos/<reponame>.
-// <reponame> can be e.g. vyos-1x.git or vyatta-op.git
-def isCustomBuild() {
-    // GitHub organisation base URL
-    def gitURI = 'git@github.com:vyos/' + getGitRepoName()
-    def httpURI = 'https://github.com/vyos/' + getGitRepoName()
-
-    return !((getGitRepoURL() == gitURI) || (getGitRepoURL() == httpURI)) || env.CHANGE_ID
-}
-
-def setDescription() {
-    def item = Jenkins.instance.getItemByFullName(env.JOB_NAME)
-
-    // build up the main description text
-    def description = ""
-    description += "<h2>VyOS individual package build: " + getGitRepoName().replace('.git', '') + "</h2>"
-
-    if (isCustomBuild()) {
-        description += "<p style='border: 3px dashed red; width: 50%;'>"
-        description += "<b>Build not started from official Git repository!</b><br>"
-        description += "<br>"
-        description += "Repository: <font face = 'courier'>" + getGitRepoURL() + "</font><br>"
-        description += "Branch: <font face = 'courier'>" + getGitBranchName() + "</font><br>"
-        description += "</p>"
-    } else {
-        description += "Sources taken from Git branch: <font face = 'courier'>" + getGitBranchName() + "</font><br>"
-    }
-
-    item.setDescription(description)
-    item.save()
-}
+/* Using a version specifier library, use 'current' branch */
+@Library('vyos-build@current')
 
 /* Only keep the 10 most recent builds. */
 def projectProperties = [
@@ -71,20 +27,20 @@ setDescription()
 
 node('Docker') {
     stage('Define Agent') {
-        script {
-            // create container name on demand
-            def branchName = getGitBranchName()
-            // Adjust PR target branch name so we can re-map it to the proper
-            // Docker image. CHANGE_ID is set only for pull requests, so it is
-            // safe to access the pullRequest global variable
-            if (env.CHANGE_ID) {
-                branchName = "${env.CHANGE_TARGET}".toLowerCase()
-            }
-            if (branchName.equals("master")) {
-                branchName = "current"
-            }
-            env.DOCKER_IMAGE = "vyos/vyos-build:" + branchName
-        }
+       script {
+           // create container name on demand
+           def branchName = getGitBranchName()
+           // Adjust PR target branch name so we can re-map it to the proper
+           // Docker image. CHANGE_ID is set only for pull requests, so it is
+           // safe to access the pullRequest global variable
+           if (env.CHANGE_ID) {
+               branchName = "${env.CHANGE_TARGET}".toLowerCase()
+           }
+           if (branchName.equals("master")) {
+               branchName = "current"
+           }
+           env.DOCKER_IMAGE = "vyos/vyos-build:" + branchName
+       }
     }
 }
 
@@ -101,13 +57,20 @@ pipeline {
         CHANGESET_DIR = "**/${env.BASE_DIR}*"
     }
     options {
+        disableConcurrentBuilds()
         timeout(time: 60, unit: 'MINUTES')
         timestamps()
     }
     stages {
         stage('Fetch') {
             when {
-                changeset "${env.CHANGESET_DIR}"
+                beforeOptions true
+                beforeAgent true
+                anyOf {
+                    changeset "${env.CHANGESET_DIR}"
+                    triggeredBy 'TimerTrigger'
+                    triggeredBy cause: "UserIdCause"
+                }
             }
             steps {
                 script {
@@ -190,9 +153,11 @@ pipeline {
             deleteDir()
         }
         success {
-            // archive *.deb artifact on custom builds, deploy to repo otherwise
-            if ( isCustomBuild()) {
-                archiveArtifacts artifacts: '**/*.deb', allowEmptyArchive: true
+            script {
+                // archive *.deb artifact on custom builds, deploy to repo otherwise
+                if ( isCustomBuild()) {
+                    archiveArtifacts artifacts: '**/*.deb', allowEmptyArchive: true
+                }
             }
         }
     }
