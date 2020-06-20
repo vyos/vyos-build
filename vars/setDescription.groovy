@@ -14,12 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-def call() {
+def call(text = null) {
     def item = Jenkins.instance.getItemByFullName(env.JOB_NAME)
 
     // build up the main description text
     def description = ""
-    description += "<h2>VyOS individual package build: " + getGitRepoName().replace('.git', '') + "</h2>"
+    if (text) {
+        description += "<h2>VyOS package build: " + text + "</h2>"
+    } else {
+        description += "<h2>VyOS package build: " + getGitRepoName().replace('.git', '') + "</h2>"
+    }
 
     if (isCustomBuild()) {
         description += "<p style='border: 3px dashed red; width: 50%;'>"

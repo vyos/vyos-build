@@ -14,151 +14,37 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 @NonCPS
-/* Using a version specifier library, use 'current' branch */
+
+// Using a version specifier library, use 'current' branch
 @Library('vyos-build@current')
 
-/* Only keep the 10 most recent builds. */
-def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
+def pkgList = [
+    // pkg-libnftnl
+    ['name': 'pkg-libnftnl',
+     'scmCommit': 'debian/1.1.7-1',
+     'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnftnl.git',
+     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
+
+    // pkg-nftables
+    ['name': 'pkg-nftables',
+     'scmCommit': 'debian/0.9.6-1',
+     'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-nftables.git',
+     'buildCmd': '''sudo dpkg -i ../libnftnl*.deb;
+                    sed -i "s/debhelper-compat.*/debhelper-compat (= 12),/" debian/control;
+                    dpkg-buildpackage -uc -us -tc -b'''],
+
+    // pkg-conntrack-tools
+    ['name': 'pkg-conntrack-tools',
+     'scmCommit': 'debian/1%1.4.6-1',
+     'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git',
+     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
+
+    // pkg-conntrack-tools
+    ['name': 'pkg-conntrack-tools',
+     'scmCommit': 'debian/1.0.8-1',
+     'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnetfilter-conntrack.git',
+     'buildCmd': '''sudo dpkg -i ../libnetfilter*.deb;
+                    dpkg-buildpackage -uc -us -tc -b''']
 ]
 
-properties(projectProperties)
-setDescription()
-
-node('Docker') {
-    stage('Define Agent') {
-       script {
-           // create container name on demand
-           def branchName = getGitBranchName()
-           // Adjust PR target branch name so we can re-map it to the proper
-           // Docker image. CHANGE_ID is set only for pull requests, so it is
-           // safe to access the pullRequest global variable
-           if (env.CHANGE_ID) {
-               branchName = "${env.CHANGE_TARGET}".toLowerCase()
-           }
-           if (branchName.equals("master")) {
-               branchName = "current"
-           }
-           env.DOCKER_IMAGE = "vyos/vyos-build:" + branchName
-       }
-    }
-}
-
-pipeline {
-    agent {
-        docker {
-            args "--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006"
-            image "${env.DOCKER_IMAGE}"
-            alwaysPull true
-        }
-    }
-    environment {
-        BASE_DIR = "packages/netfilter/"
-        CHANGESET_DIR = "**/${env.BASE_DIR}*"
-    }
-    options {
-        disableConcurrentBuilds()
-        timeout(time: 60, unit: 'MINUTES')
-        timestamps()
-    }
-    stages {
-        stage('Fetch') {
-            when {
-                beforeOptions true
-                beforeAgent true
-                anyOf {
-                    changeset "${env.CHANGESET_DIR}"
-                    triggeredBy 'TimerTrigger'
-                    triggeredBy cause: "UserIdCause"
-                }
-            }
-            steps {
-                script {
-                    dir('build') {
-                        checkout scm
-                    }
-                }
-            }
-        }
-        stage('Git Clone') {
-            when {
-                changeset "${env.CHANGESET_DIR}"
-            }
-            steps {
-                dir(env.BASE_DIR + 'pkg-libnftnl') {
-                    checkout([$class: 'GitSCM',
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [[$class: 'CleanCheckout']],
-                        branches: [[name: 'debian/1.1.7-1' ]],
-                        userRemoteConfigs: [[url: 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnftnl.git']]])
-                }
-                dir(env.BASE_DIR + 'pkg-nftables') {
-                    checkout([$class: 'GitSCM',
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [[$class: 'CleanCheckout']],
-                        branches: [[name: 'debian/0.9.6-1' ]],
-                        userRemoteConfigs: [[url: 'https://salsa.debian.org/pkg-netfilter-team/pkg-nftables.git']]])
-                }
-                dir(env.BASE_DIR + 'pkg-conntrack-tools') {
-                    checkout([$class: 'GitSCM',
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [[$class: 'CleanCheckout']],
-                        branches: [[name: 'debian/1%1.4.6-1' ]],
-                        userRemoteConfigs: [[url: 'https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git']]])
-                }
-                dir(env.BASE_DIR + 'pkg-libnetfilter-conntrack') {
-                    checkout([$class: 'GitSCM',
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [[$class: 'CleanCheckout']],
-                        branches: [[name: 'debian/1.0.8-1' ]],
-                        userRemoteConfigs: [[url: 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnetfilter-conntrack.git']]])
-                }
-            }
-        }
-        stage('Build') {
-            when {
-                changeset "${env.CHANGESET_DIR}"
-            }
-            steps {
-                script {
-                    dir(env.BASE_DIR + 'pkg-libnftnl') {
-                        sh 'dpkg-buildpackage -uc -us -tc -b'
-                    }
-                    dir(env.BASE_DIR + 'pkg-nftables') {
-                        sh """
-                            # we need the newly generated library for this build
-                            sudo dpkg -i ../libnftnl*.deb
-                            # Debian debhelper-compat level 12 works, too and
-                            # is available in buster
-                            sed -i 's/debhelper-compat.*/debhelper-compat (= 12),/' debian/control
-                            dpkg-buildpackage -uc -us -tc -b
-                        """
-                    }
-                    dir(env.BASE_DIR + 'pkg-libnetfilter-conntrack') {
-                        sh 'dpkg-buildpackage -uc -us -tc -b'
-                    }
-                    dir(env.BASE_DIR + 'pkg-conntrack-tools') {
-                        sh """
-                            # we need the newly generated library for this build
-                            sudo dpkg -i ../libnetfilter*.deb
-                            dpkg-buildpackage -uc -us -tc -b
-                        """
-                    }
-                }
-            }
-        }
-    }
-    post {
-        cleanup {
-            deleteDir()
-        }
-        success {
-            script {
-                // archive *.deb artifact on custom builds, deploy to repo otherwise
-                if ( isCustomBuild()) {
-                    archiveArtifacts artifacts: '**/*.deb', allowEmptyArchive: true
-                }
-            }
-        }
-    }
-}
+buildPackage('Netfilter', pkgList)
