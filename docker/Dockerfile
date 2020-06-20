@@ -371,6 +371,12 @@ RUN if dpkg-architecture -iarm64; then \
       grub-efi-arm; \
     fi
 
+# Packages needed for nftables
+RUN apt-get update && apt-get install -y \
+      asciidoc-base \
+      libjansson-dev \
+      python3-all
+
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
