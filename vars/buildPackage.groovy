@@ -75,6 +75,10 @@ def call(description, pkgList) {
                 steps {
                     script {
                         checkout scm
+
+                        def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
+                        currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
+
                         pkgList.each { pkg ->
                             dir(pkg.name) {
                                 checkout([$class: 'GitSCM',
