@@ -208,11 +208,12 @@ pipeline {
                 if (isCustomBuild())
                     return
 
+                def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
+
                 // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
                 sshagent(['SSH-dev.packages.vyos.net']) {
                     // build up some fancy groovy variables so we do not need to write/copy
                     // every option over and over again!
-                    def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
                     def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
                     def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
                     def SSH_REMOTE = 'khagen@10.217.48.113'
@@ -228,10 +229,17 @@ pipeline {
                 }
                 //upload to S3
                 files = findFiles(glob: 'build/vyos*.iso')
-                withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                    def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
-                    s3Upload( bucket: 's3-us.vyos.io', path: 'rolling/', workingDir:'build', includePathPattern: 'vyos*.iso' )
-                    s3Copy( fromBucket:'s3-us.vyos.io', fromPath:'rolling/' + files[0].name , toBucket:'s3-us.vyos.io', toPath: 'rolling/vyos-rolling-latest.iso')
+                if (files) {
+                    withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                        s3Upload(bucket: 's3-us.vyos.io',
+                                 path: 'rolling/',
+                                 workingDir: 'build',
+                                 includePathPattern: 'vyos*.iso')
+                        s3Copy(fromBucket: 's3-us.vyos.io',
+                               fromPath: 'rolling/' + files[0].name,
+                               toBucket: 's3-us.vyos.io',
+                               toPath: 'rolling/vyos-rolling-latest.iso')
+                    }
                 }
             }
         }
@@ -244,7 +252,6 @@ pipeline {
             // the 'build' directory got elevated permissions during the build
             // cdjust permissions so it can be cleaned up by the regular user
             sh '''
-                #!/bin/bash
                 if [ -d build ]; then
                     sudo chmod -R 777 build/
                 fi
