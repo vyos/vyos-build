@@ -15,8 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-def call(description, pkgList) {
-    /* Only keep the 10 most recent builds. */
+def call(description=null, pkgList=null, buildCmd=null) {
+    // - description: Arbitrary text to print on Jenkins Job Description
+    //   instead of package name
+    // - pkgList: Multiple packages can be build at once in a single Pipeline run
+    // - buildCmd: replace default build command "dpkg-buildpackage -uc -us -tc -b"
+    //   with this custom version
+
+    // Only keep the 10 most recent builds
     def projectProperties = [
         [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
     ]
@@ -76,16 +82,23 @@ def call(description, pkgList) {
                     script {
                         checkout scm
 
+                        // Display Git commit Id used on Jenkinsfile on the
+                        // Jenkins Job "Build History" pane
                         def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                         currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
-                        pkgList.each { pkg ->
-                            dir(env.BASE_DIR + pkg.name) {
-                                checkout([$class: 'GitSCM',
-                                    doGenerateSubmoduleConfigurations: false,
-                                    extensions: [[$class: 'CleanCheckout']],
-                                    branches: [[name: pkg.scmCommit]],
-                                    userRemoteConfigs: [[url: pkg.scmUrl]]])
+                        if (pkgList) {
+                            // Fetch individual package source code, but only if a URL is defined, this will
+                            // let us reuse this script for packages like vyos-1x which ship a Jenkinfile in
+                            // their repositories root folder.
+                            pkgList.each { pkg ->
+                                dir(env.BASE_DIR + pkg.name) {
+                                    checkout([$class: 'GitSCM',
+                                        doGenerateSubmoduleConfigurations: false,
+                                        extensions: [[$class: 'CleanCheckout']],
+                                        branches: [[name: pkg.scmCommit]],
+                                        userRemoteConfigs: [[url: pkg.scmUrl]]])
+                                }
                             }
                         }
                         sh "pwd; ls -al"
@@ -104,11 +117,17 @@ def call(description, pkgList) {
                 }
                 steps {
                     script {
-                        pkgList.each { pkg ->
-                            dir(env.BASE_DIR + pkg.name) {
-                                sh "pwd; ls -al"
-                                sh pkg.buildCmd
+                        if (pkgList) {
+                            pkgList.each { pkg ->
+                                dir(env.BASE_DIR + pkg.name) {
+                                    sh "pwd; ls -al"
+                                    sh pkg.buildCmd
+                                }
                             }
+                        } else if (buildCmd) {
+                            sh buildCmd
+                        } else {
+                            sh "dpkg-buildpackage -uc -us -tc -b"
                         }
                     }
                 }
