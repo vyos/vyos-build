@@ -80,7 +80,7 @@ def call(description, pkgList) {
                         currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
                         pkgList.each { pkg ->
-                            dir(pkg.name) {
+                            dir(env.BASE_DIR + pkg.name) {
                                 checkout([$class: 'GitSCM',
                                     doGenerateSubmoduleConfigurations: false,
                                     extensions: [[$class: 'CleanCheckout']],
@@ -105,7 +105,7 @@ def call(description, pkgList) {
                 steps {
                     script {
                         pkgList.each { pkg ->
-                            dir(pkg.name) {
+                            dir(env.BASE_DIR + pkg.name) {
                                 sh "pwd; ls -al"
                                 sh pkg.buildCmd
                             }
@@ -147,14 +147,13 @@ def call(description, pkgList) {
                             if (env.DEBIAN_ARCH != 'all')
                                 ARCH_OPT = '-A ' + env.DEBIAN_ARCH
 
-                            sh """scp ${SSH_OPTS} *.deb ${SSH_REMOTE}:${SSH_DIR}/"""
-
                             files = findFiles(glob: '*.deb')
                             files.each { FILE ->
                                 def PKG = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
                                 // No need to explicitly check the return code. The pipeline
                                 // will fail if sh returns a noni-zero exit code
                                 sh """
+                                    scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}/
                                     ssh ${SSH_OPTS} ${SSH_REMOTE} "mkdir -p ${SSH_DIR}"
                                     ssh ${SSH_OPTS} ${SSH_REMOTE} "\
                                         uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} remove ${RELEASE} ${PKG}'; \
