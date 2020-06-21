@@ -169,14 +169,20 @@ pipeline {
                 beforeOptions true
                 beforeAgent true
                 anyOf {
-                    // Do not build full ISO build when Docker container changes
-                    not { changeset "**/docker/*" }
+                    // Do not run ISO build when the Docker container definition or
+                    // the build pipeline library changes as this has no direct impact
+                    // on the ISO image.
+                    not {
+                        changeset "**/docker/*"
+                        changeset "**/vars/*"
+                    }
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }
             }
             steps {
                 script {
+                    // Display Git commit Id used with the Jenkinsfile on the Job "Build History" pane
                     def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
@@ -196,8 +202,13 @@ pipeline {
                 beforeOptions true
                 beforeAgent true
                 anyOf {
-                    // Do not build full ISO build when Docker container changes
-                    not { changeset "**/docker/*" }
+                    // Do not run ISO build when the Docker container definition or
+                    // the build pipeline library changes as this has no direct impact
+                    // on the ISO image.
+                    not {
+                        changeset "**/docker/*"
+                        changeset "**/vars/*"
+                    }
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }

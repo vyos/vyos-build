@@ -87,8 +87,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
                             // checkout git repository which hold 'Jenkinsfile'
                             checkout scm
 
-                            // Display Git commit Id used on Jenkinsfile on the
-                            // Jenkins Job "Build History" pane
+                            // Display Git commit Id used with the Jenkinsfile on the Job "Build History" pane
                             def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                             currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
