@@ -80,28 +80,33 @@ def call(description=null, pkgList=null, buildCmd=null) {
                 }
                 steps {
                     script {
-                        checkout scm
+                        // package build must be done in "any" subdir. Without it the Debian build system
+                        // is unable to generate the *.deb files in the sources parent directory, which
+                        // will cause a "Permission denied" error.
+                        dir ('build') {
+                            // checkout git repository which hold 'Jenkinsfile'
+                            checkout scm
 
-                        // Display Git commit Id used on Jenkinsfile on the
-                        // Jenkins Job "Build History" pane
-                        def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
-                        currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
+                            // Display Git commit Id used on Jenkinsfile on the
+                            // Jenkins Job "Build History" pane
+                            def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
+                            currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
-                        if (pkgList) {
-                            // Fetch individual package source code, but only if a URL is defined, this will
-                            // let us reuse this script for packages like vyos-1x which ship a Jenkinfile in
-                            // their repositories root folder.
-                            pkgList.each { pkg ->
-                                dir(env.BASE_DIR + pkg.name) {
-                                    checkout([$class: 'GitSCM',
-                                        doGenerateSubmoduleConfigurations: false,
-                                        extensions: [[$class: 'CleanCheckout']],
-                                        branches: [[name: pkg.scmCommit]],
-                                        userRemoteConfigs: [[url: pkg.scmUrl]]])
+                            if (pkgList) {
+                                // Fetch individual package source code, but only if a URL is defined, this will
+                                // let us reuse this script for packages like vyos-1x which ship a Jenkinfile in
+                                // their repositories root folder.
+                                pkgList.each { pkg ->
+                                    dir(env.BASE_DIR + pkg.name) {
+                                        checkout([$class: 'GitSCM',
+                                            doGenerateSubmoduleConfigurations: false,
+                                            extensions: [[$class: 'CleanCheckout']],
+                                            branches: [[name: pkg.scmCommit]],
+                                            userRemoteConfigs: [[url: pkg.scmUrl]]])
+                                    }
                                 }
                             }
                         }
-                        sh "pwd; ls -al"
                     }
                 }
             }
@@ -117,17 +122,21 @@ def call(description=null, pkgList=null, buildCmd=null) {
                 }
                 steps {
                     script {
-                        if (pkgList) {
-                            pkgList.each { pkg ->
-                                dir(env.BASE_DIR + pkg.name) {
-                                    sh "pwd; ls -al"
-                                    sh pkg.buildCmd
+                        // package build must be done in "any" subdir. Without it the Debian build system
+                        // is unable to generate the *.deb files in the sources parent directory, which
+                        // will cause a "Permission denied" error.
+                        dir ('build') {
+                            if (pkgList) {
+                                pkgList.each { pkg ->
+                                    dir(env.BASE_DIR + pkg.name) {
+                                        sh pkg.buildCmd
+                                    }
                                 }
+                            } else if (buildCmd) {
+                                sh buildCmd
+                            } else {
+                                sh "dpkg-buildpackage -uc -us -tc -b"
                             }
-                        } else if (buildCmd) {
-                            sh buildCmd
-                        } else {
-                            sh "dpkg-buildpackage -uc -us -tc -b"
                         }
                     }
                 }
