@@ -169,13 +169,10 @@ pipeline {
                 beforeOptions true
                 beforeAgent true
                 anyOf {
-                    // Do not run ISO build when the Docker container definition or
-                    // the build pipeline library changes as this has no direct impact
-                    // on the ISO image.
-                    not {
-                        changeset "**/docker/*"
-                        changeset "**/vars/*"
-                    }
+                    // Do not run ISO build when the Docker container definition or the build pipeline
+                    // library changes as this has no direct impact on the ISO image.
+                    not { changeset "**/docker/*" }
+                    not { changeset "**/vars/*" }
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }
@@ -202,13 +199,10 @@ pipeline {
                 beforeOptions true
                 beforeAgent true
                 anyOf {
-                    // Do not run ISO build when the Docker container definition or
-                    // the build pipeline library changes as this has no direct impact
-                    // on the ISO image.
-                    not {
-                        changeset "**/docker/*"
-                        changeset "**/vars/*"
-                    }
+                    // Do not run ISO build when the Docker container definition or the build pipeline
+                    // library changes as this has no direct impact on the ISO image.
+                    not { changeset "**/docker/*" }
+                    not { changeset "**/vars/*" }
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }
