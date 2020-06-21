@@ -180,8 +180,8 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                 // No need to explicitly check the return code. The pipeline
                                 // will fail if sh returns a noni-zero exit code
                                 sh """
+                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
                                     scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}/
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} "mkdir -p ${SSH_DIR}"
                                     ssh ${SSH_OPTS} ${SSH_REMOTE} "\
                                         uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} remove ${RELEASE} ${PKG}'; \
                                         uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'; \
