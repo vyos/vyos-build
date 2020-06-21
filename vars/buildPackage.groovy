@@ -58,7 +58,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
         }
         environment {
             // get relative directory path to Jenkinsfile
-            BASE_DIR = currentBuild.rawBuild.parent.definition.scriptPath.replace('Jenkinsfile', '')
+            BASE_DIR = getJenkinsfilePath()
             CHANGESET_DIR = "**/${env.BASE_DIR}*"
             DEBIAN_ARCH = sh(returnStdout: true, script: 'dpkg --print-architecture').trim()
         }
@@ -91,12 +91,16 @@ def call(description=null, pkgList=null, buildCmd=null) {
                             def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                             currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
+                            sh "pwd; ls -al"
+
                             if (pkgList) {
                                 // Fetch individual package source code, but only if a URL is defined, this will
                                 // let us reuse this script for packages like vyos-1x which ship a Jenkinfile in
                                 // their repositories root folder.
                                 pkgList.each { pkg ->
                                     dir(env.BASE_DIR + pkg.name) {
+                                        sh "pwd; ls -al"
+
                                         checkout([$class: 'GitSCM',
                                             doGenerateSubmoduleConfigurations: false,
                                             extensions: [[$class: 'CleanCheckout']],
@@ -128,6 +132,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
                             if (pkgList) {
                                 pkgList.each { pkg ->
                                     dir(env.BASE_DIR + pkg.name) {
+                                        sh "pwd; ls -al"
                                         sh pkg.buildCmd
                                     }
                                 }
@@ -147,47 +152,59 @@ def call(description=null, pkgList=null, buildCmd=null) {
             }
             success {
                 script {
-                    if (isCustomBuild()) {
-                        // archive *.deb artifact on custom builds, deploy to repo otherwise
-                        archiveArtifacts artifacts: '**/*.deb', allowEmptyArchive: true
-                    } else {
-                        // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
-                        sshagent(['SSH-dev.packages.vyos.net']) {
-                            // build up some fancy groovy variables so we do not need to write/copy
-                            // every option over and over again!
-                            def RELEASE = getGitBranchName()
-                            if (getGitBranchName() == "master") {
-                                RELEASE = 'current'
-                            }
+                    // package build must be done in "any" subdir. Without it the Debian build system
+                    // is unable to generate the *.deb files in the sources parent directory, which
+                    // will cause a "Permission denied" error.
+                    def BIN_DIR = ''
+                    if (env.BASE_DIR) {
+                        BIN_DIR = 'build/' + env.BASE_DIR
+                    }
+                    dir (BIN_DIR) {
+                        if (isCustomBuild()) {
+                            // archive *.deb artifact on custom builds, deploy to repo otherwise
+                            archiveArtifacts artifacts: '**/*.deb', allowEmptyArchive: true
+                        } else {
+                            // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
+                            sshagent(['SSH-dev.packages.vyos.net']) {
+                                // build up some fancy groovy variables so we do not need to write/copy
+                                // every option over and over again!
+                                def RELEASE = getGitBranchName()
+                                if (getGitBranchName() == "master") {
+                                    RELEASE = 'current'
+                                }
 
-                            def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE + '/'
-                            if (getGitBranchName() == "crux")
-                                VYOS_REPO_PATH += 'vyos/'
+                                def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE + '/'
+                                if (getGitBranchName() == "crux")
+                                    VYOS_REPO_PATH += 'vyos/'
 
-                            def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-                            def SSH_REMOTE = 'khagen@10.217.48.113'
+                                def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+                                def SSH_REMOTE = 'khagen@10.217.48.113'
 
-                            echo "Uploading package(s) and updating package(s) in the repository ..."
+                                def SSH_DIR = '~/VyOS/' + RELEASE + '/' + env.DEBIAN_ARCH
+                                def ARCH_OPT = ''
+                                if (env.DEBIAN_ARCH != 'all')
+                                    ARCH_OPT = '-A ' + env.DEBIAN_ARCH
 
-                            def SSH_DIR = '~/VyOS/' + RELEASE + '/' + env.DEBIAN_ARCH
-                            def ARCH_OPT = ''
-                            if (env.DEBIAN_ARCH != 'all')
-                                ARCH_OPT = '-A ' + env.DEBIAN_ARCH
+                                sh "pwd; ls -al"
 
-                            files = findFiles(glob: '*.deb')
-                            files.each { FILE ->
-                                def PKG = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
-                                // No need to explicitly check the return code. The pipeline
-                                // will fail if sh returns a noni-zero exit code
-                                sh """
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                                    scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}/
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} "\
-                                        uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} remove ${RELEASE} ${PKG}'; \
-                                        uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'; \
-                                        uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} includedeb ${RELEASE} ${SSH_DIR}/${FILE}'; \
-                                        "
-                                """
+                                files = findFiles(glob: '**/*.deb')
+                                if (files) {
+                                    echo "Uploading package(s) and updating package(s) in the repository ..."
+                                    files.each { FILE ->
+                                        def PKG = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
+                                        // No need to explicitly check the return code. The pipeline
+                                        // will fail if sh returns a noni-zero exit code
+                                        sh """
+                                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
+                                            scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}/
+                                            ssh ${SSH_OPTS} ${SSH_REMOTE} "\
+                                                uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} remove ${RELEASE} ${PKG}'; \
+                                                uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'; \
+                                                uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} includedeb ${RELEASE} ${SSH_DIR}/${FILE}'; \
+                                                "
+                                        """
+                                    }
+                                }
                             }
                         }
                     }
