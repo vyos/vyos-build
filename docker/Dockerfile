@@ -231,8 +231,15 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
+      quilt \
       fakeroot \
-      whois
+      whois \
+      python3 \
+      python3-setuptools \
+      python3-xmltodict \
+      python3-lxml \
+      python3-nose \
+      python3-coverage
 
 # Packages needed for vyos-xe-guest-utilities
 RUN apt-get update && apt-get install -y \
