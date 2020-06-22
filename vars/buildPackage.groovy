@@ -91,16 +91,12 @@ def call(description=null, pkgList=null, buildCmd=null) {
                             def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                             currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
-                            sh "pwd; ls -al"
-
                             if (pkgList) {
                                 // Fetch individual package source code, but only if a URL is defined, this will
                                 // let us reuse this script for packages like vyos-1x which ship a Jenkinfile in
                                 // their repositories root folder.
                                 pkgList.each { pkg ->
                                     dir(env.BASE_DIR + pkg.name) {
-                                        sh "pwd; ls -al"
-
                                         checkout([$class: 'GitSCM',
                                             doGenerateSubmoduleConfigurations: false,
                                             extensions: [[$class: 'CleanCheckout']],
@@ -132,7 +128,6 @@ def call(description=null, pkgList=null, buildCmd=null) {
                             if (pkgList) {
                                 pkgList.each { pkg ->
                                     dir(env.BASE_DIR + pkg.name) {
-                                        sh "pwd; ls -al"
                                         sh pkg.buildCmd
                                     }
                                 }
@@ -184,8 +179,6 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                 def ARCH_OPT = ''
                                 if (env.DEBIAN_ARCH != 'all')
                                     ARCH_OPT = '-A ' + env.DEBIAN_ARCH
-
-                                sh "pwd; ls -al"
 
                                 files = findFiles(glob: '**/*.deb')
                                 if (files) {
