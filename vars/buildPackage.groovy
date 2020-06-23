@@ -59,7 +59,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
         environment {
             // get relative directory path to Jenkinsfile
             BASE_DIR = getJenkinsfilePath()
-            CHANGESET_DIR = "**/${env.BASE_DIR}*"
+            CHANGESET_DIR = getChangeSetPath()
             DEBIAN_ARCH = sh(returnStdout: true, script: 'dpkg --print-architecture').trim()
         }
         options {
@@ -69,15 +69,6 @@ def call(description=null, pkgList=null, buildCmd=null) {
         }
         stages {
             stage('Fetch Source') {
-                when {
-                    beforeOptions true
-                    beforeAgent true
-                    anyOf {
-                        changeset "${env.CHANGESET_DIR}"
-                        triggeredBy 'TimerTrigger'
-                        triggeredBy cause: "UserIdCause"
-                    }
-                }
                 steps {
                     script {
                         // package build must be done in "any" subdir. Without it the Debian build system
@@ -114,7 +105,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
                     beforeOptions true
                     beforeAgent true
                     anyOf {
-                        changeset "${env.CHANGESET_DIR}"
+                        changeset pattern: "${env.CHANGESET_DIR}"
                         triggeredBy 'TimerTrigger'
                         triggeredBy cause: "UserIdCause"
                     }
@@ -180,7 +171,6 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                 if (env.DEBIAN_ARCH != 'all')
                                     ARCH_OPT = '-A ' + env.DEBIAN_ARCH
 
-                                sh "pwd; ls -al"
                                 files = findFiles(glob: '*.deb')
                                 if (files) {
                                     echo "Uploading package(s) and updating package(s) in the repository ..."
