@@ -16,51 +16,11 @@
 
 @NonCPS
 
-def getGitBranchName() {
-    def branch = scm.branches[0].name
-    return branch.split('/')[-1]
-}
+// Using a version specifier library, use 'current' branch. The underscore (_)
+// is not a typo! You need this underscore if the line immediately after the
+// @Library annotation is not an import statement!
+@Library('vyos-build@current')_
 
-def getGitRepoURL() {
-    return scm.userRemoteConfigs[0].url
-}
-
-def getGitRepoName() {
-    return getGitRepoURL().split('/').last()
-}
-
-// Returns true if this is a custom build launched on any project fork.
-// Returns false if this is build from git@github.com:vyos/<reponame>.
-// <reponame> can be e.g. vyos-1x.git or vyatta-op.git
-def isCustomBuild() {
-    // GitHub organisation base URL
-    def gitURI = 'git@github.com:vyos/' + getGitRepoName()
-    def httpURI = 'https://github.com/vyos/' + getGitRepoName()
-
-    return ! ((getGitRepoURL() == gitURI) || (getGitRepoURL() == httpURI))
-}
-
-def setDescription() {
-    def item = Jenkins.instance.getItemByFullName(env.JOB_NAME)
-
-    // build up the main description text
-    def description = ""
-    description += "<h2>Build VyOS ISO image</h2>"
-
-    if (isCustomBuild()) {
-        description += "<p style='border: 3px dashed red; width: 50%;'>"
-        description += "<b>Build not started from official Git repository!</b><br>"
-        description += "<br>"
-        description += "Repository: <font face = 'courier'>" + getGitRepoURL() + "</font><br>"
-        description += "Branch: <font face = 'courier'>" + getGitBranchName() + "</font><br>"
-        description += "</p>"
-    } else {
-        description += "Sources taken from Git branch: <font face = 'courier'>" + getGitBranchName() + "</font><br>"
-    }
-
-    item.setDescription(description)
-    item.save()
-}
 
 // Only keep the 10 most recent builds
 def projectProperties = [
