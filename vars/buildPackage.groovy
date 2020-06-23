@@ -64,6 +64,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
         }
         options {
             disableConcurrentBuilds()
+            skipDefaultCheckout()
             timeout(time: 60, unit: 'MINUTES')
             timestamps()
         }
@@ -180,7 +181,8 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                 if (env.DEBIAN_ARCH != 'all')
                                     ARCH_OPT = '-A ' + env.DEBIAN_ARCH
 
-                                files = findFiles(glob: '**/*.deb')
+                                sh "pwd; ls -al"
+                                files = findFiles(glob: '*.deb')
                                 if (files) {
                                     echo "Uploading package(s) and updating package(s) in the repository ..."
                                     files.each { FILE ->
