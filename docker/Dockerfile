@@ -285,7 +285,8 @@ RUN apt-get update && apt-get install -y \
       po-debconf \
       systemd \
       tzdata \
-      python-setuptools
+      python-setuptools \
+      python3-stdeb
 
 # Packages needed for vyos-opennhrp
 RUN apt-get update && apt-get install -y \
