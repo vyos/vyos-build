@@ -107,7 +107,6 @@ node('Docker') {
 
 pipeline {
     options {
-        skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 120, unit: 'MINUTES')
         parallelsAlwaysFailFast()
@@ -133,6 +132,7 @@ pipeline {
                     // library changes as this has no direct impact on the ISO image.
                     not { changeset "**/docker/*" }
                     not { changeset "**/vars/*" }
+                    not { changeset "**/packages/*" }
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }
@@ -163,6 +163,7 @@ pipeline {
                     // library changes as this has no direct impact on the ISO image.
                     not { changeset "**/docker/*" }
                     not { changeset "**/vars/*" }
+                    not { changeset "**/packages/*" }
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }
