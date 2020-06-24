@@ -1,0 +1,70 @@
+VyOS requires a pre build binary of the WireGuard package over a DKMS
+build. Change the build rules to produce the binary over the source
+package for DKMS.
+
+---
+ debian/control | 8 ++------
+ debian/rules   | 9 ++++-----
+ 2 files changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/debian/control b/debian/control
+index 7b2af41..ae02be3 100644
+--- a/debian/control
++++ b/debian/control
+@@ -6,14 +6,13 @@ Uploaders:
+  Unit 193 <unit193@debian.org>,
+ Build-Depends:
+  debhelper-compat (= 12),
+- dkms,
+ Standards-Version: 4.5.0
+ Homepage: https://www.wireguard.com
+ Vcs-Git: https://salsa.debian.org/debian/wireguard-linux-compat.git -b debian/buster-backports
+ Vcs-Browser: https://salsa.debian.org/debian/wireguard-linux-compat
+ Rules-Requires-Root: no
+ 
+-Package: wireguard-dkms
++Package: wireguard-modules
+ Architecture: all
+ Section: kernel
+ Depends:
+@@ -23,7 +22,7 @@ Depends:
+ Recommends:
+  wireguard (>= 0.0.20191219),
+  wireguard-tools (>= 0.0.20191219),
+-Description: fast, modern, secure kernel VPN tunnel (DKMS version)
++Description: fast, modern, secure kernel VPN tunnel (Kernel Module)
+  WireGuard is a novel VPN that runs inside the Linux Kernel and uses
+  state-of-the-art cryptography (the "Noise" protocol). It aims to be
+  faster, simpler, leaner, and more useful than IPSec, while avoiding
+@@ -31,6 +30,3 @@ Description: fast, modern, secure kernel VPN tunnel (DKMS version)
+  than OpenVPN. WireGuard is designed as a general purpose VPN for
+  running on embedded interfaces and super computers alike, fit for
+  many different circumstances. It runs over UDP.
+- .
+- This package uses DKMS to automatically build the wireguard kernel
+- module.
+diff --git a/debian/rules b/debian/rules
+index 4fbedc6..15ede39 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -6,12 +6,11 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+ export DEB_VERSION_UPSTREAM
+ 
+ WIREGUARD_ARGS = V=1
++KERNEL_VERSION := $(shell cat "${KERNELDIR}"/include/config/kernel.release)
+ 
+ %:
+-	dh $@ --with dkms
++	dh $@
+ 
+ override_dh_auto_install-indep:
+-	$(MAKE) -C src DESTDIR=../debian/wireguard-dkms DKMSDIR=/usr/src/wireguard-$(DEB_VERSION_UPSTREAM) dkms-install
+-
+-override_dh_dkms:
+-	dh_dkms -p wireguard-dkms -- src/dkms.conf
++	$(MAKE) -C src module
++	echo "src/wireguard.ko /lib/modules/$(KERNEL_VERSION)/extra" > debian/wireguard-modules.install
+\ No newline at end of file
+-- 
+2.20.1
+

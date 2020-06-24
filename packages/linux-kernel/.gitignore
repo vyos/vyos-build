@@ -1,0 +1,20 @@
+/linux
+/wireguard
+/wireguard-linux-compat
+/accel-ppp
+/intel-qat
+/linux-firmware
+/qat*
+*.deb
+*.changes
+*.buildinfo
+
+# Intel Driver source
+*.tar.gz
+i40e-*/
+igb-*/
+ixgbe-*/
+ixgbevf-*/
+vyos-intel-*/
+vyos-linux-firmware*/
+kernel-vars
