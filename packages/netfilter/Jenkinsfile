@@ -35,18 +35,17 @@ def pkgList = [
                     sed -i "s/debhelper-compat.*/debhelper-compat (= 12),/" debian/control;
                     dpkg-buildpackage -uc -us -tc -b'''],
 
-    // conntrack-tools
-    ['name': 'pkg-conntrack-tools',
-     'scmCommit': 'debian/1%1.4.6-1',
-     'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git',
-     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
-
     // libnetfilter-conntrack
     ['name': 'pkg-libnetfilter-conntrack',
      'scmCommit': 'debian/1.0.8-1',
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnetfilter-conntrack.git',
-     'buildCmd': '''sudo dpkg -i ../libnetfilter*.deb;
-                    dpkg-buildpackage -uc -us -tc -b''']
+     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
+
+    // conntrack-tools
+    ['name': 'pkg-conntrack-tools',
+     'scmCommit': 'debian/1%1.4.6-1',
+     'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git',
+     'buildCmd': '''sudo dpkg -i ../libnetfilter*.deb && dpkg-buildpackage -uc -us -tc -b'''],
 ]
 
 // Start package build using library function from https://github.com/c-po/vyos-build
