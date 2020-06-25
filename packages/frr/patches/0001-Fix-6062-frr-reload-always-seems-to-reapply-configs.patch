@@ -1,0 +1,31 @@
+From d3851bdceff09301e110f839af7878e1fb4607c8 Mon Sep 17 00:00:00 2001
+From: Runar Borge <runar@borge.nu>
+Date: Thu, 25 Jun 2020 20:14:47 +0200
+Subject: [PATCH] Fix #6062 frr-reload always seems to reapply configs
+
+https://github.com/FRRouting/frr/issues/6062
+dteach-rv commented on 30 Apr
+It looks like there was a concerted effort to handle the vtysh -> stderr output
+change in frr-reload.py. But the subprocess call in def load-from_show_running
+was missed, which is why frr-reload.py is trying to re-add every command.
+It's comparing the file config to an empty running config.
+---
+ tools/frr-reload.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/frr-reload.py b/tools/frr-reload.py
+index 3e97635df..f4eb8400e 100755
+--- a/tools/frr-reload.py
++++ b/tools/frr-reload.py
+@@ -155,7 +155,7 @@ class Config(object):
+         try:
+             config_text = subprocess.check_output(
+                 bindir + "/vtysh --config_dir " + confdir + " -c 'show run " + daemon + "' | /usr/bin/tail -n +4 | " + bindir + "/vtysh --config_dir " + confdir + " -m -f -",
+-                shell=True)
++                shell=True, stderr=subprocess.STDOUT)
+         except subprocess.CalledProcessError as e:
+             ve = VtyshMarkException(e)
+             ve.output = e.output
+-- 
+2.25.1
+
