@@ -21,13 +21,13 @@
 @Library('vyos-build@current')_
 
 def pkgList = [
-    // pkg-libnftnl
+    // libnftnl
     ['name': 'pkg-libnftnl',
      'scmCommit': 'debian/1.1.7-1',
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnftnl.git',
      'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
 
-    // pkg-nftables
+    // nftables
     ['name': 'pkg-nftables',
      'scmCommit': 'debian/0.9.6-1',
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-nftables.git',
@@ -35,14 +35,14 @@ def pkgList = [
                     sed -i "s/debhelper-compat.*/debhelper-compat (= 12),/" debian/control;
                     dpkg-buildpackage -uc -us -tc -b'''],
 
-    // pkg-conntrack-tools
+    // conntrack-tools
     ['name': 'pkg-conntrack-tools',
      'scmCommit': 'debian/1%1.4.6-1',
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-conntrack-tools.git',
      'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
 
-    // pkg-conntrack-tools
-    ['name': 'pkg-conntrack-tools',
+    // libnetfilter-conntrack
+    ['name': 'pkg-libnetfilter-conntrack',
      'scmCommit': 'debian/1.0.8-1',
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnetfilter-conntrack.git',
      'buildCmd': '''sudo dpkg -i ../libnetfilter*.deb;
