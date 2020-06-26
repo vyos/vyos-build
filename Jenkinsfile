@@ -151,22 +151,16 @@ pipeline {
                             --version 1.3-rolling-\$(date +%Y%m%d%H%M)
                         sudo make iso
                     """
+
+                    if (fileExists('build/live-image-amd64.hybrid.iso') == false) {
+                        error('ISO build error')
+                    }
                 }
             }
         }
         stage('Test ISO') {
             when {
-                beforeOptions true
-                beforeAgent true
-                anyOf {
-                    // Do not run ISO build when the Docker container definition or the build pipeline
-                    // library changes as this has no direct impact on the ISO image.
-                    not { changeset "**/docker/*" }
-                    not { changeset "**/vars/*" }
-                    not { changeset "**/packages/*" }
-                    triggeredBy 'TimerTrigger'
-                    triggeredBy cause: "UserIdCause"
-                }
+                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
             }
             steps {
                 sh "sudo make test"
