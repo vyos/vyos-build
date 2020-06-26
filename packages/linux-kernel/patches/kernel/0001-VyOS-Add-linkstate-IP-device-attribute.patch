@@ -1,0 +1,164 @@
+From 81d38c4a32e059ad7835f7dc254e7627642afbe9 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 29 Apr 2013 18:50:15 -0700
+Subject: [PATCH] VyOS: Add linkstate IP device attribute
+
+Backport of earlier Vyatta patch.
+
+(cherry picked from commit 7c5a851086686be14ae937c80d6cee34814dbefc)
+---
+ Documentation/networking/ip-sysctl.txt | 13 +++++++++++++
+ include/linux/inetdevice.h             |  1 +
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ip.h                |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv4/devinet.c                     |  2 ++
+ net/ipv6/addrconf.c                    |  9 +++++++++
+ net/ipv6/route.c                       | 12 ++++++++++++
+ 8 files changed, 40 insertions(+)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 960de8fe3f40..8e737f77f4e6 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1168,6 +1168,19 @@ rp_filter - INTEGER
+ 	Default value is 0. Note that some distributions enable it
+ 	in startup scripts.
+ 
++link_filter - INTEGER
++        0 - Allow packets to be received for the address on this interface
++	even if interface is disabled or no carrier.
++
++	1 - Ignore packets received if interface associated with the incoming
++	address is down.
++
++	2 - Ignore packets received if interface associated with the incoming
++	address is down or has no carrier.
++
++	Default value is 0. Note that some distributions enable it
++	in startup scripts.
++
+ arp_filter - BOOLEAN
+ 	1 - Allows you to have multiple network interfaces on the same
+ 	subnet, and have the ARPs for each interface be answered
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index c759d1cbcedd..d3e88498910b 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -131,6 +131,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ #define IN_DEV_ARP_ANNOUNCE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
+ #define IN_DEV_ARP_IGNORE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
+ #define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
++#define IN_DEV_LINKFILTER(in_dev)	IN_DEV_MAXCONF((in_dev), LINKFILTER)
+ 
+ struct in_ifaddr {
+ 	struct hlist_node	hash;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 8415bf1a9776..80a0ada19c9a 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -76,6 +76,7 @@ struct ipv6_devconf {
+ 	__s32           ndisc_tclass;
+ 
+ 	struct ctl_table_header *sysctl_header;
++	__s32		link_filter;	/* VyOS */
+ };
+ 
+ struct ipv6_params {
+diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+index e42d13b55cf3..baf8e77c201b 100644
+--- a/include/uapi/linux/ip.h
++++ b/include/uapi/linux/ip.h
+@@ -169,6 +169,7 @@ enum
+ 	IPV4_DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+ 	IPV4_DEVCONF_DROP_GRATUITOUS_ARP,
+ 	IPV4_DEVCONF_BC_FORWARDING,
++	IPV4_DEVCONF_LINKFILTER,	/* VyOS only */
+ 	__IPV4_DEVCONF_MAX
+ };
+ 
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 9c0f4a92bcff..619edd130cfd 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -187,6 +187,7 @@ enum {
+ 	DEVCONF_DISABLE_POLICY,
+ 	DEVCONF_ACCEPT_RA_RT_INFO_MIN_PLEN,
+ 	DEVCONF_NDISC_TCLASS,
++	DEVCONF_LINK_FILTER,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index ea4bd8a52422..6c6aad3c302f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2310,6 +2310,8 @@ static struct devinet_sysctl_table {
+ 					      "route_localnet"),
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
+ 					      "drop_unicast_in_l2_multicast"),
++		/* VyOS */
++		DEVINET_SYSCTL_RW_ENTRY(LINKFILTER, "link_filter"),
+ 	},
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 4e81ff2f4588..5ae30cf09028 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5200,6 +5200,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_ADDR_GEN_MODE] = cnf->addr_gen_mode;
+ 	array[DEVCONF_DISABLE_POLICY] = cnf->disable_policy;
+ 	array[DEVCONF_NDISC_TCLASS] = cnf->ndisc_tclass;
++	array[DEVCONF_LINK_FILTER] = cnf->link_filter;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -6514,6 +6515,14 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.mode           = 0644,
+ 		.proc_handler   = addrconf_sysctl_disable_policy,
+ 	},
++	/* VyOS */
++	{
++		.procname	= "link_filter",
++		.data		= &ipv6_devconf.link_filter,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{
+ 		.procname	= "ndisc_tclass",
+ 		.data		= &ipv6_devconf.ndisc_tclass,
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index abcb5ae77319..90296536873f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -590,6 +590,15 @@ static inline int rt6_check_dev(struct fib6_info *rt, int oif)
+ 	return 0;
+ }
+ 
++static inline int rt6_link_filter(struct fib6_info *rt)
++{
++	const struct net_device *dev = rt->fib6_nh.nh_dev;
++	int linkf = __in6_dev_get(dev)->cnf.link_filter;
++
++	return (linkf && !netif_running(dev))
++		|| (linkf > 1 && !netif_carrier_ok(dev));
++}
++
+ static inline enum rt6_nud_state rt6_check_neigh(struct fib6_info *rt)
+ {
+ 	enum rt6_nud_state ret = RT6_NUD_FAIL_HARD;
+@@ -629,6 +638,9 @@ static int rt6_score_route(struct fib6_info *rt, int oif, int strict)
+ 	m = rt6_check_dev(rt, oif);
+ 	if (!m && (strict & RT6_LOOKUP_F_IFACE))
+ 		return RT6_NUD_FAIL_HARD;
++	if (rt6_link_filter(rt))
++		return -1;
++
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->fib6_flags)) << 2;
+ #endif
+-- 
+2.11.0
+
