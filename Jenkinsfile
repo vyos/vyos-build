@@ -121,6 +121,10 @@ pipeline {
                             --version 1.2-crux-\$(date +%Y%m%d%H%M)
                         sudo make iso
                     """
+
+                    if (fileExists('build/live-image-amd64.hybrid.iso') == false) {
+                        error('ISO build error')
+                    }
                 }
             }
         }
