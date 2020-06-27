@@ -291,7 +291,7 @@ try:
     #################################################
     log.info("Executing test-suite ")
 
-    c.sendline('sudo /usr/bin/vyos-smoketest')
+    c.sendline('/usr/bin/vyos-smoketest')
     i = c.expect(['\n +Invalid command:',
                       '\n +Set failed',
                       'No such file or directory',
