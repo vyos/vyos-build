@@ -35,10 +35,8 @@ def call(description=null, pkgList=null, buildCmd=null) {
            script {
                // create container name on demand
                def branchName = getGitBranchName()
-               // Adjust PR target branch name so we can re-map it to the proper
-               // Docker image. CHANGE_ID is set only for pull requests, so it is
-               // safe to access the pullRequest global variable
-               if (env.CHANGE_ID) {
+               // Adjust PR target branch name so we can re-map it to the proper Docker image. 
+               if (isPullRequest()) {
                    branchName = "${env.CHANGE_TARGET}".toLowerCase()
                }
                if (branchName.equals("master")) {
@@ -106,6 +104,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
                     beforeAgent true
                     anyOf {
                         changeset pattern: "${env.CHANGESET_DIR}"
+                        expression { isPullRequest() }
                         triggeredBy 'TimerTrigger'
                         triggeredBy cause: "UserIdCause"
                     }
