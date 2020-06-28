@@ -1,0 +1,6 @@
+frr/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
