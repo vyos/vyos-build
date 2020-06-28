@@ -17,19 +17,15 @@ cd ${FRR_SRC}
 
 PATCH_DIR=${CWD}/patches
 
+echo "I: Apply FRRouting patches not in main repository:"
 for patch in $(ls ${PATCH_DIR})
 do
-    echo "I: Apply FRR patch: ${PATCH_DIR}/${patch}"
-    patch -p1 < ${PATCH_DIR}/${patch}
-    git add $(lsdiff ${PATCH_DIR}/${patch} | sed -e 's#^[ab]/##')
     if [ -z "$(git config --list | grep -e user.name -e user.email)" ]; then
-        # if git user.name and user.email is not set, -c sets temorary user.name and 
-        # user.email variables as these is not set in the build container by default. 
-        git -c user.name="VyOS CI" -c user.email="ci@vyos.io" commit -m "Applied patch: ${patch}" --author "VyOS CI <ci@vyos.io>"
-    else
-        git commit -m "Applied patch: ${patch}" --author "VyOS CI <ci@vyos.io>"
+        # if git user.name and user.email is not set, -c sets temorary user.name and
+        # user.email variables as these is not set in the build container by default.
+        OPTS="-c user.name=VyOS-CI -c user.email=maintainers@vyos.io"
     fi
-
+    git $OPTS am ${PATCH_DIR}/${patch}
 done
 
 # Prepare FRR source for building
