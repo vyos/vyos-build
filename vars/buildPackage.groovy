@@ -61,6 +61,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
             DEBIAN_ARCH = sh(returnStdout: true, script: 'dpkg --print-architecture').trim()
         }
         options {
+            disableConcurrentBuilds()
             skipDefaultCheckout()
             timeout(time: 60, unit: 'MINUTES')
             timestamps()
