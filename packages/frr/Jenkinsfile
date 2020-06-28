@@ -21,11 +21,10 @@
 @Library('vyos-build@current')_
 
 def pkgList = [
-    // pkg-libnftnl
     ['name': 'frr',
      'scmCommit': 'frr-7.3.1',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
-     'buildCmd': '''./tools/tarsource.sh -V; dpkg-buildpackage -us -uc -Ppkg.frr.rtrlib'''],
+     'buildCmd': '''cd ..; ./build-frr.sh'''],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
