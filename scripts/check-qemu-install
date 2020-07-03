@@ -295,7 +295,7 @@ try:
     i = c.expect(['\n +Invalid command:',
                       '\n +Set failed',
                       'No such file or directory',
-                      r'\n\S+@\S+[$#]'], timeout=1800)
+                      r'\n\S+@\S+[$#]'], timeout=3600)
 
     if i==0:
         raise Exception('Invalid command detected')
