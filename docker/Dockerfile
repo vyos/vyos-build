@@ -17,22 +17,26 @@
 # volume mapped in order to easy export images
 
 # This Dockerfile is installable on both x86, x86-64, armhf and arm64 systems
-# To install using  native cpu instructionset use the default docker `FROM` statement
-# (Use this to build on an x86/x86-64 pc/server and on an ARM system, eg. RaspberryPi)
-FROM debian:buster
+ARG ARCH=
+FROM ${ARCH}debian:buster
 
 # It is also possible to emulate an arm system inside docker,
 # execution of this emulated system needs to be executed on an x86 or x86-64 host.
 
-# To install an qemu emulated armhf or arm64 cpu comment out the default `FROM` statement
-# and use one of the following instead.
-# ARMHF:
-#FROM multiarch/debian-debootstrap:armhf-buster-slim
-# ARM64:
-#FROM multiarch/debian-debootstrap:arm64-buster-slim
+# To install using a non-native cpu instructionset use the `--build-arg ARCH=<ARCH>/`
+# Supported architectures:
+#     arm32v6/
+#     arm32v7/
+#     arm64v8/
+# Example bo byukd natively:
+#     docker build -t vyos-build:current .
+# Example to build on armhf:
+#     docker build -t vyos-build:current-armhf --build-arg ARCH=arm32v7/ .
+# Example to build on arm64:
+#     docker build -t vyos-build:current-arm64 --build-arg ARCH=arm64v8/ .
 
-# Prior of installing an emulated qemu build you need to install qemu, qemu-user-static
-# and register qemu inside docker using:
+# On some versions of docker the emulation framework is not installed by default and
+# you need to install qemu, qemu-user-static and register qemu inside docker manually using:
 # `docker run --rm --privileged multiarch/qemu-user-static:register --reset`
 
 
