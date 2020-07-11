@@ -1,7 +1,7 @@
-linux
-wireguard
-accel-ppp
-intel-qat
+/linux/
+/wireguard/
+/accel-ppp/
+/intel-qat/
 *.deb
 *.changes
 *.buildinfo
@@ -13,5 +13,4 @@ igb-*/
 ixgbe-*/
 ixgbevf-*/
 vyos-intel-*/
-
-kernel-vars
+/kernel-vars
