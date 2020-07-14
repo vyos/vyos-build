@@ -49,11 +49,7 @@ node('Docker') {
                 script {
                     dir('docker') {
                         sh """
-                            mkdir -p x86-64
-                            cp Dockerfile x86-64/Dockerfile
-                            cp entrypoint.sh x86-64/entrypoint.sh
-
-                            docker build -t ${env.DOCKER_IMAGE} x86-64
+                            docker build -t ${env.DOCKER_IMAGE} .
                         """
                         if ( ! isCustomBuild()) {
                             withDockerRegistry([credentialsId: "DockerHub"]) {
@@ -81,26 +77,23 @@ node('Docker') {
 //                  }
 //              }
 //          },
-//          'arm64': {
-//              script {
-//                  dir('docker') {
-//                      sh """
-//                          cp Dockerfile arm64/Dockerfile
-//                          cp entrypoint.sh arm64/entrypoint.sh
-//                          sed -i 's#^FROM.*#FROM multiarch/debian-debootstrap:arm64-buster-slim#' arm64/Dockerfile
-//                          docker build -t ${env.DOCKER_IMAGE_ARM64} arm64
-//
-//                      """
-//
-//                      if ( ! isCustomBuild()) {
-//                          withDockerRegistry([credentialsId: "DockerHub"]) {
-//                              sh "docker push ${env.DOCKER_IMAGE_ARM64}"
-//
-//                          }
-//                      }
-//                  }
-//              }
-//          }
+          'arm64': {
+              script {
+                  dir('docker') {
+                      sh """
+                          docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
+
+                      """
+
+                      if ( ! isCustomBuild()) {
+                          withDockerRegistry([credentialsId: "DockerHub"]) {
+                              sh "docker push ${env.DOCKER_IMAGE_ARM64}"
+
+                          }
+                      }
+                  }
+              }
+          }
         )
     }
 }
