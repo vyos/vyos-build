@@ -24,3 +24,4 @@ ndisc6
 systemd-sysv
 systemd-bootchart
 ncurses-term
+libndp-tools
