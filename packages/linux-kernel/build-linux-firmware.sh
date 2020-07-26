@@ -30,15 +30,8 @@ fi
 
 result=()
 # Retrieve firmware blobs from source files
-for FILE in $(${CWD}/list-required-firmware.py -k ${LINUX_SRC} -c ${CWD}/x86_64_vyos_defconfig -s drivers/net -s drivers/usb); do
-    cd ${CWD}/${LINUX_SRC}
-    echo "I: determine required firmware blobs for: ${FILE}"
-    make LOCALVERSION=${KERNEL_SUFFIX} ${FILE/.c/.i} > /dev/null 2>&1
-
-    if [ "$?" == "0" ]; then
-        result+=( $(grep UNIQUE_ID_firmware ${FILE/.c/.i} | cut -d" " -f12- | xargs printf "%s" | sed -e "s/;/ /g") )
-    fi
-done
+cd ${LINUX_SRC}
+FW_FILES=$(../list-required-firmware.py -c ../x86_64_vyos_defconfig -s drivers/net 2>/dev/null)
 
 # Debian package will use the descriptive Git commit as version
 GIT_COMMIT=$(cd ${CWD}/${LINUX_FIRMWARE}; git describe --always)
@@ -53,11 +46,10 @@ mkdir -p ${VYOS_FIRMWARE_DIR}
 # Copy firmware file from linux firmware repository into
 # assembly folder for the vyos-firmware package
 SED_REPLACE="s@${CWD}/${LINUX_FIRMWARE}/@@"
-for FW in ${result[@]}; do
-    FW_FILE=$(basename $FW)
-
+for FW_PATH in ${FW_FILES}; do
+    FW_FILE=$(basename $FW_PATH)
     res=()
-    for tmp in $(find ${CWD}/linux-firmware -type f -name ${FW_FILE} | sed -e ${SED_REPLACE} )
+    for tmp in $(find ${CWD}/linux-firmware -type f -name ${FW_FILE} | sed -e ${SED_REPLACE})
     do
         res+=( "$tmp" )
     done
