@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 4.19.124 Kernel Configuration
+# Linux/x86 4.19.136 Kernel Configuration
 #
 
 #
@@ -2246,8 +2246,8 @@ CONFIG_IXGB=m
 # CONFIG_IXGBE is not set
 # CONFIG_IXGBEVF is not set
 # CONFIG_I40E is not set
-# CONFIG_I40EVF is not set
-# CONFIG_ICE is not set
+CONFIG_I40EVF=m
+CONFIG_ICE=m
 # CONFIG_FM10K is not set
 CONFIG_JME=m
 CONFIG_NET_VENDOR_MARVELL=y

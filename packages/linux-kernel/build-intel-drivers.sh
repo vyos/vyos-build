@@ -10,12 +10,11 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "http://dev.packages.vyos.net/source-mirror/ixgbe-5.7.1.tar.gz"
-    "http://dev.packages.vyos.net/source-mirror/igb-5.3.5.61.tar.gz"
-    "http://dev.packages.vyos.net/source-mirror/i40e-2.11.29.tar.gz"
-    "http://dev.packages.vyos.net/source-mirror/ixgbevf-4.7.1.tar.gz"
-    "http://dev.packages.vyos.net/source-mirror/i40evf-3.6.15.tar.gz"
-    "http://dev.packages.vyos.net/source-mirror/iavf-3.9.5.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/ixgbe-5.8.1.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/ixgbevf-4.8.1.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/igb-5.3.6.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/i40e-2.12.6.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/iavf-4.0.1.tar.gz"
 )
 
 for url in "${intel[@]}"
