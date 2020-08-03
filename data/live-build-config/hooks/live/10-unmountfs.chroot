@@ -1,5 +1,5 @@
 #!/bin/sh
-exit 0
+
 # hack umountfs script to cleanly unmount live systems
 
 sed \
