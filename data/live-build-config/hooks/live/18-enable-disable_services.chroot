@@ -20,6 +20,8 @@ systemctl disable tftpd-hpa.service
 systemctl disable strongswan.service
 systemctl disable frr.service
 systemctl disable salt-minion.service
+systemctl disable certbot.service
+systemctl disable certbot.timer
 systemctl disable nginx.service
 systemctl disable pacemaker.service
 systemctl disable corosync.service
