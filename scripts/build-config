@@ -64,7 +64,7 @@ except Exception as e:
 # Options dict format:
 # '$option_name_without_leading_dashes': { ('$help_string', $default_value_generator_thunk, $value_checker_thunk) }
 options = {
-   'architecture': ('Image target architecture (amd64 or i386 or armhf)', lambda: build_defaults['architecture'], lambda x: x in ['amd64', 'i386', 'armhf']),
+   'architecture': ('Image target architecture (amd64 or i386 or armhf or arm64)', lambda: build_defaults['architecture'], lambda x: x in ['amd64', 'i386', 'armhf', 'arm64']),
    'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None),
    'debian-mirror': ('Debian repository mirror for ISO build', lambda: build_defaults['debian_mirror'], None),
    'debian-security-mirror': ('Debian security updates mirror', lambda: build_defaults['debian_security_mirror'], None),
