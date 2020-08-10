@@ -5,7 +5,7 @@
   "debian_distribution": "buster",
   "vyos_mirror": "http://dev.packages.vyos.net/repositories/current",
   "vyos_branch": "current",
-  "kernel_version": "4.19.136",
+  "kernel_version": "4.19.138",
   "kernel_flavor": "amd64-vyos",
   "release_train": "equuleus",
   "additional_repositories": [
