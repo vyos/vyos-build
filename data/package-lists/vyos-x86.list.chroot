@@ -8,7 +8,6 @@ vyos-xe-guest-utilities
 vyos-1x-vmware
 vyos-linux-firmware
 vyos-intel-i40e
-vyos-intel-i40evf
 vyos-intel-igb
 vyos-intel-ixgbe
 vyos-intel-ixgbevf
