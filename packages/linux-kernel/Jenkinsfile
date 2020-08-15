@@ -180,7 +180,10 @@ pipeline {
                             // In Debian wireguard repo commit edb7124c866ea0e506278c311fc82dfde1f957be
                             // they decided to split source code of the kernel part and tools
                             dir('wireguard') {
-                                sh "dpkg-buildpackage -b -us -uc -tc"
+                                sh """
+                                    echo 9 > debian/compat
+                                    dpkg-buildpackage -b -us -uc -tc -d
+                                """
                             }
                             sh "./build-wireguard-modules.sh"
                         }
