@@ -19,11 +19,12 @@ for bug #303, and will allow that commit to be reverted.
 Bug #425 http://bugzilla.vyos.net/show_bug.cgi?id=425
 
 (cherry picked from commit a93f1128bc83b5a6628da242e71c18ef05e81ea2)
+
 ---
- fs/notify/inotify/Kconfig        |   9 ++++
- fs/notify/inotify/inotify_user.c | 112 ++++++++++++++++++++++++++++++++++++++-
- fs/overlayfs/super.c             |  24 ++++++++-
- include/linux/inotify.h          |  28 ++++++++++
+ fs/notify/inotify/Kconfig        |   9 +++
+ fs/notify/inotify/inotify_user.c | 112 ++++++++++++++++++++++++++++++-
+ fs/overlayfs/super.c             |  24 ++++++-
+ include/linux/inotify.h          |  28 ++++++++
  4 files changed, 170 insertions(+), 3 deletions(-)
 
 diff --git a/fs/notify/inotify/Kconfig b/fs/notify/inotify/Kconfig
@@ -44,7 +45,7 @@ index b981fc0c8379..b0b208bd584b 100644
 +
 +	  If unsure, say N.
 diff --git a/fs/notify/inotify/inotify_user.c b/fs/notify/inotify/inotify_user.c
-index ac6978d3208c..6780209a34f7 100644
+index 97a51690338e..0595de27e1b5 100644
 --- a/fs/notify/inotify/inotify_user.c
 +++ b/fs/notify/inotify/inotify_user.c
 @@ -24,6 +24,7 @@
@@ -188,7 +189,7 @@ index ac6978d3208c..6780209a34f7 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 30adc9d408a0..722a7fdf9540 100644
+index 127df4a85c8a..d6d41a328f9d 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -18,6 +18,7 @@
@@ -199,7 +200,7 @@ index 30adc9d408a0..722a7fdf9540 100644
  #include "overlayfs.h"
  
  MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
-@@ -1533,6 +1534,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -1703,6 +1704,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -218,7 +219,7 @@ index 30adc9d408a0..722a7fdf9540 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1547,13 +1560,21 @@ static int __init ovl_init(void)
+@@ -1717,13 +1730,21 @@ static int __init ovl_init(void)
  
  	err = register_filesystem(&ovl_fs_type);
  	if (err)
@@ -241,7 +242,7 @@ index 30adc9d408a0..722a7fdf9540 100644
  	unregister_filesystem(&ovl_fs_type);
  
  	/*
-@@ -1562,7 +1583,6 @@ static void __exit ovl_exit(void)
+@@ -1732,7 +1753,6 @@ static void __exit ovl_exit(void)
  	 */
  	rcu_barrier();
  	kmem_cache_destroy(ovl_inode_cachep);
@@ -294,5 +295,5 @@ index 6a24905f6e1e..248b1441ba83 100644
 +
  #endif	/* _LINUX_INOTIFY_H */
 -- 
-2.11.0
+2.20.1
 

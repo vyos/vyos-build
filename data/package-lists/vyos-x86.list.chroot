@@ -4,3 +4,8 @@ qemu-guest-agent
 hyperv-daemons
 vyos-xe-guest-utilities
 vyos-netplug
+vyos-intel-i40e
+vyos-intel-igb
+vyos-intel-ixgbe
+vyos-intel-ixgbevf
+

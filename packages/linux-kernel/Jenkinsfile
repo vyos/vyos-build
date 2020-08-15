@@ -1,4 +1,4 @@
-// Copyright (C) 2019 VyOS maintainers and contributors
+// Copyright (C) 2019-2020 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -18,7 +18,7 @@
 // Using a version specifier library, use 'current' branch. The underscore (_)
 // is not a typo! You need this underscore if the line immediately after the
 // @Library annotation is not an import statement!
-@Library('vyos-build@crux')_
+@Library('vyos-build@current')_
 
 /* Only keep the most recent builds. */
 def projectProperties = [
@@ -62,99 +62,172 @@ pipeline {
     }
     environment {
         DEBIAN_ARCH = sh(returnStdout: true, script: 'dpkg --print-architecture').trim()
-        BASE_DIR = 'packages/linux-kernel'
+        BASE_DIR = getJenkinsfilePath()
+        CHANGESET_DIR = getChangeSetPath()
     }
     stages {
         stage('Fetch') {
             steps {
                 script {
-                    dir('build') {
-                        checkout scm
-                    }
+                    checkout scm
+                    echo env.CHANGESET_DIR
                 }
             }
         }
         stage('Git Clone - Components') {
             parallel {
                 stage('Kernel') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "${env.CHANGESET_DIR}"
+                            triggeredBy 'TimerTrigger'
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
                     steps {
                         dir(env.BASE_DIR + '/linux') {
                             checkout([$class: 'GitSCM',
                                 doGenerateSubmoduleConfigurations: false,
                                 extensions: [[$class: 'CleanCheckout'],
                                              [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]],
-                                branches: [[name: 'v4.19.114' ]],
-                                userRemoteConfigs: [[url: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git']]])
+                                branches: [[name: 'v4.19.139' ]],
+                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git']]])
                         }
                     }
                 }
                 stage('WireGuard') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "${env.CHANGESET_DIR}"
+                            triggeredBy 'TimerTrigger'
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
                     steps {
                         dir(env.BASE_DIR + '/wireguard') {
                             checkout([$class: 'GitSCM',
                                 doGenerateSubmoduleConfigurations: false,
                                 extensions: [[$class: 'CleanCheckout']],
-                                branches: [[name: 'debian/0.0.20191219-1' ]],
-                                userRemoteConfigs: [[url: 'https://salsa.debian.org/debian/wireguard']]])
+                                branches: [[name: 'debian/1.0.20200319-1_bpo10+1' ]],
+                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://salsa.debian.org/debian/wireguard.git']]])
+                        }
+                        dir(env.BASE_DIR + '/wireguard-linux-compat') {
+                            checkout([$class: 'GitSCM',
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [[$class: 'CleanCheckout']],
+                                branches: [[name: 'debian/1.0.20200429-2_bpo10+1' ]],
+                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://salsa.debian.org/debian/wireguard-linux-compat.git']]])
                         }
                     }
                 }
                 stage('Accel-PPP') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "${env.CHANGESET_DIR}"
+                            triggeredBy 'TimerTrigger'
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
                     steps {
                         dir(env.BASE_DIR + '/accel-ppp') {
                             checkout([$class: 'GitSCM',
                                 doGenerateSubmoduleConfigurations: false,
                                 extensions: [[$class: 'CleanCheckout']],
-                                branches: [[name: 'ed7b28722ec85' ]],
-                                userRemoteConfigs: [[url: 'https://github.com/accel-ppp/accel-ppp.git']]])
+                                branches: [[name: 'befc6e430add4b322e01c492e69dd4ccb2f02b9d' ]],
+                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://github.com/accel-ppp/accel-ppp.git']]])
                         }
                     }
                 }
-                stage('Intel-QAT') {
-                    steps {
-                        dir(env.BASE_DIR + '/intel-qat') {
-                            checkout([$class: 'GitSCM',
-                                doGenerateSubmoduleConfigurations: false,
-                                extensions: [[$class: 'CleanCheckout']],
-                                branches: [[name: 'master' ]],
-                                userRemoteConfigs: [[url: 'https://github.com/vyos/vyos-qat']]])
-                        }
-                    }
-                }
-
             }
         }
         stage('Compile Kernel') {
+            when {
+                beforeOptions true
+                beforeAgent true
+                anyOf {
+                    changeset pattern: "${env.CHANGESET_DIR}"
+                    triggeredBy 'TimerTrigger'
+                    triggeredBy cause: "UserIdCause"
+                }
+            }
             steps {
                 dir(env.BASE_DIR) {
                     sh "./build-kernel.sh"
                 }
             }
         }
-        stage('Intel Driver(s)') {
-            steps {
-                dir(env.BASE_DIR) {
-                    sh "./build-intel-drivers.sh"
-                }
-            }
-        }
+
         stage('Kernel Module(s)') {
             parallel {
                 stage('WireGuard') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "${env.CHANGESET_DIR}"
+                            triggeredBy 'TimerTrigger'
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
                     steps {
                         dir(env.BASE_DIR) {
-                            sh "./build-wireguard.sh"
+                            // In Debian wireguard repo commit edb7124c866ea0e506278c311fc82dfde1f957be
+                            // they decided to split source code of the kernel part and tools
+                            dir('wireguard') {
+                                sh "dpkg-buildpackage -b -us -uc -tc"
+                            }
+                            sh "./build-wireguard-modules.sh"
                         }
                     }
                 }
                 stage('Accel-PPP') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "${env.CHANGESET_DIR}"
+                            triggeredBy 'TimerTrigger'
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
                     steps {
                         dir(env.BASE_DIR) {
                             sh "./build-accel-ppp.sh"
                         }
                     }
                 }
-                stage('Intel-QAT') {
+                stage('Intel Driver(s)') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "${env.CHANGESET_DIR}"
+                            triggeredBy 'TimerTrigger'
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
+                    steps {
+                        dir(env.BASE_DIR) {
+                            sh "./build-intel-drivers.sh"
+                        }
+                    }
+                }
+                stage('Intel QuickAssist Technology') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "${env.CHANGESET_DIR}"
+                            triggeredBy 'TimerTrigger'
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
                     steps {
                         dir(env.BASE_DIR) {
                             sh "./build-intel-qat.sh"

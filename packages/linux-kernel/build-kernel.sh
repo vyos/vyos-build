@@ -30,9 +30,6 @@ echo "I: make x86_64_vyos_defconfig"
 # Select Kernel configuration - currently there is only one
 make x86_64_vyos_defconfig
 
-echo "I: Build Debian Kernel package"
-make bindeb-pkg LOCALVERSION=${KERNEL_SUFFIX} KDEB_PKGVERSION=${KERNEL_VERSION}-1 -j $(getconf _NPROCESSORS_ONLN)
-
 echo "I: Generate environment file containing Kernel variable"
 cat << EOF >${CWD}/kernel-vars
 #!/bin/sh
@@ -40,3 +37,6 @@ export KERNEL_VERSION=${KERNEL_VERSION}
 export KERNEL_SUFFIX=${KERNEL_SUFFIX}
 export KERNEL_DIR=${CWD}/${KERNEL_SRC}
 EOF
+
+echo "I: Build Debian Kernel package"
+make bindeb-pkg BUILD_TOOLS=1 LOCALVERSION=${KERNEL_SUFFIX} KDEB_PKGVERSION=${KERNEL_VERSION}-1 -j $(getconf _NPROCESSORS_ONLN)

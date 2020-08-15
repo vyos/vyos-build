@@ -1,8 +1,8 @@
 #!/bin/sh
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
+WIREGUARD_SRC=${CWD}/wireguard-linux-compat
 
-WIREGUARD_SRC=${CWD}/wireguard
 if [ ! -d ${WIREGUARD_SRC} ]; then
     echo "WireGuard source not found"
     exit 1
@@ -19,15 +19,13 @@ cd ${WIREGUARD_SRC}
 # We need some WireGuard patches for building, it's easier to have them here
 # and make use of the upstream repository instead of maintaining a full fork,
 # saving time/resources is essential :-)
-PATCH_DIR=${CWD}/patches/wireguard
+PATCH_DIR=${CWD}/patches/wireguard-linux-compat
 for patch in $(ls ${PATCH_DIR})
 do
     echo "I: Apply WireGuard patch: ${PATCH_DIR}/${patch}"
     patch -p1 < ${PATCH_DIR}/${patch}
 done
 
-# set compatibility level to 9
-echo 9 > debian/compat
-
 echo "I: Build Debian WireGuard package"
+echo 9 > debian/compat
 KERNELDIR=$KERNEL_DIR dpkg-buildpackage -b -us -uc -tc -d

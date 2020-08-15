@@ -10,21 +10,18 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "https://sourceforge.net/projects/e1000/files/ixgbe%20stable/5.6.5/ixgbe-5.6.5.tar.gz/download"
-    "https://sourceforge.net/projects/e1000/files/igb%20stable/5.3.5.42/igb-5.3.5.42.tar.gz/download"
-    "https://sourceforge.net/projects/e1000/files/i40e%20stable/2.11.21/i40e-2.11.21.tar.gz/download"
-    "https://sourceforge.net/projects/e1000/files/ixgbevf%20stable/4.6.3/ixgbevf-4.6.3.tar.gz/download"
-    "https://sourceforge.net/projects/e1000/files/i40evf%20stable/3.6.15/i40evf-3.6.15.tar.gz/download"
-    "https://sourceforge.net/projects/e1000/files/iavf%20stable/3.9.3/iavf-3.9.3.tar.gz/download"
+    "http://dev.packages.vyos.net/source-mirror/ixgbe-5.8.1.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/ixgbevf-4.8.1.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/igb-5.3.6.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/i40e-2.12.6.tar.gz"
+    "http://dev.packages.vyos.net/source-mirror/iavf-4.0.1.tar.gz"
 )
 
 for url in "${intel[@]}"
 do
     cd ${CWD}
 
-    # URL_SIMPLE does not contain the /download path
-    URL_SIMPLE="${url%/*}"
-    DRIVER_FILE="${URL_SIMPLE##*/}"
+    DRIVER_FILE="$(basename ${url})"
     DRIVER_DIR="${DRIVER_FILE%.tar.gz}"
     DRIVER_NAME="${DRIVER_DIR%-*}"
     DRIVER_VERSION="${DRIVER_DIR##*-}"
@@ -79,7 +76,7 @@ EOF
 
     # build Debian package
     echo "I: Building Debian package vyos-intel-${DRIVER_NAME}"
-    dpkg-deb --build ${DEBIAN_DIR}
+    fakeroot dpkg-deb --build ${DEBIAN_DIR}
 
 
     echo "I: Cleanup ${DRIVER_NAME} source"

@@ -6,6 +6,7 @@ Subject: [PATCH] VyOS: Add linkstate IP device attribute
 Backport of earlier Vyatta patch.
 
 (cherry picked from commit 7c5a851086686be14ae937c80d6cee34814dbefc)
+
 ---
  Documentation/networking/ip-sysctl.txt | 13 +++++++++++++
  include/linux/inetdevice.h             |  1 +
@@ -18,10 +19,10 @@ Backport of earlier Vyatta patch.
  8 files changed, 40 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 960de8fe3f40..8e737f77f4e6 100644
+index 7eb9366422f5..b99d54a313a0 100644
 --- a/Documentation/networking/ip-sysctl.txt
 +++ b/Documentation/networking/ip-sysctl.txt
-@@ -1168,6 +1168,19 @@ rp_filter - INTEGER
+@@ -1177,6 +1177,19 @@ rp_filter - INTEGER
  	Default value is 0. Note that some distributions enable it
  	in startup scripts.
  
@@ -42,10 +43,10 @@ index 960de8fe3f40..8e737f77f4e6 100644
  	1 - Allows you to have multiple network interfaces on the same
  	subnet, and have the ARPs for each interface be answered
 diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index c759d1cbcedd..d3e88498910b 100644
+index a64f21a97369..4014dd852bae 100644
 --- a/include/linux/inetdevice.h
 +++ b/include/linux/inetdevice.h
-@@ -131,6 +131,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+@@ -133,6 +133,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
  #define IN_DEV_ARP_ANNOUNCE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
  #define IN_DEV_ARP_IGNORE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
  #define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
@@ -90,10 +91,10 @@ index 9c0f4a92bcff..619edd130cfd 100644
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index ea4bd8a52422..6c6aad3c302f 100644
+index a08d682ba676..17949eb57a5b 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -2310,6 +2310,8 @@ static struct devinet_sysctl_table {
+@@ -2318,6 +2318,8 @@ static struct devinet_sysctl_table {
  					      "route_localnet"),
  		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
  					      "drop_unicast_in_l2_multicast"),
@@ -103,10 +104,10 @@ index ea4bd8a52422..6c6aad3c302f 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 4e81ff2f4588..5ae30cf09028 100644
+index 627cd24b7c0d..8c49eac27fd0 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5200,6 +5200,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+@@ -5240,6 +5240,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
  	array[DEVCONF_ADDR_GEN_MODE] = cnf->addr_gen_mode;
  	array[DEVCONF_DISABLE_POLICY] = cnf->disable_policy;
  	array[DEVCONF_NDISC_TCLASS] = cnf->ndisc_tclass;
@@ -114,7 +115,7 @@ index 4e81ff2f4588..5ae30cf09028 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -6514,6 +6515,14 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -6561,6 +6562,14 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.mode           = 0644,
  		.proc_handler   = addrconf_sysctl_disable_policy,
  	},
@@ -130,10 +131,10 @@ index 4e81ff2f4588..5ae30cf09028 100644
  		.procname	= "ndisc_tclass",
  		.data		= &ipv6_devconf.ndisc_tclass,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index abcb5ae77319..90296536873f 100644
+index dad35cd48807..1a2439c6a257 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -590,6 +590,15 @@ static inline int rt6_check_dev(struct fib6_info *rt, int oif)
+@@ -595,6 +595,15 @@ static inline int rt6_check_dev(struct fib6_info *rt, int oif)
  	return 0;
  }
  
@@ -149,7 +150,7 @@ index abcb5ae77319..90296536873f 100644
  static inline enum rt6_nud_state rt6_check_neigh(struct fib6_info *rt)
  {
  	enum rt6_nud_state ret = RT6_NUD_FAIL_HARD;
-@@ -629,6 +638,9 @@ static int rt6_score_route(struct fib6_info *rt, int oif, int strict)
+@@ -634,6 +643,9 @@ static int rt6_score_route(struct fib6_info *rt, int oif, int strict)
  	m = rt6_check_dev(rt, oif);
  	if (!m && (strict & RT6_LOOKUP_F_IFACE))
  		return RT6_NUD_FAIL_HARD;
@@ -160,5 +161,5 @@ index abcb5ae77319..90296536873f 100644
  	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->fib6_flags)) << 2;
  #endif
 -- 
-2.11.0
+2.20.1
 
