@@ -44,6 +44,7 @@ systemctl disable snmpd.service
 systemctl disable conserver-server.service
 systemctl disable dropbear.service
 systemctl disable fastnetmon.service
+systemctl disable ocserv.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
