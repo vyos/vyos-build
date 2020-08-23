@@ -12,6 +12,8 @@ systemctl disable lighttpd.service
 systemctl disable ssh.service
 systemctl disable openvpn.service
 systemctl disable lldpd.service
+systemctl disable LCDd.service
+systemctl disable lcdproc.service
 systemctl disable conntrackd.service
 systemctl disable mdns-repeater.service
 systemctl disable 'udp-broadcast-relay@*.service'
