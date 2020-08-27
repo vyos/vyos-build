@@ -3,3 +3,4 @@ strace
 apt-rdepends
 tshark
 vim
+vyos-1x-smoketest

@@ -3,7 +3,6 @@ grub-pc
 qemu-guest-agent
 hyperv-daemons
 vyos-netplug
-vyos-smoketest
 vyos-xe-guest-utilities
 vyos-1x-vmware
 vyos-linux-firmware
