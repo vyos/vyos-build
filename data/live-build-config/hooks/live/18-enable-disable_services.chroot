@@ -52,3 +52,4 @@ echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
+systemctl enable vyos-configd.service
