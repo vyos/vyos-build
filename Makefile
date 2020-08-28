@@ -230,6 +230,15 @@ test:
 	fi
 	scripts/check-qemu-install --debug build/live-image-amd64.hybrid.iso
 
+.PHONY: testd
+.ONESHELL:
+testd:
+	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
+		echo "Could not find build/live-image-amd64.hybrid.iso"
+		exit 1
+	fi
+	scripts/check-qemu-install --debug --configd build/live-image-amd64.hybrid.iso
+
 .PHONY: clean
 .ONESHELL:
 clean:

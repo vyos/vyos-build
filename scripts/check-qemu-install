@@ -67,6 +67,9 @@ parser.add_argument('--logfile', help='Log to file')
 parser.add_argument('--no-kvm', help='Disable use of kvm',
 				action='store_true',
 				default=False)
+parser.add_argument('--configd', help='Execute testsuite with config daemon',
+				action='store_true',
+				default=False)
 
 args = parser.parse_args()
 
@@ -275,6 +278,16 @@ try:
 
     # additional settling time
     time.sleep(20)
+
+    #################################################
+    # Start/stop config daemon
+    #################################################
+    if args.configd:
+        c.sendline('sudo systemctl start vyos-configd.service &> /dev/null')
+        c.expect(r'vyos@vyos:~\$')
+    else:
+        c.sendline('sudo systemctl stop vyos-configd.service &> /dev/null')
+        c.expect(r'vyos@vyos:~\$')
 
     #################################################
     # Basic Configmode/Opmode switch
