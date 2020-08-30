@@ -4,3 +4,5 @@ packer_build/*
 packer_cache/*
 key/*
 packages/*.buildlog
+packages/*
+!packages/*/
