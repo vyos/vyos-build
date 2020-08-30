@@ -92,7 +92,7 @@ pipeline {
                                 doGenerateSubmoduleConfigurations: false,
                                 extensions: [[$class: 'CleanCheckout'],
                                              [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]],
-                                branches: [[name: 'v4.19.142' ]],
+                                branches: [[name: 'v5.8.5' ]],
                                 userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git']]])
                         }
                     }
@@ -115,26 +115,6 @@ pipeline {
                                              [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]],
                                 branches: [[name: '20191022' ]],
                                 userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git']]])
-                        }
-                    }
-                }
-                stage('WireGuard') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR + '/wireguard-linux-compat') {
-                            checkout([$class: 'GitSCM',
-                                doGenerateSubmoduleConfigurations: false,
-                                extensions: [[$class: 'CleanCheckout']],
-                                branches: [[name: 'debian/1.0.20200712-1_bpo10+1' ]],
-                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://salsa.debian.org/debian/wireguard-linux-compat.git']]])
                         }
                     }
                 }
@@ -179,24 +159,6 @@ pipeline {
 
         stage('Kernel Module(s)') {
             parallel {
-                stage('WireGuard') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR) {
-                            // In Debian wireguard repo commit edb7124c866ea0e506278c311fc82dfde1f957be
-                            // they decided to split source code of the kernel part and tools
-                            sh "./build-wireguard-modules.sh"
-                        }
-                    }
-                }
                 stage('Accel-PPP') {
                     when {
                         beforeOptions true
@@ -210,22 +172,6 @@ pipeline {
                     steps {
                         dir(env.BASE_DIR) {
                             sh "./build-accel-ppp.sh"
-                        }
-                    }
-                }
-                stage('Intel Driver(s)') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR) {
-                            sh "./build-intel-drivers.sh"
                         }
                     }
                 }

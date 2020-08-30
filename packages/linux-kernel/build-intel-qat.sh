@@ -10,7 +10,7 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "https://01.org/sites/default/files/downloads/qat1.7.l.4.9.0-00008.tar_0.gz"
+    "https://01.org/sites/default/files/downloads//qat1.7.l.4.10.0-00014.tar.gz"
 )
 
 for url in "${intel[@]}"
@@ -49,6 +49,15 @@ do
         echo "KERNEL_DIR not defined"
         exit 1
     fi
+
+    # Intel QAT drivers are not ported to the latest Linux Kernel API :(
+    # this is done by our custom patch.
+    PATCH_DIR=${CWD}/patches/intel-qat
+    for patch in $(ls ${PATCH_DIR})
+    do
+        echo "I: Apply Intel QAT patch: ${PATCH_DIR}/${patch}"
+        patch -p1 < ${PATCH_DIR}/${patch}
+    done
 
     echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
     mkdir -p ${DEBIAN_DIR}/lib/firmware ${DEBIAN_DIR}/usr/local/bin ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu ${DEBIAN_DIR}/etc/init.d
