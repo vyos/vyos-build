@@ -361,6 +361,10 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libaudit-dev
 
+# Packages needed for vyos-configd
+RUN apt-get update && apt-get install -y \
+      libzmq3-dev
+
 # Install packer
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
