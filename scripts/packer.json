@@ -11,7 +11,7 @@
       "type": "qemu",
       "iso_url": "{{user `iso_url`}}",
       "iso_checksum": "{{user `iso_checksum`}}",
-      "iso_checksum_type": "md5",
+      "checksum_types": ["md5"],
       "output_directory": "{{user `output_directory`}}/qemu",
       "shutdown_command": "sudo halt -p",
       "disk_size": 4096,
