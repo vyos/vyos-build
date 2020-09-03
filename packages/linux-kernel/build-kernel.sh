@@ -39,4 +39,5 @@ export KERNEL_DIR=${CWD}/${KERNEL_SRC}
 EOF
 
 echo "I: Build Debian Kernel package"
+touch .scmversion
 make bindeb-pkg BUILD_TOOLS=1 LOCALVERSION=${KERNEL_SUFFIX} KDEB_PKGVERSION=${KERNEL_VERSION}-1 -j $(getconf _NPROCESSORS_ONLN)
