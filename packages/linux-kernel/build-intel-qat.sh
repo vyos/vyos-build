@@ -10,7 +10,7 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "https://01.org/sites/default/files/downloads//qat1.7.l.4.10.0-00014.tar.gz"
+    "https://01.org/sites/default/files/downloads/qat1.7.l.4.9.0-00008.tar_0.gz"
 )
 
 for url in "${intel[@]}"
