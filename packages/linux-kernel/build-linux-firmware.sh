@@ -68,20 +68,12 @@ do
     FW_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname ${FW})"
     mkdir -p ${FW_DIR}
     echo "I: install firmware: ${FW}"
-    cp  ${CWD}/linux-firmware/${FW} ${FW_DIR}
+    cp ${CWD}/linux-firmware/${FW} ${FW_DIR}
 done
 
-# Describe Debian package
-mkdir ${VYOS_FIRMWARE_DIR}/DEBIAN
-cat << EOF >${VYOS_FIRMWARE_DIR}/DEBIAN/control
-Package: ${VYOS_FIRMWARE_NAME}
-Version: ${GIT_COMMIT}
-Section: kernel
-Priority: extra
-Architecture: all
-Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
-Description: Firmware blobs for use with the Linux kernel
-EOF
+echo "I: Create linux-firmware package"
+cd ${CWD}
+fpm --input-type dir --output-type deb --name ${VYOS_FIRMWARE_NAME} \
+    --version ${GIT_COMMIT} --deb-compression xz -C ${VYOS_FIRMWARE_DIR}
 
-# Build Debian package
-fakeroot dpkg-deb --build ${VYOS_FIRMWARE_DIR}
+rm -rf ${VYOS_FIRMWARE_DIR}

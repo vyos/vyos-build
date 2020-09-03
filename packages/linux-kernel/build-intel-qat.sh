@@ -74,25 +74,15 @@ do
     chmod 644 ${DEBIAN_DIR}/lib/firmware/*
     chmod 755 ${DEBIAN_DIR}/etc/init.d/* ${DEBIAN_DIR}/usr/local/bin/*
 
-    mkdir -p $(dirname "${DEBIAN_CONTROL}")
-    cat << EOF >${DEBIAN_CONTROL}
-Package: vyos-intel-${DRIVER_NAME}
-Version: ${DRIVER_VERSION}${DRIVER_VERSION_EXTRA}
-Section: kernel
-Priority: extra
-Architecture: ${DEBIAN_ARCH}
-Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
-Description: Vendor based driver for Intel ${DRIVER_NAME}
-Depends: linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}
-EOF
-
+    # build Debian package
+    echo "I: Building Debian package vyos-intel-${DRIVER_NAME}"
     # delete non required files which are also present in the kernel package
     # und thus lead to duplicated files
     find ${DEBIAN_DIR} -name "modules.*" | xargs rm -f
-
-    # build Debian package
-    echo "I: Building Debian package vyos-intel-${DRIVER_NAME}"
-    fakeroot dpkg-deb --build ${DEBIAN_DIR}
+    cd ${CWD}
+    fpm --input-type dir --output-type deb --name vyos-intel-${DRIVER_NAME} \
+        --version ${DRIVER_VERSION}${DRIVER_VERSION_EXTRA} --deb-compression gz \
+        -C ${DEBIAN_DIR} --after-install ${CWD}/vyos-intel-qat.postinst
 
     echo "I: Cleanup ${DRIVER_NAME} source"
     cd ${CWD}
