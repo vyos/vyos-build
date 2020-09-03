@@ -22,7 +22,7 @@
 
 /* Only keep the most recent builds. */
 def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '1']],
+    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '20']],
 ]
 
 properties(projectProperties)
