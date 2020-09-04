@@ -18,10 +18,9 @@ prepare:
 	mkdir -p build/config
 	cp -r data/live-build-config/* build/config/
 	@scripts/live-build-config
+	@scripts/build-thirdparty-packages
 	@scripts/import-local-packages
-
 	@scripts/make-version-file
-
 	@scripts/build-flavour
 
 .PHONY: iso

@@ -5,4 +5,7 @@ packer_cache/*
 key/*
 packages/*
 !packages/*/
+packages/thirdparty/*
+!packages/thirdparty/*/
+!packages/thirdparty/README
 testinstall*.img

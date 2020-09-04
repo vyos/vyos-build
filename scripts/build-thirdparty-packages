@@ -1,0 +1,24 @@
+#!/bin/sh -e
+
+ROOT=$(pwd)
+SRC_DIR=$ROOT/packages/thirdparty
+DST_DIR=$ROOT/build/config/packages.chroot
+
+echo "Building thirdparty Debian packages in $SRC_DIR"
+
+echo "Updating submodules"
+git submodule update --init --recursive $SRC_DIR
+
+for dir in $(find $SRC_DIR -maxdepth 1 -type d); do
+    if [ -f "$dir/Makefile" ]; then
+        make -C $dir deb
+    fi
+done
+
+mkdir -p $DST_DIR
+for file in $(find $SRC_DIR -maxdepth 1 -name '*.deb'); do
+    if [ -f "$file" ]; then
+        echo "Adding $(basename $file)"
+        cp $file $DST_DIR
+    fi
+done

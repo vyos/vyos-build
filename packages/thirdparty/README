@@ -1,0 +1,11 @@
+In this directory, sources for building thirdparty Debian packages that are not
+available in the official repositories can be placed.
+
+Upstream projects can be added as git submodules in this directory and the necessary
+debian control files and a Makefile can be committed to a new branch (vyos) on
+the submodule.
+
+As part of the build process, all submodules in this directory are updated (and
+initialized if necessary). Then, in each directory with a Makefile, "make deb"
+is executed, which should produce an arbitrary number of .deb files in the parent
+directory (= this one).

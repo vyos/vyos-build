@@ -1,13 +1,14 @@
-#!/bin/sh
+#!/bin/sh -e
 
-LOCAL_PKG_DIR=build/config/packages.chroot
+SRC_DIR=packages
+DST_DIR=build/config/packages.chroot
 
-mkdir -p $LOCAL_PKG_DIR
+echo "Importing local debian packages from $SRC_DIR"
 
-FILES=packages/*.deb
-for f in $FILES
-do
-  if [ -e "$f" ]; then
-    cp $f $LOCAL_PKG_DIR
-  fi
+mkdir -p $DST_DIR
+for file in $(find $SRC_DIR -maxdepth 1 -name '*.deb'); do
+    if [ -f "$file" ]; then
+        echo "Adding $(basename $file)"
+        cp $file $DST_DIR
+    fi
 done
