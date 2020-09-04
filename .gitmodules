@@ -1,0 +1,3 @@
+[submodule "packages/thirdparty/python3-trio"]
+	path = packages/thirdparty/python3-trio
+	url = https://github.com/python-trio/trio

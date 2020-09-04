@@ -22,6 +22,10 @@ Package: wireguard-tools
 Pin: release n=buster-backports
 Pin-Priority: 600
 
+Package: python3-attr
+Pin: release n=buster-backports
+Pin-Priority: 600
+
 Package: *
 Pin: release n=buster-backports
 Pin-Priority: -10
