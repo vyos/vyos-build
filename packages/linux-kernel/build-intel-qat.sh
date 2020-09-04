@@ -80,9 +80,13 @@ do
     # und thus lead to duplicated files
     find ${DEBIAN_DIR} -name "modules.*" | xargs rm -f
     cd ${CWD}
+
+    echo "#!/bin/sh" > ${DEBIAN_DIR}/vyos-intel-qat.postinst
+    echo "/sbin/depmod -a ${KERNEL_VERSION}${KERNEL_SUFFIX}" >> ${DEBIAN_DIR}/vyos-intel-qat.postinst
+
     fpm --input-type dir --output-type deb --name vyos-intel-${DRIVER_NAME} \
         --version ${DRIVER_VERSION}${DRIVER_VERSION_EXTRA} --deb-compression gz \
-        -C ${DEBIAN_DIR} --after-install ${CWD}/vyos-intel-qat.postinst
+        -C ${DEBIAN_DIR} --after-install ${DEBIAN_DIR}/vyos-intel-qat.postinst
 
     echo "I: Cleanup ${DRIVER_NAME} source"
     cd ${CWD}
