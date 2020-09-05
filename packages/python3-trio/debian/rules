@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+
+export PYBUILD_TEST_ARGS=-m not\ redistributors_should_skip
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+# Don't run tests to not require the build dependencies
+override_dh_auto_test:
