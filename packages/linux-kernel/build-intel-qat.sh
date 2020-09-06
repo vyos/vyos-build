@@ -61,7 +61,7 @@ do
 
     echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
     mkdir -p ${DEBIAN_DIR}/lib/firmware ${DEBIAN_DIR}/usr/local/bin ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu ${DEBIAN_DIR}/etc/init.d
-    KERNEL_SOURCE_ROOT=${KERNEL_DIR} ./configure --enable-kapi
+    KERNEL_SOURCE_ROOT=${KERNEL_DIR} ./configure --enable-kapi --enable-qat-lkcf
     make -j $(getconf _NPROCESSORS_ONLN) all
     make INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} \
         qat-driver-install
