@@ -74,6 +74,8 @@ done
 echo "I: Create linux-firmware package"
 cd ${CWD}
 fpm --input-type dir --output-type deb --name ${VYOS_FIRMWARE_NAME} \
+    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
+    --description "Binary firmware for various drivers in the Linux kernel" \
     --version ${GIT_COMMIT} --deb-compression gz -C ${VYOS_FIRMWARE_DIR}
 
 rm -rf ${VYOS_FIRMWARE_DIR}

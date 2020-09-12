@@ -6,4 +6,9 @@ vyos-netplug
 vyos-xe-guest-utilities
 vyos-1x-vmware
 vyos-linux-firmware
+vyos-intel-i40e
+vyos-intel-igb
+vyos-intel-ixgbe
+vyos-intel-ixgbevf
+vyos-intel-iavf
 vyos-intel-qat

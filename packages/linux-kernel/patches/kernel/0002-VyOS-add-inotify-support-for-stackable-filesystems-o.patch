@@ -22,20 +22,20 @@ Bug #425 http://bugzilla.vyos.net/show_bug.cgi?id=425
 
 ---
  fs/notify/inotify/Kconfig        |   9 +++
- fs/notify/inotify/inotify_user.c | 113 ++++++++++++++++++++++++++++++-
- fs/overlayfs/super.c             |  27 ++++++--
+ fs/notify/inotify/inotify_user.c | 112 ++++++++++++++++++++++++++++++-
+ fs/overlayfs/super.c             |  24 ++++++-
  include/linux/inotify.h          |  28 ++++++++
- 4 files changed, 172 insertions(+), 5 deletions(-)
+ 4 files changed, 170 insertions(+), 3 deletions(-)
 
 diff --git a/fs/notify/inotify/Kconfig b/fs/notify/inotify/Kconfig
-index 1cc8be25df7e..2994e5f7fadb 100644
+index b981fc0c8379..b0b208bd584b 100644
 --- a/fs/notify/inotify/Kconfig
 +++ b/fs/notify/inotify/Kconfig
 @@ -15,3 +15,12 @@ config INOTIFY_USER
-	  For more information, see <file:Documentation/filesystems/inotify.rst>
+ 	  For more information, see <file:Documentation/filesystems/inotify.txt>
  
  	  If unsure, say Y.
-+
++	  
 +config INOTIFY_STACKFS
 +	bool "Inotify support for stackable filesystem"
 +	select INOTIFY_USER
@@ -45,10 +45,10 @@ index 1cc8be25df7e..2994e5f7fadb 100644
 +
 +	  If unsure, say N.
 diff --git a/fs/notify/inotify/inotify_user.c b/fs/notify/inotify/inotify_user.c
-index f88bbcc9efeb..cf57910c715f 100644
+index 97a51690338e..0595de27e1b5 100644
 --- a/fs/notify/inotify/inotify_user.c
 +++ b/fs/notify/inotify/inotify_user.c
-@@ -15,6 +15,7 @@
+@@ -24,6 +24,7 @@
  
  #include <linux/file.h>
  #include <linux/fs.h> /* struct inode */
@@ -56,7 +56,7 @@ index f88bbcc9efeb..cf57910c715f 100644
  #include <linux/fsnotify_backend.h>
  #include <linux/idr.h>
  #include <linux/init.h> /* fs_initcall */
-@@ -75,6 +76,94 @@ struct ctl_table inotify_table[] = {
+@@ -85,6 +86,94 @@ struct ctl_table inotify_table[] = {
  };
  #endif /* CONFIG_SYSCTL */
  
@@ -151,27 +151,26 @@ index f88bbcc9efeb..cf57910c715f 100644
  static inline __u32 inotify_arg_to_mask(u32 arg)
  {
  	__u32 mask;
-@@ -332,7 +421,7 @@ static const struct file_operations inotify_fops = {
+@@ -342,7 +431,7 @@ static const struct file_operations inotify_fops = {
  /*
   * find_inode - resolve a user-given path to a specific inode
   */
--static int inotify_find_inode(const char __user *dirname, struct path *path,
-+static inline int __inotify_find_inode(const char __user *dirname, struct path *path,
-						unsigned int flags, __u64 mask)
+-static int inotify_find_inode(const char __user *dirname, struct path *path, unsigned flags)
++static inline int __inotify_find_inode(const char __user *dirname, struct path *path, unsigned flags)
  {
  	int error;
-@@ -354,6 +443,28 @@ static int inotify_find_inode(const char __user *dirname, struct path *path,
+ 
+@@ -356,6 +445,27 @@ static int inotify_find_inode(const char __user *dirname, struct path *path, uns
  	return error;
  }
  
-+static int inotify_find_inode(const char __user *dirname, struct path *path,
-+                                                unsigned int flags, __u64 mask)
++static int inotify_find_inode(const char __user *dirname, struct path *path, unsigned flags)
 +{
 +	int ret;
 +	struct path tpath;
 +	struct inotify_stackfs *fse;
 +
-+	ret = __inotify_find_inode(dirname, &tpath, flags, mask);
++	ret = __inotify_find_inode(dirname, &tpath, flags);
 +	if (ret)
 +		return ret;
 +	fse = inotify_get_stackfs(&tpath);
@@ -190,10 +189,10 @@ index f88bbcc9efeb..cf57910c715f 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 4b38141c2985..2cee303b3d1d 100644
+index 127df4a85c8a..d6d41a328f9d 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
-@@ -15,6 +15,7 @@
+@@ -18,6 +18,7 @@
  #include <linux/seq_file.h>
  #include <linux/posix_acl_xattr.h>
  #include <linux/exportfs.h>
@@ -201,7 +200,7 @@ index 4b38141c2985..2cee303b3d1d 100644
  #include "overlayfs.h"
  
  MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
-@@ -1959,6 +1960,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -1703,6 +1704,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -220,26 +219,20 @@ index 4b38141c2985..2cee303b3d1d 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1974,18 +1987,24 @@ static int __init ovl_init(void)
-	err = ovl_aio_request_cache_init();
-	if (!err) {
-		err = register_filesystem(&ovl_fs_type);
--		if (!err)
--			return 0;
-+		if (err)
-+			goto err;
-+		err = inotify_register_stackfs(&ovl_inotify);
-+		if (err)
-+			goto err;
-+		return 0;
+@@ -1717,13 +1730,21 @@ static int __init ovl_init(void)
  
--		ovl_aio_request_cache_destroy();
-	}
+ 	err = register_filesystem(&ovl_fs_type);
+ 	if (err)
+-		kmem_cache_destroy(ovl_inode_cachep);
++		goto err;
++	err = inotify_register_stackfs(&ovl_inotify);
++	if (err)
++		goto err;
++	return err;
+ 
 +err:
-	kmem_cache_destroy(ovl_inode_cachep);
--
++	kmem_cache_destroy(ovl_inode_cachep);
 +	unregister_filesystem(&ovl_fs_type);
-+	ovl_aio_request_cache_destroy();
  	return err;
  }
  
@@ -249,6 +242,14 @@ index 4b38141c2985..2cee303b3d1d 100644
  	unregister_filesystem(&ovl_fs_type);
  
  	/*
+@@ -1732,7 +1753,6 @@ static void __exit ovl_exit(void)
+ 	 */
+ 	rcu_barrier();
+ 	kmem_cache_destroy(ovl_inode_cachep);
+-
+ }
+ 
+ module_init(ovl_init);
 diff --git a/include/linux/inotify.h b/include/linux/inotify.h
 index 6a24905f6e1e..248b1441ba83 100644
 --- a/include/linux/inotify.h

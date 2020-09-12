@@ -8,6 +8,7 @@
 *.deb
 *.changes
 *.buildinfo
+/*.postinst
 
 # Intel Driver source
 *.tar.gz

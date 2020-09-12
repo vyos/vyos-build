@@ -31,46 +31,48 @@ Signed-off-by: Riku Voipio <riku.voipio@linaro.org>
  1 file changed, 30 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/package/builddeb b/scripts/package/builddeb
-index 6df3c9f8b2da..a38cfc984134 100755
+index 0b31f4f1f92c..629144b4226b 100755
 --- a/scripts/package/builddeb
 +++ b/scripts/package/builddeb
-@@ -102,8 +102,10 @@ deploy_libc_headers () {
- version=$KERNELRELEASE
- tmpdir=debian/linux-image
- dbg_dir=debian/linux-image-dbg
+@@ -39,10 +39,12 @@ tmpdir="$objtree/debian/tmp"
+ kernel_headers_dir="$objtree/debian/hdrtmp"
+ libc_headers_dir="$objtree/debian/headertmp"
+ dbg_dir="$objtree/debian/dbgtmp"
 +tools_dir="$objtree/debian/toolstmp"
  packagename=linux-image-$version
+ kernel_headers_packagename=linux-headers-$version
+ libc_headers_packagename=linux-libc-dev
  dbg_packagename=$packagename-dbg
 +tools_packagename=linux-tools-$version
  
  if [ "$ARCH" = "um" ] ; then
  	packagename=user-mode-linux-$version
-@@ -126,7 +128,7 @@ esac
- BUILD_DEBUG=$(if_enabled_echo CONFIG_DEBUG_INFO Yes)
+@@ -65,7 +67,7 @@ esac
+ BUILD_DEBUG="$(grep -s '^CONFIG_DEBUG_INFO=y' $KCONFIG_CONFIG || true)"
  
  # Setup the directory structure
--rm -rf "$tmpdir" "$dbg_dir" debian/files
-+rm -rf "$tmpdir" "$dbg_dir" "$tools_dir" debian/files
+-rm -rf "$tmpdir" "$kernel_headers_dir" "$libc_headers_dir" "$dbg_dir" $objtree/debian/files
++rm -rf "$tmpdir" "$kernel_headers_dir" "$libc_headers_dir" "$dbg_dir" "$tools_dir" $objtree/debian/files
  mkdir -m 755 -p "$tmpdir/DEBIAN"
  mkdir -p "$tmpdir/lib" "$tmpdir/boot"
-
-@@ -225,4 +227,31 @@ if [ -n "$BUILD_DEBUG" ] ; then
+ mkdir -p "$kernel_headers_dir/lib/modules/$version/"
+@@ -194,4 +196,31 @@ if [ -n "$BUILD_DEBUG" ] ; then
  	create_package "$dbg_packagename" "$dbg_dir"
  fi
  
 +if [ -n "$BUILD_TOOLS" ]
 +then
-+       # HACK - change output dir from relative to absolute
-+       mkdir -p $tools_dir
-+       tools_dest=`readlink -f $tools_dir`
-+       if [ -n "$O" ]
-+       then
-+               output=`readlink -f $objtree`
-+               mkdir -p $output/tools/perf
-+               output="O=$output/tools/perf"
-+       fi
-+       $MAKE -C $srctree/tools/perf $output LDFLAGS= srctree=$KBUILD_SRC prefix=$tools_dest/usr install
-+       cat <<EOF >> debian/control
++	# HACK - change output dir from relative to absolute
++	mkdir -p $tools_dir
++	tools_dest=`readlink -f $tools_dir`
++	if [ -n "$O" ]
++	then
++		output=`readlink -f $objtree`
++		mkdir -p $output/tools/perf
++		output="O=$output/tools/perf"
++	fi
++	$MAKE -C $srctree/tools/perf $output LDFLAGS= srctree=$KBUILD_SRC prefix=$tools_dest/usr install
++	cat <<EOF >> debian/control
 +
 +Package: $tools_packagename
 +Architecture: any
@@ -81,8 +83,8 @@ index 6df3c9f8b2da..a38cfc984134 100755
 + kernel version $version .
 +EOF
 +
-+       dpkg-shlibdeps $tools_dest/usr/bin/* $tools_dest/usr/lib*/traceevent/plugins/*
-+       create_package "$tools_packagename" "$tools_dir"
++	dpkg-shlibdeps $tools_dest/usr/bin/* $tools_dest/usr/lib*/traceevent/plugins/*
++	create_package "$tools_packagename" "$tools_dir"
 +fi
 +
  exit 0
