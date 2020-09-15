@@ -355,6 +355,7 @@ RUN apt-get update && apt-get install -y \
       python3-yaml \
       python3-jsonschema \
       python3-contextlib2 \
+      python3-pytest-cov \
       cloud-utils
 
 # Packages needed for libnss-mapuser & libpam-radius
