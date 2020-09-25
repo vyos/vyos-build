@@ -42,6 +42,7 @@ import random
 import traceback
 import logging
 import re
+
 from io import BytesIO, StringIO
 from datetime import datetime
 
@@ -97,6 +98,13 @@ class StreamToLogger(object):
     def flush(self):
         pass
 
+def get_half_cpus():
+    """ return 1/2 of the numbers of available CPUs """
+    cpu = os.cpu_count()
+    if cpu > 1:
+        cpu /= 2
+    return int(cpu)
+
 def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
     kvm = ""
     cpu = "-cpu host"
@@ -108,9 +116,12 @@ def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
     if iso_img:
         cdrom = "-boot d -cdrom {}".format(iso_img)
 
+    # test using half of the available CPUs on the system
+    cpucount = get_half_cpus()
+
     cmd = f'qemu-system-x86_64 \
         -name "{name}" \
-        -smp 2 \
+        -smp {cpucount} \
         -m 2G \
         -nic user,model=virtio,mac=52:54:99:12:34:56 \
         -nic user,model=virtio,mac=52:54:99:12:34:57 \
