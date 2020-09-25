@@ -108,20 +108,20 @@ def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
     if iso_img:
         cdrom = "-boot d -cdrom {}".format(iso_img)
 
-    cmd = 'qemu-system-x86_64 \
-        -name "{NAME}" \
-        -m 1G \
+    cmd = f'qemu-system-x86_64 \
+        -name "{name}" \
+        -smp 2 \
+        -m 2G \
         -nic user,model=virtio,mac=52:54:99:12:34:56 \
         -nic user,model=virtio,mac=52:54:99:12:34:57 \
         -nic user,model=virtio,mac=52:54:99:12:34:58 \
         -nic user,model=virtio,mac=52:54:99:12:34:59 \
         -machine accel=kvm \
-        {CPU} \
-        -smp 2 \
         -nographic \
-        {CD} \
-        {KVM} \
-        -drive format=raw,file={DISK}'.format(NAME=name, CD=cdrom, DISK=disk_img, KVM=kvm, CPU=cpu)
+        {cpu} \
+        {cdrom} \
+        {kvm} \
+        -drive format=raw,file={disk_img}'
 
     return cmd
 
