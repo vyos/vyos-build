@@ -10,7 +10,7 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "https://01.org/sites/default/files/downloads/qat1.7.l.4.9.0-00008.tar_0.gz"
+    "https://01.org/sites/default/files/downloads/qat1.7.l.4.11.0-00001.tar.gz"
 )
 
 for url in "${intel[@]}"
@@ -53,7 +53,7 @@ do
 
     echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
     mkdir -p ${DEBIAN_DIR}/lib/firmware ${DEBIAN_DIR}/usr/local/bin ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu ${DEBIAN_DIR}/etc/init.d
-    KERNEL_SOURCE_ROOT=${KERNEL_DIR} ./configure --enable-kapi --enable-qat-lkcf
+    CFLAGS="-march=native" KERNEL_SOURCE_ROOT=${KERNEL_DIR} ./configure --enable-kapi --enable-qat-lkcf
     make -j $(getconf _NPROCESSORS_ONLN) all
     make INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} \
         qat-driver-install
