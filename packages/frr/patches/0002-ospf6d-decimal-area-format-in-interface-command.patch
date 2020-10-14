@@ -18,7 +18,7 @@ Signed-off-by: Duncan Eastoe <duncan.eastoe@att.com>
  3 files changed, 22 insertions(+), 32 deletions(-)
 
 diff --git a/ospf6d/ospf6_area.c b/ospf6d/ospf6_area.c
-index 9fe077b544..713ce26ecb 100644
+index 9fe077b54..713ce26ec 100644
 --- a/ospf6d/ospf6_area.c
 +++ b/ospf6d/ospf6_area.c
 @@ -379,22 +379,6 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa)
@@ -45,7 +45,7 @@ index 9fe077b544..713ce26ecb 100644
         area_range_cmd,
         "area <A.B.C.D|(0-4294967295)> range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]",
 diff --git a/ospf6d/ospf6_area.h b/ospf6d/ospf6_area.h
-index 5648b1dfec..7ce6717fcc 100644
+index 5648b1dfe..7ce6717fc 100644
 --- a/ospf6d/ospf6_area.h
 +++ b/ospf6d/ospf6_area.h
 @@ -117,6 +117,21 @@ struct ospf6_area {
@@ -71,7 +71,7 @@ index 5648b1dfec..7ce6717fcc 100644
  extern int ospf6_area_cmp(void *va, void *vb);
  
 diff --git a/ospf6d/ospf6_top.c b/ospf6d/ospf6_top.c
-index dd672dd1c5..f49ea9add2 100644
+index dd672dd1c..f49ea9add 100644
 --- a/ospf6d/ospf6_top.c
 +++ b/ospf6d/ospf6_top.c
 @@ -644,11 +644,12 @@ DEFUN (no_ospf6_distance_source,
@@ -141,3 +141,6 @@ index dd672dd1c5..f49ea9add2 100644
  
  	/* Verify Area */
  	if (oi->area == NULL) {
+-- 
+2.20.1
+
