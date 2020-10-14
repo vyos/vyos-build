@@ -1,0 +1,37 @@
+From e6426ace1edadd3c27ac612815ebc994ea54ba39 Mon Sep 17 00:00:00 2001
+From: Igor Ryzhov <iryzhov@nfware.com>
+Date: Mon, 24 Aug 2020 18:45:53 +0300
+Subject: [PATCH] bfdd: fix parameter length
+
+There is no space reserved for "[source-addr='']".
+
+Signed-off-by: Igor Ryzhov <iryzhov@nfware.com>
+---
+ bfdd/bfdd_cli.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/bfdd/bfdd_cli.c b/bfdd/bfdd_cli.c
+index 058ce7d1f..d115684b1 100644
+--- a/bfdd/bfdd_cli.c
++++ b/bfdd/bfdd_cli.c
+@@ -109,7 +109,7 @@ DEFPY_YANG_NOSH(
+ 	VRF_NAME_STR)
+ {
+ 	int ret, slen;
+-	char source_str[INET6_ADDRSTRLEN];
++	char source_str[INET6_ADDRSTRLEN + 32];
+ 	char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
+ 
+ 	if (multihop)
+@@ -168,7 +168,7 @@ DEFPY_YANG(
+ {
+ 	int slen;
+ 	char xpath[XPATH_MAXLEN];
+-	char source_str[INET6_ADDRSTRLEN];
++	char source_str[INET6_ADDRSTRLEN + 32];
+ 
+ 	if (multihop)
+ 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
+-- 
+2.20.1
+
