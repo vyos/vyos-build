@@ -162,14 +162,14 @@ pipeline {
                         sh "sudo make test"
                     }
                 }
-//              stage('With vyos-configd') {
-//                  when {
-//                      expression { fileExists 'build/live-image-amd64.hybrid.iso' }
-//                  }
-//                  steps {
-//                      sh "sudo make testd"
-//                  }
-//              }
+                stage('With vyos-configd') {
+                    when {
+                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                    }
+                    steps {
+                        sh "sudo make testd"
+                    }
+                }
             }
         }
     }
