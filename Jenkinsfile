@@ -187,6 +187,7 @@ pipeline {
                         // build up some fancy groovy variables so we do not need to write/copy
                         // every option over and over again!
                         def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
+                        def ISO = sh(returnStdout: true, script: "ls build/vyos-*.iso").trim()
                         def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
                         def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
                         def SSH_REMOTE = 'khagen@10.217.48.113'
@@ -194,7 +195,6 @@ pipeline {
                         // No need to explicitly check the return code. The pipeline
                         // will fail if sh returns a non 0 exit code
                         sh """
-                            ISO=$(ls build/vyos-*.iso)
                             sha256sum ${ISO} > ${ISO}.sha256
                             ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
                             ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +28 -exec rm -f {} \\;'"
