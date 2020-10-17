@@ -133,7 +133,7 @@ pipeline {
                             checkout([$class: 'GitSCM',
                                 doGenerateSubmoduleConfigurations: false,
                                 extensions: [[$class: 'CleanCheckout']],
-                                branches: [[name: 'debian/1.0.20200712-1_bpo10+1' ]],
+                                branches: [[name: 'debian/1.0.20200908-1_bpo10+1' ]],
                                 userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://salsa.debian.org/debian/wireguard-linux-compat.git']]])
                         }
                     }
