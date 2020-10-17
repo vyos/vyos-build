@@ -262,4 +262,4 @@ clean:
 
 .PHONY: purge
 purge:
-	rm -rf build/*
+	rm -rf build packer_build packer_cache

@@ -152,9 +152,9 @@ pipeline {
                 }
             }
         }
-        stage('Test ISO') {
+        stage('QEMU') {
             parallel {
-                stage('Without vyos-configd') {
+                stage('Testcases without vyos-configd') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
@@ -162,7 +162,7 @@ pipeline {
                         sh "sudo make test"
                     }
                 }
-                stage('With vyos-configd') {
+                stage('Testcases with vyos-configd') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
@@ -170,14 +170,14 @@ pipeline {
                         sh "sudo make testd"
                     }
                 }
-            }
-        }
-        stage('QEMU image') {
-            when {
-                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
-            }
-            steps {
-                sh "sudo make qemu"
+                stage('Build QEMU image') {
+                    when {
+                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                    }
+                    steps {
+                        sh "sudo make qemu"
+                    }
+                }
             }
         }
     }
@@ -229,11 +229,7 @@ pipeline {
             echo 'One way or another, I have finished'
             // the 'build' directory got elevated permissions during the build
             // cdjust permissions so it can be cleaned up by the regular user
-            sh '''
-                if [ -d build ]; then
-                    sudo chmod -R 777 build/
-                fi
-            '''
+            sh 'sudo make purge'
             deleteDir() /* cleanup our workspace */
         }
     }
