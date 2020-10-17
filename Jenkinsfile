@@ -173,6 +173,9 @@ pipeline {
             }
         }
         stage('QEMU image') {
+            when {
+                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+            }
             steps {
                 sh "sudo make qemu"
             }
