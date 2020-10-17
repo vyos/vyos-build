@@ -172,6 +172,11 @@ pipeline {
                 }
             }
         }
+        stage('QEMU image') {
+            steps {
+                sh "sudo make qemu"
+            }
+        }
     }
     post {
         success {
