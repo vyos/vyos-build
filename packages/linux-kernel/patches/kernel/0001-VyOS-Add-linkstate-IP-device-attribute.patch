@@ -1,4 +1,4 @@
-From 81d38c4a32e059ad7835f7dc254e7627642afbe9 Mon Sep 17 00:00:00 2001
+From 388b9bc4dc78cbc83c6476d765f6e0c3d3ed1fb4 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Mon, 29 Apr 2013 18:50:15 -0700
 Subject: [PATCH] VyOS: Add linkstate IP device attribute
@@ -6,7 +6,6 @@ Subject: [PATCH] VyOS: Add linkstate IP device attribute
 Backport of earlier Vyatta patch.
 
 (cherry picked from commit 7c5a851086686be14ae937c80d6cee34814dbefc)
-
 ---
  Documentation/networking/ip-sysctl.txt | 13 +++++++++++++
  include/linux/inetdevice.h             |  1 +
@@ -91,10 +90,10 @@ index 9c0f4a92bcff..619edd130cfd 100644
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index a08d682ba676..17949eb57a5b 100644
+index 12a2cea9d606..e0870ba2a8e2 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -2318,6 +2318,8 @@ static struct devinet_sysctl_table {
+@@ -2319,6 +2319,8 @@ static struct devinet_sysctl_table {
  					      "route_localnet"),
  		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
  					      "drop_unicast_in_l2_multicast"),

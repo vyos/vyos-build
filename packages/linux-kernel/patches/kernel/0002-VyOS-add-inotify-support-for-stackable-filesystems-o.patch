@@ -1,4 +1,4 @@
-From 1d625d2f745b61a718ce52cd1729f467c17defa6 Mon Sep 17 00:00:00 2001
+From 77ce1f672326050d6b47dbab4f52f0bbcd553a37 Mon Sep 17 00:00:00 2001
 From: Alex Harpin <development@landsofshadow.co.uk>
 Date: Wed, 31 Dec 2014 10:33:38 +0000
 Subject: [PATCH] VyOS: add inotify support for stackable filesystems
@@ -19,7 +19,6 @@ for bug #303, and will allow that commit to be reverted.
 Bug #425 http://bugzilla.vyos.net/show_bug.cgi?id=425
 
 (cherry picked from commit a93f1128bc83b5a6628da242e71c18ef05e81ea2)
-
 ---
  fs/notify/inotify/Kconfig        |   9 +++
  fs/notify/inotify/inotify_user.c | 112 ++++++++++++++++++++++++++++++-
@@ -28,14 +27,14 @@ Bug #425 http://bugzilla.vyos.net/show_bug.cgi?id=425
  4 files changed, 170 insertions(+), 3 deletions(-)
 
 diff --git a/fs/notify/inotify/Kconfig b/fs/notify/inotify/Kconfig
-index b981fc0c8379..b0b208bd584b 100644
+index b981fc0c8379..1ccd92e52784 100644
 --- a/fs/notify/inotify/Kconfig
 +++ b/fs/notify/inotify/Kconfig
 @@ -15,3 +15,12 @@ config INOTIFY_USER
  	  For more information, see <file:Documentation/filesystems/inotify.txt>
  
  	  If unsure, say Y.
-+	  
++
 +config INOTIFY_STACKFS
 +	bool "Inotify support for stackable filesystem"
 +	select INOTIFY_USER
@@ -189,7 +188,7 @@ index 97a51690338e..0595de27e1b5 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 127df4a85c8a..d6d41a328f9d 100644
+index 246623406db9..dc13e98928ab 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -18,6 +18,7 @@
@@ -200,7 +199,7 @@ index 127df4a85c8a..d6d41a328f9d 100644
  #include "overlayfs.h"
  
  MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
-@@ -1703,6 +1704,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -1712,6 +1713,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -219,7 +218,7 @@ index 127df4a85c8a..d6d41a328f9d 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1717,13 +1730,21 @@ static int __init ovl_init(void)
+@@ -1726,13 +1739,21 @@ static int __init ovl_init(void)
  
  	err = register_filesystem(&ovl_fs_type);
  	if (err)
@@ -242,7 +241,7 @@ index 127df4a85c8a..d6d41a328f9d 100644
  	unregister_filesystem(&ovl_fs_type);
  
  	/*
-@@ -1732,7 +1753,6 @@ static void __exit ovl_exit(void)
+@@ -1741,7 +1762,6 @@ static void __exit ovl_exit(void)
  	 */
  	rcu_barrier();
  	kmem_cache_destroy(ovl_inode_cachep);
@@ -251,7 +250,7 @@ index 127df4a85c8a..d6d41a328f9d 100644
  
  module_init(ovl_init);
 diff --git a/include/linux/inotify.h b/include/linux/inotify.h
-index 6a24905f6e1e..248b1441ba83 100644
+index 6a24905f6e1e..4484f0760588 100644
 --- a/include/linux/inotify.h
 +++ b/include/linux/inotify.h
 @@ -9,6 +9,8 @@
@@ -271,7 +270,7 @@ index 6a24905f6e1e..248b1441ba83 100644
 +
 +struct inotify_stackfs {
 +	struct list_head	list;		/* entry in inotify_fs_list */
-+	struct file_system_type	*fs_type;	/* registed file_system_type */	
++	struct file_system_type	*fs_type;	/* registed file_system_type */
 +	inotify_path_proc	func;		/* registed callback function */
 +};
 +
