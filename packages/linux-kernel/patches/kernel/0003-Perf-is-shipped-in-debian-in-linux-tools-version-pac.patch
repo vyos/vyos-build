@@ -1,8 +1,10 @@
+From be73c78420d9a23accfa9568e451046272ceab84 Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@linaro.org>
+Date: Sat, 17 Oct 2020 10:30:37 +0000
+Subject: [PATCH] Perf is shipped in debian in linux-tools-$version package
 
-Perf is shipped in debian in linux-tools-$version package. Extend
-the existing to builddeb script to build perf if BUILD_TOOLS=y
-is added the make deb-pkg line
+Extend the existing to builddeb script to build perf if BUILD_TOOLS=y is
+added the make deb-pkg line
 
 Some features of this patch I'm uncomfortable with:
 
@@ -31,7 +33,7 @@ Signed-off-by: Riku Voipio <riku.voipio@linaro.org>
  1 file changed, 30 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/package/builddeb b/scripts/package/builddeb
-index 0b31f4f1f92c..629144b4226b 100755
+index 0b31f4f1f92c..517a54e64509 100755
 --- a/scripts/package/builddeb
 +++ b/scripts/package/builddeb
 @@ -39,10 +39,12 @@ tmpdir="$objtree/debian/tmp"
@@ -71,7 +73,7 @@ index 0b31f4f1f92c..629144b4226b 100755
 +		mkdir -p $output/tools/perf
 +		output="O=$output/tools/perf"
 +	fi
-+	$MAKE -C $srctree/tools/perf $output LDFLAGS= srctree=$KBUILD_SRC prefix=$tools_dest/usr install
++   $MAKE V=1 -C $srctree/tools/perf $output LDFLAGS= srctree=$KBUILD_SRC prefix=$tools_dest/usr install
 +	cat <<EOF >> debian/control
 +
 +Package: $tools_packagename
