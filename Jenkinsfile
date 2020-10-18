@@ -192,23 +192,25 @@ pipeline {
                 if (files) {
                     // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
                     sshagent(['SSH-dev.packages.vyos.net']) {
-                        // build up some fancy groovy variables so we do not need to write/copy
-                        // every option over and over again!
-                        def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
-                        def ISO = sh(returnStdout: true, script: "ls build/vyos-*.iso").trim()
-                        def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
-                        def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
-                        def SSH_REMOTE = 'khagen@10.217.48.113'
+                        dir('build') {
+                            // build up some fancy groovy variables so we do not need to write/copy
+                            // every option over and over again!
+                            def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
+                            def ISO = sh(returnStdout: true, script: "ls vyos-*.iso").trim()
+                            def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
+                            def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+                            def SSH_REMOTE = 'khagen@10.217.48.113'
 
-                        // No need to explicitly check the return code. The pipeline
-                        // will fail if sh returns a non 0 exit code
-                        sh """
-                            sha256sum ${ISO} > ${ISO}.sha256
-                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +28 -exec rm -f {} \\;'"
-                            scp ${SSH_OPTS} -r ${ISO} ${ISO}.sha256 ${SSH_REMOTE}:${SSH_DIR}/
-                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
-                        """
+                            // No need to explicitly check the return code. The pipeline
+                            // will fail if sh returns a non 0 exit code
+                            sh """
+                                sha256sum ${ISO} > ${ISO}.sha256
+                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
+                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +28 -exec rm -f {} \\;'"
+                                scp ${SSH_OPTS} -r ${ISO} ${ISO}.sha256 ${SSH_REMOTE}:${SSH_DIR}/
+                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
+                            """
+                        }
                     }
 
                     // Upload to Amazon S3 storage
