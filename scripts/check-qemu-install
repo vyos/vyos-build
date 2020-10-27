@@ -71,6 +71,9 @@ parser.add_argument('--no-kvm', help='Disable use of kvm',
 parser.add_argument('--configd', help='Execute testsuite with config daemon',
 				action='store_true',
 				default=False)
+parser.add_argument('--configtest', help='Execute load/commit config tests',
+				action='store_true',
+				default=False)
 
 args = parser.parse_args()
 
@@ -315,31 +318,56 @@ try:
     #################################################
     log.info("Executing test-suite ")
 
-    c.sendline('/usr/bin/vyos-smoketest')
-    i = c.expect(['\n +Invalid command:',
-                      '\n +Set failed',
-                      'No such file or directory',
-                      r'\n\S+@\S+[$#]'], timeout=3600)
+    # run default smoketest suite
+    if not args.configtest:
+        c.sendline('/usr/bin/vyos-smoketest')
+        i = c.expect(['\n +Invalid command:',
+                          '\n +Set failed',
+                          'No such file or directory',
+                          r'\n\S+@\S+[$#]'], timeout=3600)
 
-    if i==0:
-        raise Exception('Invalid command detected')
-    elif i==1:
-        raise Exception('Set syntax failed :/')
-    elif i==2:
-        log.error("Did not find VyOS smoketest, this should be an exception")
-        raise Exception("WTF? did not find VyOS smoketest, this should be an exception")
+        if i==0:
+            raise Exception('Invalid command detected')
+        elif i==1:
+            raise Exception('Set syntax failed :/')
+        elif i==2:
+            log.error("Did not find VyOS smoketest, this should be an exception")
+            raise Exception("WTF? did not find VyOS smoketest, this should be an exception")
 
-    c.sendline('echo EXITCODE:$\x16?')
-    i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=10)
-    if i==0:
-        log.info('Smoketest finished successfully!')
-        pass
-    if i==1:
-        log.error('Smoketest failed :/')
-        raise Exception("Smoketest-failed, please look into debug output")
+        c.sendline('echo EXITCODE:$\x16?')
+        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=10)
+        if i==0:
+            log.info('Smoketest finished successfully!')
+            pass
+        if i==1:
+            log.error('Smoketest failed :/')
+            raise Exception("Smoketest-failed, please look into debug output")
 
-    #log.info("Smoke test status")
-    #data = c.before.decode()
+        #log.info("Smoke test status")
+        #data = c.before.decode()
+
+    # else, run configtest suite
+    else:
+        log.info("Executing load config tests")
+        c.sendline('/usr/bin/vyos-configtest')
+        i = c.expect(['\n +Invalid command:',
+                          'No such file or directory',
+                          r'\n\S+@\S+[$#]'], timeout=3600)
+
+        if i==0:
+            raise Exception('Invalid command detected')
+        elif i==1:
+            log.error("Did not find VyOS configtest, this should be an exception")
+            raise Exception("WTF? did not find VyOS configtest, this should be an exception")
+
+        c.sendline('echo EXITCODE:$\x16?')
+        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=10)
+        if i==0:
+            log.info('Configtest finished successfully!')
+            pass
+        if i==1:
+            log.error('Configtest failed :/')
+            raise Exception("Configtest failed, please look into debug output")
 
     #################################################
     # Powering off system
