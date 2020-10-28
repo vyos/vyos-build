@@ -22,7 +22,7 @@
 
 def pkgList = [
     ['name': 'frr',
-     'scmCommit': 'frr-7.3.1',
+     'scmCommit': 'stable/7.3',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
      'buildCmd': '''cd ..; ./build-frr.sh'''],
 ]
