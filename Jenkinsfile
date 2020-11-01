@@ -154,7 +154,7 @@ pipeline {
         }
         stage('QEMU') {
             parallel {
-                stage('Testcases without vyos-configd') {
+                stage('Smoketests without vyos-configd') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
@@ -162,12 +162,20 @@ pipeline {
                         sh "sudo make test"
                     }
                 }
-                stage('Testcases with vyos-configd') {
+                stage('Smoketests with vyos-configd') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
                     steps {
                         sh "sudo make testd"
+                    }
+                }
+                stage('Smoketests with vyos-configd and arbitrary config loader') {
+                    when {
+                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                    }
+                    steps {
+                        sh "sudo make testc"
                     }
                 }
                 stage('Build QEMU image') {
