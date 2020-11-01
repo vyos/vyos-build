@@ -271,4 +271,4 @@ clean:
 
 .PHONY: purge
 purge:
-	rm -rf build packer_build packer_cache
+	rm -rf build packer_build packer_cache testinstall-*.img
