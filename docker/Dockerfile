@@ -253,6 +253,7 @@ RUN apt-get update && apt-get install -y \
       python3-xmltodict \
       python3-lxml \
       python3-nose \
+      python3-netifaces \
       python3-coverage
 
 # Packages needed for vyos-xe-guest-utilities
