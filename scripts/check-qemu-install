@@ -293,6 +293,12 @@ try:
     # additional settling time
     time.sleep(20)
 
+    ################################################
+    # Always load the WiFi simulation module
+    ################################################
+    c.sendline('sudo modprobe mac80211_hwsim')
+    c.expect(r'vyos@vyos:~\$')
+
     #################################################
     # Start/stop config daemon
     #################################################
