@@ -113,7 +113,7 @@ pipeline {
                                 doGenerateSubmoduleConfigurations: false,
                                 extensions: [[$class: 'CleanCheckout'],
                                              [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]],
-                                branches: [[name: '20191022' ]],
+                                branches: [[name: '20201022' ]],
                                 userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git']]])
                         }
                     }
