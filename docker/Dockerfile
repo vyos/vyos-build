@@ -129,7 +129,7 @@ RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
     opam init --root=/opt/opam --comp=4.09.0 --disable-sandboxing
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
-      pcre
+      pcre re
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       ctypes.0.16.0 \
