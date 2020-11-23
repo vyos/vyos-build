@@ -12,3 +12,4 @@ vyos-intel-ixgbe
 vyos-intel-ixgbevf
 vyos-intel-iavf
 vyos-intel-qat
+wireguard-modules
