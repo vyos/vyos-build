@@ -12,6 +12,9 @@ cp x86_64_vyos_defconfig ${KERNEL_SRC}/arch/x86/configs
 
 cd ${KERNEL_SRC}
 
+echo "I: clean modified files"
+git reset --hard HEAD
+
 KERNEL_VERSION=$(make kernelversion)
 KERNEL_SUFFIX=-$(dpkg --print-architecture)-vyos
 
@@ -41,3 +44,11 @@ EOF
 echo "I: Build Debian Kernel package"
 touch .scmversion
 make bindeb-pkg BUILD_TOOLS=1 LOCALVERSION=${KERNEL_SUFFIX} KDEB_PKGVERSION=${KERNEL_VERSION}-1 -j $(getconf _NPROCESSORS_ONLN)
+
+cd $CWD
+if [[ $? == 0 ]]; then
+    for package in $(ls linux-*.deb)
+    do
+        ln -sf linux-kernel/$package ..
+    done
+fi

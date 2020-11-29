@@ -33,10 +33,10 @@ Signed-off-by: Riku Voipio <riku.voipio@linaro.org>
  1 file changed, 30 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/package/builddeb b/scripts/package/builddeb
-index 0b31f4f1f92c..517a54e64509 100755
+index c4c580f547ef..9a4caabef7dc 100755
 --- a/scripts/package/builddeb
 +++ b/scripts/package/builddeb
-@@ -39,10 +39,12 @@ tmpdir="$objtree/debian/tmp"
+@@ -51,10 +51,12 @@ tmpdir="$objtree/debian/tmp"
  kernel_headers_dir="$objtree/debian/hdrtmp"
  libc_headers_dir="$objtree/debian/headertmp"
  dbg_dir="$objtree/debian/dbgtmp"
@@ -49,8 +49,8 @@ index 0b31f4f1f92c..517a54e64509 100755
  
  if [ "$ARCH" = "um" ] ; then
  	packagename=user-mode-linux-$version
-@@ -65,7 +67,7 @@ esac
- BUILD_DEBUG="$(grep -s '^CONFIG_DEBUG_INFO=y' $KCONFIG_CONFIG || true)"
+@@ -77,7 +79,7 @@ esac
+ BUILD_DEBUG=$(if_enabled_echo CONFIG_DEBUG_INFO Yes)
  
  # Setup the directory structure
 -rm -rf "$tmpdir" "$kernel_headers_dir" "$libc_headers_dir" "$dbg_dir" $objtree/debian/files
@@ -58,7 +58,7 @@ index 0b31f4f1f92c..517a54e64509 100755
  mkdir -m 755 -p "$tmpdir/DEBIAN"
  mkdir -p "$tmpdir/lib" "$tmpdir/boot"
  mkdir -p "$kernel_headers_dir/lib/modules/$version/"
-@@ -194,4 +196,31 @@ if [ -n "$BUILD_DEBUG" ] ; then
+@@ -205,4 +207,31 @@ if [ -n "$BUILD_DEBUG" ] ; then
  	create_package "$dbg_packagename" "$dbg_dir"
  fi
  
