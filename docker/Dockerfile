@@ -425,6 +425,23 @@ RUN apt-get update && apt-get install -y \
       automake \
       libtool
 
+# Packages needed for iproute2
+RUN apt-get update && apt-get install -y \
+      bison \
+      flex \
+      iptables-dev \
+      libatm1-dev \
+      libbsd-dev \
+      libcap-dev \
+      libdb-dev \
+      libelf-dev \
+      libmnl-dev \
+      libselinux1-dev \
+      linux-libc-dev \
+      pkg-config \
+      po-debconf \
+      zlib1g-dev
+
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \

@@ -1,0 +1,6 @@
+iproute2/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
