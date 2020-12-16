@@ -442,6 +442,15 @@ RUN apt-get update && apt-get install -y \
       po-debconf \
       zlib1g-dev
 
+# Packages needed for XDP (eXpress Data Path) development
+RUN apt-get update && apt-get install -y \
+      clang \
+      llvm \
+      libelf-dev \
+      libpcap-dev \
+      gcc-multilib \
+      build-essential
+
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
