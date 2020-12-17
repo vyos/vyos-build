@@ -448,8 +448,13 @@ RUN apt-get update && apt-get install -y \
       llvm \
       libelf-dev \
       libpcap-dev \
-      gcc-multilib \
       build-essential
+
+# gcc-multilib is not available on arm64 but required by XDP
+RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+      apt-get update && apt-get install -y \
+        gcc-multilib; \
+    fi
 
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
