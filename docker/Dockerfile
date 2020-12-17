@@ -456,6 +456,12 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
         gcc-multilib; \
     fi
 
+# Install libbpf packages from Debian Buster Backports
+RUN echo "deb http://deb.debian.org/debian/ buster-backports main" \
+      > /etc/apt/sources.list.d/buster-backports.list && \
+    apt-get update && apt-get install -y -t buster-backports libbpf-dev && \
+    rm -f /etc/apt/sources.list.d/jessie-backports.list
+
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
