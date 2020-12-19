@@ -1,4 +1,4 @@
-# Copyright (C) 2018 VyOS maintainers and contributors
+# Copyright (C) 2018-2020 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # in order to easy exprort images built to "external" world
@@ -147,6 +147,54 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i /tmp/libvyosconfig0_*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
 
+# Install open-vmdk
+RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
+    unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
+    cd /tmp/open-vmdk-master/ && \
+    make && \
+    make install
+
+#
+# live-build: building with local packages fails due to missing keys
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691
+# https://salsa.debian.org/live-team/live-build/merge_requests/30
+#
+RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch \
+      -O /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+    git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build && \
+    cd /tmp/live-build && git checkout debian/1%20190311 && \
+    patch -p1 < /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
+    dch -n "Applying fix for missing archive keys" && \
+    dpkg-buildpackage -us -uc && \
+    sudo dpkg -i ../live-build*.deb
+
+#
+# live-build: building in docker fails with mounting /proc | /sys
+#
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=919659
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=921815
+# https://salsa.debian.org/installer-team/debootstrap/merge_requests/26
+#
+RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch \
+      -O /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    git clone https://salsa.debian.org/installer-team/debootstrap /tmp/debootstrap && \
+    cd /tmp/debootstrap && git checkout 1.0.114 && \
+    patch -p1 < /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
+    dch -n "Applying fix for docker image compile" && \
+    dpkg-buildpackage -us -uc && \
+    sudo dpkg -i ../debootstrap*.deb
+
+#
+# Install Packer
+#
+RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+      export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
+      jq -r -M '.current_version')"; \
+      echo "url https://releases.hashicorp.com/packer/${LATEST}/packer_${LATEST}_linux_amd64.zip" |\
+        curl -K- | gzip -d > /usr/bin/packer && \
+      chmod +x /usr/bin/packer; \
+    fi
+
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
       autotools-dev \
@@ -168,15 +216,6 @@ RUN apt-get update && apt-get install -y \
       autoconf \
       automake \
       cpio
-
-# Packages needed for vyatta-iproute
-RUN apt-get update && apt-get install -y \
-      iptables-dev \
-      libatm1-dev \
-      libcap-dev \
-      libdb-dev \
-      libelf-dev \
-      libselinux1-dev
 
 # Packages needed for kernel
 RUN apt-get update && apt-get install -y \
@@ -201,13 +240,7 @@ RUN apt-get update && apt-get install -y \
       binutils-dev \
       libnuma-dev \
       libbabeltrace-dev \
-      liblua5.2-dev \
       liblua5.3-dev
-
-# Packages needed for vyos-qat
-RUN apt-get update && apt-get install -y \
-     libboost-dev \
-     libudev-dev
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
@@ -245,16 +278,31 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
-      quilt \
       fakeroot \
-      whois \
+      libzmq3-dev \
       python3 \
       python3-setuptools \
       python3-xmltodict \
       python3-lxml \
       python3-nose \
       python3-netifaces \
-      python3-coverage
+      python3-coverage \
+      quilt \
+      whois
+
+# Packages needed for vyos-1x-xdp package, gcc-multilib is not available on
+# arm64 but required by XDP
+RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+      apt-get update && apt-get install -y \
+        gcc-multilib \
+        clang \
+        llvm \
+        libelf-dev \
+        libpcap-dev \
+        build-essential; \
+      git clone https://github.com/libbpf/libbpf.git /tmp/libbpf && \
+        cd /tmp/libbpf && git checkout b91f53ec5f1aba2 && cd src && make install; \
+    fi
 
 # Packages needed for vyos-xe-guest-utilities
 RUN apt-get update && apt-get install -y \
@@ -373,19 +421,6 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libaudit-dev
 
-# Packages needed for vyos-configd
-RUN apt-get update && apt-get install -y \
-      libzmq3-dev
-
-# Install packer
-RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
-      export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
-      jq -r -M '.current_version')"; \
-      echo "url https://releases.hashicorp.com/packer/${LATEST}/packer_${LATEST}_linux_amd64.zip" |\
-        curl -K- | gzip -d > /usr/bin/packer && \
-      chmod +x /usr/bin/packer; \
-    fi
-
 # Install utillities for building grub and u-boot images
 RUN if dpkg-architecture -iarm64; then \
     apt-get update && apt-get install -y \
@@ -424,87 +459,6 @@ RUN apt-get update && apt-get install -y \
       autoconf \
       automake \
       libtool
-
-# Packages needed for iproute2
-RUN apt-get update && apt-get install -y \
-      bison \
-      flex \
-      iptables-dev \
-      libatm1-dev \
-      libbsd-dev \
-      libcap-dev \
-      libdb-dev \
-      libelf-dev \
-      libmnl-dev \
-      libselinux1-dev \
-      linux-libc-dev \
-      pkg-config \
-      po-debconf \
-      zlib1g-dev
-
-# Packages needed for XDP (eXpress Data Path) development
-RUN apt-get update && apt-get install -y \
-      clang \
-      llvm \
-      libelf-dev \
-      libpcap-dev \
-      build-essential
-
-# gcc-multilib is not available on arm64 but required by XDP
-RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
-      apt-get update && apt-get install -y \
-        gcc-multilib \
-        linux-headers-amd64; \
-    elif dpkg-architecture -iarm64; then \
-      apt-get update && apt-get install -y \
-        linux-headers-arm64; \
-        ln -s /usr/include/asm-generic /usr/include/asm; \
-    fi
-
-# Install libbpf packages from Debian Buster Backports
-RUN echo "deb http://deb.debian.org/debian/ buster-backports main" \
-      > /etc/apt/sources.list.d/buster-backports.list && \
-    apt-get update && apt-get install -y -t buster-backports \
-      bpftool \
-      libbpf-dev && \
-    rm -f /etc/apt/sources.list.d/buster-backports.list
-
-# Install open-vmdk
-RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
-    unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
-    cd /tmp/open-vmdk-master/ && \
-    make && \
-    make install
-
-#
-# live-build: building with local packages fails due to missing keys
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691
-# https://salsa.debian.org/live-team/live-build/merge_requests/30
-#
-RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch \
-      -O /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
-    git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build && \
-    cd /tmp/live-build && git checkout debian/1%20190311 && \
-    patch -p1 < /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
-    dch -n "Applying fix for missing archive keys" && \
-    dpkg-buildpackage -us -uc && \
-    sudo dpkg -i ../live-build*.deb
-
-#
-# live-build: building in docker fails with mounting /proc | /sys
-#
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=919659
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=921815
-# https://salsa.debian.org/installer-team/debootstrap/merge_requests/26
-#
-RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch \
-      -O /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
-    git clone https://salsa.debian.org/installer-team/debootstrap /tmp/debootstrap && \
-    cd /tmp/debootstrap && git checkout 1.0.114 && \
-    patch -p1 < /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
-    dch -n "Applying fix for docker image compile" && \
-    dpkg-buildpackage -us -uc && \
-    sudo dpkg -i ../debootstrap*.deb
 
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
