@@ -114,7 +114,7 @@ RUN apt-get update && apt-get install -y \
       libpcre3-dev \
       unzip
 
-# Update certificate store to not crash ocaml package installf
+# Update certificate store to not crash ocaml package install
 # Apply fix for https in curl running on armhf
 RUN dpkg-reconfigure ca-certificates; \
     if dpkg-architecture -iarmhf; then \
@@ -453,7 +453,12 @@ RUN apt-get update && apt-get install -y \
 # gcc-multilib is not available on arm64 but required by XDP
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       apt-get update && apt-get install -y \
-        gcc-multilib; \
+        gcc-multilib \
+        linux-headers-amd64; \
+    elif dpkg-architecture -iarm64; then \
+      apt-get update && apt-get install -y \
+        linux-headers-arm64; \
+        ln -s /usr/include/asm-generic /usr/include/asm; \
     fi
 
 # Install libbpf packages from Debian Buster Backports
