@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Before starting docker we define default docker config in format JSON.
+
+echo I: Creating container directory.
+
+mkdir -p /config/containers
+mkdir -p /etc/docker
+
+cat <<< '{
+    "bridge": "none",
+    "iptables": false,
+    "ip-forward": false,
+    "ip-masq": false,
+    "data-root": "/config/containers",
+    "storage-driver": "vfs"
+} ' > /etc/docker/daemon.json

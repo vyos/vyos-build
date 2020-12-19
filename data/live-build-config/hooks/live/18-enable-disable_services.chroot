@@ -48,6 +48,7 @@ systemctl disable dropbear.service
 systemctl disable fastnetmon.service
 systemctl disable ocserv.service
 systemctl disable tuned.service
+systemctl disable docker.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
