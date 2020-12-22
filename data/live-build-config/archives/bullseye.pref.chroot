@@ -1,0 +1,7 @@
+Package: libyang1
+Pin: release n=bullseye
+Pin-Priority: 600
+
+Package: *
+Pin: release n=bullseye
+Pin-Priority: -10
