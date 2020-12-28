@@ -362,10 +362,6 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       libc-ares-dev
 
-# Packages needed for ddclient
-RUN apt-get update && apt-get install -y \
-      xmlto
-
 # Packages needed for keepalived
 RUN apt-get update && apt-get install -y \
       autoconf \
