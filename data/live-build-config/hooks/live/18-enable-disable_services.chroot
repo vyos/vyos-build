@@ -20,6 +20,7 @@ systemctl disable 'udp-broadcast-relay@*.service'
 systemctl disable pdns-recursor.service
 systemctl disable tftpd-hpa.service
 systemctl disable strongswan.service
+systemctl disable logd.service
 systemctl disable frr.service
 systemctl disable salt-minion.service
 systemctl disable certbot.service
@@ -48,6 +49,10 @@ systemctl disable dropbear.service
 systemctl disable fastnetmon.service
 systemctl disable ocserv.service
 systemctl disable tuned.service
+systemctl disable radvd.service
+systemctl disable hostapd.service
+systemctl disable keepalived.service
+systemctl disable ipvsadm.service
 systemctl disable telegraf.service
 
 echo I: Enabling services
