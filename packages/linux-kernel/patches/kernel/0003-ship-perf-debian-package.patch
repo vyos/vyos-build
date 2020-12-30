@@ -1,10 +1,8 @@
-From be73c78420d9a23accfa9568e451046272ceab84 Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@linaro.org>
-Date: Sat, 17 Oct 2020 10:30:37 +0000
-Subject: [PATCH] Perf is shipped in debian in linux-tools-$version package
 
-Extend the existing to builddeb script to build perf if BUILD_TOOLS=y is
-added the make deb-pkg line
+Perf is shipped in debian in linux-tools-$version package. Extend
+the existing to builddeb script to build perf if BUILD_TOOLS=y
+is added the make deb-pkg line
 
 Some features of this patch I'm uncomfortable with:
 
@@ -28,53 +26,52 @@ Some features of this patch I'm uncomfortable with:
    patch series.
 
 Signed-off-by: Riku Voipio <riku.voipio@linaro.org>
+
 ---
  scripts/package/builddeb | 31 ++++++++++++++++++++++++++++++-
  1 file changed, 30 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/package/builddeb b/scripts/package/builddeb
-index c4c580f547ef..9a4caabef7dc 100755
+index 91a502bb97e8..79987641bed5 100755
 --- a/scripts/package/builddeb
 +++ b/scripts/package/builddeb
-@@ -51,10 +51,12 @@ tmpdir="$objtree/debian/tmp"
- kernel_headers_dir="$objtree/debian/hdrtmp"
- libc_headers_dir="$objtree/debian/headertmp"
- dbg_dir="$objtree/debian/dbgtmp"
+@@ -109,8 +109,10 @@ deploy_libc_headers () {
+ version=$KERNELRELEASE
+ tmpdir=debian/linux-image
+ dbg_dir=debian/linux-image-dbg
 +tools_dir="$objtree/debian/toolstmp"
  packagename=linux-image-$version
- kernel_headers_packagename=linux-headers-$version
- libc_headers_packagename=linux-libc-dev
  dbg_packagename=$packagename-dbg
 +tools_packagename=linux-tools-$version
  
  if [ "$ARCH" = "um" ] ; then
  	packagename=user-mode-linux-$version
-@@ -77,7 +79,7 @@ esac
+@@ -133,7 +135,7 @@ esac
  BUILD_DEBUG=$(if_enabled_echo CONFIG_DEBUG_INFO Yes)
  
  # Setup the directory structure
--rm -rf "$tmpdir" "$kernel_headers_dir" "$libc_headers_dir" "$dbg_dir" $objtree/debian/files
-+rm -rf "$tmpdir" "$kernel_headers_dir" "$libc_headers_dir" "$dbg_dir" "$tools_dir" $objtree/debian/files
+-rm -rf "$tmpdir" "$dbg_dir" debian/files
++rm -rf "$tmpdir" "$dbg_dir" "$tools_dir" debian/files
  mkdir -m 755 -p "$tmpdir/DEBIAN"
  mkdir -p "$tmpdir/lib" "$tmpdir/boot"
- mkdir -p "$kernel_headers_dir/lib/modules/$version/"
-@@ -205,4 +207,31 @@ if [ -n "$BUILD_DEBUG" ] ; then
+ 
+@@ -234,4 +236,31 @@ if [ -n "$BUILD_DEBUG" ] ; then
  	create_package "$dbg_packagename" "$dbg_dir"
  fi
  
 +if [ -n "$BUILD_TOOLS" ]
 +then
-+	# HACK - change output dir from relative to absolute
-+	mkdir -p $tools_dir
-+	tools_dest=`readlink -f $tools_dir`
-+	if [ -n "$O" ]
-+	then
-+		output=`readlink -f $objtree`
-+		mkdir -p $output/tools/perf
-+		output="O=$output/tools/perf"
-+	fi
-+   $MAKE V=1 -C $srctree/tools/perf $output LDFLAGS= srctree=$KBUILD_SRC prefix=$tools_dest/usr install
-+	cat <<EOF >> debian/control
++       # HACK - change output dir from relative to absolute
++       mkdir -p $tools_dir
++       tools_dest=`readlink -f $tools_dir`
++       if [ -n "$O" ]
++       then
++               output=`readlink -f $objtree`
++               mkdir -p $output/tools/perf
++               output="O=$output/tools/perf"
++       fi
++       $MAKE -C $srctree/tools/perf $output LDFLAGS= srctree=$KBUILD_SRC prefix=$tools_dest/usr install
++       cat <<EOF >> debian/control
 +
 +Package: $tools_packagename
 +Architecture: any
@@ -85,8 +82,8 @@ index c4c580f547ef..9a4caabef7dc 100755
 + kernel version $version .
 +EOF
 +
-+	dpkg-shlibdeps $tools_dest/usr/bin/* $tools_dest/usr/lib*/traceevent/plugins/*
-+	create_package "$tools_packagename" "$tools_dir"
++       dpkg-shlibdeps $tools_dest/usr/bin/* $tools_dest/usr/lib*/traceevent/plugins/*
++       create_package "$tools_packagename" "$tools_dir"
 +fi
 +
  exit 0
