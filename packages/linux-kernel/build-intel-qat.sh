@@ -10,7 +10,7 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "https://01.org/sites/default/files/downloads/qat1.7.l.4.9.0-00008.tar_0.gz"
+    "https://01.org/sites/default/files/downloads/qat1.7.l.4.12.0-00011.tar.gz"
 )
 
 for url in "${intel[@]}"
@@ -52,20 +52,24 @@ do
     fi
 
     echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
-    mkdir -p ${DEBIAN_DIR}/lib/firmware ${DEBIAN_DIR}/usr/local/bin ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu ${DEBIAN_DIR}/etc/init.d
+    mkdir -p \
+        ${DEBIAN_DIR}/lib/firmware \
+        ${DEBIAN_DIR}/usr/sbin \
+        ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu \
+        ${DEBIAN_DIR}/etc/init.d
     KERNEL_SOURCE_ROOT=${KERNEL_DIR} ./configure --enable-kapi --enable-qat-lkcf
     make -j $(getconf _NPROCESSORS_ONLN) all
     make INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} \
-        qat-driver-install
+        qat-driver-install adf-ctl-all
 
     if [ "x$?" != "x0" ]; then
         exit 1
     fi
 
-    cp build/*.bin ${DEBIAN_DIR}/lib/firmware
+    cp quickassist/qat/fw/*.bin ${DEBIAN_DIR}/lib/firmware
     cp build/*.so ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu
-    cp build/qat_service ${DEBIAN_DIR}/etc/init.d
-    cp build/adf_ctl ${DEBIAN_DIR}/usr/local/bin
+    cp build/adf_ctl ${DEBIAN_DIR}/usr/sbin
+    cp quickassist/build_system/build_files/qat_service ${DEBIAN_DIR}/etc/init.d
     cp build/usdm_drv.ko ${DEBIAN_DIR}/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/updates/drivers
     chmod 644 ${DEBIAN_DIR}/lib/firmware/*
     chmod 755 ${DEBIAN_DIR}/etc/init.d/* ${DEBIAN_DIR}/usr/local/bin/*
