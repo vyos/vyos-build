@@ -21,9 +21,8 @@
 @Library('vyos-build@crux')_
 
 def pkgList = [
-    // pkg-libnftnl
     ['name': 'frr',
-     'scmCommit': 'frr-7.3.1',
+     'scmCommit': 'stable/7.3',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
      'buildCmd': '''./tools/tarsource.sh -V; dpkg-buildpackage -us -uc -Ppkg.frr.rtrlib'''],
 ]
