@@ -207,7 +207,7 @@ pipeline {
                             def ISO = sh(returnStdout: true, script: "ls vyos-*.iso").trim()
                             def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
                             def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
-                            def SSH_REMOTE = 'khagen@10.217.48.113'
+                            def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable 
 
                             // No need to explicitly check the return code. The pipeline
                             // will fail if sh returns a non 0 exit code
