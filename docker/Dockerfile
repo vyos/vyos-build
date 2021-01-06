@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2020 VyOS maintainers and contributors
+# Copyright (C) 2018-2021 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # in order to easy exprort images built to "external" world
@@ -101,10 +101,6 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
         syslinux \
         grub2; \
     fi
-
-# Package needed for mdns-repeater
-RUN apt-get update && apt-get install -y \
-      dh-systemd
 
 #
 # Building libvyosconf requires a full configured OPAM/OCaml setup
