@@ -282,6 +282,7 @@ RUN apt-get update && apt-get install -y \
       python3-lxml \
       python3-nose \
       python3-netifaces \
+      python3-jinja2 \
       python3-psutil \
       python3-coverage \
       quilt \
