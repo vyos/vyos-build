@@ -240,20 +240,20 @@ RUN apt-get update && apt-get install -y \
       libssl-dev
 
 # Build rtrlib release 0.6.3
-RUN export RTRLIB_VERSION="0.6.3" && \
+RUN export RTRLIB_VERSION="0.6.3" && export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
     wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
     tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../librtr*_$(dpkg-architecture -qDEB_HOST_ARCH).deb ../librtr*_all.deb
+    dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
 
 # Upgrading to FRR 7.5 requires a more recent version of libyang which is only
 # available from Debian Bullseye
 RUN echo "deb http://deb.debian.org/debian/ bullseye main" \
-      > /etc/apt/sources.list.d/bullseye-backports.list && \
+      > /etc/apt/sources.list.d/bullseye.list && \
     apt-get update && apt-get install -y -t bullseye \
       libyang-dev \
       libyang1; \
-    rm -f /etc/apt/sources.list.d/bullseye-backports.list
+    rm -f /etc/apt/sources.list.d/bullseye.list
 
 # Packages needed to build FRR itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
