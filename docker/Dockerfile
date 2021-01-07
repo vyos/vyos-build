@@ -66,20 +66,11 @@ RUN apt-get update && apt-get install -y \
       curl \
       sudo \
       mc \
-      build-essential \
       pbuilder \
       devscripts \
-      squashfs-tools \
-      genisoimage \
       lsb-release \
-      fakechroot \
       libtool \
       libapt-pkg-dev \
-      quilt \
-      python3-git \
-      python3-pip \
-      python3-flake8 \
-      python3-autopep8 \
       flake8 \
       pkg-config \
       debhelper \
@@ -87,6 +78,18 @@ RUN apt-get update && apt-get install -y \
       po4a \
       openssh-client \
       jq
+
+# Packages needed for vyos-build
+RUN apt-get update && apt-get install -y \
+      build-essential \
+      python3-pystache \
+      squashfs-tools \
+      genisoimage \
+      fakechroot \
+      python3-git \
+      python3-pip \
+      python3-flake8 \
+      python3-autopep8
 
 # Syslinux and Grub2 is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
@@ -99,6 +102,7 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
 # Building libvyosconf requires a full configured OPAM/OCaml setup
 #
 RUN apt-get update && apt-get install -y \
+      debhelper \
       libffi-dev \
       libpcre3-dev \
       unzip
@@ -128,6 +132,12 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
 # Build VyConf which is required to build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
     opam pin add vyos1x-config https://github.com/vyos/vyos1x-config.git#550048b3 -y
+
+# Packages needed for libvyosconfig
+RUN apt-get update && apt-get install -y \
+      quilt \
+      libpcre3-dev \
+      libffi-dev
 
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
