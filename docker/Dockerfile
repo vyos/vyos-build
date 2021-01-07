@@ -76,15 +76,8 @@ RUN apt-get update && apt-get install -y \
       libtool \
       libapt-pkg-dev \
       quilt \
-      python3-lxml \
-      python3-setuptools \
-      python3-nose \
-      python3-coverage \
-      python3-sphinx \
-      python3-pystache \
       python3-git \
       python3-pip \
-      python3-psutil \
       python3-flake8 \
       python3-autopep8 \
       flake8 \
@@ -289,6 +282,7 @@ RUN apt-get update && apt-get install -y \
       python3-lxml \
       python3-nose \
       python3-netifaces \
+      python3-psutil \
       python3-coverage \
       quilt \
       whois
