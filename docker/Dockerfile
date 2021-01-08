@@ -241,6 +241,7 @@ RUN apt-get update && apt-get install -y \
       libatm1-dev \
       libcap-dev \
       libdb-dev \
+      libbsd-dev \
       libelf-dev \
       libmnl-dev \
       libselinux1-dev \
