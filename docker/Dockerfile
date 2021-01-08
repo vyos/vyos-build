@@ -279,10 +279,27 @@ RUN echo "deb http://deb.debian.org/debian/ bullseye main" \
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
 RUN apt-get update && apt-get install -y \
+      bison \
       chrpath \
+      debhelper \
+      flex \
+      gawk \
       install-info \
+      libc-ares-dev \
+      libcap-dev \
       libjson-c-dev \
+      libpam0g-dev \
+      libpcre3-dev \
       libpython3-dev \
+      libreadline-dev \
+      librtr-dev \
+      libsnmp-dev \
+      libssh-dev \
+      libsystemd-dev \
+      libyang-dev \
+      lsb-base \
+      pkg-config \
+      python3 \
       python3-dev \
       python3-pytest \
       python3-sphinx \
