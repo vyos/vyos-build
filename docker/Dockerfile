@@ -226,6 +226,13 @@ RUN apt-get update && apt-get install -y \
       kmod \
       cpio
 
+# Packages needed for Accel-PPP
+RUN apt-get update && apt-get install -y \
+      liblua5.3-dev \
+      libssl1.1 \
+      libssl-dev \
+      libpcre3-dev
+
 # Packages needed for wireguard
 RUN apt-get update && apt-get install -y \
       debhelper-compat \
