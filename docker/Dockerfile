@@ -448,14 +448,35 @@ RUN if dpkg-architecture -iarm64; then \
       grub-efi-arm; \
     fi
 
+# Packages needed for libnftnl
+RUN apt-get update && apt-get install -y \
+      debhelper-compat \
+      libmnl-dev \
+      libtool \
+      pkg-config
+
 # Packages needed for nftables
 RUN apt-get update && apt-get install -y \
       asciidoc-base \
+      automake \
+      bison \
+      debhelper-compat \
+      dh-python \
+      docbook-xsl \
+      flex \
+      libgmp-dev \
       libjansson-dev \
-      python3-all
+      libmnl-dev \
+      libreadline-dev \
+      libtool \
+      libxtables-dev \
+      python3-all \
+      python3-setuptools \
+      xsltproc
 
 # Packages needed for libnetfilter-conntrack
 RUN apt-get update && apt-get install -y \
+      debhelper-compat \
       libmnl-dev \
       libnfnetlink-dev \
       libtool
@@ -463,6 +484,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for conntrack-tools
 RUN apt-get update && apt-get install -y \
       bison \
+      debhelper \
       flex \
       libmnl-dev \
       libnetfilter-cthelper0-dev \
