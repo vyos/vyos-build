@@ -218,6 +218,7 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for Linux Kernel
 RUN apt-get update && apt-get install -y \
+      rsync \
       libncurses5-dev \
       flex \
       bison \
