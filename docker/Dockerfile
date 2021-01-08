@@ -216,30 +216,38 @@ RUN apt-get update && apt-get install -y \
       automake \
       cpio
 
-# Packages needed for kernel
+# Packages needed for Linux Kernel
 RUN apt-get update && apt-get install -y \
-      rsync \
-      libmnl-dev \
       libncurses5-dev \
       flex \
       bison \
-      libelf-dev \
       bc \
       kmod \
+      cpio
+
+# Packages needed for wireguard
+RUN apt-get update && apt-get install -y \
+      debhelper-compat \
       dkms \
-      cdbs \
-      cmake \
-      elfutils \
-      libdw-dev \
-      systemtap-sdt-dev \
-      libunwind-dev \
-      libslang2-dev \
-      python-dev \
-      libiberty-dev \
-      binutils-dev \
-      libnuma-dev \
-      libbabeltrace-dev \
-      liblua5.3-dev
+      pkg-config \
+      systemd
+
+# Packages needed for iproute2
+RUN apt-get update && apt-get install -y \
+      bison \
+      debhelper \
+      flex \
+      iptables-dev \
+      libatm1-dev \
+      libcap-dev \
+      libdb-dev \
+      libelf-dev \
+      libmnl-dev \
+      libselinux1-dev \
+      linux-libc-dev \
+      pkg-config \
+      po-debconf \
+      zlib1g-dev
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
