@@ -252,10 +252,11 @@ RUN apt-get update && apt-get install -y \
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 RUN apt-get update && apt-get install -y \
-      graphviz \
-      doxygen \
+      cmake \
+      dpkg-dev \
+      debhelper \
       libssh-dev \
-      libssl-dev
+      doxygen
 
 # Build rtrlib release 0.6.3
 RUN export RTRLIB_VERSION="0.6.3" && export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
