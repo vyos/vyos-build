@@ -1,4 +1,4 @@
-From 77ce1f672326050d6b47dbab4f52f0bbcd553a37 Mon Sep 17 00:00:00 2001
+From 1d625d2f745b61a718ce52cd1729f467c17defa6 Mon Sep 17 00:00:00 2001
 From: Alex Harpin <development@landsofshadow.co.uk>
 Date: Wed, 31 Dec 2014 10:33:38 +0000
 Subject: [PATCH] VyOS: add inotify support for stackable filesystems
@@ -19,19 +19,20 @@ for bug #303, and will allow that commit to be reverted.
 Bug #425 http://bugzilla.vyos.net/show_bug.cgi?id=425
 
 (cherry picked from commit a93f1128bc83b5a6628da242e71c18ef05e81ea2)
+
 ---
  fs/notify/inotify/Kconfig        |   9 +++
- fs/notify/inotify/inotify_user.c | 110 ++++++++++++++++++++++++++++++-
- fs/overlayfs/super.c             |  24 ++++++-
+ fs/notify/inotify/inotify_user.c | 114 ++++++++++++++++++++++++++++++-
+ fs/overlayfs/super.c             |  27 ++++++--
  include/linux/inotify.h          |  28 ++++++++
- 4 files changed, 168 insertions(+), 3 deletions(-)
+ 4 files changed, 172 insertions(+), 6 deletions(-)
 
 diff --git a/fs/notify/inotify/Kconfig b/fs/notify/inotify/Kconfig
-index 6736e47d94d8..84d9b31300c0 100644
+index 1cc8be25df7e..bc4acd1a6ea4 100644
 --- a/fs/notify/inotify/Kconfig
 +++ b/fs/notify/inotify/Kconfig
 @@ -15,3 +15,12 @@ config INOTIFY_USER
- 	  For more information, see <file:Documentation/filesystems/inotify.txt>
+ 	  For more information, see <file:Documentation/filesystems/inotify.rst>
  
  	  If unsure, say Y.
 +
@@ -39,12 +40,12 @@ index 6736e47d94d8..84d9b31300c0 100644
 +	bool "Inotify support for stackable filesystem"
 +	select INOTIFY_USER
 +	default y
-+	---help---
++	help
 +	  Say Y here to enable inotify support for stackable filesystem.
 +
 +	  If unsure, say N.
 diff --git a/fs/notify/inotify/inotify_user.c b/fs/notify/inotify/inotify_user.c
-index 81ffc8629fc4..cacedffa6534 100644
+index 186722ba3894..1ce328e506c8 100644
 --- a/fs/notify/inotify/inotify_user.c
 +++ b/fs/notify/inotify/inotify_user.c
 @@ -15,6 +15,7 @@
@@ -55,7 +56,7 @@ index 81ffc8629fc4..cacedffa6534 100644
  #include <linux/fsnotify_backend.h>
  #include <linux/idr.h>
  #include <linux/init.h> /* fs_initcall */
-@@ -75,6 +76,92 @@ struct ctl_table inotify_table[] = {
+@@ -75,6 +76,93 @@ struct ctl_table inotify_table[] = {
  };
  #endif /* CONFIG_SYSCTL */
  
@@ -78,10 +79,10 @@ index 81ffc8629fc4..cacedffa6534 100644
 +
 +	read_lock(&inotify_fs_lock);
 +	list_for_each_entry(fse, &inotify_fs_list, list) {
-+		if (fse->fs_type == fs) {
-+			ret = fse;
-+			break;
-+		}
++	if (fse->fs_type == fs) {
++		ret = fse;
++		break;
++	}
 +	}
 +	read_unlock(&inotify_fs_lock);
 +
@@ -134,6 +135,7 @@ index 81ffc8629fc4..cacedffa6534 100644
 +EXPORT_SYMBOL_GPL(inotify_unregister_stackfs);
 +
 +#else
++
 +static inline struct inotify_stackfs* inotify_get_stackfs(struct path *path)
 +{
 +	return NULL;
@@ -145,23 +147,26 @@ index 81ffc8629fc4..cacedffa6534 100644
 +
 +#endif /* CONFIG_INOTIFY_STACKFS */
 +
- static inline __u32 inotify_arg_to_mask(u32 arg)
+ static inline __u32 inotify_arg_to_mask(struct inode *inode, u32 arg)
  {
  	__u32 mask;
-@@ -332,7 +419,7 @@ static const struct file_operations inotify_fops = {
+@@ -334,8 +422,8 @@ static const struct file_operations inotify_fops = {
  /*
   * find_inode - resolve a user-given path to a specific inode
   */
 -static int inotify_find_inode(const char __user *dirname, struct path *path,
+-						unsigned int flags, __u64 mask)
 +static inline int __inotify_find_inode(const char __user *dirname, struct path *path,
- 						unsigned int flags, __u64 mask)
++					unsigned int flags, __u64 mask)
  {
  	int error;
-@@ -354,6 +441,27 @@ static int inotify_find_inode(const char __user *dirname, struct path *path,
+ 
+@@ -356,6 +444,28 @@ static int inotify_find_inode(const char __user *dirname, struct path *path,
  	return error;
  }
  
-+static int inotify_find_inode(const char __user *dirname, struct path *path, unsigned flags, __u64 mask)
++static int inotify_find_inode(const char __user *dirname, struct path *path,
++					unsigned int flags, __u64 mask)
 +{
 +	int ret;
 +	struct path tpath;
@@ -186,7 +191,7 @@ index 81ffc8629fc4..cacedffa6534 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index d6b724beb304..380ac598f2e4 100644
+index 290983bcfbb3..c751b0c8d9e5 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -15,6 +15,7 @@
@@ -197,7 +202,7 @@ index d6b724beb304..380ac598f2e4 100644
  #include "overlayfs.h"
  
  MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
-@@ -1758,6 +1759,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -2040,6 +2041,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -216,20 +221,26 @@ index d6b724beb304..380ac598f2e4 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1772,13 +1785,21 @@ static int __init ovl_init(void)
+@@ -2055,18 +2068,24 @@ static int __init ovl_init(void)
+ 	err = ovl_aio_request_cache_init();
+ 	if (!err) {
+ 		err = register_filesystem(&ovl_fs_type);
+-		if (!err)
+-			return 0;
++		if (err)
++			goto err;
++		err = inotify_register_stackfs(&ovl_inotify);
++		if (err)
++			goto err;
++		return 0;
  
- 	err = register_filesystem(&ovl_fs_type);
- 	if (err)
--		kmem_cache_destroy(ovl_inode_cachep);
-+		goto err;
-+	err = inotify_register_stackfs(&ovl_inotify);
-+	if (err)
-+		goto err;
-+	return err;
- 
+-		ovl_aio_request_cache_destroy();
+ 	}
 +err:
-+	kmem_cache_destroy(ovl_inode_cachep);
+ 	kmem_cache_destroy(ovl_inode_cachep);
+-
 +	unregister_filesystem(&ovl_fs_type);
++	ovl_aio_request_cache_destroy();
  	return err;
  }
  
@@ -239,14 +250,6 @@ index d6b724beb304..380ac598f2e4 100644
  	unregister_filesystem(&ovl_fs_type);
  
  	/*
-@@ -1787,7 +1808,6 @@ static void __exit ovl_exit(void)
- 	 */
- 	rcu_barrier();
- 	kmem_cache_destroy(ovl_inode_cachep);
--
- }
- 
- module_init(ovl_init);
 diff --git a/include/linux/inotify.h b/include/linux/inotify.h
 index 6a24905f6e1e..4484f0760588 100644
 --- a/include/linux/inotify.h
