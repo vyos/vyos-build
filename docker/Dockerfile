@@ -217,7 +217,9 @@ RUN apt-get update && apt-get install -y \
       cpio
 
 # Packages needed for Linux Kernel
+# gnupg2 is required by Jenkins for the TAR verification
 RUN apt-get update && apt-get install -y \
+      gnupg2 \
       rsync \
       libncurses5-dev \
       flex \
@@ -233,7 +235,7 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       libpcre3-dev
 
-# Packages needed for wireguard
+# Packages needed for Wireguard
 RUN apt-get update && apt-get install -y \
       debhelper-compat \
       dkms \
