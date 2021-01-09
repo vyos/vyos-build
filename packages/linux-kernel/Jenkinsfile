@@ -87,13 +87,21 @@ pipeline {
                         }
                     }
                     steps {
-                        dir(env.BASE_DIR + '/linux') {
-                            checkout([$class: 'GitSCM',
-                                doGenerateSubmoduleConfigurations: false,
-                                extensions: [[$class: 'CleanCheckout'],
-                                             [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]],
-                                branches: [[name: 'v5.4.88' ]],
-                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git']]])
+                        script {
+                            dir(env.BASE_DIR) {
+                                sh '''
+                                    KERNEL_VER='5.4.88'
+                                    gpg2 --locate-keys torvalds@kernel.org gregkh@kernel.org
+                                    curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.xz
+                                    curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.sign
+                                    xz -cd linux-${KERNEL_VER}.tar.xz | gpg2 --verify linux-${KERNEL_VER}.tar.sign -
+                                    if [ $? -ne 0 ]; then
+                                        exit 1
+                                    fi
+                                    tar xf linux-${KERNEL_VER}.tar.xz
+                                    ln -s linux-${KERNEL_VER} linux
+                                '''
+                            }
                         }
                     }
                 }
