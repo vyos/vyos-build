@@ -106,7 +106,7 @@ pipeline {
         timestamps()
     }
     triggers {
-        cron('H 2 * * *')
+        cron('H 4 * * *')
     }
     agent {
         dockerfile {
