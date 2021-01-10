@@ -326,6 +326,7 @@ RUN apt-get update && apt-get install -y \
       libzmq3-dev \
       python3 \
       python3-setuptools \
+      python3-sphinx \
       python3-xmltodict \
       python3-lxml \
       python3-nose \
