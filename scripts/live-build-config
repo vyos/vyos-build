@@ -59,7 +59,7 @@ lb config noauto \
         --security true \
         --backports true \
         --apt-recommends false \
-        --apt-options "--yes -oAPT::Default-Release="current" -oAPT::Get::allow-downgrades=true" \
+        --apt-options "--yes -oAPT::Default-Release="equuleus" -oAPT::Get::allow-downgrades=true" \
         --apt-indices false
         "${@}"
 """
