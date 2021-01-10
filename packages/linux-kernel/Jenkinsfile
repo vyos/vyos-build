@@ -183,22 +183,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Intel Driver(s)') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR) {
-                            sh "./build-intel-drivers.sh"
-                        }
-                    }
-                }
                 stage('Intel QuickAssist Technology') {
                     when {
                         beforeOptions true
