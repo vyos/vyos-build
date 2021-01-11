@@ -91,10 +91,8 @@ pipeline {
                             dir(env.BASE_DIR) {
                                 sh '''
                                     KERNEL_VER=\$(cat ../../data/defaults.json | jq -r .kernel_version)
-                                    gpg2 --locate-keys torvalds@kernel.org gregkh@kernel.org
                                     curl -OL https://www.kernel.org/pub/linux/kernel/v4.x/linux-${KERNEL_VER}.tar.xz
-                                    curl -OL https://www.kernel.org/pub/linux/kernel/v4.x/linux-${KERNEL_VER}.tar.sign
-                                    xz -cd linux-${KERNEL_VER}.tar.xz | gpg2 --verify linux-${KERNEL_VER}.tar.sign -
+                                    echo "b98ef209321a4e39ce98ca6b8745a2268bdd927fd74e4e2c50bc68d9a637880e linux-${KERNEL_VER}.tar.xz" | sha256sum --check
                                     if [ $? -ne 0 ]; then
                                         exit 1
                                     fi
