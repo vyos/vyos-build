@@ -87,13 +87,21 @@ pipeline {
                         }
                     }
                     steps {
-                        dir(env.BASE_DIR + '/linux') {
-                            checkout([$class: 'GitSCM',
-                                doGenerateSubmoduleConfigurations: false,
-                                extensions: [[$class: 'CleanCheckout'],
-                                             [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]],
-                                branches: [[name: 'v4.19.165' ]],
-                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git']]])
+                        script {
+                            dir(env.BASE_DIR) {
+                                sh '''
+                                    KERNEL_VER=\$(cat ../../data/defaults.json | jq -r .kernel_version)
+                                    gpg2 --locate-keys torvalds@kernel.org gregkh@kernel.org
+                                    curl -OL https://www.kernel.org/pub/linux/kernel/v4.x/linux-${KERNEL_VER}.tar.xz
+                                    curl -OL https://www.kernel.org/pub/linux/kernel/v4.x/linux-${KERNEL_VER}.tar.sign
+                                    xz -cd linux-${KERNEL_VER}.tar.xz | gpg2 --verify linux-${KERNEL_VER}.tar.sign -
+                                    if [ $? -ne 0 ]; then
+                                        exit 1
+                                    fi
+                                    tar xf linux-${KERNEL_VER}.tar.xz
+                                    ln -s linux-${KERNEL_VER} linux
+                                '''
+                            }
                         }
                     }
                 }
@@ -265,7 +273,7 @@ pipeline {
                                 VYOS_REPO_PATH += 'vyos/'
 
                             def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-                            def SSH_REMOTE = 'khagen@10.217.48.113'
+                            def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable
 
                             echo "Uploading package(s) and updating package(s) in the repository ..."
 

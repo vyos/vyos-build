@@ -174,8 +174,12 @@ RUN apt-get update && apt-get install -y \
       librdkafka-dev \
       libnetfilter-log-dev
 
-# Packages needed for kernel
+# Packages needed for Linux Kernel
+# gnupg2 and jq is required by Jenkins for the TAR verification
 RUN apt-get update && apt-get install -y \
+      gnupg2 \
+      rsync \
+      jq \
       libmnl-dev \
       kernel-package \
       libncurses5-dev \
