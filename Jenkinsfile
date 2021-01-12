@@ -128,6 +128,14 @@ pipeline {
                 }
             }
         }
+        stage('QEMU') {
+            when {
+                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+            }
+            steps {
+                sh "sudo make test"
+            }
+        }
     }
     post {
         cleanup {

@@ -370,6 +370,10 @@ RUN echo 'deb http://ftp.debian.org/debian stretch main' | tee -a /etc/apt/sourc
     apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
+
+# For smoketests in QEMU
+RUN pip3 install pexpect
+
 # Install packer
 RUN export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
     jq -r -M '.current_version')"; \

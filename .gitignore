@@ -6,3 +6,4 @@ key/*
 packages/*.buildlog
 packages/*
 !packages/*/
+testinstall*.img

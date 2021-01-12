@@ -254,6 +254,15 @@ dell: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: test
+.ONESHELL:
+test:
+	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
+		echo "Could not find build/live-image-amd64.hybrid.iso"
+		exit 1
+	fi
+	scripts/check-qemu-install --debug build/live-image-amd64.hybrid.iso
+
 .PHONY: clean
 .ONESHELL:
 clean:
