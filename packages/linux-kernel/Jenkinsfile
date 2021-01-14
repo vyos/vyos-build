@@ -221,22 +221,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Intel Driver(s)') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR) {
-                            sh "./build-intel-drivers.sh"
-                        }
-                    }
-                }
                 stage('Intel QuickAssist Technology') {
                     when {
                         beforeOptions true
@@ -257,7 +241,7 @@ pipeline {
         }
         // This stage should not be run in the parallel section as it will call "make"
         // again on the kernel source and this could confuse other build systems
-        // like generating Intel or Accel-PPP drivers. Better safe then sorry!
+        // like Accel-PPP. Better safe then sorry!
         stage('Linux Firmware') {
             when {
                 beforeOptions true
