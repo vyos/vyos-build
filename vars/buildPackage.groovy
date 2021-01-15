@@ -164,7 +164,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                     VYOS_REPO_PATH += 'vyos/'
 
                                 def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-                                def SSH_REMOTE = 'khagen@10.217.48.113'
+                                def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
 
                                 def SSH_DIR = '~/VyOS/' + RELEASE + '/' + env.DEBIAN_ARCH
                                 def ARCH_OPT = ''
