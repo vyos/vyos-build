@@ -285,7 +285,7 @@ pipeline {
                                 VYOS_REPO_PATH += 'vyos/'
 
                             def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-                            def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable
+                            def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
 
                             echo "Uploading package(s) and updating package(s) in the repository ..."
 
