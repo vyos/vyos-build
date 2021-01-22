@@ -508,6 +508,14 @@ RUN apt-get update && apt-get install -y \
       automake \
       libtool
 
+# Packages needed for wide-dhcpv6
+RUN apt-get update && apt-get install -y \
+      bison \
+      debhelper \
+      flex \
+      libfl-dev \
+      rsync
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
