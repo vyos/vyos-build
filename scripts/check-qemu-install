@@ -330,7 +330,7 @@ try:
         i = c.expect(['\n +Invalid command:',
                           '\n +Set failed',
                           'No such file or directory',
-                          r'\n\S+@\S+[$#]'], timeout=3600)
+                          r'\n\S+@\S+[$#]'], timeout=7200)
 
         if i==0:
             raise Exception('Invalid command detected')
@@ -341,7 +341,7 @@ try:
             raise Exception("WTF? did not find VyOS smoketest, this should be an exception")
 
         c.sendline('echo EXITCODE:$\x16?')
-        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=10)
+        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=20)
         if i==0:
             log.info('Smoketest finished successfully!')
             pass
