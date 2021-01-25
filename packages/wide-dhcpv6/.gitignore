@@ -1,0 +1,6 @@
+wide-dhcpv6/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
