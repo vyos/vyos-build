@@ -354,6 +354,32 @@ try:
         c.sendline('generate wireguard default-keypair')
         c.expect(r'vyos@vyos:~\$')
 
+        log.info('Generating some OpenVPN keys')
+        subject = '/C=DE/ST=BY/O=VyOS/localityName=Cloud/commonName=vyos/' \
+                  'organizationalUnitName=VyOS/emailAddress=maintainers@vyos.io/'
+        ca_cert  = '/config/auth/ovpn_test_ca.pem'
+        ssl_cert = '/config/auth/ovpn_test_server.pem'
+        ssl_key  = '/config/auth/ovpn_test_server.key'
+        dh_pem   = '/config/auth/ovpn_test_dh.pem'
+        s2s_key  = '/config/auth/ovpn_test_site2site.key'
+        auth_key = '/config/auth/ovpn_test_tls_auth.key'
+
+        c.sendline(f'openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 '\
+                   f'-keyout {ssl_key} -out {ssl_cert} -subj {subject}')
+        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.sendline(f'openssl req -new -x509 -key {ssl_key} -out {ca_cert} -subj {subject}')
+        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.sendline(f'openssl dhparam -out {dh_pem} 2048')
+        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.sendline(f'openvpn --genkey --secret {s2s_key}')
+        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.sendline(f'openvpn --genkey --secret {auth_key}')
+        c.expect(r'vyos@vyos:~\$', timeout=600)
+
+        for file in [ca_cert, ssl_cert, ssl_key, dh_pem, s2s_key, auth_key]:
+            c.sendline(f'sudo chown openvpn:openvpn {file}')
+            c.expect(r'vyos@vyos:~\$')
+
         log.info('Executing load config tests')
         c.sendline('/usr/bin/vyos-configtest')
         i = c.expect(['\n +Invalid command:', 'No such file or directory',
