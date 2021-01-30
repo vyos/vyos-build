@@ -350,7 +350,11 @@ try:
 
     # else, run configtest suite
     else:
-        log.info("Executing load config tests")
+        log.info('Generating a WireGuard default keypair')
+        c.sendline('generate wireguard default-keypair')
+        c.expect(r'vyos@vyos:~\$')
+
+        log.info('Executing load config tests')
         c.sendline('/usr/bin/vyos-configtest')
         i = c.expect(['\n +Invalid command:', 'No such file or directory',
                      r'\n\S+@\S+[$#]'], timeout=3600)
