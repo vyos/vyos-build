@@ -36,7 +36,7 @@ function prepare_apt() {
         echo -e "deb ${APT_VYOS_MIRROR}/vyos ${APT_VYOS_BRANCH} main\ndeb ${APT_VYOS_MIRROR}/debian ${APT_VYOS_BRANCH} main\n${APT_ADDITIONAL_REPOS}" > /etc/apt/sources.list.d/vyos.list
     fi
 
-    if [[ "${RELEASE_TRAIN}" == "equuleus" ]]; then
+    if [[ "${RELEASE_TRAIN}" == "equuleus" || "${RELEASE_TRAIN}" == "sagitta" ]]; then
         echo -e "deb ${APT_VYOS_MIRROR} ${APT_VYOS_BRANCH} main\n${APT_ADDITIONAL_REPOS}" > /etc/apt/sources.list.d/vyos.list
         # Add backports repository
         echo -e "deb http://deb.debian.org/debian buster-backports main\ndeb http://deb.debian.org/debian buster-backports non-free" >> /etc/apt/sources.list.d/vyos.list
@@ -47,7 +47,10 @@ function prepare_apt() {
         cat /tmp/*list.chroot >> /etc/apt/sources.list.d/vyos.list
     fi
     if grep -sq Package /tmp/*.pref.chroot; then
-        cat /tmp/*pref.chroot >> /etc/apt/preferences.d/10vyos
+        for pref_file in /tmp/*.pref.chroot; do
+            cat $pref_file >> /etc/apt/preferences.d/10vyos
+            echo -e "\n" >> /etc/apt/preferences.d/10vyos
+        done
     fi
 
     # Add GPG keys
