@@ -371,10 +371,14 @@ try:
         c.expect(r'vyos@vyos:~\$', timeout=600)
         c.sendline(f'openssl dhparam -out {dh_pem} 2048')
         c.expect(r'vyos@vyos:~\$', timeout=600)
-        c.sendline(f'openvpn --genkey --secret {s2s_key}')
-        c.expect(r'vyos@vyos:~\$', timeout=600)
-        c.sendline(f'openvpn --genkey --secret {auth_key}')
-        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.sendline(f'generate openvpn key {s2s_key}')
+        c.expect(r'vyos@vyos:~\$')
+        c.sendline(f'generate openvpn key {auth_key}')
+        c.expect(r'vyos@vyos:~\$')
+
+        script_file = '/config/scripts/vyos-foo-update.script'
+        c.sendline(f'echo "#!/bin/sh" > {script_file}; chmod 775 {script_file}')
+        c.expect(r'vyos@vyos:~\$')
 
         for file in [ca_cert, ssl_cert, ssl_key, dh_pem, s2s_key, auth_key]:
             c.sendline(f'sudo chown openvpn:openvpn {file}')
