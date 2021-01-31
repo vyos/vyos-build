@@ -20,11 +20,13 @@
 // @Library annotation is not an import statement!
 @Library('vyos-build@current')_
 
+// NOTE: we can build with -d as the libbpf dependency is installed manually
+// and not via a DEB package
 def pkgList = [
     ['name': 'iproute2',
-     'scmCommit': 'debian/5.4.0-1_bpo10+1',
+     'scmCommit': 'debian/5.10.0-3',
      'scmUrl': 'https://salsa.debian.org/debian/iproute2',
-     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
+     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b -d'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
