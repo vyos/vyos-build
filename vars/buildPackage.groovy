@@ -49,6 +49,7 @@ def call(description=null, pkgList=null, buildCmd=null) {
     pipeline {
         agent {
             docker {
+                reuseNode true
                 args "--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006"
                 image "${env.DOCKER_IMAGE}"
                 alwaysPull true
