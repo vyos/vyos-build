@@ -207,7 +207,7 @@ pipeline {
                             sh """
                                 sha256sum ${ISO} > ${ISO}.sha256
                                 ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +28 -exec rm -f {} \\;'"
+                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
                                 scp ${SSH_OPTS} -r ${ISO} ${ISO}.sha256 ${SSH_REMOTE}:${SSH_DIR}/
                                 ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
                             """
