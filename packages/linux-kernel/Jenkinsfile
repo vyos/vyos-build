@@ -245,37 +245,34 @@ pipeline {
                             // build up some fancy groovy variables so we do not need to write/copy
                             // every option over and over again!
                             def RELEASE = getGitBranchName()
-                            if (getGitBranchName() == "master") {
+                            if (getGitBranchName() == "master")
                                 RELEASE = 'current'
-                            }
 
-                            def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE + '/'
+                            def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE
                             if (getGitBranchName() == "crux")
-                                VYOS_REPO_PATH += 'vyos/'
+                                VYOS_REPO_PATH += '/vyos'
 
                             def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
                             def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
+                            def SSH_DIR = '~/VyOS/' + RELEASE
 
-                            echo "Uploading package(s) and updating package(s) in the repository ..."
+                            files = findFiles(glob: '**/*.deb')
+                            if (files) {
+                                sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"bash --login -c 'mkdir -p ${SSH_DIR}'\"")
+                                echo "Uploading package(s) and updating package(s) in the repository ..."
+                                files.each { FILE ->
+                                    // NOTE: Groovy is a pain in the ass and " quotes differ from ', so all shell code must use " in the beginning
+                                    def PACKAGE = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
+                                    def PACKAGE_ARCH = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Architecture").trim()
+                                    def ARCH = ''
+                                    if (PACKAGE_ARCH != 'all')
+                                        ARCH = '-A ' + PACKAGE_ARCH
 
-                            files = findFiles(glob: '*.deb')
-                            files.each { PACKAGE ->
-                                def ARCH = sh(returnStdout: true, script: "dpkg-deb -f ${PACKAGE} Architecture").trim()
-                                def SUBSTRING = sh(returnStdout: true, script: "dpkg-deb -f ${PACKAGE} Package").trim()
-                                def SSH_DIR = '~/VyOS/' + RELEASE + '/' + ARCH
-                                def ARCH_OPT = ''
-                                if (ARCH != 'all')
-                                    ARCH_OPT = '-A ' + ARCH
-
-                                // No need to explicitly check the return code. The pipeline
-                                // will fail if sh returns a non 0 exit code
-                                sh """
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                                    scp ${SSH_OPTS} ${PACKAGE} ${SSH_REMOTE}:${SSH_DIR}/
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} remove ${RELEASE} ${SUBSTRING}'"
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'"
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} includedeb ${RELEASE} ${SSH_DIR}/${PACKAGE}'"
-                                """
+                                    sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
+                                    sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} remove ${RELEASE} ${PACKAGE}'\"")
+                                    sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} includedeb ${RELEASE} ${SSH_DIR}/${FILE}'\"")
+                                }
+                                sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'\"")
                             }
                         }
                     }
