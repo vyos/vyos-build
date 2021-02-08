@@ -63,6 +63,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                                 args "${env.DOCKER_ARGS}"
                                 image "${env.DOCKER_IMAGE}"
                                 alwaysPull true
+                                reuseNode true
                             }
                         }
                         environment {
@@ -82,6 +83,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                                 args "${env.DOCKER_ARGS}"
                                 image "${env.DOCKER_IMAGE}-arm64"
                                 alwaysPull true
+                                reuseNode true
                             }
                         }
                         when {
