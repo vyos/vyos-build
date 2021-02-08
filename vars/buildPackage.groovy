@@ -39,7 +39,9 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                    branchName = '${env.CHANGE_TARGET}'.toLowerCase()
                if (branchName.equals('master'))
                    branchName = 'current'
+
                env.DOCKER_IMAGE = 'vyos/vyos-build:' + branchName
+               env.DOCKER_ARGS = '--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
            }
         }
     }
@@ -58,7 +60,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                     stage('amd64') {
                         agent {
                             docker {
-                                args "--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006"
+                                args "${env.DOCKER_ARGS}"
                                 image "${env.DOCKER_IMAGE}"
                                 alwaysPull true
                             }
@@ -77,7 +79,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                     stage('arm64') {
                         agent {
                             docker {
-                                args "--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006"
+                                args "${env.DOCKER_ARGS}"
                                 image "${env.DOCKER_IMAGE}-arm64"
                                 alwaysPull true
                             }
