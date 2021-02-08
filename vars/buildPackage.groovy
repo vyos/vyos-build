@@ -51,7 +51,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
         options {
             disableConcurrentBuilds()
             skipDefaultCheckout()
-            timeout(time: 60, unit: 'MINUTES')
+            timeout(time: 120, unit: 'MINUTES')
             timestamps()
         }
         stages {
@@ -130,10 +130,9 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
 
                     // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
                     sshagent(['SSH-dev.packages.vyos.net']) {
-                        files = findFiles(glob: '*.deb')
+                        files = findFiles(glob: '**/*.deb')
                         if (files) {
                             sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"bash --login -c 'mkdir -p ${SSH_DIR}'\"")
-                            sh(script: "scp ${SSH_OPTS} -r *.deb ${SSH_REMOTE}:${SSH_DIR}")
                             echo "Uploading package(s) and updating package(s) in the repository ..."
                             files.each { FILE ->
                                 // NOTE: Groovy is a pain in the ass and " quotes differ from ', so all shell code must use " in the beginning
@@ -142,7 +141,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                                 def ARCH = ''
                                 if (PACKAGE_ARCH != 'all')
                                     ARCH = '-A ' + PACKAGE_ARCH
-
+                                sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
                                 sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} remove ${RELEASE} ${PACKAGE}'\"")
                                 sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} includedeb ${RELEASE} ${SSH_DIR}/${FILE}'\"")
                             }
