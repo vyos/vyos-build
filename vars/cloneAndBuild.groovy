@@ -18,7 +18,10 @@ def call(description, architecture, pkgList, buildCmd) {
     // package build must be done in "any" subdir. Without it the Debian build system
     // is unable to generate the *.deb files in the sources parent directory, which
     // will cause a "Permission denied" error.
-    dir ('build') {
+    dir ("build-${architecture}") {
+        // cleanup
+        deleteDir()
+
         // checkout git repository which hold 'Jenkinsfile'
         checkout scm
 
@@ -51,7 +54,7 @@ def call(description, architecture, pkgList, buildCmd) {
         } else if (buildCmd) {
             sh buildCmd
         } else {
-            sh "dpkg-buildpackage -uc -us -tc -b"
+            sh 'dpkg-buildpackage -uc -us -tc -b'
         }
     }
     if (architecture == 'amd64') {
