@@ -141,11 +141,14 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                                 def ARCH = ''
                                 if (PACKAGE_ARCH != 'all')
                                     ARCH = '-A ' + PACKAGE_ARCH
+
                                 sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
                                 sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} remove ${RELEASE} ${PACKAGE}'\"")
-                                // packages like FRR produce their binary in a nested path e.g. build-arm64/packages/frr/frr-rpki-rtrlib-dbgsym_7.5_arm64.deb
+
+                                // Packages like FRR produce their binary in a nested path e.g. packages/frr/frr-rpki-rtrlib-dbgsym_7.5_arm64.deb,
                                 // thus we will only extract the filename portion from FILE as the binary is scp'ed to SSH_DIR without any subpath.
-                                sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} includedeb ${RELEASE} ${SSH_DIR}/${FILE##*/}'\"")
+                                def FILENAME = FILE.tokenize('/')[-1]
+                                sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} includedeb ${RELEASE} ${SSH_DIR}/${FILENAME}'\"")
                             }
                             sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'\"")
                         }
