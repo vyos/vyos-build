@@ -77,29 +77,29 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                             }
                         }
                     }
-                    stage('arm64') {
-                        agent {
-                            docker {
-                                args "${env.DOCKER_ARGS}"
-                                image "${env.DOCKER_IMAGE}-arm64"
-                                alwaysPull true
-                                reuseNode true
-                            }
-                        }
-                        when {
-                            equals expected: true, actual: buildArm
-                        }
-                        environment {
-                            // get relative directory path to Jenkinsfile
-                            BASE_DIR = getJenkinsfilePath()
-                            CHANGESET_DIR = getChangeSetPath()
-                        }
-                        steps {
-                            script {
-                                cloneAndBuild(description, 'arm64', pkgList, buildCmd)
-                            }
-                        }
-                    }
+//                  stage('arm64') {
+//                      agent {
+//                          docker {
+//                              args "${env.DOCKER_ARGS}"
+//                              image "${env.DOCKER_IMAGE}-arm64"
+//                              alwaysPull true
+//                              reuseNode true
+//                          }
+//                      }
+//                      when {
+//                          equals expected: true, actual: buildArm
+//                      }
+//                      environment {
+//                          // get relative directory path to Jenkinsfile
+//                          BASE_DIR = getJenkinsfilePath()
+//                          CHANGESET_DIR = getChangeSetPath()
+//                      }
+//                      steps {
+//                          script {
+//                              cloneAndBuild(description, 'arm64', pkgList, buildCmd)
+//                          }
+//                      }
+//                  }
                 }
             }
         }
