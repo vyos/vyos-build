@@ -256,7 +256,7 @@ pipeline {
                             def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
                             def SSH_DIR = '~/VyOS/' + RELEASE
 
-                            files = findFiles(glob: '**/*.deb')
+                            files = findFiles(glob: '*.deb')
                             if (files) {
                                 sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"bash --login -c 'mkdir -p ${SSH_DIR}'\"")
                                 echo "Uploading package(s) and updating package(s) in the repository ..."
