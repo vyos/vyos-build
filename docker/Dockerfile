@@ -128,7 +128,8 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       num \
       ctypes.0.16.0 \
       ctypes-foreign \
-      ctypes-build
+      ctypes-build \
+      containers
 
 # Build VyConf which is required to build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
