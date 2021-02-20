@@ -36,7 +36,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                def branchName = getGitBranchName()
                // Adjust PR target branch name so we can re-map it to the proper Docker image.
                if (isPullRequest())
-                   branchName = '${env.CHANGE_TARGET}'.toLowerCase()
+                   branchName = env.CHANGE_TARGET.toLowerCase()
                if (branchName.equals('master'))
                    branchName = 'current'
 
