@@ -100,6 +100,18 @@ version_data = {
     'build_comment': build_config['build_comment']
 }
 
+os_release = f"""
+PRETTY_NAME="VyOS {version} ({build_config['release_train']})"
+NAME="VyOS"
+VERSION_ID="{version}"
+VERSION="{version} ({build_config['release_train']})"
+VERSION_CODENAME=buster
+ID=vyos
+HOME_URL="https://vyos.io"
+SUPPORT_URL="https://support.vyos.io"
+BUG_REPORT_URL="https://phabricator.vyos.net"
+"""
+
 os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos'), exist_ok=True)
 with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos/version.json'), 'w') as f:
     json.dump(version_data, f)
@@ -116,3 +128,8 @@ with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'opt/vyatta/etc/version'), 
 # neither we want to use lengthy paths in makefiles
 with open(os.path.join(defaults.BUILD_DIR, 'version'), 'w') as f:
     print(version, file=f)
+
+# Define variables that influence to welcome message on boot
+os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/lib/'), exist_ok=True)
+with open(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/lib//os-release'), 'w') as f:
+    print(os_release, file=f)
