@@ -168,12 +168,6 @@ def call(description=null, pkgList=null, buildCmd=null) {
 
                                 def SSH_DIR = '~/VyOS/' + RELEASE + '/' + env.DEBIAN_ARCH
 
-                                def PACKAGE = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
-                                def PACKAGE_ARCH = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Architecture").trim()
-                                def ARCH = ''
-                                if (PACKAGE_ARCH != 'all')
-                                    ARCH = '-A ' + PACKAGE_ARCH
-
                                 files = findFiles(glob: '*.deb')
                                 if (files) {
                                     echo "Uploading package(s) and updating package(s) in the repository ..."
@@ -181,6 +175,12 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                         def PKG = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
                                         // No need to explicitly check the return code. The pipeline
                                         // will fail if sh returns a noni-zero exit code
+
+                                        def PACKAGE_ARCH = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Architecture").trim()
+                                        def ARCH = ''
+                                        if (PACKAGE_ARCH != 'all')
+                                            ARCH = '-A ' + PACKAGE_ARCH
+
                                         sh """
                                             ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
                                             scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}/
