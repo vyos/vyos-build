@@ -167,9 +167,12 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                 def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
 
                                 def SSH_DIR = '~/VyOS/' + RELEASE + '/' + env.DEBIAN_ARCH
-                                def ARCH_OPT = ''
-                                if (env.DEBIAN_ARCH != 'all')
-                                    ARCH_OPT = '-A ' + env.DEBIAN_ARCH
+
+                                def PACKAGE = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
+                                def PACKAGE_ARCH = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Architecture").trim()
+                                def ARCH = ''
+                                if (PACKAGE_ARCH != 'all')
+                                    ARCH = '-A ' + PACKAGE_ARCH
 
                                 files = findFiles(glob: '*.deb')
                                 if (files) {
@@ -181,9 +184,9 @@ def call(description=null, pkgList=null, buildCmd=null) {
                                         sh """
                                             ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
                                             scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}/
-                                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} remove ${RELEASE} ${PKG}'"
+                                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} remove ${RELEASE} ${PKG}'"
                                             ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'"
-                                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH_OPT} includedeb ${RELEASE} ${SSH_DIR}/${FILE}'"
+                                            ssh ${SSH_OPTS} ${SSH_REMOTE} -t "uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} includedeb ${RELEASE} ${SSH_DIR}/${FILE}'"
                                         """
                                     }
                                 }
