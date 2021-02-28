@@ -58,6 +58,8 @@ RUN apt-get update && apt-get install -y \
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
 ENV LANG en_US.utf8
 
+ENV OCAML_VERSION 4.12.0
+
 RUN apt-get update && apt-get install -y \
       vim \
       vim-autopep8 \
@@ -119,7 +121,7 @@ RUN dpkg-reconfigure ca-certificates; \
 RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
-    opam init --root=/opt/opam --comp=4.09.1 --disable-sandboxing --no-setup
+    opam init --root=/opt/opam --comp=${OCAML_VERSION} --disable-sandboxing --no-setup
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       pcre re
