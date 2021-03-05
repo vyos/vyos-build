@@ -92,7 +92,7 @@ pipeline {
                                 sh '''
                                     KERNEL_VER=\$(cat ../../data/defaults.json | jq -r .kernel_version)
                                     curl -OL https://www.kernel.org/pub/linux/kernel/v4.x/linux-${KERNEL_VER}.tar.xz
-                                    echo "e1c3b8d21ba31bd5c50bb3b2a741f62958eb2a116bf13fa0e14f1656c4826073 linux-${KERNEL_VER}.tar.xz" | sha256sum --check
+                                    echo "0b75ba9fefade4615b22696af7d9b3f06da10a7bb8cc2edae0dfbea8a74196ee linux-${KERNEL_VER}.tar.xz" | sha256sum --check
                                     if [ $? -ne 0 ]; then
                                         exit 1
                                     fi
