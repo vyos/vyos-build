@@ -46,7 +46,7 @@ lb config noauto \
         --iso-application "VyOS" \
         --iso-publisher "{{build_by}}" \
         --iso-volume "VyOS" \
-        --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,apt-transport-https,gnupg2" \
+        --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2" \
         --mirror-bootstrap {{debian_mirror}} \
         --mirror-chroot {{debian_mirror}} \
         --mirror-chroot-security {{debian_security_mirror}} \
