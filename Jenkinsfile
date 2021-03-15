@@ -155,12 +155,12 @@ pipeline {
         }
         stage('QEMU') {
             parallel {
-                stage('Smoketests with vyos-configd') {
+                stage('Smoketests') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
                     steps {
-                        sh "sudo make testd"
+                        sh "sudo make test"
                     }
                 }
                 stage('Smoketests with vyos-configd and arbitrary config loader') {
