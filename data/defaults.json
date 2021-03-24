@@ -5,7 +5,7 @@
   "debian_distribution": "buster",
   "vyos_mirror": "http://dev.packages.vyos.net/repositories/current",
   "vyos_branch": "current",
-  "kernel_version": "5.10.24",
+  "kernel_version": "5.10.25",
   "kernel_flavor": "amd64-vyos",
   "release_train": "sagitta",
   "additional_repositories": [
