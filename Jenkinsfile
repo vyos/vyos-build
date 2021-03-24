@@ -21,13 +21,6 @@
 // @Library annotation is not an import statement!
 @Library('vyos-build@current')_
 
-
-// Only keep the 10 most recent builds
-def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
-]
-
-properties(projectProperties)
 setDescription()
 
 // Due to long build times on DockerHub we rather build the container by ourself
@@ -96,6 +89,11 @@ node('Docker') {
           }
         )
     }
+    stage('Build timestamp') {
+        script {
+            env.TIMESTAMP = sh(returnStdout: true, script: 'date +%Y%m%d%H%M').toString().trim()
+        }
+    }
 }
 
 pipeline {
@@ -104,6 +102,11 @@ pipeline {
         timeout(time: 120, unit: 'MINUTES')
         parallelsAlwaysFailFast()
         timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '200'))
+    }
+    parameters {
+        string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
+        string(name: 'BUILD_VERSION', defaultValue: '1.4-rolling-' + env.TIMESTAMP, description: 'Version number (release builds only)')
     }
     triggers {
         cron('H 2 * * *')
@@ -138,11 +141,12 @@ pipeline {
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
                     sh """
+                        env
                         ./configure \
-                            --build-by autobuild@vyos.net \
+                            --build-by ${params.BUILD_BY} \
                             --debian-mirror http://ftp.us.debian.org/debian/ \
                             --build-type release \
-                            --version 1.4-rolling-\$(date +%Y%m%d%H%M) \
+                            --version ${params.BUILD_VERSION} \
                             --custom-package "vyos-1x-smoketest"
                         sudo make iso
                     """
@@ -200,7 +204,7 @@ pipeline {
                             def ISO = sh(returnStdout: true, script: "ls vyos-*.iso").trim()
                             def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
                             def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
-                            def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable 
+                            def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable
 
                             // No need to explicitly check the return code. The pipeline
                             // will fail if sh returns a non 0 exit code
