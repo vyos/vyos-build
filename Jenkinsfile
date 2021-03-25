@@ -107,6 +107,8 @@ pipeline {
     parameters {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
         string(name: 'BUILD_VERSION', defaultValue: '1.4-rolling-' + env.TIMESTAMP, description: 'Version number (release builds only)')
+        booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
+        booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
     }
     triggers {
         cron('H 2 * * *')
@@ -140,14 +142,16 @@ pipeline {
                     def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
+                    def CUSTOM_PACKAGES = ''
+                    if (params.BUILD_SMOKETESTS)
+                        CUSTOM_PACKAGES = '--custom-package vyos-1x-smoketest'
+
                     sh """
-                        env
                         ./configure \
                             --build-by ${params.BUILD_BY} \
                             --debian-mirror http://ftp.us.debian.org/debian/ \
                             --build-type release \
-                            --version ${params.BUILD_VERSION} \
-                            --custom-package "vyos-1x-smoketest"
+                            --version ${params.BUILD_VERSION} ${CUSTOM_PACKAGES}
                         sudo make iso
                     """
 
@@ -158,6 +162,9 @@ pipeline {
             }
         }
         stage('QEMU') {
+            when {
+                expression { return params.BUILD_SMOKETESTS }
+            }
             parallel {
                 stage('Smoketests') {
                     when {
@@ -191,6 +198,8 @@ pipeline {
             script {
                 // only deploy ISO if build from official repository
                 if (isCustomBuild())
+                    return
+                if (! params.BUILD_PUBLISH)
                     return
 
                 files = findFiles(glob: 'build/vyos*.iso')
