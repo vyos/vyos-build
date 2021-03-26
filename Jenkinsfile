@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-// Copyright (C) 2019 VyOS maintainers and contributors
+// Copyright (C) 2019-2021 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -13,14 +13,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 @NonCPS
 
 // Using a version specifier library, use 'current' branch. The underscore (_)
 // is not a typo! You need this underscore if the line immediately after the
 // @Library annotation is not an import statement!
 @Library('vyos-build@current')_
-
 setDescription()
 
 // Due to long build times on DockerHub we rather build the container by ourself
@@ -102,7 +100,7 @@ pipeline {
         timeout(time: 120, unit: 'MINUTES')
         parallelsAlwaysFailFast()
         timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '200'))
+        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
     parameters {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
