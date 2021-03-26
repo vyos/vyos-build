@@ -21,12 +21,6 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
     // - buildCmd: replace default build command "dpkg-buildpackage -uc -us -tc -b"
     //   with this custom version
 
-    // Only keep the 10 most recent builds
-    def projectProperties = [
-        [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
-    ]
-
-    properties(projectProperties)
     setDescription(description)
 
     pipeline {
@@ -36,6 +30,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
             skipDefaultCheckout()
             timeout(time: 120, unit: 'MINUTES')
             timestamps()
+            buildDiscarder(logRotator(numToKeepStr: '20'))
         }
         stages {
             stage('Define Agent') {
@@ -126,8 +121,8 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
             }
             stage("Finalize") {
                 agent {
-                            label "ec2_amd64"
-                        }
+                    label "ec2_amd64"
+                }
                 steps {
                     script {
                         // Unpack files for amd64
