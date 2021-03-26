@@ -131,31 +131,31 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                         // Unpack files for arm64 IF they exist
                         try {
                             unstash 'binary-arm64'
-                        } catch (e) {       
+                        } catch (e) {
                             print "Unstash arm64 failed, ignoring"
                         }
-                        
+
                         if (isCustomBuild()) {
                             echo "Build not started from official Git repository! Artifacts are not uploaded to external repository"
                             return
                         }
                         echo "Uploading Artifacts to external repository"
                         copyArtifacts fingerprintArtifacts: true, projectName: '${JOB_NAME}', selector: specific('${BUILD_NUMBER}')
-​
+
                         // build up some fancy groovy variables so we do not need to write/copy
                         // every option over and over again!
                         def RELEASE = getGitBranchName()
                         if (getGitBranchName() == "master")
                             RELEASE = 'current'
-​
+
                         def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE
                         if (getGitBranchName() == "crux")
                             VYOS_REPO_PATH += '/vyos'
-​
+
                         def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
                         def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
                         def SSH_DIR = '~/VyOS/' + RELEASE
-​
+
                         // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
                         sshagent(['SSH-dev.packages.vyos.net']) {
                             files = findFiles(glob: '**/*.deb')
@@ -169,10 +169,10 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                                     def ARCH = ''
                                     if (PACKAGE_ARCH != 'all')
                                         ARCH = '-A ' + PACKAGE_ARCH
-​
+
                                     sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
                                     sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} remove ${RELEASE} ${PACKAGE}'\"")
-​
+
                                     // Packages like FRR produce their binary in a nested path e.g. packages/frr/frr-rpki-rtrlib-dbgsym_7.5_arm64.deb,
                                     // thus we will only extract the filename portion from FILE as the binary is scp'ed to SSH_DIR without any subpath.
                                     def FILENAME = FILE.toString().tokenize('/')[-1]
@@ -185,6 +185,5 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                 }
             }
         }
-        
     }
 }
