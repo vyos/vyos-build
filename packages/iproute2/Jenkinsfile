@@ -23,7 +23,7 @@
 // and not via a DEB package
 def pkgList = [
     ['name': 'iproute2',
-     'scmCommit': 'debian/5.10.0-3',
+     'scmCommit': 'debian/5.10.0-4_bpo10+1',
      'scmUrl': 'https://salsa.debian.org/debian/iproute2',
      'buildCmd': 'dpkg-buildpackage -uc -us -tc -b -d'],
 ]
