@@ -226,13 +226,11 @@ pipeline {
                             """
                         }
                     }
-
-                    // Upload to Amazon S3 storage
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                         s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/',
                                  workingDir: 'build', includePathPattern: 'vyos*.iso')
-                        s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + files[0].name,
-                               toBucket: 's3-us.vyos.io', toPath: 'rolling/vyos-rolling-latest.iso')
+                        s3Copy(fromBucket: 's3-us.vyos.io', fromPath: getGitBranchName() + '/' + files[0].name,
+                               toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
                     }
                 }
             }
