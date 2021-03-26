@@ -519,6 +519,11 @@ RUN apt-get update && apt-get install -y \
       libfl-dev \
       rsync
 
+# Packages needed for vyos-http-api-tools
+RUN apt-get update && apt-get install -y \
+      dh-virtualenv \
+      python3-venv
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
