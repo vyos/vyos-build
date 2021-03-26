@@ -109,6 +109,7 @@ pipeline {
         string(name: 'BUILD_VERSION', defaultValue: '1.4-rolling-' + env.TIMESTAMP, description: 'Version number (release builds only)')
         booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
         booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
+        booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
     }
     triggers {
         cron('H 2 * * *')
@@ -199,12 +200,11 @@ pipeline {
                 // only deploy ISO if build from official repository
                 if (isCustomBuild())
                     return
-                if (! params.BUILD_PUBLISH)
-                    return
 
                 files = findFiles(glob: 'build/vyos*.iso')
-                if (files) {
-                    // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
+                // Publish ISO image to daily builds bucket
+                if (files && params.BUILD_PUBLISH) {
+                    // Publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
                     sshagent(['SSH-dev.packages.vyos.net']) {
                         dir('build') {
                             // build up some fancy groovy variables so we do not need to write/copy
@@ -231,6 +231,14 @@ pipeline {
                                  workingDir: 'build', includePathPattern: 'vyos*.iso')
                         s3Copy(fromBucket: 's3-us.vyos.io', fromPath: getGitBranchName() + '/' + files[0].name,
                                toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
+                    }
+                }
+
+                // Publish ISO image to snapshot bucket
+                if (files && params.BUILD_SNAPSHOT) {
+                    withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                        s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/',
+                                 workingDir: 'build', includePathPattern: 'vyos*.iso')
                     }
                 }
             }
