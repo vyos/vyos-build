@@ -97,8 +97,7 @@ node('Docker') {
 pipeline {
     options {
         disableConcurrentBuilds()
-        timeout(time: 120, unit: 'MINUTES')
-        parallelsAlwaysFailFast()
+        timeout(time: 150, unit: 'MINUTES')
         timestamps()
         buildDiscarder(logRotator(numToKeepStr: '20'))
     }
