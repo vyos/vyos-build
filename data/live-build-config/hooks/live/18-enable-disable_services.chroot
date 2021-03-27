@@ -2,6 +2,7 @@
 
 echo I: Disabling services
 systemctl disable exim4.service
+systemctl disable sendmail.service
 systemctl disable isc-dhcp-server.service
 systemctl disable isc-dhcp-relay.service
 systemctl disable nfacctd.service
