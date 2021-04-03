@@ -251,6 +251,10 @@ RUN apt-get update && apt-get install -y \
       gnat \
       gprbuild
 
+# Packages needed for minisign
+RUN apt-get update && apt-get install -y \
+      libsodium-dev
+
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
       fakeroot \
