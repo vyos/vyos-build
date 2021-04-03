@@ -53,9 +53,8 @@ pipeline {
     options {
         disableConcurrentBuilds()
         timeout(time: 120, unit: 'MINUTES')
-        parallelsAlwaysFailFast()
         timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '200'))
+        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
     parameters {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
