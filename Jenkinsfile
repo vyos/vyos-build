@@ -42,7 +42,7 @@ node('Docker') {
                         sh """
                             docker build -t ${env.DOCKER_IMAGE} .
                         """
-                        if ( ! isCustomBuild()) {
+                        if (! isCustomBuild()) {
                             withDockerRegistry([credentialsId: "DockerHub"]) {
                                 sh "docker push ${env.DOCKER_IMAGE}"
                             }
@@ -60,7 +60,7 @@ node('Docker') {
 //                          sed -i 's#^FROM.*#FROM multiarch/debian-debootstrap:armhf-buster-slim#' armhf/Dockerfile
 //                          docker build -t ${env.DOCKER_IMAGE_ARM} armhf
 //                      """
-//                      if ( ! isCustomBuild()) {
+//                      if (! isCustomBuild()) {
 //                          withDockerRegistry([credentialsId: "DockerHub"]) {
 //                              sh "docker push ${env.DOCKER_IMAGE_ARM}"
 //                          }
@@ -68,23 +68,22 @@ node('Docker') {
 //                  }
 //              }
 //          },
-          'arm64': {
-              script {
-                  dir('docker') {
-                      sh """
-                          docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
+            'arm64': {
+                script {
+                    dir('docker') {
+                        sh """
+                            docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
 
-                      """
+                        """
 
-                      if ( ! isCustomBuild()) {
-                          withDockerRegistry([credentialsId: "DockerHub"]) {
-                              sh "docker push ${env.DOCKER_IMAGE_ARM64}"
-
-                          }
-                      }
-                  }
-              }
-          }
+                        if (! isCustomBuild()) {
+                            withDockerRegistry([credentialsId: "DockerHub"]) {
+                                sh "docker push ${env.DOCKER_IMAGE_ARM64}"
+                            }
+                        }
+                    }
+                }
+            }
         )
     }
     stage('Build timestamp') {
