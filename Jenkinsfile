@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-// Copyright (C) 2019 VyOS maintainers and contributors
+// Copyright (C) 2019-2021 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 @NonCPS
 
 // Using a version specifier library, use 'equuleus' branch. The underscore (_)
@@ -25,11 +24,8 @@ setDescription()
 
 // Due to long build times on DockerHub we rather build the container by ourself
 // and publish it later on.
-
 // create container names on demand
 env.DOCKER_IMAGE =       "vyos/vyos-build:" + getGitBranchName()
-env.DOCKER_IMAGE_ARM =   "vyos/vyos-build:" + getGitBranchName() + "-armhf"
-env.DOCKER_IMAGE_ARM64 = "vyos/vyos-build:" + getGitBranchName() + "-arm64"
 
 node('Docker') {
     stage('Fetch') {
@@ -37,56 +33,14 @@ node('Docker') {
             url: getGitRepoURL()
     }
     stage('Build Docker container') {
-        parallel (
-            'x86-64': {
-                script {
-                    dir('docker') {
-                        sh """
-                            docker build -t ${env.DOCKER_IMAGE} .
-                        """
-                        if ( ! isCustomBuild()) {
-                            withDockerRegistry([credentialsId: "DockerHub"]) {
-                                sh "docker push ${env.DOCKER_IMAGE}"
-                            }
-
-                        }
-                    }
-                }
-            },
-//          'armhf': {
-//              script {
-//                  dir('docker') {
-//                      sh """
-//                          cp Dockerfile armhf/Dockerfile
-//                          cp entrypoint.sh armhf/entrypoint.sh
-//                          sed -i 's#^FROM.*#FROM multiarch/debian-debootstrap:armhf-buster-slim#' armhf/Dockerfile
-//                          docker build -t ${env.DOCKER_IMAGE_ARM} armhf
-//                      """
-//                      if ( ! isCustomBuild()) {
-//                          withDockerRegistry([credentialsId: "DockerHub"]) {
-//                              sh "docker push ${env.DOCKER_IMAGE_ARM}"
-//                          }
-//                      }
-//                  }
-//              }
-//          },
-//        'arm64': {
-//            script {
-//                dir('docker') {
-//                    sh """
-//                        docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
-//
-//                    """
-//
-//                    if ( ! isCustomBuild()) {
-//                        withDockerRegistry([credentialsId: "DockerHub"]) {
-//                            sh "docker push ${env.DOCKER_IMAGE_ARM64}"
-//                        }
-//                    }
-//                }
-//            }
-//        }
-        )
+		script {
+			sh "docker build -t ${env.DOCKER_IMAGE} docker"
+			if ( ! isCustomBuild()) {
+				withDockerRegistry([credentialsId: "DockerHub"]) {
+					sh "docker push ${env.DOCKER_IMAGE}"
+				}
+			}
+		}
     }
     stage('Build timestamp') {
         script {
@@ -109,6 +63,7 @@ pipeline {
         booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
         booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
         booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
+        booleanParam(name: 'BUILD_QEMU', defaultValue: false, description: 'Generate QEMU image')
     }
     triggers {
         cron('H 4 * * *')
@@ -161,7 +116,7 @@ pipeline {
                 }
             }
         }
-        stage('QEMU') {
+        stage('Test') {
             when {
                 expression { return params.BUILD_SMOKETESTS }
             }
@@ -182,14 +137,15 @@ pipeline {
                         sh "sudo make testc"
                     }
                 }
-                stage('Build QEMU image') {
-                    when {
-                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
-                    }
-                    steps {
-                        sh "sudo make qemu"
-                    }
-                }
+			}
+        }
+        stage('Build QEMU image') {
+            when {
+                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                expression { return params.BUILD_QEMU }
+            }
+            steps {
+                sh "sudo make qemu"
             }
         }
     }
@@ -227,7 +183,7 @@ pipeline {
                     }
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                         s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/',
-                                 workingDir: 'build', includePathPattern: 'vyos*.iso')
+                                 workingDir: 'build', includePathPattern: 'vyos*.iso, packer_build/qemu/*.img')
                         s3Copy(fromBucket: 's3-us.vyos.io', fromPath: getGitBranchName() + '/' + files[0].name,
                                toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
                     }
@@ -237,13 +193,13 @@ pipeline {
                 if (files && params.BUILD_SNAPSHOT) {
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                         s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/',
-                                 workingDir: 'build', includePathPattern: 'vyos*.iso')
+                                 workingDir: 'build', includePathPattern: 'vyos*.iso, packer_build/qemu/*.img')
                     }
                 }
             }
         }
         failure {
-            archiveArtifacts artifacts: '**/live-image-amd64.hybrid.iso',
+            archiveArtifacts artifacts: '**/live-image-amd64.hybrid.iso, packer_build/qemu/*.img',
                 allowEmptyArchive: true
         }
         cleanup {
