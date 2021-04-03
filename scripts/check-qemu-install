@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019, VyOS maintainers and contributors
+# Copyright (C) 2019-2021, VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -123,19 +123,17 @@ def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
     # test using half of the available CPUs on the system
     cpucount = get_half_cpus()
 
+    macbase = '52:54:00:00:00'
     cmd = f'qemu-system-x86_64 \
         -name "{name}" \
         -smp {cpucount} \
         -m 2G \
-        -nic user,model=virtio,mac=52:54:99:12:34:56 \
-        -nic user,model=virtio,mac=52:54:99:12:34:57 \
-        -nic user,model=virtio,mac=52:54:99:12:34:58 \
-        -nic user,model=virtio,mac=52:54:99:12:34:59 \
+        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01 \
+        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02 \
+        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03 \
+        -netdev user,id=n4 -device virtio-net-pci,netdev=n4,mac={macbase}:04 \
         -machine accel=kvm \
-        -nographic \
-        {cpu} \
-        {cdrom} \
-        {kvm} \
+        -nographic {cpu} {cdrom} {kvm} \
         -drive format=raw,file={disk_img}'
 
     return cmd
@@ -315,8 +313,11 @@ try:
     log.info('Basic CLI configuration mode test')
     c.sendline('configure')
     c.expect(r'vyos@vyos#')
-    c.sendline('run show version')
     c.sendline('exit')
+    c.expect(r'vyos@vyos:~\$')
+    c.sendline('show version')
+    c.expect(r'vyos@vyos:~\$')
+    c.sendline('show interfaces')
     c.expect(r'vyos@vyos:~\$')
 
     #################################################
