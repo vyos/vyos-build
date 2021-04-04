@@ -10,7 +10,7 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "https://01.org/sites/default/files/downloads/qat1.7.l.4.12.0-00011.tar.gz"
+    "https://downloadmirror.intel.com/30178/eng/QAT1.7.L.4.13.0-00009.tar.gz"
 )
 
 for url in "${intel[@]}"
@@ -19,7 +19,7 @@ do
 
     DRIVER_FILE=$(basename ${url} | sed -e s/tar_0/tar/)
     DRIVER_DIR="${DRIVER_FILE%.tar.gz}"
-    DRIVER_NAME="qat"
+    DRIVER_NAME="QAT"
     DRIVER_VERSION=$(echo ${DRIVER_DIR} | awk -F${DRIVER_NAME} '{print $2}')
     DRIVER_VERSION_EXTRA="-0"
 
