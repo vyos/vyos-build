@@ -242,7 +242,7 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: '**/live-image-amd64.hybrid.iso, packer_build/qemu/*.img',
+            archiveArtifacts artifacts: '**/build/vyos-*.iso, **/build/vyos-*.qcow2',
                 allowEmptyArchive: true
         }
         cleanup {
