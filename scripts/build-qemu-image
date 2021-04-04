@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2016 VyOS maintainers and contributors
+# Copyright (C) 2016-2021 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -31,3 +31,4 @@ export PACKER_LOG=1
 mkdir -p "${PACKER_BUILD_DIR}"
 
 packer build -only=qemu-image scripts/packer.json
+cp "${PACKER_BUILD_DIR}/qemu/vyos_qemu_image.img" "$BUILD_DIR/vyos-$VERSION-$BUILD_ARCH.qcow2"
