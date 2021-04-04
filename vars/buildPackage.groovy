@@ -183,6 +183,11 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                         }
                     }
                 }
+                post {
+                    cleanup {
+                        deleteDir()
+                    }
+                }
             }
         }
     }
