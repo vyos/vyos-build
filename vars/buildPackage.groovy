@@ -144,6 +144,11 @@ def call(description=null, pkgList=null, buildCmd=null) {
                         }
                     }
                 }
+                post {
+                    cleanup {
+                        deleteDir()
+                    }
+                }
             }
         }
     }
