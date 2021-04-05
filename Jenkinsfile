@@ -225,9 +225,9 @@ pipeline {
                         }
                     }
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                        s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/',
+                        s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
                                  workingDir: 'build', includePathPattern: 'vyos*.iso')
-                        s3Copy(fromBucket: 's3-us.vyos.io', fromPath: getGitBranchName() + '/' + files[0].name,
+                        s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
                                toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
                     }
                 }
