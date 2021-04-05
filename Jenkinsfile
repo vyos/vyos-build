@@ -181,9 +181,9 @@ pipeline {
                         }
                     }
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                        s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/',
+                        s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
                                  workingDir: 'build', includePathPattern: 'vyos*.iso, packer_build/qemu/*.img')
-                        s3Copy(fromBucket: 's3-us.vyos.io', fromPath: getGitBranchName() + '/' + files[0].name,
+                        s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
                                toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
                     }
                 }
@@ -191,7 +191,7 @@ pipeline {
                 // Publish ISO image to snapshot bucket
                 if (files && params.BUILD_SNAPSHOT) {
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                        s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/',
+                        s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/'  + getGitBranchName() + '/',
                                  workingDir: 'build', includePathPattern: 'vyos*.iso, packer_build/qemu/*.img')
                     }
                 }
