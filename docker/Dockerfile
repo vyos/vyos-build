@@ -18,7 +18,7 @@
 
 # This Dockerfile is installable on both x86, x86-64, armhf and arm64 systems
 ARG ARCH=
-FROM ${ARCH}debian:buster
+FROM ${ARCH}debian:bullseye
 
 # It is also possible to emulate an arm system inside docker,
 # execution of this emulated system needs to be executed on an x86 or x86-64 host.
@@ -38,10 +38,7 @@ FROM ${ARCH}debian:buster
 # On some versions of docker the emulation framework is not installed by default and
 # you need to install qemu, qemu-user-static and register qemu inside docker manually using:
 # `docker run --rm --privileged multiarch/qemu-user-static:register --reset`
-
-
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
-
 ENV DEBIAN_FRONTEND noninteractive
 
 # Standard shell should be bash not dash
@@ -91,7 +88,9 @@ RUN apt-get update && apt-get install -y \
       python3-git \
       python3-pip \
       python3-flake8 \
-      python3-autopep8
+      python3-autopep8 \
+      debootstrap \
+      live-build
 
 # Syslinux and Grub2 is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
@@ -156,20 +155,6 @@ RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archiv
     cd /tmp/open-vmdk-master/ && \
     make && \
     make install
-
-#
-# live-build: building with local packages fails due to missing keys
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=941691
-# https://salsa.debian.org/live-team/live-build/merge_requests/30
-#
-RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch \
-      -O /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
-    git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build && \
-    cd /tmp/live-build && git checkout debian/1%20190311 && \
-    patch -p1 < /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
-    dch -n "Applying fix for missing archive keys" && \
-    dpkg-buildpackage -us -uc && \
-    sudo dpkg -i ../live-build*.deb
 
 #
 # live-build: building in docker fails with mounting /proc | /sys
@@ -255,7 +240,7 @@ RUN apt-get update && apt-get install -y \
       bison \
       debhelper \
       flex \
-      iptables-dev \
+      libxtables-dev \
       libatm1-dev \
       libcap-dev \
       libdb-dev \
@@ -283,15 +268,6 @@ RUN export RTRLIB_VERSION="0.6.3" && export ARCH=$(dpkg-architecture -qDEB_HOST_
     tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
-
-# Upgrading to FRR 7.5 requires a more recent version of libyang which is only
-# available from Debian Bullseye
-RUN echo "deb http://deb.debian.org/debian/ bullseye main" \
-      > /etc/apt/sources.list.d/bullseye.list && \
-    apt-get update && apt-get install -y -t bullseye \
-      libyang-dev \
-      libyang1; \
-    rm -f /etc/apt/sources.list.d/bullseye.list
 
 # Packages needed to build FRR itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
@@ -385,7 +361,7 @@ RUN apt-get update && apt-get install -y \
       dpkg-dev \
       flex \
       gperf \
-      iptables-dev \
+      libxtables-dev \
       libcap-dev \
       libcurl4-openssl-dev \
       libgcrypt20-dev \
@@ -434,8 +410,6 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
 
 # Packages needed for vyos-cloud-init
 RUN apt-get update && apt-get install -y \
-      pep8 \
-      pyflakes \
       python3-configobj \
       python3-httpretty \
       python3-jsonpatch \
@@ -499,21 +473,6 @@ RUN apt-get update && apt-get install -y \
       debhelper-compat \
       libmnl-dev \
       libnfnetlink-dev \
-      libtool
-
-# Packages needed for conntrack-tools
-RUN apt-get update && apt-get install -y \
-      bison \
-      debhelper \
-      flex \
-      libmnl-dev \
-      libnetfilter-cthelper0-dev \
-      libnetfilter-cttimeout-dev \
-      libnetfilter-queue-dev \
-      libnfnetlink-dev \
-      libsystemd-dev \
-      autoconf \
-      automake \
       libtool
 
 # Packages needed for wide-dhcpv6
