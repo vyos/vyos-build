@@ -1,0 +1,56 @@
+From 50d6a22e0c1368bcc662bbfea75ce21378825b0d Mon Sep 17 00:00:00 2001
+From: Christian Poessinger <christian@poessinger.com>
+Date: Fri, 9 Apr 2021 12:45:00 +0200
+Subject: [PATCH] erspan/erspan6: fix JSON output
+
+The format for erspan/erspan6 output is not valid JSON, as on version 2 a
+valueless key was presented. The direction should be value and erspan_dir
+should be the key.
+
+Fixes: 289763626721 ("erspan: add erspan version II support")
+Cc: u9012063@gmail.com
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Reported-by: Christian Poessinger <christian@poessinger.com>
+Signed-off-by: Christian Poessinger <christian@poessinger.com>
+---
+ ip/link_gre.c  | 4 ++--
+ ip/link_gre6.c | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index 0461e5d0..6d4a8be8 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -536,10 +536,10 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 
+ 		if (erspan_dir == 0)
+ 			print_string(PRINT_ANY, "erspan_dir",
+-				     "erspan_dir ingress ", NULL);
++				     "erspan_dir %s ", "ingress");
+ 		else
+ 			print_string(PRINT_ANY, "erspan_dir",
+-				     "erspan_dir egress ", NULL);
++				     "erspan_dir %s ", "egress");
+ 	}
+ 
+ 	if (tb[IFLA_GRE_ERSPAN_HWID]) {
+diff --git a/ip/link_gre6.c b/ip/link_gre6.c
+index 9d270f4b..f33598af 100644
+--- a/ip/link_gre6.c
++++ b/ip/link_gre6.c
+@@ -594,10 +594,10 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 
+ 		if (erspan_dir == 0)
+ 			print_string(PRINT_ANY, "erspan_dir",
+-				     "erspan_dir ingress ", NULL);
++				     "erspan_dir %s ", "ingress");
+ 		else
+ 			print_string(PRINT_ANY, "erspan_dir",
+-				     "erspan_dir egress ", NULL);
++				     "erspan_dir %s ", "egress");
+ 	}
+ 
+ 	if (tb[IFLA_GRE_ERSPAN_HWID]) {
+-- 
+2.20.1
+
