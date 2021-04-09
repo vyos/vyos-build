@@ -47,5 +47,5 @@ def pkgList = [
      'buildCmd': '''sudo dpkg -i ../libnetfilter*.deb && dpkg-buildpackage -uc -us -tc -b'''],
 ]
 
-// Start package build using library function from https://github.com/c-po/vyos-build
+// Start package build using library function from https://github.com/vyos/vyos-build
 buildPackage('Netfilter', pkgList, null, true)

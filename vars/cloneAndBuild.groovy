@@ -34,12 +34,14 @@ def call(description, architecture, pkgList, buildCmd) {
             // let us reuse this script for packages like vyos-1x which ship a Jenkinfile in
             // their repositories root folder.
             pkgList.each { pkg ->
-                dir(env.BASE_DIR + pkg.name) {
-                    checkout([$class: 'GitSCM',
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [[$class: 'CleanCheckout']],
-                        branches: [[name: pkg.scmCommit]],
-                        userRemoteConfigs: [[url: pkg.scmUrl]]])
+                if (pkg.scmUrl && pkg.scmCommit) {
+                    dir(env.BASE_DIR + pkg.name) {
+                        checkout([$class: 'GitSCM',
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [[$class: 'CleanCheckout']],
+                            branches: [[name: pkg.scmCommit]],
+                            userRemoteConfigs: [[url: pkg.scmUrl]]])
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2021 VyOS maintainers and contributors
+// Copyright (C) 2020-2021 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -18,259 +18,44 @@
 // is not a typo! You need this underscore if the line immediately after the
 // @Library annotation is not an import statement!
 @Library('vyos-build@current')_
-setDescription()
 
-node('Docker') {
-    stage('Define Agent') {
-        script {
-            // create container name on demand
-            def branchName = getGitBranchName()
-            // Adjust PR target branch name so we can re-map it to the proper
-            // Docker image. CHANGE_ID is set only for pull requests, so it is
-            // safe to access the pullRequest global variable
-            if (env.CHANGE_ID) {
-                branchName = "${env.CHANGE_TARGET}".toLowerCase()
-            }
-            if (branchName.equals("master")) {
-                branchName = "current"
-            }
-            env.DOCKER_IMAGE = "vyos/vyos-build:" + branchName
-        }
-    }
-}
+def pkgList = [
+    // The Linux Kernel
+    ['name': 'kernel',
+     'buildCmd': '''
+        # all scripts must be executed one level above ...
+        cd ..
 
-pipeline {
-    agent {
-        docker {
-            reuseNode true
-            args "--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006"
-            image "${env.DOCKER_IMAGE}"
-            alwaysPull true
-        }
-    }
-    options {
-        disableConcurrentBuilds()
-        timeout(time: 120, unit: 'MINUTES')
-        timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '5'))
-    }
-    environment {
-        DEBIAN_ARCH = sh(returnStdout: true, script: 'dpkg --print-architecture').trim()
-        BASE_DIR = getJenkinsfilePath()
-        CHANGESET_DIR = getChangeSetPath()
-    }
-    stages {
-        stage('Fetch') {
-            steps {
-                script {
-                    checkout scm
-                }
-            }
-        }
-        stage('Git Clone - Components') {
-            parallel {
-                stage('Kernel') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        script {
-                            dir(env.BASE_DIR) {
-                                sh '''
-                                    KERNEL_VER=\$(cat ../../data/defaults.json | jq -r .kernel_version)
-                                    gpg2 --locate-keys torvalds@kernel.org gregkh@kernel.org
-                                    curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.xz
-                                    curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.sign
-                                    xz -cd linux-${KERNEL_VER}.tar.xz | gpg2 --verify linux-${KERNEL_VER}.tar.sign -
-                                    if [ $? -ne 0 ]; then
-                                        exit 1
-                                    fi
-                                    tar xf linux-${KERNEL_VER}.tar.xz
-                                    ln -s linux-${KERNEL_VER} linux
-                                '''
-                            }
-                        }
-                    }
-                }
-                stage('Kernel Firmware') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR + '/linux-firmware') {
-                            checkout([$class: 'GitSCM',
-                                doGenerateSubmoduleConfigurations: false,
-                                extensions: [[$class: 'CleanCheckout'],
-                                             [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]],
-                                branches: [[name: '20201218' ]],
-                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git']]])
-                        }
-                    }
-                }
-                stage('Accel-PPP') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR + '/accel-ppp') {
-                            checkout([$class: 'GitSCM',
-                                doGenerateSubmoduleConfigurations: false,
-                                extensions: [[$class: 'CleanCheckout']],
-                                branches: [[name: '59f8e1bc3f199c8d0d985253e19a74ad87130179' ]],
-                                userRemoteConfigs: [[credentialsId: 'GitHub-vyosbot', url: 'https://github.com/accel-ppp/accel-ppp.git']]])
-                        }
-                    }
-                }
-            }
-        }
-        stage('Compile Kernel') {
-            when {
-                beforeOptions true
-                beforeAgent true
-                anyOf {
-                    changeset pattern: "${env.CHANGESET_DIR}"
-                    changeset pattern: "**/data/defaults.json"
-                    triggeredBy 'TimerTrigger'
-                    triggeredBy cause: "UserIdCause"
-                }
-            }
-            steps {
-                dir(env.BASE_DIR) {
-                    sh "./build-kernel.sh"
-                }
-            }
-        }
+        # read the required Kernel version
+        KERNEL_VER=\$(cat ../../data/defaults.json | jq -r .kernel_version)
+        gpg2 --locate-keys torvalds@kernel.org gregkh@kernel.org
+        curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.xz
+        curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.sign
+        xz -cd linux-${KERNEL_VER}.tar.xz | gpg2 --verify linux-${KERNEL_VER}.tar.sign -
+        if [ $? -ne 0 ]; then
+            exit 1
+        fi
 
-        stage('Kernel Module(s)') {
-            parallel {
-                stage('Accel-PPP') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR) {
-                            sh "./build-accel-ppp.sh"
-                        }
-                    }
-                }
-                stage('Intel QuickAssist Technology') {
-                    when {
-                        beforeOptions true
-                        beforeAgent true
-                        anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
-                            changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
-                            triggeredBy cause: "UserIdCause"
-                        }
-                    }
-                    steps {
-                        dir(env.BASE_DIR) {
-                            sh "./build-intel-qat.sh"
-                        }
-                    }
-                }
-            }
-        }
-        // This stage should not be run in the parallel section as it will call "make"
-        // again on the kernel source and this could confuse other build systems
-        // like generating Intel or Accel-PPP drivers. Better safe then sorry!
-        stage('Linux Firmware') {
-            when {
-                beforeOptions true
-                beforeAgent true
-                anyOf {
-                    changeset pattern: "${env.CHANGESET_DIR}"
-                    changeset pattern: "**/data/defaults.json"
-                    triggeredBy 'TimerTrigger'
-                    triggeredBy cause: "UserIdCause"
-                }
-            }
-            steps {
-                dir(env.BASE_DIR) {
-                    sh "./build-linux-firmware.sh"
-                }
-            }
-        }
+        # Unpack Kernel source
+        tar xf linux-${KERNEL_VER}.tar.xz
+        ln -s linux-${KERNEL_VER} linux
+        # ... Build Kernel
+        ./build-kernel.sh
+     '''],
 
-    }
-    post {
-        cleanup {
-            deleteDir()
-        }
-        success {
-            script {
-                dir(env.BASE_DIR) {
-                    // archive *.deb artifact on custom builds, deploy to repo otherwise
-                    if ( isCustomBuild()) {
-                        archiveArtifacts artifacts: '*.deb', fingerprint: true
-                    } else {
-                        // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
-                        sshagent(['SSH-dev.packages.vyos.net']) {
-                            // build up some fancy groovy variables so we do not need to write/copy
-                            // every option over and over again!
-                            def RELEASE = getGitBranchName()
-                            if (getGitBranchName() == "master")
-                                RELEASE = 'current'
+    // Firmware
+    ['name': 'linux-firmware', 'scmCommit': '20201218',
+     'scmUrl': 'https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
+     'buildCmd': 'cd ..; ./build-linux-firmware.sh'],
 
-                            def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE
-                            if (getGitBranchName() == "crux")
-                                VYOS_REPO_PATH += '/vyos'
+    // Accel-PPP
+    ['name': 'accel-ppp', 'scmCommit': '59f8e1bc3f199c8d0d9',
+     'scmUrl': 'https://github.com/accel-ppp/accel-ppp.git',
+     'buildCmd': 'cd ..; pwd; ls -al; ./build-accel-ppp.sh'],
 
-                            def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-                            def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
-                            def SSH_DIR = '~/VyOS/' + RELEASE
+    // Intel-QAT
+    ['name': 'qat', 'buildCmd': 'cd ..; ./build-intel-qat.sh'],
+]
 
-                            files = findFiles(glob: '*.deb')
-                            if (files) {
-                                sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"bash --login -c 'mkdir -p ${SSH_DIR}'\"")
-                                echo "Uploading package(s) and updating package(s) in the repository ..."
-                                files.each { FILE ->
-                                    // NOTE: Groovy is a pain in the ass and " quotes differ from ', so all shell code must use " in the beginning
-                                    def PACKAGE = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
-                                    def PACKAGE_ARCH = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Architecture").trim()
-                                    def ARCH = ''
-                                    if (PACKAGE_ARCH != 'all')
-                                        ARCH = '-A ' + PACKAGE_ARCH
-
-                                    sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
-                                    sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} remove ${RELEASE} ${PACKAGE}'\"")
-                                    sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} includedeb ${RELEASE} ${SSH_DIR}/${FILE}'\"")
-                                }
-                                sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'\"")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+// Start package build using library function from https://github.com/vyos/vyos-build
+buildPackage('Kernel', pkgList)
