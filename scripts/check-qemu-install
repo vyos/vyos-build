@@ -132,6 +132,9 @@ def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
         -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02 \
         -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03 \
         -netdev user,id=n4 -device virtio-net-pci,netdev=n4,mac={macbase}:04 \
+        -netdev user,id=n5 -device virtio-net-pci,netdev=n5,mac={macbase}:05 \
+        -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06 \
+        -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07 \
         -machine accel=kvm \
         -nographic {cpu} {cdrom} {kvm} \
         -drive format=raw,file={disk_img}'
