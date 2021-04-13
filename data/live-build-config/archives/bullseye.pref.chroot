@@ -6,6 +6,10 @@ Package: ddclient
 Pin: release n=bullseye
 Pin-Priority: 600
 
+Package: podman
+Pin: release n=bullseye
+Pin-Priority: 600
+
 Package: *
 Pin: release n=bullseye
 Pin-Priority: -10
