@@ -10,6 +10,30 @@ Package: podman
 Pin: release n=bullseye
 Pin-Priority: 600
 
+Package: conmon
+Pin: release n=bullseye
+Pin-Priority: 600
+
+Package: containernetworking-plugins
+Pin: release n=bullseye
+Pin-Priority: 600
+
+Package: golang-github-containers-image
+Pin: release n=bullseye
+Pin-Priority: 600
+
+Package: golang-github-containers-common
+Pin: release n=bullseye
+Pin-Priority: 600
+
+Package: libseccomp2
+Pin: release n=bullseye
+Pin-Priority: 600
+
+Package: runc
+Pin: release n=bullseye
+Pin-Priority: 600
+
 Package: *
 Pin: release n=bullseye
 Pin-Priority: -10
