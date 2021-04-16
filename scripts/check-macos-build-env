@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2016 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: check-macos-build-env
+# Purpose:
+#   Checks if binaries for macOS image building are installed.
+
+
+import os
+import sys
+
+import util
+import platform
+
+platform = platform.system()
+if platform != 'Darwin':
+    print("Your system is not macOS.")
+    sys.exit(1)
+
+deps = {
+    'packages': [],
+    'binaries': [
+       'vagrant',
+       'virtualbox',
+       'rsync'
+    ]
+}
+
+print("Checking if packages required for VyOS image build are installed")
+
+checker = util.DependencyChecker(deps)
+
+missing = checker.get_missing_dependencies()
+print(missing)
+if not missing:
+    print("All dependencies are installed")
+    sys.exit(0)
+else:
+    checker.print_missing_deps()
+    if 'vagrant' in missing['binaries']:
+        print("Your system does not have Vagrant.")
+        print("Please install Vagrant from https://www.vagrantup.com/downloads.")
+        sys.exit(1)
+    elif 'virtualbox' in missing['binaries']:
+        print("Your system does not have Virtualbox.")
+        print("Please install Virtualbox from https://www.virtualbox.org/wiki/Downloads.")
+        sys.exit(1)
+    elif 'rsync' in missing['binaries']:
+        print("Your system does not have Rsync.")
+        print("Please install Rsync from https://formulae.brew.sh/formula/rsync.")
+        sys.exit(1)
+sys.exit(0)

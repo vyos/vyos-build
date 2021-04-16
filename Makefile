@@ -175,6 +175,18 @@ PACKET: clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: macos-build
+.ONESHELL:
+macos-build: purge
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	@scripts/check-macos-build-env
+	vagrant up
+	mkdir build || true
+	cd $(build_dir); \
+	rsync -Lam --include='*-amd64.iso' --exclude='*' vagrant@10.1.1.254:/opt/vyos-build/build/ .
+	vagrant destroy -f
+
 .PHONY: PACKET-debug
 .ONESHELL:
 PACKET-debug: clean prepare
