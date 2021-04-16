@@ -7,3 +7,4 @@ packages/*.buildlog
 packages/*
 !packages/*/
 testinstall*.img
+.vagrant/*
