@@ -119,7 +119,7 @@ RUN dpkg-reconfigure ca-certificates; \
 RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
-    opam init --root=/opt/opam --comp=4.09.1 --disable-sandboxing
+    opam init --root=/opt/opam --comp=4.12.0 --disable-sandboxing
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       pcre re
