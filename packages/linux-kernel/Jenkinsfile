@@ -58,4 +58,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('Kernel', pkgList)
+buildPackage('Kernel', pkgList, null, true)
