@@ -8,7 +8,7 @@ if [ ! -d ${KERNEL_SRC} ]; then
 fi
 
 echo "I: Copy Kernel config (x86_64_vyos_defconfig) to Kernel Source"
-cp x86_64_vyos_defconfig ${KERNEL_SRC}/arch/x86/configs
+cp -rv arch/ ${KERNEL_SRC}/
 
 cd ${KERNEL_SRC}
 
@@ -29,9 +29,9 @@ do
     patch -p1 < ${PATCH_DIR}/${patch}
 done
 
-echo "I: make x86_64_vyos_defconfig"
+echo "I: make vyos_defconfig"
 # Select Kernel configuration - currently there is only one
-make x86_64_vyos_defconfig
+make vyos_defconfig
 
 echo "I: Generate environment file containing Kernel variable"
 cat << EOF >${CWD}/kernel-vars
