@@ -2,8 +2,8 @@
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
 
-if ! dpkg-architecture -ii386 || ! dpkg-architecture -iamd64; then
-    echo "Intel-QAT is only buildable on x86 platforms"
+if ! dpkg-architecture -iamd64; then
+    echo "Intel-QAT is only buildable on amd64 platforms"
     exit 0
 fi
 
