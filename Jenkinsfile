@@ -33,14 +33,14 @@ node('Docker') {
             url: getGitRepoURL()
     }
     stage('Build Docker container') {
-		script {
-			sh "docker build -t ${env.DOCKER_IMAGE} docker"
-			if ( ! isCustomBuild()) {
-				withDockerRegistry([credentialsId: "DockerHub"]) {
-					sh "docker push ${env.DOCKER_IMAGE}"
-				}
-			}
-		}
+        script {
+            sh "docker build -t ${env.DOCKER_IMAGE} docker"
+            if ( ! isCustomBuild()) {
+                withDockerRegistry([credentialsId: "DockerHub"]) {
+                    sh "docker push ${env.DOCKER_IMAGE}"
+                }
+            }
+        }
     }
     stage('Build timestamp') {
         script {
@@ -136,7 +136,7 @@ pipeline {
                         sh "sudo make testc"
                     }
                 }
-			}
+            }
         }
         stage('Build QEMU image') {
             when {
