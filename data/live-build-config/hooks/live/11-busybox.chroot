@@ -139,6 +139,7 @@ bb_alternative /usr/bin/renice
 bb_alternative /usr/bin/reset
 bb_alternative /usr/bin/setkeycodes
 bb_alternative /usr/bin/sha1sum
+bb_alternative /usr/bin/sha256sum
 bb_alternative /usr/bin/sort
 bb_alternative /usr/bin/strings
 bb_alternative /usr/bin/tail

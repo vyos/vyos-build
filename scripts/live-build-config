@@ -41,6 +41,7 @@ lb config noauto \
         --linux-packages linux-image-{{kernel_version}} \
         --bootloader syslinux,grub-efi \
         --binary-images iso-hybrid \
+        --checksums 'sha256 md5' \
         --debian-installer false \
         --distribution {{distribution}} \
         --iso-application "VyOS" \
