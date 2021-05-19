@@ -49,7 +49,7 @@ def pkgList = [
      'buildCmd': 'cd ..; ./build-linux-firmware.sh'],
 
     // Accel-PPP
-    ['name': 'accel-ppp', 'scmCommit': '59f8e1bc3f199c8d0d9',
+    ['name': 'accel-ppp', 'scmCommit': '277ad4c3c7af01b26',
      'scmUrl': 'https://github.com/accel-ppp/accel-ppp.git',
      'buildCmd': 'cd ..; pwd; ls -al; ./build-accel-ppp.sh'],
 
