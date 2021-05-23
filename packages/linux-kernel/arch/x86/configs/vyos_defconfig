@@ -4231,53 +4231,7 @@ CONFIG_USB_EZUSB_FX2=m
 # CONFIG_USB_ISP1301 is not set
 # end of USB Physical Layer drivers
 
-CONFIG_USB_GADGET=m
-# CONFIG_USB_GADGET_DEBUG is not set
-# CONFIG_USB_GADGET_DEBUG_FILES is not set
-# CONFIG_USB_GADGET_DEBUG_FS is not set
-CONFIG_USB_GADGET_VBUS_DRAW=2
-CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS=2
-
-#
-# USB Peripheral Controller
-#
-# CONFIG_USB_FOTG210_UDC is not set
-# CONFIG_USB_GR_UDC is not set
-# CONFIG_USB_R8A66597 is not set
-# CONFIG_USB_PXA27X is not set
-# CONFIG_USB_MV_UDC is not set
-# CONFIG_USB_MV_U3D is not set
-# CONFIG_USB_M66592 is not set
-# CONFIG_USB_BDC_UDC is not set
-# CONFIG_USB_AMD5536UDC is not set
-# CONFIG_USB_NET2272 is not set
-# CONFIG_USB_NET2280 is not set
-# CONFIG_USB_GOKU is not set
-# CONFIG_USB_EG20T is not set
-# CONFIG_USB_DUMMY_HCD is not set
-# end of USB Peripheral Controller
-
-# CONFIG_USB_CONFIGFS is not set
-
-#
-# USB Gadget precomposed configurations
-#
-# CONFIG_USB_ZERO is not set
-# CONFIG_USB_ETH is not set
-# CONFIG_USB_G_NCM is not set
-# CONFIG_USB_GADGETFS is not set
-# CONFIG_USB_FUNCTIONFS is not set
-# CONFIG_USB_MASS_STORAGE is not set
-# CONFIG_USB_G_SERIAL is not set
-# CONFIG_USB_G_PRINTER is not set
-# CONFIG_USB_CDC_COMPOSITE is not set
-# CONFIG_USB_G_ACM_MS is not set
-# CONFIG_USB_G_MULTI is not set
-# CONFIG_USB_G_HID is not set
-# CONFIG_USB_G_DBGP is not set
-# CONFIG_USB_RAW_GADGET is not set
-# end of USB Gadget precomposed configurations
-
+# CONFIG_USB_GADGET is not set
 # CONFIG_TYPEC is not set
 # CONFIG_USB_ROLE_SWITCH is not set
 CONFIG_MMC=m
