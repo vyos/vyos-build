@@ -34,6 +34,14 @@ Package: runc
 Pin: release n=bullseye
 Pin-Priority: 600
 
+Package: python3-cryptography
+Pin: release n=bullseye
+Pin-Priority: 600
+
+Package: python3-paramiko
+Pin: release n=bullseye
+Pin-Priority: 600
+
 Package: *
 Pin: release n=bullseye
 Pin-Priority: -10
