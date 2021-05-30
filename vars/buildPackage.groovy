@@ -28,7 +28,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
         options {
             disableConcurrentBuilds()
             skipDefaultCheckout()
-            timeout(time: 120, unit: 'MINUTES')
+            timeout(time: 180, unit: 'MINUTES')
             timestamps()
             buildDiscarder(logRotator(numToKeepStr: '20'))
         }
