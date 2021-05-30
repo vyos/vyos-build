@@ -232,6 +232,10 @@ RUN apt-get update && apt-get install -y \
       kmod \
       cpio
 
+# Packages needed for Intel QAT out-of-tree drivers
+RUN apt-get update && apt-get install -y \
+      yasm
+
 # Packages needed for Accel-PPP
 RUN apt-get update && apt-get install -y \
       liblua5.3-dev \
