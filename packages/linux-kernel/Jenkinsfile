@@ -52,6 +52,9 @@ def pkgList = [
     ['name': 'accel-ppp', 'scmCommit': '277ad4c3c7af01b26',
      'scmUrl': 'https://github.com/accel-ppp/accel-ppp.git',
      'buildCmd': 'cd ..; pwd; ls -al; ./build-accel-ppp.sh'],
+
+    // Intel-QAT
+    ['name': 'qat', 'buildCmd': 'cd ..; ./build-intel-qat.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
