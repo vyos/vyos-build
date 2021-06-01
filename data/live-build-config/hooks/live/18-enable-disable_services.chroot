@@ -58,6 +58,7 @@ systemctl disable keepalived.service
 systemctl disable ipvsadm.service
 systemctl disable telegraf.service
 systemctl disable ndppd.service
+systemctl disable strongswan-starter.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
