@@ -20,11 +20,11 @@
 @Library('vyos-build@current')_
 
 def pkgList = [
-    ['name': 'strongSwan',
+    ['name': 'strongswan',
      'scmCommit': 'debian/5.9.1-1  ',
      'scmUrl': 'https://salsa.debian.org/debian/strongswan.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('strongSwan', pkgList, null, true)
+buildPackage('strongswan', pkgList, null, true)
