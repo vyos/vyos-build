@@ -37,6 +37,11 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                 agent {
                     label "ec2_amd64"
                 }
+                environment {
+                    // get relative directory path to Jenkinsfile
+                    BASE_DIR = getJenkinsfilePath()
+                    CHANGESET_DIR = getChangeSetPath()
+                }
                 steps {
                     script {
                         // create container name on demand
@@ -68,11 +73,6 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                                 reuseNode true
                             }
                         }
-                        environment {
-                            // get relative directory path to Jenkinsfile
-                            BASE_DIR = getJenkinsfilePath()
-                            CHANGESET_DIR = getChangeSetPath()
-                        }
                         steps {
                             script {
                                 cloneAndBuild(description, 'amd64', pkgList, buildCmd)
@@ -99,11 +99,6 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                         }
                         when {
                             equals expected: true, actual: buildArm
-                        }
-                        environment {
-                            // get relative directory path to Jenkinsfile
-                            BASE_DIR = getJenkinsfilePath()
-                            CHANGESET_DIR = getChangeSetPath()
                         }
                         steps {
                             script {
