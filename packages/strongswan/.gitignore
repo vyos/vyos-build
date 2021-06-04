@@ -1,0 +1,6 @@
+strongswan/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
