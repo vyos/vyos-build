@@ -35,7 +35,7 @@ def call(description, architecture, pkgList, buildCmd) {
             // their repositories root folder.
             pkgList.each { pkg ->
                 if (pkg.scmUrl && pkg.scmCommit) {
-                    dir(env.BASE_DIR + pkg.name) {
+                    dir(getJenkinsfilePath() + pkg.name) {
                         checkout([$class: 'GitSCM',
                             doGenerateSubmoduleConfigurations: false,
                             extensions: [[$class: 'CleanCheckout']],
@@ -49,7 +49,7 @@ def call(description, architecture, pkgList, buildCmd) {
         // compile the source(s) ...
         if (pkgList) {
             pkgList.each { pkg ->
-                dir(env.BASE_DIR + pkg.name) {
+                dir(getJenkinsfilePath() + pkg.name) {
                     sh pkg.buildCmd
                 }
             }

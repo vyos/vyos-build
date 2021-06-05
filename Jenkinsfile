@@ -124,11 +124,8 @@ pipeline {
             when {
                 beforeOptions true
                 beforeAgent true
-                // Do not run ISO build when the Docker container definition or the build pipeline
-                // library changes as this has no direct impact on the ISO image.
-                not { changeset "**/docker/*" }
-                not { changeset "**/vars/*" }
-                not { changeset "**/packages/*" }
+                // Only run ISO image build process of explicit user request or
+                // once a night triggered by the timer.
                 anyOf {
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"

@@ -37,11 +37,6 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                 agent {
                     label "ec2_amd64"
                 }
-                environment {
-                    // get relative directory path to Jenkinsfile
-                    BASE_DIR = getJenkinsfilePath()
-                    CHANGESET_DIR = getChangeSetPath()
-                }
                 steps {
                     script {
                         // create container name on demand
@@ -62,6 +57,15 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                 }
             }
             stage('Build Code') {
+                when {
+                    beforeOptions true
+                    beforeAgent true
+                    anyOf {
+                        changeset pattern: getChangeSetPath()
+                        expression { isPullRequest() }
+                        triggeredBy cause: "UserIdCause"
+                    }
+                }
                 parallel {
                     stage('amd64') {
                         agent {
