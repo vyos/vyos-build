@@ -406,9 +406,10 @@ RUN apt-get update && apt-get install -y \
       python-setuptools \
       python3-stdeb
 
-# Packages needed for vyos-opennhrp
+# Packages needed for opennhrp
 RUN apt-get update && apt-get install -y \
-      libc-ares-dev
+      libc-ares-dev \
+      libev-dev
 
 # Packages needed for Qemu test-suite
 # This is for now only supported on i386 and amd64 platforms
