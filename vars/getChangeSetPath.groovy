@@ -20,7 +20,6 @@ def call() {
         tmp = "**/" + tmp + "*"
     else
         tmp = "**/*"
-    echo tmp
     return tmp
 }
 
