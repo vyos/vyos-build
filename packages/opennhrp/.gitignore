@@ -1,0 +1,6 @@
+opennhrp/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
