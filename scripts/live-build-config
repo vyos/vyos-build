@@ -58,7 +58,8 @@ lb config noauto \
         --updates false \
         --security true \
         --apt-options "--yes -oAcquire::Check-Valid-Until=false -oDebug::BuildDeps=true -oDebug::pkgDepCache::AutoInstall=true \
-                             -oDebug::pkgDepCache::Marker=true -oDebug::pkgProblemResolver=true -oDebug::Acquire::gpgv=true" \
+                             -oDebug::pkgDepCache::Marker=true -oDebug::pkgProblemResolver=true -oDebug::Acquire::gpgv=true \
+                             -o Acquire::https::Verify-Peer=false" \
         --apt-indices false
         "${@}"
 """
