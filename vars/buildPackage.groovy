@@ -80,7 +80,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                         steps {
                             script {
                                 cloneAndBuild(description, 'amd64', pkgList, buildCmd)
-                                stash includes: '**/*.deb', name: 'binary-amd64'
+                                stash includes: '**/*.deb', name: 'binary-amd64', allowEmpty: true
                             }
                         }
                         post {
@@ -107,7 +107,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                         steps {
                             script {
                                 cloneAndBuild(description, 'arm64', pkgList, buildCmd)
-                                stash includes: '**/*arm64.deb', name: 'binary-arm64'
+                                stash includes: '**/*arm64.deb', name: 'binary-arm64', allowEmpty: true
                             }
                         }
                         post {
