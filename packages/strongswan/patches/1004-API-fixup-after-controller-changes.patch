@@ -1,0 +1,44 @@
+From 2ed5a1e0a45d8955c07a87bdc94e81039cfea1fc Mon Sep 17 00:00:00 2001
+From: Christian Poessinger <christian@poessinger.com>
+Date: Sat, 5 Jun 2021 07:45:39 +0000
+Subject: [PATCH] API fixup after controller changes
+
+This fixes the caller API of strongSwan 5.9.1 after applying the "charon: add
+optional source and remote overrides for  initiate") patch.
+
+Signed-off-by: Christian Poessinger <christian@poessinger.com>
+---
+ src/charon-nm/nm/nm_service.c                          | 2 +-
+ src/libcharon/processing/jobs/initiate_mediation_job.c | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/charon-nm/nm/nm_service.c b/src/charon-nm/nm/nm_service.c
+index 83fcaf898..868d7a356 100644
+--- a/src/charon-nm/nm/nm_service.c
++++ b/src/charon-nm/nm/nm_service.c
+@@ -864,7 +864,7 @@ static gboolean connect_(NMVpnServicePlugin *plugin, NMConnection *connection,
+ 	 * Prepare IKE_SA
+ 	 */
+ 	ike_sa = charon->ike_sa_manager->checkout_by_config(charon->ike_sa_manager,
+-														peer_cfg);
++								peer_cfg, NULL, NULL);
+ 	if (!ike_sa)
+ 	{
+ 		peer_cfg->destroy(peer_cfg);
+diff --git a/src/libcharon/processing/jobs/initiate_mediation_job.c b/src/libcharon/processing/jobs/initiate_mediation_job.c
+index 6a72499d3..3f12ff903 100644
+--- a/src/libcharon/processing/jobs/initiate_mediation_job.c
++++ b/src/libcharon/processing/jobs/initiate_mediation_job.c
+@@ -137,7 +137,8 @@ METHOD(job_t, initiate, job_requeue_t,
+ 		mediation_cfg->get_ref(mediation_cfg);
+ 
+ 		if (charon->controller->initiate(charon->controller, mediation_cfg, NULL,
+-				(controller_cb_t)initiate_callback, this, 0, FALSE) != SUCCESS)
++				NULL, NULL, (controller_cb_t)initiate_callback, this, 0,
++				FALSE) != SUCCESS)
+ 		{
+ 			mediation_cfg->destroy(mediation_cfg);
+ 			mediated_cfg->destroy(mediated_cfg);
+-- 
+2.20.1
+
