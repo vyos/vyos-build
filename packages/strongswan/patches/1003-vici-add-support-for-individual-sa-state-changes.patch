@@ -14,30 +14,30 @@ Signed-off-by: Timo Teräs <timo.teras@iki.fi>
  1 file changed, 105 insertions(+)
 
 diff --git a/src/libcharon/plugins/vici/vici_query.c b/src/libcharon/plugins/vici/vici_query.c
-index 2ca885e8b..29f77c769 100644
+index e3f6a0d26..9968cdd3c 100644
 --- a/src/libcharon/plugins/vici/vici_query.c
 +++ b/src/libcharon/plugins/vici/vici_query.c
-@@ -1673,8 +1673,16 @@ static void manage_commands(private_vici_query_t *this, bool reg)
-	this->dispatcher->manage_event(this->dispatcher, "list-cert", reg);
-	this->dispatcher->manage_event(this->dispatcher, "ike-updown", reg);
-	this->dispatcher->manage_event(this->dispatcher, "ike-rekey", reg);
+@@ -1717,8 +1717,16 @@ static void manage_commands(private_vici_query_t *this, bool reg)
+ 	this->dispatcher->manage_event(this->dispatcher, "list-cert", reg);
+ 	this->dispatcher->manage_event(this->dispatcher, "ike-updown", reg);
+ 	this->dispatcher->manage_event(this->dispatcher, "ike-rekey", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "ike-state-established", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "ike-state-destroying", reg);
-	this->dispatcher->manage_event(this->dispatcher, "child-updown", reg);
-	this->dispatcher->manage_event(this->dispatcher, "child-rekey", reg);
+ 	this->dispatcher->manage_event(this->dispatcher, "child-updown", reg);
+ 	this->dispatcher->manage_event(this->dispatcher, "child-rekey", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "child-state-installing", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "child-state-installed", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "child-state-updating", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "child-state-rekeying", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "child-state-rekeyed", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "child-state-destroying", reg);
-	manage_command(this, "list-sas", list_sas, reg);
-	manage_command(this, "list-policies", list_policies, reg);
-	manage_command(this, "list-conns", list_conns, reg);
-@@ -1745,6 +1753,45 @@ METHOD(listener_t, ike_rekey, bool,
-	return TRUE;
+ 	manage_command(this, "list-sas", list_sas, reg);
+ 	manage_command(this, "list-policies", list_policies, reg);
+ 	manage_command(this, "list-conns", list_conns, reg);
+@@ -1789,6 +1797,45 @@ METHOD(listener_t, ike_rekey, bool,
+ 	return TRUE;
  }
-
+ 
 +METHOD(listener_t, ike_state_change, bool,
 +	private_vici_query_t *this, ike_sa_t *ike_sa, ike_sa_state_t state)
 +{
@@ -78,12 +78,12 @@ index 2ca885e8b..29f77c769 100644
 +}
 +
  METHOD(listener_t, child_updown, bool,
-	private_vici_query_t *this, ike_sa_t *ike_sa, child_sa_t *child_sa, bool up)
+ 	private_vici_query_t *this, ike_sa_t *ike_sa, child_sa_t *child_sa, bool up)
  {
-@@ -1820,6 +1867,62 @@ METHOD(listener_t, child_rekey, bool,
-	return TRUE;
+@@ -1868,6 +1915,62 @@ METHOD(listener_t, child_rekey, bool,
+ 	return TRUE;
  }
-
+ 
 +METHOD(listener_t, child_state_change, bool,
 +	private_vici_query_t *this, ike_sa_t *ike_sa, child_sa_t *child_sa, child_sa_state_t state)
 +{
@@ -141,18 +141,19 @@ index 2ca885e8b..29f77c769 100644
 +}
 +
  METHOD(vici_query_t, destroy, void,
-	private_vici_query_t *this)
+ 	private_vici_query_t *this)
  {
-@@ -1839,8 +1942,10 @@ vici_query_t *vici_query_create(vici_dispatcher_t *dispatcher)
-			.listener = {
-				.ike_updown = _ike_updown,
-				.ike_rekey = _ike_rekey,
+@@ -1887,8 +1990,10 @@ vici_query_t *vici_query_create(vici_dispatcher_t *dispatcher)
+ 			.listener = {
+ 				.ike_updown = _ike_updown,
+ 				.ike_rekey = _ike_rekey,
 +				.ike_state_change = _ike_state_change,
-				.child_updown = _child_updown,
-				.child_rekey = _child_rekey,
+ 				.child_updown = _child_updown,
+ 				.child_rekey = _child_rekey,
 +				.child_state_change = _child_state_change,
-			},
-			.destroy = _destroy,
-		},
---
-2.24.0
+ 			},
+ 			.destroy = _destroy,
+ 		},
+-- 
+2.20.1
+

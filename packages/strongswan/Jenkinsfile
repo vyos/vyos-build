@@ -21,7 +21,7 @@
 
 def pkgList = [
     ['name': 'strongswan',
-     'scmCommit': 'debian/5.9.1-1  ',
+     'scmCommit': 'debian/5.9.1-1',
      'scmUrl': 'https://salsa.debian.org/debian/strongswan.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
