@@ -124,14 +124,16 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                 }
                 steps {
                     script {
-                        // Unpack files for amd64
-                        unstash 'binary-amd64'
-
-                        // Unpack files for arm64 IF they exist
+                        // Unpack files for amd64 and arm64 if packages got build
                         try {
+                            unstash 'binary-amd64'
                             unstash 'binary-arm64'
                         } catch (e) {
-                            print "Unstash arm64 failed, ignoring"
+                            print "Unstash failed, ignoring"
+                            println(e.toString())
+                            currentBuild.result = 'SUCCESS'
+                            // return here instead of throwing error to keep the build "green"
+                            return
                         }
 
                         if (isCustomBuild()) {
