@@ -227,10 +227,10 @@ pipeline {
                         s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
                                toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
                     }
+                    // Trigger GitHub action which will re-build the static community website which
+                    // also holds the AWS download links to the generated ISO images
                     withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
-                        // Trigger site rebuild so the download shows.
                         sh '''
-                            set +x
                             curl -X POST --header "Accept: application/vnd.github.v3+json" \
                             --header 'authorization: Bearer $TOKEN' --data '{"ref": "production"}' \
                             https://api.github.com/repos/vyos/community.vyos.net/actions/workflows/main.yml/dispatches
