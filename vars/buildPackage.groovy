@@ -129,11 +129,8 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                             unstash 'binary-amd64'
                             unstash 'binary-arm64'
                         } catch (e) {
-                            print "Unstash failed, ignoring"
-                            println(e.toString())
+                            print "Unstash failed, ignoring - could be because there exists no arm64 build"
                             currentBuild.result = 'SUCCESS'
-                            // return here instead of throwing error to keep the build "green"
-                            return
                         }
 
                         if (isCustomBuild()) {
