@@ -232,7 +232,7 @@ pipeline {
                     withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
                         sh '''
                             curl -X POST --header "Accept: application/vnd.github.v3+json" \
-                            --header 'authorization: Bearer $TOKEN' --data '{"ref": "production"}' \
+                            --header "authorization: Bearer $TOKEN" --data '{"ref": "production"}' \
                             https://api.github.com/repos/vyos/community.vyos.net/actions/workflows/main.yml/dispatches
                         '''
                     }
