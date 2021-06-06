@@ -137,27 +137,28 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                             echo "Build not started from official Git repository! Artifacts are not uploaded to external repository"
                             return
                         }
-                        echo "Uploading Artifacts to external repository"
-                        copyArtifacts fingerprintArtifacts: true, projectName: '${JOB_NAME}', selector: specific('${BUILD_NUMBER}')
 
-                        // build up some fancy groovy variables so we do not need to write/copy
-                        // every option over and over again!
-                        def RELEASE = getGitBranchName()
-                        if (getGitBranchName() == "master")
-                            RELEASE = 'current'
+                        files = findFiles(glob: '**/*.deb')
+                        if (files) {
+                            echo "Uploading Artifacts to external repository"
+                            copyArtifacts fingerprintArtifacts: true, projectName: '${JOB_NAME}', selector: specific('${BUILD_NUMBER}')
 
-                        def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE
-                        if (getGitBranchName() == "crux")
-                            VYOS_REPO_PATH += '/vyos'
+                            // build up some fancy groovy variables so we do not need to write/copy
+                            // every option over and over again!
+                            def RELEASE = getGitBranchName()
+                            if (getGitBranchName() == "master")
+                                RELEASE = 'current'
 
-                        def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-                        def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
-                        def SSH_DIR = '~/VyOS/' + RELEASE
+                            def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE
+                            if (getGitBranchName() == "crux")
+                                VYOS_REPO_PATH += '/vyos'
 
-                        // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
-                        sshagent(['SSH-dev.packages.vyos.net']) {
-                            files = findFiles(glob: '**/*.deb')
-                            if (files) {
+                            def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+                            def SSH_REMOTE = env.DEV_PACKAGES_VYOS_NET_HOST // defined as global variable
+                            def SSH_DIR = '~/VyOS/' + RELEASE
+
+                            // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
+                            sshagent(['SSH-dev.packages.vyos.net']) {
                                 sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"bash --login -c 'mkdir -p ${SSH_DIR}'\"")
                                 echo "Uploading package(s) and updating package(s) in the repository ..."
                                 files.each { FILE ->
