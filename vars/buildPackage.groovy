@@ -61,7 +61,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                     beforeOptions true
                     beforeAgent true
                     anyOf {
-                        changeset pattern: getChangeSetPath()
+                        changeset getChangeSetPath()
                         expression { isPullRequest() }
                         triggeredBy cause: "UserIdCause"
                     }
