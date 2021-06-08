@@ -36,3 +36,22 @@ with open('/etc/strongswan.d/charon/farp.conf', 'r') as f:
 
 with open('/etc/strongswan.d/charon/farp.conf', 'w') as f:
     f.write(farp_conf)
+
+
+# Add ike-name to logging
+charon_logging = """
+charon {
+    syslog {
+        # prefix for each log message
+        identifier = charon
+        # use default settings to log to the LOG_DAEMON facility
+        daemon {
+            default = 1
+            ike_name = yes
+        }
+    }
+}
+"""
+
+with open('/etc/strongswan.d/charon-logging.conf', 'w') as f:
+    f.write(charon_logging)
