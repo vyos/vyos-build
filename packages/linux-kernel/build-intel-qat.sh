@@ -10,7 +10,7 @@ fi
 . ${KERNEL_VAR_FILE}
 
 declare -a intel=(
-    "https://01.org/sites/default/files/downloads/qat1.7.l.4.9.0-00008.tar_0.gz"
+    "http://dev.packages.vyos.net/source-mirror/QAT1.7.l.4.9.0-00008.tar.gz"
 )
 
 for url in "${intel[@]}"
