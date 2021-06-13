@@ -285,9 +285,9 @@ try:
         log.warning('Did not find GRUB countdown window, ignoring')
 
     log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=300)
+    c.expect('[Ll]ogin:', timeout=600)
     c.sendline('vyos')
-    c.expect('[Pp]assword:', timeout=10)
+    c.expect('[Pp]assword:', timeout=20)
     c.sendline('vyos')
     c.expect(r'vyos@vyos:~\$')
     log.info('Logged in!')
