@@ -57,15 +57,6 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
                 }
             }
             stage('Build Code') {
-                when {
-                    beforeOptions true
-                    beforeAgent true
-                    anyOf {
-                        changeset getChangeSetPath()
-                        expression { isPullRequest() }
-                        triggeredBy cause: "UserIdCause"
-                    }
-                }
                 parallel {
                     stage('amd64') {
                         agent {
