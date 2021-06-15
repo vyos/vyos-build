@@ -144,27 +144,27 @@
         <rasd:Description>Memory Size</rasd:Description>
         <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">512 MB of memory</rasd:ElementName>
         <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">2</rasd:InstanceID>
+        <rasd:Reservation>512</rasd:Reservation>
         <rasd:ResourceType>4</rasd:ResourceType>
         <rasd:VirtualQuantity>512</rasd:VirtualQuantity>
-        <rasd:Reservation>512</rasd:Reservation>
       </Item>
       <Item configuration="4CPU-16GB">
         <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
         <rasd:Description>Memory Size</rasd:Description>
         <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">16 GB of memory</rasd:ElementName>
         <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">2</rasd:InstanceID>
+        <rasd:Reservation>16384</rasd:Reservation>
         <rasd:ResourceType>4</rasd:ResourceType>
         <rasd:VirtualQuantity>16384</rasd:VirtualQuantity>
-        <rasd:Reservation>16384</rasd:Reservation>
       </Item>
       <Item configuration="8CPU-32GB">
         <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
         <rasd:Description>Memory Size</rasd:Description>
         <rasd:ElementName xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">32 GB of memory</rasd:ElementName>
         <rasd:InstanceID xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">2</rasd:InstanceID>
+        <rasd:Reservation>32768</rasd:Reservation>
         <rasd:ResourceType>4</rasd:ResourceType>
         <rasd:VirtualQuantity>32768</rasd:VirtualQuantity>
-        <rasd:Reservation>32768</rasd:Reservation>
       </Item>
       <Item>
         <rasd:Address xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">0</rasd:Address>
