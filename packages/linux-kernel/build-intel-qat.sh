@@ -51,6 +51,7 @@ do
     fi
 
     echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
+    echo "I: Kernel dependency: linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}"
     mkdir -p ${DEBIAN_DIR}/lib/firmware ${DEBIAN_DIR}/usr/local/bin ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu ${DEBIAN_DIR}/etc/init.d
     KERNEL_SOURCE_ROOT=${KERNEL_DIR} ./configure --enable-kapi --enable-qat-lkcf
     make -j $(getconf _NPROCESSORS_ONLN) all

@@ -38,5 +38,8 @@ export KERNEL_SUFFIX=${KERNEL_SUFFIX}
 export KERNEL_DIR=${CWD}/${KERNEL_SRC}
 EOF
 
+echo "I: Environment file contents:"
+cat ${CWD}/kernel-vars
+
 echo "I: Build Debian Kernel package"
 make bindeb-pkg BUILD_TOOLS=1 LOCALVERSION=${KERNEL_SUFFIX} KDEB_PKGVERSION=${KERNEL_VERSION}-1 -j $(getconf _NPROCESSORS_ONLN)
