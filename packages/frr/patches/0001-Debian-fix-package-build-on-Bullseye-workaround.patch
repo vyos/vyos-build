@@ -1,0 +1,25 @@
+From c88011519aba9462bf9e464830fcee5b6f7bfc25 Mon Sep 17 00:00:00 2001
+From: Christian Poessinger <christian@poessinger.com>
+Date: Sat, 19 Jun 2021 13:38:56 +0000
+Subject: [PATCH] Debian: fix package build on Bullseye (workaround)
+
+This is the workaround mentioned in https://github.com/FRRouting/frr/issues/6502
+---
+ debian/frr-doc.install | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/debian/frr-doc.install b/debian/frr-doc.install
+index c48dc5a8d..6cc87e9cb 100644
+--- a/debian/frr-doc.install
++++ b/debian/frr-doc.install
+@@ -3,7 +3,7 @@ usr/share/doc/frr/html
+
+ # info + images referenced by it
+ usr/share/info/
+-doc/user/_build/texinfo/*.png usr/share/info
++#doc/user/_build/texinfo/*.png usr/share/info
+
+ # other
+ README.md         usr/share/doc/frr
+--
+2.30.2
