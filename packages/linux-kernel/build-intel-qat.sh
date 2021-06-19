@@ -20,7 +20,7 @@ do
     DRIVER_FILE=$(basename ${url} | sed -e s/tar_0/tar/)
     DRIVER_DIR="${DRIVER_FILE%.tar.gz}"
     DRIVER_NAME="qat"
-    DRIVER_VERSION=$(echo ${DRIVER_DIR} | awk -F${DRIVER_NAME} '{print $2}')
+    DRIVER_VERSION=$(echo ${DRIVER_DIR} | tr A-Z a-z | awk -F${DRIVER_NAME} '{print $2}')
     DRIVER_VERSION_EXTRA="-0"
 
     # Build up Debian related variables required for packaging
