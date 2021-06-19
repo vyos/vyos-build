@@ -75,7 +75,7 @@ Priority: extra
 Architecture: ${DEBIAN_ARCH}
 Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
 Description: Vendor based driver for Intel ${DRIVER_NAME}
-Depends: linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} (= ${KERNEL_VERSION})
+Depends: linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}
 EOF
 
     # delete non required files which are also present in the kernel package
