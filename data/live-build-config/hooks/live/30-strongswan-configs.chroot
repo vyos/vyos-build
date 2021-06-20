@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # The Cisco Unity plugin, that implements a proprietary extension
 # for IPsec split tunneling, interfers with DMVPN

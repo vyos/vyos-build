@@ -1,8 +1,8 @@
 {
   "architecture": "amd64",
   "debian_mirror": "http://deb.debian.org/debian",
-  "debian_security_mirror": "http://deb.debian.org/debian-security",
-  "debian_distribution": "buster",
+  "debian_security_mirror": "http://deb.debian.org/debian",
+  "debian_distribution": "bullseye",
   "vyos_mirror": "http://dev.packages.vyos.net/repositories/current",
   "vyos_branch": "current",
   "kernel_version": "5.10.45",

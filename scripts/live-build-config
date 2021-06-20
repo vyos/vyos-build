@@ -42,7 +42,7 @@ lb config noauto \
         --bootloader syslinux,grub-efi \
         --binary-images iso-hybrid \
         --checksums 'sha256 md5' \
-        --debian-installer false \
+        --debian-installer none \
         --distribution {{distribution}} \
         --iso-application "VyOS" \
         --iso-publisher "{{build_by}}" \
@@ -56,9 +56,9 @@ lb config noauto \
         --archive-areas "main contrib non-free" \
         --firmware-chroot false \
         --firmware-binary false \
-        --updates true \
-        --security true \
-        --backports true \
+        --updates false \
+        --security false \
+        --backports false \
         --apt-recommends false \
         --apt-options "--yes -oAPT::Default-Release="current" -oAPT::Get::allow-downgrades=true" \
         --apt-indices false
