@@ -68,22 +68,22 @@ node('Docker') {
 //                  }
 //              }
 //          },
-            'arm64': {
-                script {
-                    dir('docker') {
-                        sh """
-                            docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
-
-                        """
-
-                        if (! isCustomBuild()) {
-                            withDockerRegistry([credentialsId: "DockerHub"]) {
-                                sh "docker push ${env.DOCKER_IMAGE_ARM64}"
-                            }
-                        }
-                    }
-                }
-            }
+//          'arm64': {
+//              script {
+//                  dir('docker') {
+//                      sh """
+//                          docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
+//
+//                      """
+//
+//                      if (! isCustomBuild()) {
+//                          withDockerRegistry([credentialsId: "DockerHub"]) {
+//                              sh "docker push ${env.DOCKER_IMAGE_ARM64}"
+//                          }
+//                      }
+//                  }
+//              }
+//          }
         )
     }
     stage('Build timestamp') {
