@@ -366,6 +366,7 @@ RUN apt-get update && apt-get install -y \
       libcurl4-openssl-dev \
       libgcrypt20-dev \
       libgmp3-dev \
+      libiptc-dev \
       libkrb5-dev \
       libldap2-dev \
       libnm-dev \
