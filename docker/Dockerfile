@@ -450,32 +450,6 @@ RUN apt-get update && apt-get install -y \
       libtool \
       pkg-config
 
-# Packages needed for nftables
-RUN apt-get update && apt-get install -y \
-      asciidoc-base \
-      automake \
-      bison \
-      debhelper-compat \
-      dh-python \
-      docbook-xsl \
-      flex \
-      libgmp-dev \
-      libjansson-dev \
-      libmnl-dev \
-      libreadline-dev \
-      libtool \
-      libxtables-dev \
-      python3-all \
-      python3-setuptools \
-      xsltproc
-
-# Packages needed for libnetfilter-conntrack
-RUN apt-get update && apt-get install -y \
-      debhelper-compat \
-      libmnl-dev \
-      libnfnetlink-dev \
-      libtool
-
 # Packages needed for wide-dhcpv6
 RUN apt-get update && apt-get install -y \
       bison \
