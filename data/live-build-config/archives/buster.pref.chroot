@@ -1,0 +1,11 @@
+Package: bash
+Pin: release n=buster
+Pin-Priority: 600
+
+Package: bash-completion
+Pin: release n=buster
+Pin-Priority: 600
+
+Package: *
+Pin: release n=buster
+Pin-Priority: -10
