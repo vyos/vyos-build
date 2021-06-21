@@ -306,6 +306,7 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for vyos-1x
 RUN apt-get update && apt-get install -y \
+      dh-python \
       fakeroot \
       libzmq3-dev \
       python3 \
