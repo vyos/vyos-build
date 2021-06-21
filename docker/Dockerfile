@@ -342,7 +342,6 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
-      libcidr0 \
       libcidr-dev \
       check
 
