@@ -59,6 +59,7 @@ lb config noauto \
         --updates false \
         --security false \
         --backports false \
+        --utc-time true \
         --apt-recommends false \
         --apt-options "--yes -oAPT::Default-Release="current" -oAPT::Get::allow-downgrades=true" \
         --apt-indices false
