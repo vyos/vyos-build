@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+
+# open-vm-tools settings
+
+import re
+
+vmtools_config = """
+[guestinfo]
+    poll-interval=30
+
+"""
+
+with open('/etc/vmware-tools/tools.conf', 'w') as f:
+    f.write(vmtools_config)
