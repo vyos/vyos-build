@@ -204,6 +204,9 @@ try:
     #################################################
     # Logging into VyOS system
     #################################################
+    op_mode_prompt = r'vyos@vyos:~\$'
+    cfg_mode_prompt = r'vyos@vyos#'
+
     try:
         c.expect('Automatic boot in', timeout=10)
         c.sendline('')
@@ -215,7 +218,7 @@ try:
     c.sendline('vyos')
     c.expect('[Pp]assword:', timeout=20)
     c.sendline('vyos')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect(op_mode_prompt)
     log.info('Logged in!')
 
     #################################################
@@ -247,7 +250,7 @@ try:
     c.sendline('vyos')
     c.expect('\nWhich drive should GRUB modify the boot partition on.*:')
     c.sendline('')
-    c.expect(r'\nvyos@vyos:~\$')
+    c.expect(op_mode_prompt)
     log.info('system installed, shutting down')
 
     #################################################
@@ -289,7 +292,7 @@ try:
     c.sendline('vyos')
     c.expect('[Pp]assword:', timeout=20)
     c.sendline('vyos')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect(op_mode_prompt)
     log.info('Logged in!')
 
     # additional settling time
@@ -299,7 +302,7 @@ try:
     # Always load the WiFi simulation module
     ################################################
     c.sendline('sudo modprobe mac80211_hwsim')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect(op_mode_prompt)
 
     #################################################
     # Start/stop config daemon
@@ -308,20 +311,20 @@ try:
         c.sendline('sudo systemctl start vyos-configd.service &> /dev/null')
     else:
         c.sendline('sudo systemctl stop vyos-configd.service &> /dev/null')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect(op_mode_prompt)
 
     #################################################
     # Basic Configmode/Opmode switch
     #################################################
     log.info('Basic CLI configuration mode test')
     c.sendline('configure')
-    c.expect(r'vyos@vyos#')
+    c.expect(cfg_mode_prompt)
     c.sendline('exit')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect(op_mode_prompt)
     c.sendline('show version')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect(op_mode_prompt)
     c.sendline('show interfaces')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect(op_mode_prompt)
 
     #################################################
     # Executing test-suite
@@ -356,7 +359,7 @@ try:
     else:
         log.info('Generating a WireGuard default keypair')
         c.sendline('generate wireguard default-keypair')
-        c.expect(r'vyos@vyos:~\$')
+        c.expect(op_mode_prompt)
 
         log.info('Generating some OpenVPN keys')
         subject = '/C=DE/ST=BY/O=VyOS/localityName=Cloud/commonName=vyos/' \
@@ -370,23 +373,23 @@ try:
 
         c.sendline(f'openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 '\
                    f'-keyout {ssl_key} -out {ssl_cert} -subj {subject}')
-        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.expect(op_mode_prompt, timeout=600)
         c.sendline(f'openssl req -new -x509 -key {ssl_key} -out {ca_cert} -subj {subject}')
-        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.expect(op_mode_prompt, timeout=600)
         c.sendline(f'openssl dhparam -out {dh_pem} 2048')
-        c.expect(r'vyos@vyos:~\$', timeout=600)
+        c.expect(op_mode_prompt, timeout=600)
         c.sendline(f'generate openvpn key {s2s_key}')
-        c.expect(r'vyos@vyos:~\$')
+        c.expect(op_mode_prompt)
         c.sendline(f'generate openvpn key {auth_key}')
-        c.expect(r'vyos@vyos:~\$')
+        c.expect(op_mode_prompt)
 
         script_file = '/config/scripts/vyos-foo-update.script'
         c.sendline(f'echo "#!/bin/sh" > {script_file}; chmod 775 {script_file}')
-        c.expect(r'vyos@vyos:~\$')
+        c.expect(op_mode_prompt)
 
         for file in [ca_cert, ssl_cert, ssl_key, dh_pem, s2s_key, auth_key]:
             c.sendline(f'sudo chown openvpn:openvpn {file}')
-            c.expect(r'vyos@vyos:~\$')
+            c.expect(op_mode_prompt)
 
         log.info('Executing load config tests')
         c.sendline('/usr/bin/vyos-configtest')
