@@ -60,6 +60,7 @@ lb config noauto \
         --security false \
         --backports false \
         --utc-time true \
+        --debug \
         --apt-recommends false \
         --apt-options "--yes -oAPT::Get::allow-downgrades=true" \
         --apt-indices false
