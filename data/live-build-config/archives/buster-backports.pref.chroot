@@ -26,6 +26,10 @@ Package: wireguard-tools
 Pin: release n=buster-backports
 Pin-Priority: 600
 
+Package: openvpn
+Pin: release n=buster-backports
+Pin-Priority: 600
+
 Package: *
 Pin: release n=buster-backports
 Pin-Priority: -10
