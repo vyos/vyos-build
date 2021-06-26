@@ -25,7 +25,7 @@ if [ -d $PATCH_DIR ]; then
             # user.email variables as these is not set in the build container by default.
             OPTS="-c user.name=VyOS-CI -c user.email=maintainers@vyos.io"
         fi
-        git $OPTS am ${PATCH_DIR}/${patch}
+        git $OPTS am --committer-date-is-author-date ${PATCH_DIR}/${patch}
     done
 fi
 
