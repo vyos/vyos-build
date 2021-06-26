@@ -51,39 +51,36 @@ node('Docker') {
                     }
                 }
             },
-//          'armhf': {
-//              script {
-//                  dir('docker') {
-//                      sh """
-//                          cp Dockerfile armhf/Dockerfile
-//                          cp entrypoint.sh armhf/entrypoint.sh
-//                          sed -i 's#^FROM.*#FROM multiarch/debian-debootstrap:armhf-buster-slim#' armhf/Dockerfile
-//                          docker build -t ${env.DOCKER_IMAGE_ARM} armhf
-//                      """
-//                      if (! isCustomBuild()) {
-//                          withDockerRegistry([credentialsId: "DockerHub"]) {
-//                              sh "docker push ${env.DOCKER_IMAGE_ARM}"
-//                          }
-//                      }
-//                  }
-//              }
-//          },
-//          'arm64': {
-//              script {
-//                  dir('docker') {
-//                      sh """
-//                          docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
-//
-//                      """
-//
-//                      if (! isCustomBuild()) {
-//                          withDockerRegistry([credentialsId: "DockerHub"]) {
-//                              sh "docker push ${env.DOCKER_IMAGE_ARM64}"
-//                          }
-//                      }
-//                  }
-//              }
-//          }
+        )
+    }
+    stage('Build timestamp') {
+        script {
+            env.TIMESTAMP = sh(returnStdout: true, script: 'date +%Y%m%d%H%M').toString().trim()
+        }
+    }
+}
+
+node('ec2_arm64') {
+    stage('Fetch') {
+        git branch: getGitBranchName(),
+            url: getGitRepoURL()
+    }
+    stage('Build Docker container') {
+        parallel (
+            'arm64': {
+                script {
+                    dir('docker') {
+                        sh """
+                            docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
+                        """
+                        if (! isCustomBuild()) {
+                            withDockerRegistry([credentialsId: "DockerHub"]) {
+                                sh "docker push ${env.DOCKER_IMAGE_ARM64}"
+                            }
+                        }
+                    }
+                }
+            },
         )
     }
     stage('Build timestamp') {
