@@ -21,71 +21,24 @@
 @Library('vyos-build@current')_
 setDescription()
 
-// Due to long build times on DockerHub we rather build the container by ourself
-// and publish it later on.
-
-// create container names on demand
-env.DOCKER_IMAGE =       "vyos/vyos-build:" + getGitBranchName()
-env.DOCKER_IMAGE_ARM =   "vyos/vyos-build:" + getGitBranchName() + "-armhf"
-env.DOCKER_IMAGE_ARM64 = "vyos/vyos-build:" + getGitBranchName() + "-arm64"
-
 node('Docker') {
-    stage('Fetch') {
-        git branch: getGitBranchName(),
-            url: getGitRepoURL()
-    }
-    stage('Build Docker container') {
-        parallel (
-            'x86-64': {
-                script {
-                    dir('docker') {
-                        sh """
-                            docker build -t ${env.DOCKER_IMAGE} .
-                        """
-                        if (! isCustomBuild()) {
-                            withDockerRegistry([credentialsId: "DockerHub"]) {
-                                sh "docker push ${env.DOCKER_IMAGE}"
-                            }
-
-                        }
-                    }
-                }
-            },
-        )
-    }
     stage('Build timestamp') {
         script {
             env.TIMESTAMP = sh(returnStdout: true, script: 'date +%Y%m%d%H%M').toString().trim()
-        }
-    }
-}
+            // create container name on demand
+            def branchName = getGitBranchName()
+            // Adjust PR target branch name so we can re-map it to the proper Docker image.
+            if (isPullRequest())
+                branchName = env.CHANGE_TARGET.toLowerCase()
+            if (branchName.equals('master'))
+                branchName = 'current'
 
-node('ec2_arm64') {
-    stage('Fetch') {
-        git branch: getGitBranchName(),
-            url: getGitRepoURL()
-    }
-    stage('Build Docker container') {
-        parallel (
-            'arm64': {
-                script {
-                    dir('docker') {
-                        sh """
-                            docker build -t ${env.DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ .
-                        """
-                        if (! isCustomBuild()) {
-                            withDockerRegistry([credentialsId: "DockerHub"]) {
-                                sh "docker push ${env.DOCKER_IMAGE_ARM64}"
-                            }
-                        }
-                    }
-                }
-            },
-        )
-    }
-    stage('Build timestamp') {
-        script {
-            env.TIMESTAMP = sh(returnStdout: true, script: 'date +%Y%m%d%H%M').toString().trim()
+            env.DOCKER_IMAGE = 'vyos/vyos-build:' + branchName
+
+            // Get the current UID and GID from the jenkins agent to allow use of the same UID inside Docker
+            env.USR_ID = sh(returnStdout: true, script: 'id -u').toString().trim()
+            env.GRP_ID = sh(returnStdout: true, script: 'id -g').toString().trim()
+            env.DOCKER_ARGS = '--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
         }
     }
 }
@@ -109,11 +62,12 @@ pipeline {
         cron('H 2 * * *')
     }
     agent {
-        dockerfile {
+        docker {
+            label "Docker"
+            args "${env.DOCKER_ARGS}"
+            image "${env.DOCKER_IMAGE}"
+            alwaysPull true
             reuseNode true
-            filename 'Dockerfile'
-            dir 'docker'
-            args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
         }
     }
     stages {
@@ -141,7 +95,7 @@ pipeline {
                     sh """
                         ./configure \
                             --build-by ${params.BUILD_BY} \
-                            --debian-mirror http://ftp.us.debian.org/debian/ \
+                            --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
                             --version ${params.BUILD_VERSION} ${CUSTOM_PACKAGES}
                         sudo make iso

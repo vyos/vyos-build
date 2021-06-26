@@ -1,0 +1,74 @@
+#!/usr/bin/env groovy
+// Copyright (C) 2019-2021 VyOS maintainers and contributors
+//
+// This program is free software; you can redistribute it and/or modify
+// in order to easy exprort images built to "external" world
+// it under the terms of the GNU General Public License version 2 or later as
+// published by the Free Software Foundation.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+@NonCPS
+
+// Using a version specifier library, use 'current' branch. The underscore (_)
+// is not a typo! You need this underscore if the line immediately after the
+// @Library annotation is not an import statement!
+@Library('vyos-build@current')_
+setDescription()
+
+pipeline {
+    agent none
+    stages {
+        stage('Build containers') {
+            when {
+                beforeOptions true
+                beforeAgent true
+                // Only run ISO image build process of explicit user request or
+                // once a night triggered by the timer.
+                anyOf {
+                    changeset pattern: "**/docker/*"
+                    triggeredBy cause: "UserIdCause"
+                }
+            }
+            parallel {
+                stage('x86_64') {
+                    agent {
+                        label "ec2_amd64"
+                    }
+                    steps {
+                        script {
+                            DOCKER_IMAGE = "vyos/vyos-build:" + getGitBranchName()
+                            sh "docker build -t ${DOCKER_IMAGE} docker"
+                            if (! isCustomBuild()) {
+                                withDockerRegistry([credentialsId: "DockerHub"]) {
+                                    sh "docker push ${DOCKER_IMAGE}"
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('arm64') {
+                    agent {
+                        label "ec2_arm64"
+                    }
+                    steps {
+                        script {
+                            DOCKER_IMAGE = "vyos/vyos-build:" + getGitBranchName() + "-arm64"
+                            sh "docker build -t ${DOCKER_IMAGE} --build-arg ARCH=arm64v8/ docker"
+                            if (! isCustomBuild()) {
+                                withDockerRegistry([credentialsId: "DockerHub"]) {
+                                    sh "docker push ${DOCKER_IMAGE}"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
