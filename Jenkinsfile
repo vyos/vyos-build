@@ -15,36 +15,30 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 @NonCPS
 
-// Using a version specifier library, use 'equuleus' branch. The underscore (_)
+// Using a version specifier library, use 'current' branch. The underscore (_)
 // is not a typo! You need this underscore if the line immediately after the
 // @Library annotation is not an import statement!
 @Library('vyos-build@equuleus')_
-
 setDescription()
 
-// Due to long build times on DockerHub we rather build the container by ourself
-// and publish it later on.
-// create container names on demand
-env.DOCKER_IMAGE =       "vyos/vyos-build:" + getGitBranchName()
-
 node('Docker') {
-    stage('Fetch') {
-        git branch: getGitBranchName(),
-            url: getGitRepoURL()
-    }
-    stage('Build Docker container') {
-        script {
-            sh "docker build -t ${env.DOCKER_IMAGE} docker"
-            if ( ! isCustomBuild()) {
-                withDockerRegistry([credentialsId: "DockerHub"]) {
-                    sh "docker push ${env.DOCKER_IMAGE}"
-                }
-            }
-        }
-    }
     stage('Build timestamp') {
         script {
             env.TIMESTAMP = sh(returnStdout: true, script: 'date +%Y%m%d%H%M').toString().trim()
+            // create container name on demand
+            def branchName = getGitBranchName()
+            // Adjust PR target branch name so we can re-map it to the proper Docker image.
+            if (isPullRequest())
+                branchName = env.CHANGE_TARGET.toLowerCase()
+            if (branchName.equals('master'))
+                branchName = 'current'
+
+            env.DOCKER_IMAGE = 'vyos/vyos-build:' + branchName
+
+            // Get the current UID and GID from the jenkins agent to allow use of the same UID inside Docker
+            env.USR_ID = sh(returnStdout: true, script: 'id -u').toString().trim()
+            env.GRP_ID = sh(returnStdout: true, script: 'id -g').toString().trim()
+            env.DOCKER_ARGS = '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
         }
     }
 }
@@ -52,7 +46,7 @@ node('Docker') {
 pipeline {
     options {
         disableConcurrentBuilds()
-        timeout(time: 120, unit: 'MINUTES')
+        timeout(time: 150, unit: 'MINUTES')
         timestamps()
         buildDiscarder(logRotator(numToKeepStr: '20'))
     }
@@ -68,11 +62,12 @@ pipeline {
         cron('H 4 * * *')
     }
     agent {
-        dockerfile {
+        docker {
+            label "Docker"
+            args "${env.DOCKER_ARGS}"
+            image "${env.DOCKER_IMAGE}"
+            alwaysPull true
             reuseNode true
-            filename 'Dockerfile'
-            dir 'docker'
-            args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
         }
     }
     stages {
@@ -80,11 +75,8 @@ pipeline {
             when {
                 beforeOptions true
                 beforeAgent true
-                // Do not run ISO build when the Docker container definition or the build pipeline
-                // library changes as this has no direct impact on the ISO image.
-                not { changeset "**/docker/*" }
-                not { changeset "**/vars/*" }
-                not { changeset "**/packages/*" }
+                // Only run ISO image build process of explicit user request or
+                // once a night triggered by the timer.
                 anyOf {
                     triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
@@ -103,7 +95,7 @@ pipeline {
                     sh """
                         ./configure \
                             --build-by ${params.BUILD_BY} \
-                            --debian-mirror http://ftp.us.debian.org/debian/ \
+                            --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
                             --version ${params.BUILD_VERSION} ${CUSTOM_PACKAGES}
                         sudo make iso
@@ -120,12 +112,12 @@ pipeline {
                 expression { return params.BUILD_SMOKETESTS }
             }
             parallel {
-                stage('Smoketests with vyos-configd') {
+                stage('Smoketests') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
                     steps {
-                        sh "sudo make testd"
+                        sh "sudo make test"
                     }
                 }
                 stage('Smoketests with vyos-configd and arbitrary config loader') {
@@ -182,7 +174,7 @@ pipeline {
                     }
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                         s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
-                                 workingDir: 'build', includePathPattern: 'vyos*.iso, packer_build/qemu/*.img')
+                                 workingDir: 'build', includePathPattern: 'vyos*.iso')
                         s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
                                toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
                     }
@@ -191,23 +183,23 @@ pipeline {
                     withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
                         sh '''
                             curl -X POST --header "Accept: application/vnd.github.v3+json" \
-                            --header 'authorization: Bearer $TOKEN' --data '{"ref": "production"}' \
+                            --header "authorization: Bearer $TOKEN" --data '{"ref": "production"}' \
                             https://api.github.com/repos/vyos/community.vyos.net/actions/workflows/main.yml/dispatches
                         '''
-                    }                    
+                    }
                 }
 
                 // Publish ISO image to snapshot bucket
                 if (files && params.BUILD_SNAPSHOT) {
                     withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                        s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/'  + getGitBranchName() + '/',
-                                 workingDir: 'build', includePathPattern: 'vyos*.iso, packer_build/qemu/*.img')
+                        s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/',
+                                 workingDir: 'build', includePathPattern: 'vyos*.iso')
                     }
                 }
             }
         }
         failure {
-            archiveArtifacts artifacts: '**/live-image-amd64.hybrid.iso, packer_build/qemu/*.img',
+            archiveArtifacts artifacts: '**/build/vyos-*.iso, **/build/vyos-*.qcow2',
                 allowEmptyArchive: true
         }
         cleanup {
