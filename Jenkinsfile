@@ -38,7 +38,7 @@ node('Docker') {
             // Get the current UID and GID from the jenkins agent to allow use of the same UID inside Docker
             env.USR_ID = sh(returnStdout: true, script: 'id -u').toString().trim()
             env.GRP_ID = sh(returnStdout: true, script: 'id -g').toString().trim()
-            env.DOCKER_ARGS = '--sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
+            env.DOCKER_ARGS = '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
         }
     }
 }
