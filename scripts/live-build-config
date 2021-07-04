@@ -56,7 +56,7 @@ lb config noauto \
         --archive-areas "main contrib non-free" \
         --firmware-chroot false \
         --firmware-binary false \
-        --updates false \
+        --updates true \
         --security false \
         --backports false \
         --utc-time true \
