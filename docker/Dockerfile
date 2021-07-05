@@ -319,9 +319,16 @@ RUN apt-get update && apt-get install -y \
       python3-netifaces \
       python3-jinja2 \
       python3-psutil \
+      python3-stdeb \
+      python3-all \
       python3-coverage \
       quilt \
       whois
+
+Run git clone https://github.com/dsoprea/PyInotify.git /tmp/inotify && \
+    cd /tmp/inotify && \
+    python3 setup.py --command-packages=stdeb.command bdist_deb && \
+    sudo dpkg -i ./deb_dist/python3-inotify*.deb
 
 # Packages needed for vyos-1x-xdp package, gcc-multilib is not available on
 # arm64 but required by XDP
