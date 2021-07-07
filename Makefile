@@ -44,20 +44,6 @@ prepare-package-env:
 	@scripts/pbuilder-config
 	@scripts/pbuilder-setup
 
-.PHONY: vagrant-libvirt
-.ONESHELL:
-vagrant-libvirt:
-	@set -e
-	@scripts/check-vm-build-env
-	@scripts/build-vagrant-libvirt-box
-
-.PHONY: hyperv
-.ONESHELL:
-hyperv:
-	@set -e
-	@scripts/check-vm-build-env
-	@scripts/build-hyperv-image
-
 .PHONY: AWS
 .ONESHELL:
 AWS: clean prepare
