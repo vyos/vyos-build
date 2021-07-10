@@ -37,6 +37,8 @@ systemctl disable tftpd-hpa.service
 systemctl disable LCDd.service
 /usr/sbin/update-rc.d -f LCDd remove
 systemctl disable lcdproc.service
+systemctl disable squid.service
+/usr/sbin/update-rc.d -f squid remove
 
 systemctl disable strongswan.service
 systemctl disable frr.service
