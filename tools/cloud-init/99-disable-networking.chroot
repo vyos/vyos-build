@@ -1,3 +1,0 @@
-#!/bin/bash
-systemctl disable networking
-/usr/sbin/update-rc.d -f networking remove
