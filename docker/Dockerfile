@@ -172,17 +172,6 @@ RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17
     dpkg-buildpackage -us -uc && \
     sudo dpkg -i ../debootstrap*.deb
 
-#
-# Install Packer
-#
-RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
-      export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
-      jq -r -M '.current_version')"; \
-      echo "url https://releases.hashicorp.com/packer/${LATEST}/packer_${LATEST}_linux_amd64.zip" |\
-        curl -K- | gzip -d > /usr/bin/packer && \
-      chmod +x /usr/bin/packer; \
-    fi
-
 # Packages needed for vyatta-cfg
 RUN apt-get update && apt-get install -y \
       autotools-dev \
