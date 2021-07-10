@@ -56,7 +56,6 @@ pipeline {
         booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
         booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
         booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
-        booleanParam(name: 'BUILD_QEMU', defaultValue: false, description: 'Generate QEMU image')
     }
     triggers {
         cron('H 2 * * *')
@@ -128,15 +127,6 @@ pipeline {
                         sh "sudo make testc"
                     }
                 }
-            }
-        }
-        stage('Build QEMU image') {
-            when {
-                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
-                expression { return params.BUILD_QEMU }
-            }
-            steps {
-                sh "sudo make qemu"
             }
         }
     }
