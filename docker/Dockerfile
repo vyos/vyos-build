@@ -204,7 +204,8 @@ RUN apt-get update && apt-get install -y \
       bison \
       bc \
       kmod \
-      cpio
+      cpio \
+      python-is-python2
 
 # Packages needed for Intel QAT out-of-tree drivers
 RUN apt-get update && apt-get install -y \
