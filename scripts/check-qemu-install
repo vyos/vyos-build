@@ -357,8 +357,12 @@ try:
 
     # else, run configtest suite
     else:
-        log.info('Generating a WireGuard default keypair')
-        c.sendline('generate wireguard default-keypair')
+        log.info('Adding a legacy WireGuard default keypair for migrations')
+        c.sendline('sudo mkdir -p /config/auth/wireguard/default')
+        c.expect(op_mode_prompt)
+        c.sendline('echo "aGx+fvW916Ej7QRnBbW3QMoldhNv1u95/WHz45zDmF0=" | sudo tee /config/auth/wireguard/default/private.key')
+        c.expect(op_mode_prompt)
+        c.sendline('echo "x39C77eavJNpvYbNzPSG3n1D68rHYei6q3AEBEyL1z8=" | sudo tee /config/auth/wireguard/default/public.key')
         c.expect(op_mode_prompt)
 
         log.info('Generating some OpenVPN keys')
