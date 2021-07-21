@@ -385,9 +385,9 @@ try:
         c.expect(op_mode_prompt, timeout=600)
         c.sendline(f'openssl dhparam -out {dh_pem} 2048')
         c.expect(op_mode_prompt, timeout=600)
-        c.sendline(f'generate openvpn key {s2s_key}')
+        c.sendline(f'openvpn --genkey secret {s2s_key}')
         c.expect(op_mode_prompt)
-        c.sendline(f'generate openvpn key {auth_key}')
+        c.sendline(f'openvpn --genkey secret {auth_key}')
         c.expect(op_mode_prompt)
 
         script_file = '/config/scripts/vyos-foo-update.script'
