@@ -64,7 +64,6 @@ pipeline {
     environment {
         DEBIAN_ARCH = sh(returnStdout: true, script: 'dpkg --print-architecture').trim()
         BASE_DIR = getJenkinsfilePath()
-        CHANGESET_DIR = getChangeSetPath()
     }
     stages {
         stage('Fetch') {
@@ -81,9 +80,8 @@ pipeline {
                         beforeOptions true
                         beforeAgent true
                         anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
+                            changeset pattern: "**/packages/linux-kernel/*"
                             changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
                             triggeredBy cause: "UserIdCause"
                         }
                     }
@@ -111,9 +109,8 @@ pipeline {
                         beforeOptions true
                         beforeAgent true
                         anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
+                            changeset pattern: "**/packages/linux-kernel/*"
                             changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
                             triggeredBy cause: "UserIdCause"
                         }
                     }
@@ -133,9 +130,8 @@ pipeline {
                         beforeOptions true
                         beforeAgent true
                         anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
+                            changeset pattern: "**/packages/linux-kernel/*"
                             changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
                             triggeredBy cause: "UserIdCause"
                         }
                     }
@@ -154,9 +150,8 @@ pipeline {
                         beforeOptions true
                         beforeAgent true
                         anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
+                            changeset pattern: "**/packages/linux-kernel/*"
                             changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
                             triggeredBy cause: "UserIdCause"
                         }
                     }
@@ -177,9 +172,8 @@ pipeline {
                 beforeOptions true
                 beforeAgent true
                 anyOf {
-                    changeset pattern: "${env.CHANGESET_DIR}"
+                    changeset pattern: "**/packages/linux-kernel/*"
                     changeset pattern: "**/data/defaults.json"
-                    triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }
             }
@@ -197,9 +191,8 @@ pipeline {
                         beforeOptions true
                         beforeAgent true
                         anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
+                            changeset pattern: "**/packages/linux-kernel/*"
                             changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
                             triggeredBy cause: "UserIdCause"
                         }
                     }
@@ -216,9 +209,8 @@ pipeline {
                         beforeOptions true
                         beforeAgent true
                         anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
+                            changeset pattern: "**/packages/linux-kernel/*"
                             changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
                             triggeredBy cause: "UserIdCause"
                         }
                     }
@@ -233,9 +225,8 @@ pipeline {
                         beforeOptions true
                         beforeAgent true
                         anyOf {
-                            changeset pattern: "${env.CHANGESET_DIR}"
+                            changeset pattern: "**/packages/linux-kernel/*"
                             changeset pattern: "**/data/defaults.json"
-                            triggeredBy 'TimerTrigger'
                             triggeredBy cause: "UserIdCause"
                         }
                     }
@@ -255,9 +246,8 @@ pipeline {
                 beforeOptions true
                 beforeAgent true
                 anyOf {
-                    changeset pattern: "${env.CHANGESET_DIR}"
+                    changeset pattern: "**/packages/linux-kernel/*"
                     changeset pattern: "**/data/defaults.json"
-                    triggeredBy 'TimerTrigger'
                     triggeredBy cause: "UserIdCause"
                 }
             }
