@@ -27,7 +27,6 @@ def call(description=null, pkgList=null, buildCmd=null) {
         agent none
         options {
             disableConcurrentBuilds()
-            skipDefaultCheckout()
             timeout(time: 120, unit: 'MINUTES')
             timestamps()
             buildDiscarder(logRotator(numToKeepStr: '20'))
