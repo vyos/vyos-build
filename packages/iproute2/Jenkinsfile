@@ -28,4 +28,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('iproute2', pkgList)
+buildPackage('iproute2', pkgList, null, "**/packages/iproute2/*")
