@@ -72,10 +72,11 @@ In packages that originate from VyOS the master branch is kept in sync with
 last legacy package is gone, we will switch to using the `master` branch and
 retire `current`.
 
-Post-1.2.0 branches are named after constellations sorted by area from smallest to largest.
-There are 88 of them, here's the [complete list](https://en.wikipedia.org/wiki/IAU_designated_constellations_by_area).
+Post-1.2.0 branches are named after constellations sorted by area from smallest
+to largest. There are 88 of them, here's the
+[complete list](https://en.wikipedia.org/wiki/IAU_designated_constellations_by_area).
 
-* 1.2.x: `crux` (Southern Cross)
-* 1.3.x: `equuleus` (Little Horse)
-* 1.4.x: `sagitta` (Arrow)
+* VyOS 1.2: `crux` (Southern Cross)
+* VyOS 1.3: `equuleus` (Little Horse)
+* VyOS 1.4: `sagitta` (Arrow)
 * ...
