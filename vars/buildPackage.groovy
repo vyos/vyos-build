@@ -20,6 +20,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
     // - pkgList: Multiple packages can be build at once in a single Pipeline run
     // - buildCmd: replace default build command "dpkg-buildpackage -uc -us -tc -b"
     //   with this custom version
+    // - buildArm: package will also be build for the arm64 platform
 
     setDescription(description)
 
@@ -30,7 +31,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false) {
             skipDefaultCheckout()
             timeout(time: 180, unit: 'MINUTES')
             timestamps()
-            buildDiscarder(logRotator(numToKeepStr: '20'))
+            buildDiscarder(logRotator(numToKeepStr: '10'))
         }
         stages {
             stage('Define Agent') {
