@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-def call(description=null, pkgList=null, buildCmd=null) {
+def call(description=null, pkgList=null, buildCmd=null, changesPattern="**") {
     // - description: Arbitrary text to print on Jenkins Job Description
     //   instead of package name
     // - pkgList: Multiple packages can be build at once in a single Pipeline run
     // - buildCmd: replace default build command "dpkg-buildpackage -uc -us -tc -b"
     //   with this custom version
+    // - changesPattern: package will only be build if a change file matching this
+    //   pattern is found
 
     setDescription(description)
 
@@ -35,6 +37,12 @@ def call(description=null, pkgList=null, buildCmd=null) {
             stage('Define Agent') {
                 agent {
                     label "ec2_amd64"
+                }
+                when {
+                    anyOf {
+                        changeset pattern: changesPattern, caseSensitive: true
+                        triggeredBy cause: "UserIdCause"
+                    }
                 }
                 steps {
                     script {
@@ -56,6 +64,12 @@ def call(description=null, pkgList=null, buildCmd=null) {
                 }
             }
             stage('Build Code') {
+                when {
+                    anyOf {
+                        changeset pattern: changesPattern, caseSensitive: true
+                        triggeredBy cause: "UserIdCause"
+                    }
+                }
                 parallel {
                     stage('amd64') {
                         agent {
@@ -87,6 +101,12 @@ def call(description=null, pkgList=null, buildCmd=null) {
                 }
             }
             stage("Finalize") {
+                when {
+                    anyOf {
+                        changeset pattern: changesPattern, caseSensitive: true
+                        triggeredBy cause: "UserIdCause"
+                    }
+                }
                 agent {
                     label "ec2_amd64"
                 }
