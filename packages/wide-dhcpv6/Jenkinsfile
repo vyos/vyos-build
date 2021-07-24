@@ -27,4 +27,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('wide-dhcpv6', pkgList, null, true)
+buildPackage('wide-dhcpv6', pkgList, null, true, "**/packages/wide-dhcpv6/*")

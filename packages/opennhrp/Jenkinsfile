@@ -27,4 +27,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('opennhrp', pkgList, null, true)
+buildPackage('opennhrp', pkgList, null, true, "**/packages/opennhrp/*")

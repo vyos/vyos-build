@@ -28,4 +28,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('FRRouting', pkgList, null, true)
+buildPackage('FRRouting', pkgList, null, true, "**/packages/frr/*")

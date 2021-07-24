@@ -28,4 +28,4 @@ def pkgList = [
      'buildCmd': 'cd ..; ./build-minisign.sh'],
 ]
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('minisign', pkgList, null, true)
+buildPackage('minisign', pkgList, null, true, "**/packages/minisign/*")
