@@ -24,7 +24,7 @@ setDescription()
 node('Docker') {
     stage('Build timestamp') {
         script {
-            env.TIMESTAMP = sh(returnStdout: true, script: 'date +%Y%m%d%H%M').toString().trim()
+            env.TIMESTAMP = sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
             // create container name on demand
             def branchName = getGitBranchName()
             // Adjust PR target branch name so we can re-map it to the proper Docker image.
