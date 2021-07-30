@@ -23,6 +23,9 @@ setDescription()
 
 pipeline {
     agent none
+    environment {
+        GIT_BRANCH_NAME = getGitBranchName()
+    }
     stages {
         stage('Build containers') {
             when {
@@ -31,7 +34,7 @@ pipeline {
                 // Only run ISO image build process of explicit user request or
                 // once a night triggered by the timer.
                 anyOf {
-                    changeset pattern: "**/docker/*"
+                    changeset pattern: "**/docker/*, **/Jenkinsfile.docker"
                     triggeredBy cause: "UserIdCause"
                 }
             }
@@ -42,11 +45,11 @@ pipeline {
                     }
                     steps {
                         script {
-                            DOCKER_IMAGE = "vyos/vyos-build:" + getGitBranchName()
-                            sh "docker build -t ${DOCKER_IMAGE} docker"
+                            DOCKER_IMAGE_AMD64 = "vyos/vyos-build:" + env.GIT_BRANCH_NAME
+                            sh "docker build -t ${DOCKER_IMAGE_AMD64} docker"
                             if (! isCustomBuild()) {
                                 withDockerRegistry([credentialsId: "DockerHub"]) {
-                                    sh "docker push ${DOCKER_IMAGE}"
+                                    sh "docker push ${DOCKER_IMAGE_AMD64}"
                                 }
                             }
                         }
@@ -58,11 +61,11 @@ pipeline {
                     }
                     steps {
                         script {
-                            DOCKER_IMAGE = "vyos/vyos-build:" + getGitBranchName() + "-arm64"
-                            sh "docker build -t ${DOCKER_IMAGE} --build-arg ARCH=arm64v8/ docker"
+                            DOCKER_IMAGE_ARM64 = "vyos/vyos-build:" + env.GIT_BRANCH_NAME + "-arm64"
+                            sh "docker build -t ${DOCKER_IMAGE_ARM64} --build-arg ARCH=arm64v8/ docker"
                             if (! isCustomBuild()) {
                                 withDockerRegistry([credentialsId: "DockerHub"]) {
-                                    sh "docker push ${DOCKER_IMAGE}"
+                                    sh "docker push ${DOCKER_IMAGE_ARM64}"
                                 }
                             }
                         }
