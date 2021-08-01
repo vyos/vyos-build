@@ -1,0 +1,18 @@
+name: "PR Conflicts checker"
+on:
+  pull_request_target:
+    types: [synchronize]
+
+jobs:
+  Conflict_Check:
+    name: 'Check PR status: conflicts and resolution'
+    runs-on: ubuntu-18.04
+    steps:
+      - name: check if PRs are dirty
+        uses: eps1lon/actions-label-merge-conflict@releases/2.x
+        with:
+          dirtyLabel: "state: conflict"
+          removeOnDirtyLabel: "state: conflict resolved"
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          commentOnDirty: "This pull request has conflicts, please resolve those before we can evaluate the pull request."
+          commentOnClean: "Conflicts have been resolved. A maintainer will review the pull request shortly."
