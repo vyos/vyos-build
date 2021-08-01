@@ -1,0 +1,19 @@
+---
+docker-vyos/**:
+  - sever-sever
+  - DmitriyEshenko
+
+vars/**:
+  - c-po
+  - UnicronNL
+
+.github/**:
+  - c-po
+  - dmbaturin
+  - UnicronNL
+
+'**':
+  - c-po
+  - dmbaturin
+  - jestabro
+  - UnicronNL
