@@ -375,9 +375,6 @@ try:
         s2s_key  = '/config/auth/ovpn_test_site2site.key'
         auth_key = '/config/auth/ovpn_test_tls_auth.key'
 
-        c.sendline(f'ls -al / /config /opt/vyatta/etc/config')
-        c.expect(op_mode_prompt)
-
         c.sendline(f'openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 '\
                    f'-keyout {ssl_key} -out {ssl_cert} -subj {subject}')
         c.expect(op_mode_prompt, timeout=600)
