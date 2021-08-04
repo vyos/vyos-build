@@ -461,6 +461,10 @@ RUN apt-get update && apt-get install -y \
       dh-virtualenv \
       python3-venv
 
+# Creating image for embedded systems needs this utilities to prepare a image file
+RUN apt-get update && apt-get install -y \
+      parted udev zip
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
