@@ -2,3 +2,4 @@ debconf
 gpgv
 gnupg
 vyos-world
+vyos-user-utils
