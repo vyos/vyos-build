@@ -1,5 +1,7 @@
 build_dir := build
 
+SHELL := /bin/bash
+
 .PHONY: all
 all:
 	@echo "Make what specifically?"
