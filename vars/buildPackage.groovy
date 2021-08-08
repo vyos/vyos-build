@@ -42,6 +42,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                 when {
                     anyOf {
                         changeset pattern: changesPattern, caseSensitive: true
+                        changeset pattern: "**/data/defaults.json", caseSensitive: true
                         triggeredBy cause: "UserIdCause"
                     }
                 }

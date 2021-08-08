@@ -58,4 +58,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('Kernel', pkgList, null, true, "**/packages/linux-kernel/**, **/data/defaults.json")
+buildPackage('Kernel', pkgList, null, true, "**/packages/linux-kernel/**")
