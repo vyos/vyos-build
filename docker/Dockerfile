@@ -262,6 +262,14 @@ RUN export RTRLIB_VERSION="56e67e7805953eb84d3d68dfb4ff4447f2a8c925" \
     cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
 
+# Packages needed to build libyang2
+RUN pip3 install apkg
+RUN apt-get update && apt-get install -y \
+      graphviz \
+      cmake \
+      libpcre3-dev \
+      python3-pip
+
 # Packages needed to build FRR itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
