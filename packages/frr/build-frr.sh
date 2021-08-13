@@ -29,10 +29,6 @@ if [ -d $PATCH_DIR ]; then
     done
 fi
 
-# Prepare FRR source for building
-echo "I: Prepare FRR source for building"
-./tools/tarsource.sh -V
-
 # Build Debian FRR package
 echo "I: Build Debian FRR Package"
-dpkg-buildpackage -us -uc -Ppkg.frr.rtrlib
+dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib
