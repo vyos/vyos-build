@@ -72,6 +72,9 @@ parser.add_argument('--no-kvm', help='Disable use of kvm',
 parser.add_argument('--configd', help='Execute testsuite with config daemon',
 				action='store_true',
 				default=False)
+parser.add_argument('--no-interfaces', help='Execute testsuite without interface tests to save time',
+                action='store_true',
+                default=False)
 parser.add_argument('--configtest', help='Execute load/commit config tests',
 				action='store_true',
 				default=False)
@@ -332,6 +335,11 @@ try:
 
     # run default smoketest suite
     if not args.configtest:
+        if args.no_interfaces:
+            # remove interface tests as they consume a lot of time
+            c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_interfaces_*')
+            c.expect(op_mode_prompt)
+
         log.info('Executing VyOS smoketests')
         c.sendline('/usr/bin/vyos-smoketest')
         i = c.expect(['\n +Invalid command:', '\n +Set failed',
