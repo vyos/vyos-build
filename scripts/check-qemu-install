@@ -42,6 +42,7 @@ import random
 import traceback
 import logging
 import re
+import json
 
 from io import BytesIO
 from io import StringIO
@@ -80,6 +81,9 @@ parser.add_argument('--configtest', help='Execute load/commit config tests',
 				default=False)
 
 args = parser.parse_args()
+
+with open('data/defaults.json') as f:
+    vyos_defaults = json.load(f)
 
 class StreamToLogger(object):
     """
@@ -325,6 +329,11 @@ try:
     c.sendline('exit')
     c.expect(op_mode_prompt)
     c.sendline('show version')
+    c.expect(op_mode_prompt)
+    c.sendline('show version kernel')
+    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["kernel_flavor"]}')
+    c.expect(op_mode_prompt)
+    c.sendline('show version frr')
     c.expect(op_mode_prompt)
     c.sendline('show interfaces')
     c.expect(op_mode_prompt)
