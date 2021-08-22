@@ -143,7 +143,7 @@ pipeline {
                     // Publish ISO image to snapshot bucket
                     if (files && params.BUILD_SNAPSHOT) {
                         withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                            s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/', workingDir: 'build', includePathPattern: 'vyos*.iso')
+                            s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/' + params.BUILD_VERSION + '/', workingDir: 'build', includePathPattern: 'vyos*.iso')
                         }
                     } else {
                         // Publish build result to rolling bucket and downloads.vyos.io
