@@ -140,34 +140,42 @@ pipeline {
                 files = findFiles(glob: 'build/vyos*.iso')
                 // Publish ISO image to daily builds bucket
                 if (files && params.BUILD_PUBLISH) {
-                    // Publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
-                    sshagent(['SSH-dev.packages.vyos.net']) {
-                        dir('build') {
-                            // build up some fancy groovy variables so we do not need to write/copy
-                            // every option over and over again!
-                            def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
-                            def ISO = sh(returnStdout: true, script: "ls vyos-*.iso").trim()
-                            def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
-                            def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
-                            def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable
+                    // Publish ISO image to snapshot bucket
+                    if (files && params.BUILD_SNAPSHOT) {
+                        withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                            s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/', workingDir: 'build', includePathPattern: 'vyos*.iso')
+                        }
+                    } else {
+                        // Publish build result to rolling bucket and downloads.vyos.io
+                        sshagent(['SSH-dev.packages.vyos.net']) {
+                            dir('build') {
+                                // build up some fancy groovy variables so we do not need to write/copy
+                                // every option over and over again!
+                                def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
+                                def ISO = sh(returnStdout: true, script: "ls vyos-*.iso").trim()
+                                def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
+                                def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+                                def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable
 
-                            // No need to explicitly check the return code. The pipeline
-                            // will fail if sh returns a non 0 exit code
-                            sh """
-                                sha256sum ${ISO} > ${ISO}.sha256
-                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
-                                scp ${SSH_OPTS} -r ${ISO} ${ISO}.sha256 ${SSH_REMOTE}:${SSH_DIR}/
-                                ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
-                            """
+                                // No need to explicitly check the return code. The pipeline
+                                // will fail if sh returns a non 0 exit code
+                                sh """
+                                    sha256sum ${ISO} > ${ISO}.sha256
+                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
+                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
+                                    scp ${SSH_OPTS} -r ${ISO} ${ISO}.sha256 ${SSH_REMOTE}:${SSH_DIR}/
+                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
+                                """
+                            }
+                        }
+                        withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                            s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
+                                     workingDir: 'build', includePathPattern: 'vyos*.iso')
+                            s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
+                                   toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
                         }
                     }
-                    withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                        s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
-                                 workingDir: 'build', includePathPattern: 'vyos*.iso')
-                        s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
-                               toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
-                    }
+
                     // Trigger GitHub action which will re-build the static community website which
                     // also holds the AWS download links to the generated ISO images
                     withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
