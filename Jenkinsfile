@@ -93,10 +93,10 @@ pipeline {
 
                     sh """
                         ./configure \
-                            --build-by ${params.BUILD_BY} \
+                            --build-by "${params.BUILD_BY}" \
                             --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
-                            --version ${params.BUILD_VERSION} ${CUSTOM_PACKAGES}
+                            --version "${params.BUILD_VERSION}" ${CUSTOM_PACKAGES}
                         sudo make iso
                     """
 
