@@ -22,9 +22,8 @@
 setDescription()
 
 node('Docker') {
-    stage('Build timestamp') {
+    stage('Setup Container') {
         script {
-            env.TIMESTAMP = sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
             // create container name on demand
             def branchName = getGitBranchName()
             // Adjust PR target branch name so we can re-map it to the proper Docker image.
@@ -39,27 +38,12 @@ node('Docker') {
             env.USR_ID = sh(returnStdout: true, script: 'id -u').toString().trim()
             env.GRP_ID = sh(returnStdout: true, script: 'id -g').toString().trim()
             env.DOCKER_ARGS = '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
+            env.BASE_VERSION = '1.4-rolling-'
         }
     }
 }
 
 pipeline {
-    options {
-        disableConcurrentBuilds()
-        timeout(time: 150, unit: 'MINUTES')
-        timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '20'))
-    }
-    parameters {
-        string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
-        string(name: 'BUILD_VERSION', defaultValue: '1.4-rolling-' + env.TIMESTAMP, description: 'Version number (release builds only)')
-        booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
-        booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
-        booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
-    }
-    triggers {
-        cron('H 2 * * *')
-    }
     agent {
         docker {
             label "Docker"
@@ -68,6 +52,22 @@ pipeline {
             alwaysPull true
             reuseNode true
         }
+    }
+    triggers {
+        cron('H 2 * * *')
+    }
+    parameters {
+        string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
+        string(name: 'BUILD_VERSION', defaultValue: env.BASE_VERSION + 'ISO8601-TIMESTAMP', description: 'Version number (release builds only)')
+        booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
+        booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
+        booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
+    }
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 150, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
     stages {
         stage('Build ISO') {
@@ -91,12 +91,16 @@ pipeline {
                     if (params.BUILD_SMOKETESTS)
                         CUSTOM_PACKAGES = '--custom-package vyos-1x-smoketest'
 
+                    def VYOS_VERSION = params.BUILD_BY
+                    if (params.BUILD_VERSION == env.BASE_VERSION + 'ISO8601-TIMESTAMP')
+                        VYOS_VERSION = env.BASE_VERSION + sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
+
                     sh """
                         ./configure \
                             --build-by "${params.BUILD_BY}" \
                             --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
-                            --version "${params.BUILD_VERSION}" ${CUSTOM_PACKAGES}
+                            --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES}
                         sudo make iso
                     """
 
