@@ -31,7 +31,6 @@ systemctl disable apt-daily.service
 systemctl disable apt-daily.timer
 systemctl disable apt-daily-upgrade.timer
 systemctl disable apt-daily-upgrade.service
-systemctl disable pcscd.service
 systemctl disable man-db.timer
 systemctl disable ntp.service
 systemctl disable igmpproxy.service
