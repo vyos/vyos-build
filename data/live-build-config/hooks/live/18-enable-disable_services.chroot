@@ -9,7 +9,6 @@ systemctl disable nfacctd.service
 systemctl disable pmacctd.service
 systemctl disable sfacctd.service
 systemctl disable uacctd.service
-systemctl disable lighttpd.service
 systemctl disable ssh.service
 systemctl disable openvpn.service
 systemctl disable lldpd.service
