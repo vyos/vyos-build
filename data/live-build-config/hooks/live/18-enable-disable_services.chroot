@@ -33,7 +33,6 @@ systemctl disable apt-daily-upgrade.timer
 systemctl disable apt-daily-upgrade.service
 systemctl disable ntp.service
 systemctl disable igmpproxy.service
-systemctl disable live-tools.service
 systemctl disable wide-dhcpv6-client.service
 systemctl disable lm-sensors.service
 systemctl disable snmpd.service
