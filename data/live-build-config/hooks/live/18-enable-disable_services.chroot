@@ -18,7 +18,6 @@ systemctl disable mdns-repeater.service
 systemctl disable 'udp-broadcast-relay@*.service'
 systemctl disable pdns-recursor.service
 systemctl disable tftpd-hpa.service
-systemctl disable strongswan.service
 systemctl disable logd.service
 systemctl disable frr.service
 systemctl disable salt-minion.service
@@ -55,6 +54,7 @@ systemctl disable keepalived.service
 systemctl disable ipvsadm.service
 systemctl disable telegraf.service
 systemctl disable ndppd.service
+systemctl disable ipsec.service
 systemctl disable strongswan-starter.service
 
 echo I: Enabling services
