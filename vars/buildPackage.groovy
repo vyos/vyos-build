@@ -42,8 +42,8 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                 when {
                     beforeAgent true
                     anyOf {
-                        changeset pattern: changesPattern, caseSensitive: true
-                        changeset pattern: "**/data/defaults.json", caseSensitive: true
+                        changeset "${changesPattern}"
+                        changeset "**/data/defaults.json"
                         triggeredBy cause: "UserIdCause"
                     }
                 }
