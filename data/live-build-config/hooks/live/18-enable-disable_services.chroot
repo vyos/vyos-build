@@ -1,7 +1,6 @@
 #!/bin/sh
 
 echo I: Disabling services
-systemctl disable exim4.service
 systemctl disable sendmail.service
 systemctl disable smartd.service
 systemctl disable isc-dhcp-server.service
