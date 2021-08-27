@@ -24,8 +24,6 @@ systemctl disable salt-minion.service
 systemctl disable certbot.service
 systemctl disable certbot.timer
 systemctl disable nginx.service
-systemctl disable pacemaker.service
-systemctl disable corosync.service
 systemctl disable wpa_supplicant.service
 systemctl disable squid.service
 systemctl disable heartbeat.service
