@@ -40,6 +40,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                     label "ec2_amd64"
                 }
                 when {
+                    beforeAgent true
                     anyOf {
                         changeset pattern: changesPattern, caseSensitive: true
                         changeset pattern: "**/data/defaults.json", caseSensitive: true
@@ -67,6 +68,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
             }
             stage('Build Code') {
                 when {
+                    beforeAgent true
                     anyOf {
                         changeset pattern: changesPattern, caseSensitive: true
                         triggeredBy cause: "UserIdCause"
@@ -126,6 +128,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
             }
             stage("Finalize") {
                 when {
+                    beforeAgent true
                     anyOf {
                         changeset pattern: changesPattern, caseSensitive: true
                         triggeredBy cause: "UserIdCause"
