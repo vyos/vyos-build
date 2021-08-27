@@ -21,10 +21,15 @@
 @Library('vyos-build@current')_
 
 def pkgList = [
+    ['name': 'libyang',
+     'scmCommit': 'v2.0.97',
+     'scmUrl': 'https://github.com/CESNET/libyang.git',
+     'buildCmd': 'apkg build -i && find pkg/pkgs -type f -name *.deb -exec mv -t .. {} +'],
+
     ['name': 'frr',
      'scmCommit': 'stable/8.0',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
-     'buildCmd': '''cd ..; ./build-frr.sh'''],
+     'buildCmd': 'cd ..; ./build-frr.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
