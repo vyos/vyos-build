@@ -54,7 +54,7 @@ pipeline {
         }
     }
     triggers {
-        cron('30 5 * * *')
+        cron('H 3 * * *')
     }
     parameters {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
