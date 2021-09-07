@@ -23,6 +23,31 @@ system {
         server "time2.vyos.net"
         server "time3.vyos.net"
     }
+    conntrack {
+        modules {
+            ftp {
+                disable
+            }
+            h323 {
+                disable
+            }
+            nfs {
+                disable
+            }
+            pptp {
+                disable
+            }
+            sip {
+                disable
+            }
+            sqlnet {
+                disable
+            }
+            tftp {
+                disable
+            }
+        }
+    }
     console {
         device ttyS0 {
             speed 115200
