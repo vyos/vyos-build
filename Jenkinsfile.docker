@@ -26,6 +26,12 @@ pipeline {
     environment {
         GIT_BRANCH_NAME = getGitBranchName()
     }
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 240, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
     stages {
         stage('Build containers') {
             when {
