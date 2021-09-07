@@ -32,6 +32,7 @@ pipeline {
                 // once a night triggered by the timer.
                 anyOf {
                     changeset pattern: "**/docker/*"
+                    changeset pattern: "**/Jenkinsfile.docker"                    
                     triggeredBy cause: "UserIdCause"
                 }
             }
