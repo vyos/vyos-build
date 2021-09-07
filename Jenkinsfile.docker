@@ -34,7 +34,8 @@ pipeline {
                 // Only run ISO image build process of explicit user request or
                 // once a night triggered by the timer.
                 anyOf {
-                    changeset pattern: "**/docker/*, **/Jenkinsfile.docker"
+                    changeset pattern: "**/docker/*"
+                    changeset pattern: "**/Jenkinsfile.docker"
                     triggeredBy cause: "UserIdCause"
                 }
             }
