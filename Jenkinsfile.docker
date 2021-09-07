@@ -23,6 +23,12 @@ setDescription()
 
 pipeline {
     agent none
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 240, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
     stages {
         stage('Build containers') {
             when {
@@ -32,7 +38,7 @@ pipeline {
                 // once a night triggered by the timer.
                 anyOf {
                     changeset pattern: "**/docker/*"
-                    changeset pattern: "**/Jenkinsfile.docker"                    
+                    changeset pattern: "**/Jenkinsfile.docker"
                     triggeredBy cause: "UserIdCause"
                 }
             }
