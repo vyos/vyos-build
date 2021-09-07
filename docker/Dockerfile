@@ -58,6 +58,8 @@ ENV LANG en_US.utf8
 ENV OCAML_VERSION 4.12.0
 
 RUN apt-get update && apt-get install -y \
+      bash \
+      bash-completion \
       vim \
       vim-autopep8 \
       nano \
