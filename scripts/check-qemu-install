@@ -205,7 +205,7 @@ try:
     #################################################
     log.info('Installing system')
     cmd = get_qemu_cmd('TESTVM', kvm, args.disk, args.iso)
-    log.debug('Executing command: {cmd}')
+    log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl)
 
     #################################################
