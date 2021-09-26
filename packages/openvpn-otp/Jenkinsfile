@@ -22,7 +22,7 @@
 // NOTE: we can build with -d as the libbpf dependency is installed manually
 // and not via a DEB package
 def pkgList = [
-    ['name': 'minisign',
+    ['name': 'openvpn-otp',
      'scmCommit': 'master',
      'scmUrl': 'https://github.com/evgeny-gridasov/openvpn-otp',
      'buildCmd': 'cd ..; ./build-openvpn-otp.sh'],
