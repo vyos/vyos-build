@@ -291,6 +291,7 @@ clean:
 	rm -f *.mf
 	rm -f *.ovf
 	rm -f *.ova
+	rm -f *.vmdk
 
 .PHONY: purge
 purge:
