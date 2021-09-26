@@ -223,6 +223,19 @@ vep1400: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: edgecore
+.ONESHELL:
+edgecore: check_build_config clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors_udev/64-vyos-SAF51015I-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors_udev/64-vyos-SAF51003I-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
 .PHONY: test
 .ONESHELL:
 test:
@@ -231,6 +244,15 @@ test:
 		exit 1
 	fi
 	scripts/check-qemu-install --debug build/live-image-amd64.hybrid.iso
+
+.PHONY: test
+.ONESHELL:
+test-no-interfaces:
+	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
+		echo "Could not find build/live-image-amd64.hybrid.iso"
+		exit 1
+	fi
+	scripts/check-qemu-install --debug --no-interfaces build/live-image-amd64.hybrid.iso
 
 .PHONY: testd
 .ONESHELL:
