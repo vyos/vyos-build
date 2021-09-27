@@ -9,9 +9,17 @@ if [ ! -d ${SRC} ]; then
     exit 1
 fi
 
+for pkt in debhelper libssl-dev openvpn
+do
+    dpkg -s $pkt 2>&1 >/dev/null
+    if [ $? -ne 0 ]; then
+        echo "Package $pkt not installed - required"
+        exit 1
+    fi
+done
+
 # Build instructions as per https://github.com/evgeny-gridasov/openvpn-otp/blob/master/README.md
 cd ${SRC}
-apt-get -y install debhelper libssl-dev openvpn
 ./autogen.sh
 ./configure --prefix=/usr
 make
@@ -24,7 +32,7 @@ fpm --input-type dir --output-type deb --name openvpn-otp \
     --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
     --description "OpenVPN OTP Authentication support." \
     --depends openvpn --architecture $(dpkg --print-architecture) \
-    --version $(git describe --always) --deb-compression gz usr
+    --version $(git describe --tags --always) --deb-compression gz usr
 
 cp *.deb ${CWD}
 
