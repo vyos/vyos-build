@@ -463,6 +463,12 @@ RUN apt-get update && apt-get install -y \
       dh-virtualenv \
       python3-venv
 
+# Packages needed for openvpn-otp
+RUN apt-get update && apt-get install -y \
+      debhelper \
+      libssl-dev \
+      openvpn
+
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
       parted udev zip
