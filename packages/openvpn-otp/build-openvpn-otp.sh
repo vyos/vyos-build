@@ -31,6 +31,6 @@ fpm --input-type dir --output-type deb --name openvpn-otp \
     --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
     --description "OpenVPN OTP Authentication support." \
     --depends openvpn --architecture $(dpkg --print-architecture) \
-    --version $(git describe --tags --always) --deb-compression gz usr
+    --version $(git describe --tags --always | cut -c2-) --deb-compression gz usr
 
 cp *.deb ${CWD}
