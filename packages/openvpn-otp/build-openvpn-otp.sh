@@ -1,7 +1,6 @@
 #!/bin/sh
-CWD=$(pwd)
 set -e
-
+CWD=$(pwd)
 SRC=openvpn-otp
 
 if [ ! -d ${SRC} ]; then
@@ -35,7 +34,3 @@ fpm --input-type dir --output-type deb --name openvpn-otp \
     --version $(git describe --tags --always) --deb-compression gz usr
 
 cp *.deb ${CWD}
-
-# do not confuse Jenkins by providing multiple openvpn-otp deb files
-cd ${CWD}
-rm -rf ${SRC}
