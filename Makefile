@@ -95,9 +95,9 @@ test:
 		echo "Could not find build/live-image-amd64.hybrid.iso"
 		exit 1
 	fi
-	scripts/check-qemu-install --debug build/live-image-amd64.hybrid.iso
+	scripts/check-qemu-install --debug --uefi build/live-image-amd64.hybrid.iso
 
-.PHONY: test
+.PHONY: test-no-interfaces
 .ONESHELL:
 test-no-interfaces:
 	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
