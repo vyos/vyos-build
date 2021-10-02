@@ -58,27 +58,21 @@ parser.add_argument('disk', help='name of disk image file',
                             default='testinstall-{}-{}.img'.format(now.strftime('%Y%m%d-%H%M%S'),
                                                                    "%04x" % random.randint(0,65535)))
 parser.add_argument('--keep', help='Do not remove disk-image after installation',
-                              action='store_true',
-                              default=False)
+                              action='store_true', default=False)
 parser.add_argument('--silent', help='Do not show output on stdout unless an error has occured',
                               action='store_true',
                               default=False)
 parser.add_argument('--debug', help='Send all debug output to stdout',
-                               action='store_true',
-                               default=False)
+                               action='store_true', default=False)
 parser.add_argument('--logfile', help='Log to file')
-parser.add_argument('--no-kvm', help='Disable use of kvm',
-				action='store_true',
-				default=False)
-parser.add_argument('--configd', help='Execute testsuite with config daemon',
-				action='store_true',
+parser.add_argument('--uefi', help='Boot using UEFI', action='store_true', default=False)
+parser.add_argument('--no-kvm', help='Disable use of kvm', action='store_true', default=False)
+parser.add_argument('--configd', help='Execute testsuite with config daemon', action='store_true',
 				default=False)
 parser.add_argument('--no-interfaces', help='Execute testsuite without interface tests to save time',
-                action='store_true',
-                default=False)
+                action='store_true', default=False)
 parser.add_argument('--configtest', help='Execute load/commit config tests',
-				action='store_true',
-				default=False)
+				action='store_true', default=False)
 
 args = parser.parse_args()
 
@@ -116,12 +110,16 @@ def get_half_cpus():
         cpu /= 2
     return int(cpu)
 
-def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
-    kvm = ""
+def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, iso_img=None):
+    kvm = "-enable-kvm"
     cpu = "-cpu host"
     if not enable_kvm:
         kvm = "--no-kvm"
         cpu = ""
+
+    uefi = ""
+    if enable_uefi:
+        uefi = "-bios /usr/share/OVMF/OVMF_CODE.fd"
 
     cdrom = ""
     if iso_img:
@@ -134,7 +132,9 @@ def get_qemu_cmd(name, enable_kvm, disk_img, iso_img=None):
     cmd = f'qemu-system-x86_64 \
         -name "{name}" \
         -smp {cpucount} \
-        -m 2G \
+        {uefi} \
+        -m 1G \
+        -vga none \
         -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01 \
         -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02 \
         -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03 \
@@ -204,7 +204,7 @@ try:
     # Installing image to disk
     #################################################
     log.info('Installing system')
-    cmd = get_qemu_cmd('TESTVM', kvm, args.disk, args.iso)
+    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, args.iso)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl)
 
@@ -281,7 +281,7 @@ try:
     # Booting installed system
     #################################################
     log.info('Booting installed system')
-    cmd = get_qemu_cmd('TESTVM', kvm, args.disk)
+    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl)
 
