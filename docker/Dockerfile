@@ -393,6 +393,7 @@ RUN apt-get update && apt-get install -y \
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       apt-get update && apt-get install -y \
         python3-pexpect \
+        ovmf \
         qemu-system-x86 \
         qemu-utils \
         qemu-kvm; \
