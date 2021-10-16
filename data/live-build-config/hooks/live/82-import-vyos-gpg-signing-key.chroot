@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if ! command -v gpg &> /dev/null; then
+    echo "gpg binary could not be found"
+    exit 1
+fi
+
+GPG_KEY="/usr/share/vyos/keys/vyos-release.pub.asc"
+
+echo I: Import GPG key
+gpg --import ${GPG_KEY}
+exit $?
