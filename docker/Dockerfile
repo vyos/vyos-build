@@ -73,6 +73,15 @@ RUN apt-get update && apt-get install -y \
       grub2
 
 #
+# The LetsEncrypt root certificate expired - we need to install the new ones
+#
+RUN apt-get update && apt-get install -y ca-certificates
+# Un-trust the old certificate
+RUN sed -i '/^mozilla\/DST_Root_CA_X3/s/^/!/' /etc/ca-certificates.conf
+# Update CA store
+RUN update-ca-certificates
+
+#
 # Setup Debian Jessie Backports repository
 #
 COPY no--check-valid-until /etc/apt/apt.conf.d/

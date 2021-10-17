@@ -1,0 +1,7 @@
+#!/bin/sh
+
+echo I: Un-trust old LetsEncrypt root
+sed -i '/^mozilla\/DST_Root_CA_X3/s/^/!/' /etc/ca-certificates.conf
+echo I: Update CA certificates
+update-ca-certificates
+
