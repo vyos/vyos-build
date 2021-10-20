@@ -50,6 +50,7 @@ systemctl disable telegraf.service
 systemctl disable ndppd.service
 systemctl disable ipsec.service
 systemctl disable strongswan-starter.service
+systemctl disable avahi-daemon.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
