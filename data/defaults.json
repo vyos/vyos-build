@@ -9,7 +9,7 @@
   "kernel_flavor": "amd64-vyos",
   "release_train": "crux",
   "additional_repositories": [
-    "deb https://archive.repo.saltproject.io/apt/debian/8/amd64/2017.7/ jessie main",
+    "deb https://archive.repo.saltproject.io/apt/debian/8/amd64/3000/ jessie main",
     "deb http://archive.debian.org/debian/ jessie-backports main",
     "deb http://aws.deb.vyos.io/extended-lts jessie main contrib non-free"
   ],
