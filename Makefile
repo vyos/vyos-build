@@ -1,4 +1,5 @@
 build_dir := build
+init_msg  := "It's not like I'm building this specially for you or anything!"
 
 .PHONY: all
 all:
@@ -28,7 +29,7 @@ prepare:
 .ONESHELL:
 iso: check_build_config clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..
@@ -59,7 +60,7 @@ vagrant-libvirt:
 .ONESHELL:
 vmware: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/vmware/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
@@ -78,7 +79,7 @@ hyperv:
 .ONESHELL:
 clearfog: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	cd $(build_dir)
 	@../scripts/build-clearfog-image
 
@@ -86,7 +87,7 @@ clearfog: clean prepare
 .ONESHELL:
 azure: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	cp tools/cloud-init/azure/99-walinuxagent.chroot build/config/hooks/live/
 	cp tools/cloud-init/azure/vyos-azure.list.chroot build/config/package-lists/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
@@ -98,7 +99,7 @@ azure: clean prepare
 .ONESHELL:
 GCE: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/GCE/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
@@ -110,7 +111,7 @@ GCE: clean prepare
 .ONESHELL:
 qcow2: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	cd $(build_dir)
 	@../scripts/build-qcow2-image
 
@@ -118,7 +119,7 @@ qcow2: clean prepare
 .ONESHELL:
 GCE-debug: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/99-debug-user.chroot build/config/hooks/live/
 	cp tools/cloud-init/GCE/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
@@ -131,7 +132,7 @@ GCE-debug: clean prepare
 .ONESHELL:
 AWS: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/AWS/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/AWS/cloud-init.list.chroot build/config/package-lists/
@@ -145,7 +146,7 @@ AWS: clean prepare
 .ONESHELL:
 openstack: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/openstack/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
@@ -159,7 +160,7 @@ openstack: clean prepare
 .ONESHELL:
 oracle: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/OCI/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/cloud-init.list.chroot build/config/package-lists/
@@ -171,7 +172,7 @@ oracle: clean prepare
 .ONESHELL:
 PACKET: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/99-disable-networking.chroot build/config/hooks/live/
 	cp tools/cloud-init/PACKET/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
@@ -186,7 +187,7 @@ PACKET: clean prepare
 .ONESHELL:
 PACKET-debug: clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/99-debug-user.chroot build/config/hooks/live/
 	cp tools/cloud-init/99-disable-networking.chroot build/config/hooks/live/
@@ -198,44 +199,14 @@ PACKET-debug: clean prepare
 	cd ..
 	@scripts/copy-image
 
-.PHONY: vep4600
-.ONESHELL:
-vep4600: check_build_config clean prepare
-	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/etc/systemd/network
-	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
-	cp tools/dell/90-vep.chroot build/config/hooks/live/
-	cp tools/dell/vep4600/*.link build/config/includes.chroot/etc/systemd/network/
-	cp tools/dell/vep-hook build/config/includes.chroot/usr/share/initramfs-tools/hooks/
-	cd $(build_dir)
-	lb build 2>&1 | tee build.log
-	cd ..
-	@scripts/copy-image
-
-.PHONY: vep1400
-.ONESHELL:
-vep1400: check_build_config clean prepare
-	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/etc/systemd/network
-	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
-	cp tools/dell/90-vep.chroot build/config/hooks/live/
-	cp tools/dell/vep1400/*.link build/config/includes.chroot/etc/systemd/network/
-	cp tools/dell/vep-hook build/config/includes.chroot/usr/share/initramfs-tools/hooks/
-	cd $(build_dir)
-	lb build 2>&1 | tee build.log
-	cd ..
-	@scripts/copy-image
-
 .PHONY: edgecore
 .ONESHELL:
 edgecore: check_build_config clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
-	cp tools/vendors_udev/64-vyos-SAF51015I-net.rules build/config/includes.chroot/lib/udev/rules.d/
-	cp tools/vendors_udev/64-vyos-SAF51003I-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors/edgecore/64-vyos-SAF51015I-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors/edgecore/64-vyos-SAF51003I-net.rules build/config/includes.chroot/lib/udev/rules.d/
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..
@@ -245,10 +216,11 @@ edgecore: check_build_config clean prepare
 .ONESHELL:
 dell: check_build_config clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
-	cp tools/vendors_udev/64-vyos-VEP4600-net.rules build/config/includes.chroot/lib/udev/rules.d/
-	cp tools/vendors_udev/64-vyos-VEP1400-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors/dell/64-vyos-VEP4600-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors/dell/64-vyos-VEP1400-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors/dell/90-VEP-COMMON.chroot build/config/hooks/live/
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..
@@ -258,9 +230,9 @@ dell: check_build_config clean prepare
 .ONESHELL:
 lanner_nca25xx: check_build_config clean prepare
 	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
+	@echo $(init_msg)
 	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
-	cp tools/vendors_udev/64-vyos-lanner-NCA-25XX-net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors/lanner/64-vyos-lanner-NCA-25XX-net.rules build/config/includes.chroot/lib/udev/rules.d/
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
 	cd ..
