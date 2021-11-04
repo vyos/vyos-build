@@ -1,0 +1,3 @@
+#!/bin/sh
+echo I: Change the default serial baud rate.
+sed -i 's/9600/115200/g' /opt/vyatta/etc/config-migrate/migrate/system/3-to-4

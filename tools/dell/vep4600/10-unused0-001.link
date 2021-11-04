@@ -1,6 +1,0 @@
-[Match]
-Path=pci-0000:b6:00.2
-Driver=i40e
-
-[Link]
-Name=unused0

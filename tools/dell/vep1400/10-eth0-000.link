@@ -1,7 +1,0 @@
-[Match]
-Path=pci-0000:05:00.1
-Driver=ixgbe
-
-[Link]
-Name=eth0
-Alias=SFP+1
