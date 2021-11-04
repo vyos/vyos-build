@@ -118,8 +118,11 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, iso_img=None):
         cpu = ""
 
     uefi = ""
+    uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
     if enable_uefi:
         uefi = "-bios /usr/share/OVMF/OVMF_CODE.fd"
+        name = f"{name}-UEFI"
+        uuid = "d27cf29e-4419-4407-8f82-dc73d1acd184"
 
     cdrom = ""
     if iso_img:
@@ -143,7 +146,7 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, iso_img=None):
         -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06 \
         -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07 \
         -machine accel=kvm \
-        -uuid f48b60b2-e6ad-49ef-9d09-4245d0585e52 \
+        -uuid {uuid} \
         -nographic {cpu} {cdrom} {kvm} \
         -drive format=raw,file={disk_img}'
 
