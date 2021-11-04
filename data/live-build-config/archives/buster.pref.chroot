@@ -6,10 +6,6 @@ Package: bash-completion
 Pin: release n=buster
 Pin-Priority: 600
 
-Package: ethtool
-Pin: release n=buster
-Pin-Priority: 600
-
 Package: *
 Pin: release n=buster
 Pin-Priority: -10
