@@ -236,6 +236,19 @@ edgecore: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: xcp-ng-iso
+.ONESHELL:
+xcp-ng-iso: check_build_config clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	sed -i 's/vyos-xe-guest-utilities/xe-guest-utilities/g' data/package-lists/vyos-x86.list.chroot
+	cd $(build_dir)
+	set -o pipefail
+	lb build 2>&1 | tee build.log; if [ $$? -ne 0 ]; then exit 1; fi
+	cd ..
+	@scripts/copy-image
+	exit 0
+
 .PHONY: test
 .ONESHELL:
 test:
