@@ -1,0 +1,32 @@
+# The spirit
+
+VyOS is free (as in freedom) software. We keep the source code and the build tools freely-licensed
+and available to everyone to inspect, modify, and distribute.
+The goal of VyOS is to create a network operating system available to everyone who needs it.
+We welcome contributions from all community members and we are happy to share our work on LTS releases
+with contributors. We also don't require contributors to give us exclusive rights to their contributions,
+and VyOS source code belongs to the entire community.
+
+However, success of a project and its ability to receive funding through commercial services
+rests on the reputation of its maintainers.
+And the "pay for binaries" LTS release model only works if access to images is actually restricted
+to those who support the project by purchasing a subscription or contributing.
+
+We cannot let other people and organizations exploit our reputation for gain or put it at risk
+by distributing modified images with VyOS branding, or compromise the LTS business model
+by redistributing pre-built images meant for subscription holders.
+
+We enforce that through trademarks and copyrighted artwork.
+
+Use and distribution of pre-built LTS images is governed by a EULA you can find in /usr/share/doc/vyos/EULA
+on the live image and in installed systems. 
+
+Self-built images can be freely distributed, but only if you replace the branding with yourn own,
+that is, replace all artwork files that contain the VyOS logo and all end-user-visible mentions of the VyOS name.
+
+# The letter
+
+VyOS is a registered trademarks in the United States, countries of the European Union, and other countries.
+
+The copyright to the artwork files that contain the VyOS logo, such as data/live-build-config/includes.binary/isolinux/splash.png
+belongs to Sentrium S.L. and affiliated, all rights reserved. 
