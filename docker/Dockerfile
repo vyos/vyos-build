@@ -528,6 +528,26 @@ RUN apt-get update && apt-get install -y \
       dh-virtualenv \
       python3-venv
 
+# Packages needed for ocserv
+RUN apt-get update && apt-get install -y \
+      autogen \
+      libev-dev \
+      libgnutls28-dev \
+      libhttp-parser-dev \
+      liblz4-dev \
+      libnl-route-3-dev \
+      liboath-dev \
+      liboauth-dev \
+      libopts25-dev \
+      libpcl1-dev \
+      libprotobuf-c-dev \
+      libradcli-dev \
+      libseccomp-dev \
+      libtalloc-dev \
+      nettle-dev \
+      protobuf-c-compiler \
+      libgeoip-dev
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #

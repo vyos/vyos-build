@@ -1,0 +1,6 @@
+ocserv/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
