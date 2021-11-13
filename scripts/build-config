@@ -48,14 +48,27 @@ def get_validator(optdict, name):
     except KeyError:
         return None
 
+def load_config(filename):
+    with open(filename, 'r') as f:
+        print(f'Loading {filename}')
+        this_config = json.load(f)
+
+    if not 'inherit_from' in this_config:
+      print(f'No inheritance detected')
+      return this_config
+
+    inherited_config = load_config(this_config['inherit_from'])
+    del this_config['inherit_from']
+    inherited_config.update(this_config)
+    return inherited_config
+
 
 # Load the build flavor file
 build_flavor = os.getenv('VYOS_BUILD_FLAVOR')
 if build_flavor is None:
     build_flavor = defaults.DEFAULT_BUILD_FLAVOR
 try:
-    with open(build_flavor, 'r') as f:
-        build_defaults = json.load(f)
+    build_defaults = load_config(build_flavor)
 except Exception as e:
     print("Failed to open the build flavor file {0}: {1}".format(build_flavor, e))
     sys.exit(1)
@@ -143,6 +156,7 @@ if env_check_retval > 0:
 
 args['kernel_version'] = build_defaults['kernel_version']
 args['kernel_flavor'] = build_defaults['kernel_flavor']
+args['bootloaders'] = build_defaults['bootloaders']
 
 
 # Save to file
