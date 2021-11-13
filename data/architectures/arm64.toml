@@ -1,0 +1,2 @@
+# Packages included in ARM64 images by default
+packages = ["grub-efi-arm"]
