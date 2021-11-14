@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
     ## Clean up the old build config and set up a fresh copy
     lb_config_dir = os.path.join(defaults.BUILD_DIR, "config")
-    shutil.rmtree(lb_config_dir)
+    shutil.rmtree(lb_config_dir, ignore_errors=True)
     shutil.copytree("data/live-build-config/", lb_config_dir)
     os.makedirs(lb_config_dir, exist_ok=True)
 
