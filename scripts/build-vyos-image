@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 20218 VyOS maintainers and contributors
+# Copyright (C) 2021 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -20,13 +20,14 @@
 import re
 import os
 import sys
+import glob
 import shutil
 import getpass
 import platform
 import argparse
+import functools
 
 import json
-
 
 
 try:
@@ -201,7 +202,7 @@ if __name__ == "__main__":
 
     ## Inject some useful hardcoded options
     args['build_dir'] = defaults.BUILD_DIR
-    args['pbuilder_config'] = defaults.PBUILDER_CONFIG
+    args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
 
     ## Combine the arguments with non-configurable defaults
     build_config = merge_dicts(build_defaults, args)
@@ -239,18 +240,33 @@ if __name__ == "__main__":
         print(json.dumps(build_config, indent=4))
 
     ## Clean up the old build config and set up a fresh copy
-    lb_config_dir = os.path.join(defaults.BUILD_DIR, "config")
+    lb_config_dir = os.path.join(defaults.BUILD_DIR, defaults.LB_CONFIG_DIR)
+    print(lb_config_dir)
     shutil.rmtree(lb_config_dir, ignore_errors=True)
     shutil.copytree("data/live-build-config/", lb_config_dir)
     os.makedirs(lb_config_dir, exist_ok=True)
 
+    ## Switch to the build directory, this is crucial for the live-build work work
+    ## because the efective build config files etc. are there
+    os.chdir(defaults.BUILD_DIR)
+
+    ## Clean up earlier build state and artifacts
+    print("I: Cleaning the build workspace")
+    os.system("lb clean")
+    #iter(lambda p: shutil.rmtree(p, ignore_errors=True),
+    #  ['config/binary', 'config/bootstrap', 'config/chroot', 'config/common', 'config/source'])
+    artifacts = functools.reduce(
+      lambda x, y: x + y,
+      map(glob.glob, ['*.iso', '*.raw', '*.img', '*.xz', '*.ova', '*.ovf']))
+    iter(os.remove, artifacts)
+
     ## Create live-build configuration files
-     
+
     # Add the additional repositories to package lists
     print("I: Setting up additional APT entries")
     vyos_repo_entry = "deb {0} {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
 
-    apt_file = os.path.join(build_config['build_dir'], defaults.VYOS_REPO_FILE)
+    apt_file = defaults.VYOS_REPO_FILE
 
     if debug:
         print("D: Adding these entries to {0}:".format(apt_file))
@@ -261,7 +277,7 @@ if __name__ == "__main__":
 
     # Add custom APT entries
     if build_config['custom_apt_entry']:
-        custom_apt_file = os.path.join(build_config['build_dir'], defaults.CUSTOM_REPO_FILE)
+        custom_apt_file = defaults.CUSTOM_REPO_FILE
         entries = "\n".join(build_config['custom_apt_entry'])
         if debug:
             print("D: Adding custom APT entries:")
@@ -272,21 +288,20 @@ if __name__ == "__main__":
 
     # Add custom APT keys
     if has_nonempty_key(build_config, 'custom_apt_key'):
-        key_dir = os.path.join(build_config['build_dir'], defaults.ARCHIVES_DIR)
+        key_dir = ARCHIVES_DIR
         for k in build_config['custom_apt_key']:
             dst_name = '{0}.key.chroot'.format(os.path.basename(k))
             shutil.copy(k, os.path.join(key_dir, dst_name))
 
     # Add custom packages
     if has_nonempty_key(build_config, 'packages'):
-        package_list_file = os.path.join(build_config['build_dir'], defaults.CUSTOM_PACKAGE_LIST_FILE)
+        package_list_file = defaults.PACKAGE_LIST_FILE
         packages = "\n".join(build_config['packages'])
         with open (package_list_file, 'w') as f:
             f.write(packages)
 
     ## Create includes
     if has_nonempty_key(build_config, "includes_chroot"):
-        includes_chroot_dir = os.path.join(build_config["build_dir"], "config/includes.chroot/")
         for i in build_config["includes_chroot"]:
             file_path = os.path.join(includes_chroot_dir, i["path"])
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -337,7 +352,6 @@ if __name__ == "__main__":
         print("D: live-build configuration command")
         print(lb_config_command)
 
-    os.chdir(defaults.BUILD_DIR)
     result = os.system(lb_config_command)
     if result > 0:
         print("E: live-build config failed")
@@ -348,10 +362,9 @@ if __name__ == "__main__":
         print("I: dry-run, not starting image build")
         sys.exit(0)
 
+
     ## Build the image
     print("I: Starting image build")
     if debug:
         print("D: It's not like I'm building this specially for you or anything!")
     os.system("lb build 2>&1")
-
-
