@@ -341,6 +341,14 @@ if __name__ == "__main__":
     with open(os.path.join(vyos_data_dir, 'version.json'), 'w') as f:
         json.dump(version_data, f)
 
+    # For backwards compatibility with 'add system image' script from older versions
+    # we need a file in the old format so that script can find out the version of the image
+    # for upgrade
+    os.makedirs(os.path.join(chroot_includes_dir, 'opt/vyatta/etc/'), exist_ok=True)
+    with open(os.path.join(chroot_includes_dir, 'opt/vyatta/etc/version'), 'w') as f:
+        print("Version: {0}".format(version), file=f)
+
+
     # Define variables that influence to welcome message on boot
     os.makedirs(os.path.join(chroot_includes_dir, 'usr/lib/'), exist_ok=True)
     with open(os.path.join(chroot_includes_dir, 'usr/lib//os-release'), 'w') as f:
