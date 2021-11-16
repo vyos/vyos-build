@@ -87,6 +87,13 @@ def make_toml_path(dir, file_basename):
 
 
 if __name__ == "__main__":
+    ## Check if the script is running wirh root permissions
+    ## Since live-build requires privileged calls such as chroot(),
+    ## there's no real way around it.
+    if os.getuid() != 0:
+        print("E: this script requires root privileges")
+        sys.exit(1)
+
     ## Check if there are missing build dependencies
     deps = {
         'packages': [
