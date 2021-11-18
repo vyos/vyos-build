@@ -30,6 +30,10 @@ Package: openvpn
 Pin: release n=buster-backports
 Pin-Priority: 600
 
+Package: modemmanager
+Pin: release n=buster-backports
+Pin-Priority: 600
+
 Package: *
 Pin: release n=buster-backports
 Pin-Priority: -10
