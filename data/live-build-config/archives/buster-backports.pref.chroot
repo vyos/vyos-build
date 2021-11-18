@@ -34,6 +34,30 @@ Package: modemmanager
 Pin: release n=buster-backports
 Pin-Priority: 600
 
+Package: libmbim-glib4
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: libmm-glib0
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: libqmi-glib5
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: libmbim-proxy
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: libqmi-glib5
+Pin: release n=buster-backports
+Pin-Priority: 600
+
+Package: libqmi-proxy
+Pin: release n=buster-backports
+Pin-Priority: 600
+
 Package: *
 Pin: release n=buster-backports
 Pin-Priority: -10
