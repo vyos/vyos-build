@@ -203,6 +203,7 @@ if not os.path.isfile(args.disk):
 else:
     log.info('Diskimage already exists, using the existing one')
 
+test_timeout = 7200 # seconds
 try:
     #################################################
     # Installing image to disk
@@ -356,7 +357,7 @@ try:
         log.info('Executing VyOS smoketests')
         c.sendline('/usr/bin/vyos-smoketest')
         i = c.expect(['\n +Invalid command:', '\n +Set failed',
-                      'No such file or directory', r'\n\S+@\S+[$#]'], timeout=7200)
+                      'No such file or directory', r'\n\S+@\S+[$#]'], timeout=test_timeout)
 
         if i == 0:
             raise Exception('Invalid command detected')
@@ -419,7 +420,7 @@ try:
         log.info('Executing load config tests')
         c.sendline('/usr/bin/vyos-configtest')
         i = c.expect(['\n +Invalid command:', 'No such file or directory',
-                     r'\n\S+@\S+[$#]'], timeout=3600)
+                     r'\n\S+@\S+[$#]'], timeout=test_timeout)
 
         if i==0:
             raise Exception('Invalid command detected')
