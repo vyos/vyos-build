@@ -270,6 +270,14 @@ RUN apt-get update && apt-get install -y \
       libpcre3-dev \
       python3-pip
 
+# Prerequisites for building FRR from source
+# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
+#
+RUN export LIBYANG_COMMIT="v2.0.7" && \
+    git clone https://github.com/CESNET/libyang.git && \
+    cd libyang && git checkout $LIBYANG_COMMIT && apkg build -i && \
+    cd pkg/pkgs/debian-11/libyang2_* && dpkg -i *.deb
+
 # Packages needed to build FRR itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
@@ -291,7 +299,6 @@ RUN apt-get update && apt-get install -y \
       libsnmp-dev \
       libssh-dev \
       libsystemd-dev \
-      libyang-dev \
       lsb-base \
       pkg-config \
       python3 \

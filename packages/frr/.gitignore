@@ -1,4 +1,5 @@
 frr/
+libyang/
 *.deb
 *.dsc
 *.buildinfo
