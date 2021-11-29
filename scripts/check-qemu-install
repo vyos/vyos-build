@@ -203,7 +203,7 @@ if not os.path.isfile(args.disk):
 else:
     log.info('Diskimage already exists, using the existing one')
 
-test_timeout = 7200 # seconds
+test_timeout = 3 *3600 # 3 hours (in seconds)
 try:
     #################################################
     # Installing image to disk
