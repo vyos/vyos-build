@@ -242,7 +242,7 @@ edgecore: check_build_config clean prepare
 xcp-ng-iso: check_build_config clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
-	sed -i 's/vyos-xe-guest-utilities/xe-guest-utilities/g' $(build_dir)/package-lists/vyos-x86.list.chroot
+	sed -i 's/vyos-xe-guest-utilities/xe-guest-utilities/g' $(build_dir)/config/package-lists/vyos-x86.list.chroot
 	cd $(build_dir)
 	set -o pipefail
 	lb build 2>&1 | tee build.log; if [ $$? -ne 0 ]; then exit 1; fi
