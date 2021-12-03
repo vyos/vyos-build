@@ -243,7 +243,7 @@ lanner_nca25xx: check_build_config clean prepare
 xcp-ng-iso: check_build_config clean prepare
 	@set -e
 	@echo $(init_msg)
-	sed -i 's/vyos-xe-guest-utilities/xe-guest-utilities/g' data/package-lists/vyos-x86.list.chroot
+	sed -i 's/vyos-xe-guest-utilities/xe-guest-utilities/g' $(build_dir)/config/package-lists/vyos-x86.list.chroot
 	sed -i 's/vyos-xe-guest-utilities/xe-guest-utilities/g' scripts/build-submodules
 	cd $(build_dir)
 	lb build 2>&1 | tee build.log
