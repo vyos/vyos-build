@@ -227,7 +227,7 @@ try:
     log.info('Installing system')
     cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, args.iso)
     log.debug(f'Executing command: {cmd}')
-    c = pexpect.spawn(cmd, logfile=stl)
+    c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
     #################################################
     # Logging into VyOS system
@@ -246,7 +246,7 @@ try:
     log.info('Waiting for login prompt')
     c.expect('[Ll]ogin:', timeout=600)
     c.sendline('vyos')
-    c.expect('[Pp]assword:', timeout=20)
+    c.expect('[Pp]assword:')
     c.sendline('vyos')
     c.expect(op_mode_prompt)
     log.info('Logged in!')
@@ -277,10 +277,10 @@ try:
         c.sendline('')
 
     log.info('Disk(s) partitioned, installing...')
-    c.expect('\nWhat would you like to name this image?.*:', timeout=300)
+    c.expect('\nWhat would you like to name this image?.*:', timeout=600)
     c.sendline('')
     log.info('Copying files')
-    c.expect('\nWhich one should I copy to.*:', timeout=300)
+    c.expect('\nWhich one should I copy to.*:', timeout=600)
     c.sendline('')
     log.info('Files Copied!')
     c.expect('\nEnter password for user.*:')
@@ -332,13 +332,10 @@ try:
     log.info('Waiting for login prompt')
     c.expect('[Ll]ogin:', timeout=600)
     c.sendline(default_user)
-    c.expect('[Pp]assword:', timeout=20)
+    c.expect('[Pp]assword:')
     c.sendline(default_password)
     c.expect(op_mode_prompt)
     log.info('Logged in!')
-
-    # additional settling time
-    time.sleep(20)
 
     ################################################
     # Always load the WiFi simulation module
@@ -403,7 +400,7 @@ try:
             raise Exception(tmp)
 
         c.sendline('echo EXITCODE:$\x16?')
-        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=20)
+        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'])
         if i == 0:
             log.info('Smoketest finished successfully!')
             pass
@@ -464,7 +461,7 @@ try:
             raise Exception(tmp)
 
         c.sendline('echo EXITCODE:$\x16?')
-        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=10)
+        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'])
         if i == 0:
             log.info('Configtest finished successfully!')
             pass
