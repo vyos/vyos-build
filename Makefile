@@ -88,40 +88,32 @@ vep1400: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
-.PHONY: test
+.PHONY: checkiso
 .ONESHELL:
-test:
+checkiso:
 	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
 		echo "Could not find build/live-image-amd64.hybrid.iso"
 		exit 1
 	fi
+
+.PHONY: test
+.ONESHELL:
+test: checkiso
 	scripts/check-qemu-install --debug --uefi build/live-image-amd64.hybrid.iso
 
 .PHONY: test-no-interfaces
 .ONESHELL:
-test-no-interfaces:
-	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
-		echo "Could not find build/live-image-amd64.hybrid.iso"
-		exit 1
-	fi
+test-no-interfaces: checkiso
 	scripts/check-qemu-install --debug --no-interfaces build/live-image-amd64.hybrid.iso
 
 .PHONY: testd
 .ONESHELL:
-testd:
-	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
-		echo "Could not find build/live-image-amd64.hybrid.iso"
-		exit 1
-	fi
+testd: checkiso
 	scripts/check-qemu-install --debug --configd build/live-image-amd64.hybrid.iso
 
 .PHONY: testc
 .ONESHELL:
-testc:
-	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
-		echo "Could not find build/live-image-amd64.hybrid.iso"
-		exit 1
-	fi
+testc: checkiso
 	scripts/check-qemu-install --debug --configd --configtest build/live-image-amd64.hybrid.iso
 
 .PHONY: clean
