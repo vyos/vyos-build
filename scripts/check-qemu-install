@@ -66,6 +66,7 @@ parser.add_argument('--debug', help='Send all debug output to stdout',
                                action='store_true', default=False)
 parser.add_argument('--logfile', help='Log to file')
 parser.add_argument('--uefi', help='Boot using UEFI', action='store_true', default=False)
+parser.add_argument('--raid', help='Perform a RAID-1 install', action='store_true', default=False)
 parser.add_argument('--no-kvm', help='Disable use of kvm', action='store_true', default=False)
 parser.add_argument('--configd', help='Execute testsuite with config daemon', action='store_true',
 				default=False)
@@ -110,7 +111,7 @@ def get_half_cpus():
         cpu /= 2
     return int(cpu)
 
-def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, iso_img=None):
+def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=None):
     kvm = "-enable-kvm"
     cpu = "-cpu host"
     if not enable_kvm:
@@ -149,6 +150,9 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, iso_img=None):
         -uuid {uuid} \
         -nographic {cpu} {cdrom} {kvm} \
         -drive format=raw,file={disk_img}'
+
+    if raid:
+        cmd += f' -drive format=raw,file={raid}'
 
     return cmd
 
@@ -196,12 +200,24 @@ else:
     kvm=True
 
 # Creating diskimage!!
-if not os.path.isfile(args.disk):
-    log.info(f'Creating Disk image {args.disk}')
-    c = subprocess.check_output(['qemu-img', 'create', args.disk, '2G'])
-    log.debug(c.decode())
-else:
-    log.info('Diskimage already exists, using the existing one')
+diskname_raid = None
+def gen_disk(name):
+    if not os.path.isfile(name):
+        log.info(f'Creating Disk image {name}')
+        c = subprocess.check_output(['qemu-img', 'create', name, '2G'])
+        log.debug(c.decode())
+    else:
+        log.info(f'Diskimage "{name}" already exists, using the existing one.')
+
+if args.raid:
+    filename, ext = os.path.splitext(args.disk)
+    diskname_raid = f'{filename}_disk1{ext}'
+    # change primary diskname, too
+    args.disk = f'{filename}_disk0{ext}'
+    gen_disk(diskname_raid)
+
+# must be called after the raid disk as args.disk name is altered in the RAID path
+gen_disk(args.disk)
 
 test_timeout = 3 *3600 # 3 hours (in seconds)
 try:
@@ -209,15 +225,17 @@ try:
     # Installing image to disk
     #################################################
     log.info('Installing system')
-    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, args.iso)
+    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, args.iso)
     log.debug(f'Executing command: {cmd}')
-    c = pexpect.spawn(cmd, logfile=stl)
+    c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
     #################################################
     # Logging into VyOS system
     #################################################
     op_mode_prompt = r'vyos@vyos:~\$'
     cfg_mode_prompt = r'vyos@vyos#'
+    default_user = 'vyos'
+    default_password = 'vyos'
 
     try:
         c.expect('Automatic boot in', timeout=10)
@@ -228,7 +246,7 @@ try:
     log.info('Waiting for login prompt')
     c.expect('[Ll]ogin:', timeout=600)
     c.sendline('vyos')
-    c.expect('[Pp]assword:', timeout=20)
+    c.expect('[Pp]assword:')
     c.sendline('vyos')
     c.expect(op_mode_prompt)
     log.info('Logged in!')
@@ -240,29 +258,41 @@ try:
     c.sendline('install image')
     c.expect('\nWould you like to continue?.*:')
     c.sendline('yes')
-    log.info('Partitioning disk')
-    c.expect('\nPartition.*:')
-    c.sendline('')
-    c.expect('\nInstall the image on.*:')
-    c.sendline('')
-    c.expect(r'\nContinue\?.*:')
-    c.sendline('Yes')
-    c.expect('\nHow big of a root partition should I create?.*:')
-    c.sendline('')
-    log.info('Disk partitioned, installing')
-    c.expect('\nWhat would you like to name this image?.*:')
+
+    if args.raid:
+        c.expect('\nWould you like to configure RAID-1 mirroring on them?.*:')
+        c.sendline('yes')
+        # Erase all data on disks
+        c.expect('\nAre you sure you want to do this?.*:')
+        c.sendline('yes')
+    else:
+        log.info('Partitioning disk')
+        c.expect('\nPartition.*:')
+        c.sendline('')
+        c.expect('\nInstall the image on.*:')
+        c.sendline('')
+        c.expect(r'\nContinue\?.*:')
+        c.sendline('Yes')
+        c.expect('\nHow big of a root partition should I create?.*:')
+        c.sendline('')
+
+    log.info('Disk(s) partitioned, installing...')
+    c.expect('\nWhat would you like to name this image?.*:', timeout=600)
     c.sendline('')
     log.info('Copying files')
-    c.expect('\nWhich one should I copy to.*:', timeout=300)
+    c.expect('\nWhich one should I copy to.*:', timeout=600)
     c.sendline('')
     log.info('Files Copied!')
     c.expect('\nEnter password for user.*:')
-    c.sendline('vyos')
+    c.sendline(default_user)
     c.expect('\nRetype password for user.*:')
-    c.sendline('vyos')
-    c.expect('\nWhich drive should GRUB modify the boot partition on.*:')
-    c.sendline('')
-    c.expect(op_mode_prompt)
+    c.sendline(default_password)
+
+    if not args.raid:
+        c.expect('\nWhich drive should GRUB modify the boot partition on.*:')
+        c.sendline('')
+        c.expect(op_mode_prompt)
+
     log.info('system installed, shutting down')
 
     #################################################
@@ -286,7 +316,7 @@ try:
     # Booting installed system
     #################################################
     log.info('Booting installed system')
-    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk)
+    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl)
 
@@ -301,14 +331,11 @@ try:
 
     log.info('Waiting for login prompt')
     c.expect('[Ll]ogin:', timeout=600)
-    c.sendline('vyos')
-    c.expect('[Pp]assword:', timeout=20)
-    c.sendline('vyos')
+    c.sendline(default_user)
+    c.expect('[Pp]assword:')
+    c.sendline(default_password)
     c.expect(op_mode_prompt)
     log.info('Logged in!')
-
-    # additional settling time
-    time.sleep(20)
 
     ################################################
     # Always load the WiFi simulation module
@@ -343,12 +370,16 @@ try:
     c.sendline('show interfaces')
     c.expect(op_mode_prompt)
 
+    if args.raid:
+        c.sendline('cat /proc/mdstat')
+        c.expect(op_mode_prompt)
+
     #################################################
     # Executing test-suite
     #################################################
 
     # run default smoketest suite
-    if not args.configtest:
+    if not args.raid and not args.configtest:
         if args.no_interfaces:
             # remove interface tests as they consume a lot of time
             c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_interfaces_*')
@@ -369,7 +400,7 @@ try:
             raise Exception(tmp)
 
         c.sendline('echo EXITCODE:$\x16?')
-        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=20)
+        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'])
         if i == 0:
             log.info('Smoketest finished successfully!')
             pass
@@ -378,7 +409,7 @@ try:
             raise Exception("Smoketest-failed, please look into debug output")
 
     # else, run configtest suite
-    else:
+    elif not args.raid:
         log.info('Adding a legacy WireGuard default keypair for migrations')
         c.sendline('sudo mkdir -p /config/auth/wireguard/default')
         c.expect(op_mode_prompt)
@@ -430,7 +461,7 @@ try:
             raise Exception(tmp)
 
         c.sendline('echo EXITCODE:$\x16?')
-        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'], timeout=10)
+        i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'])
         if i == 0:
             log.info('Configtest finished successfully!')
             pass
@@ -484,6 +515,8 @@ if not args.keep:
     log.info(f'Removing disk file: {args.disk}')
     try:
         os.remove(args.disk)
+        if diskname_raid:
+            os.remove(diskname_raid)
     except Exception:
         log.error('Exception while removing diskimage!')
         log.error(traceback.format_exc())

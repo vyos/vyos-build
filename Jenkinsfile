@@ -131,6 +131,14 @@ pipeline {
                         sh "sudo make testc"
                     }
                 }
+                stage('Smoketests for RAID-1 system installation') {
+                    when {
+                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                    }
+                    steps {
+                        sh "sudo make testraid"
+                    }
+                }
             }
         }
     }
