@@ -206,6 +206,11 @@ try:
     #################################################
     # Logging into VyOS system
     #################################################
+    op_mode_prompt = r'vyos@vyos:~\$'
+    cfg_mode_prompt = r'vyos@vyos#'
+    default_user = 'vyos'
+    default_password = 'vyos'
+
     try:
         c.expect('Automatic boot in', timeout=10)
         c.sendline('')
@@ -244,9 +249,9 @@ try:
     c.sendline('')
     log.info('Files Copied!')
     c.expect('\nEnter password for user.*:')
-    c.sendline('vyos')
+    c.sendline(default_user)
     c.expect('\nRetype password for user.*:')
-    c.sendline('vyos')
+    c.sendline(default_password)
     c.expect('\nWhich drive should GRUB modify the boot partition on.*:')
     c.sendline('')
     c.expect(r'\nvyos@vyos:~\$')
@@ -287,11 +292,11 @@ try:
         log.warning('Did not find GRUB countdown window, ignoring')
 
     log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=300)
-    c.sendline('vyos')
-    c.expect('[Pp]assword:', timeout=10)
-    c.sendline('vyos')
-    c.expect(r'vyos@vyos:~\$')
+    c.expect('[Ll]ogin:', timeout=600)
+    c.sendline(default_user)
+    c.expect('[Pp]assword:', timeout=20)
+    c.sendline(default_password)
+    c.expect(op_mode_prompt)
     log.info('Logged in!')
 
     # additional settling time
