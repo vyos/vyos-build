@@ -116,6 +116,11 @@ testd: checkiso
 testc: checkiso
 	scripts/check-qemu-install --debug --configd --configtest build/live-image-amd64.hybrid.iso
 
+.PHONY: testraid
+.ONESHELL:
+testraid: checkiso
+	scripts/check-qemu-install --debug --configd --raid --configtest build/live-image-amd64.hybrid.iso
+
 .PHONY: clean
 .ONESHELL:
 clean:
