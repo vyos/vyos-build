@@ -218,6 +218,8 @@ try:
     #################################################
     op_mode_prompt = r'vyos@vyos:~\$'
     cfg_mode_prompt = r'vyos@vyos#'
+    default_user = 'vyos'
+    default_password = 'vyos'
 
     try:
         c.expect('Automatic boot in', timeout=10)
@@ -257,9 +259,9 @@ try:
     c.sendline('')
     log.info('Files Copied!')
     c.expect('\nEnter password for user.*:')
-    c.sendline('vyos')
+    c.sendline(default_user)
     c.expect('\nRetype password for user.*:')
-    c.sendline('vyos')
+    c.sendline(default_password)
     c.expect('\nWhich drive should GRUB modify the boot partition on.*:')
     c.sendline('')
     c.expect(op_mode_prompt)
@@ -301,9 +303,9 @@ try:
 
     log.info('Waiting for login prompt')
     c.expect('[Ll]ogin:', timeout=600)
-    c.sendline('vyos')
+    c.sendline(default_user)
     c.expect('[Pp]assword:', timeout=20)
-    c.sendline('vyos')
+    c.sendline(default_password)
     c.expect(op_mode_prompt)
     log.info('Logged in!')
 
