@@ -52,6 +52,7 @@ systemctl disable ipsec.service
 systemctl disable strongswan-starter.service
 systemctl disable avahi-daemon.service
 systemctl disable atop-rotate.timer
+systemctl disable ModemManager.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
