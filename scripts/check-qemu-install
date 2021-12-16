@@ -53,15 +53,13 @@ now = datetime.now()
 
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
 parser.add_argument('iso', help='ISO file to install')
-parser.add_argument('disk', help='name of disk image file',
-                            nargs='?',
+parser.add_argument('disk', help='name of disk image file', nargs='?',
                             default='testinstall-{}-{}.img'.format(now.strftime('%Y%m%d-%H%M%S'),
                                                                    "%04x" % random.randint(0,65535)))
 parser.add_argument('--keep', help='Do not remove disk-image after installation',
                               action='store_true', default=False)
 parser.add_argument('--silent', help='Do not show output on stdout unless an error has occured',
-                              action='store_true',
-                              default=False)
+                              action='store_true', default=False)
 parser.add_argument('--debug', help='Send all debug output to stdout',
                                action='store_true', default=False)
 parser.add_argument('--logfile', help='Log to file')
@@ -135,17 +133,19 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
     macbase = '52:54:00:00:00'
     cmd = f'qemu-system-x86_64 \
         -name "{name}" \
-        -smp {cpucount} \
+        -smp sockets=1,cpus={cpucount},cores=1 \
+        -cpu host \
         {uefi} \
         -m 1G \
         -vga none \
-        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01 \
-        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02 \
-        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03 \
-        -netdev user,id=n4 -device virtio-net-pci,netdev=n4,mac={macbase}:04 \
-        -netdev user,id=n5 -device virtio-net-pci,netdev=n5,mac={macbase}:05 \
-        -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06 \
-        -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07 \
+        -netdev user,id=n0 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="" \
+        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="" \
+        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="" \
+        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="" \
+        -netdev user,id=n4 -device virtio-net-pci,netdev=n4,mac={macbase}:04,romfile="" \
+        -netdev user,id=n5 -device virtio-net-pci,netdev=n5,mac={macbase}:05,romfile="" \
+        -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06,romfile="" \
+        -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07,romfile="" \
         -machine accel=kvm \
         -uuid {uuid} \
         -nographic {cpu} {cdrom} {kvm} \
