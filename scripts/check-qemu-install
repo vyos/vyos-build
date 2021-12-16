@@ -156,6 +156,36 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
 
     return cmd
 
+def shutdownVM(c, log, message=''):
+    #################################################
+    # Powering off system
+    #################################################
+    if message:
+        log.info(message)
+
+    c.sendline('poweroff')
+    c.expect(r'\nAre you sure you want to poweroff this system.*\]')
+    c.sendline('Y')
+    log.info('Shutting down virtual machine')
+    for i in range(30):
+        log.info('Waiting for shutdown...')
+        if not c.isalive():
+            log.info('VM is shut down!')
+            break
+        time.sleep(10)
+    else:
+        tmp = 'VM Did not shut down after 300sec'
+        log.error(tmp)
+        raise Exception(tmp)
+
+def loginVM(c, log):
+    log.info('Waiting for login prompt')
+    c.expect('[Ll]ogin:', timeout=600)
+    c.sendline(default_user)
+    c.expect('[Pp]assword:')
+    c.sendline(default_password)
+    c.expect(op_mode_prompt)
+    log.info('Logged in!')
 
 # Setting up logger
 log = logging.getLogger()
@@ -243,13 +273,7 @@ try:
     except pexpect.TIMEOUT:
         log.warning('Did not find GRUB countdown window, ignoring')
 
-    log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=600)
-    c.sendline('vyos')
-    c.expect('[Pp]assword:')
-    c.sendline('vyos')
-    c.expect(op_mode_prompt)
-    log.info('Logged in!')
+    loginVM(c, log)
 
     #################################################
     # Installing into VyOS system
@@ -298,18 +322,7 @@ try:
     #################################################
     # Powering down installer
     #################################################
-    log.info('Shutting down installation system')
-    c.sendline('poweroff')
-    c.expect(r'\nAre you sure you want to poweroff this system.*\]')
-    c.sendline('Y')
-    for i in range(30):
-        log.info('Waiting for shutdown...')
-        if not c.isalive():
-            log.info('VM shutdown!')
-            break
-        time.sleep(10)
-    else:
-        log.error('VM Did not shutdown after 300sec, killing it!')
+    shutdownVM(c, log, 'Shutting down installation system')
     c.close()
 
     #################################################
@@ -329,13 +342,7 @@ try:
     except pexpect.TIMEOUT:
         log.warning('Did not find GRUB countdown window, ignoring')
 
-    log.info('Waiting for login prompt')
-    c.expect('[Ll]ogin:', timeout=600)
-    c.sendline(default_user)
-    c.expect('[Pp]assword:')
-    c.sendline(default_password)
-    c.expect(op_mode_prompt)
-    log.info('Logged in!')
+    loginVM(c, log)
 
     ################################################
     # Always load the WiFi simulation module
@@ -470,24 +477,7 @@ try:
             log.error(tmp)
             raise Exception(tmp)
 
-    #################################################
-    # Powering off system
-    #################################################
-    log.info("Powering off system ")
-    c.sendline('poweroff')
-    c.expect(r'\nAre you sure you want to poweroff this system.*\]')
-    c.sendline('Y')
-    log.info('Shutting down virtual machine')
-    for i in range(30):
-        log.info('Waiting for shutdown...')
-        if not c.isalive():
-            log.info('VM is shut down!')
-            break
-        time.sleep(10)
-    else:
-        tmp = 'VM Did not shut down after 300sec'
-        log.error(tmp)
-        raise Exception(tmp)
+    shutdownVM(c, log, 'Powering off system')
     c.close()
 
 except pexpect.exceptions.TIMEOUT:
