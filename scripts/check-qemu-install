@@ -125,7 +125,7 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
 
     cdrom = ""
     if iso_img:
-        cdrom = "-boot d -cdrom {}".format(iso_img)
+        cdrom = f"-boot d -cdrom {iso_img}"
 
     # test using half of the available CPUs on the system
     cpucount = get_half_cpus()
@@ -149,10 +149,13 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
         -machine accel=kvm \
         -uuid {uuid} \
         -nographic {cpu} {cdrom} {kvm} \
-        -drive format=raw,file={disk_img}'
+        -device virtio-scsi-pci,id=scsi0 \
+        -drive format=raw,file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
+        -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex=1'
 
     if raid:
-        cmd += f' -drive format=raw,file={raid}'
+        cmd += f' -drive format=raw,file={raid},if=none,media=disk,id=drive-hd2,readonly=off \
+                  -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex=2'
 
     return cmd
 
@@ -163,9 +166,7 @@ def shutdownVM(c, log, message=''):
     if message:
         log.info(message)
 
-    c.sendline('poweroff')
-    c.expect(r'\nAre you sure you want to poweroff this system.*\]')
-    c.sendline('Y')
+    c.sendline('poweroff now')
     log.info('Shutting down virtual machine')
     for i in range(30):
         log.info('Waiting for shutdown...')
@@ -377,16 +378,87 @@ try:
     c.sendline('show interfaces')
     c.expect(op_mode_prompt)
 
-    if args.raid:
-        c.sendline('cat /proc/mdstat')
-        c.expect(op_mode_prompt)
-
     #################################################
     # Executing test-suite
     #################################################
+    if args.raid:
+        # Verify RAID subsystem - by deleting a disk and re-create the array
+        # from scratch
+        c.sendline('cat /proc/mdstat')
+        c.expect(op_mode_prompt)
 
-    # run default smoketest suite
-    if not args.raid and not args.configtest:
+        shutdownVM(c, log, f'Shutdown VM and start with empty RAID member "{args.disk}"')
+
+        if os.path.exists(args.disk):
+            os.unlink(args.disk)
+
+        gen_disk(args.disk)
+
+        #################################################
+        # Booting RAID-1 system with one missing disk
+        #################################################
+        log.info('Booting RAID-1 system')
+        cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid)
+
+        # We need to swap boot indexes to boot from second harddisk so we can
+        # recreate the RAID on the first disk
+        cmd = cmd.replace('bootindex=1', 'bootindex=X')
+        cmd = cmd.replace('bootindex=2', 'bootindex=1')
+        cmd = cmd.replace('bootindex=X', 'bootindex=2')
+
+        log.debug(f'Executing command: {cmd}')
+        c = pexpect.spawn(cmd, logfile=stl)
+
+
+        #################################################
+        # Logging into VyOS system
+        #################################################
+        try:
+            c.expect('The highlighted entry will be executed automatically in', timeout=10)
+            c.sendline('')
+        except pexpect.TIMEOUT:
+            log.warning('Did not find GRUB countdown window, ignoring')
+
+        loginVM(c, log)
+
+        c.sendline('cat /proc/mdstat')
+        c.expect(op_mode_prompt)
+
+        log.info('Re-format new RAID member')
+        c.sendline('format disk sda like sdb')
+        c.sendline('yes')
+        c.expect(op_mode_prompt)
+
+        log.info('Add member to RAID1 (md0)')
+        c.sendline('add raid md0 member sda1')
+        c.expect(op_mode_prompt)
+
+        log.info('Now we need to wait for re-sync to complete')
+
+        start_time = time.time()
+        timeout = 60
+        while True:
+            if (start_time + timeout) < time.time():
+                break
+            c.sendline('cat /proc/mdstat')
+            c.expect(op_mode_prompt)
+            time.sleep(20)
+
+        # Reboot system with new primary RAID1 disk
+        shutdownVM(c, log, f'Shutdown VM and start from recovered RAID member "{args.disk}"')
+
+        log.info('Booting RAID-1 system')
+        cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid)
+        log.debug(f'Executing command: {cmd}')
+        c = pexpect.spawn(cmd, logfile=stl)
+
+        loginVM(c, log)
+
+        c.sendline('cat /proc/mdstat')
+        c.expect(op_mode_prompt)
+
+    elif not args.configtest:
+        # run default smoketest suite
         if args.no_interfaces:
             # remove interface tests as they consume a lot of time
             c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_interfaces_*')
@@ -416,7 +488,7 @@ try:
             raise Exception("Smoketest-failed, please look into debug output")
 
     # else, run configtest suite
-    elif not args.raid:
+    else:
         log.info('Adding a legacy WireGuard default keypair for migrations')
         c.sendline('sudo mkdir -p /config/auth/wireguard/default')
         c.expect(op_mode_prompt)
