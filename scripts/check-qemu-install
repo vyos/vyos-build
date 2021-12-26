@@ -119,13 +119,20 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
     if enable_uefi:
-        uefi = "-bios /usr/share/OVMF/OVMF_CODE.fd"
-        name = f"{name}-UEFI"
-        uuid = "d27cf29e-4419-4407-8f82-dc73d1acd184"
+        uefi = '-bios /usr/share/OVMF/OVMF_CODE.fd'
+        name = f'{name}-UEFI'
+        uuid = 'd27cf29e-4419-4407-8f82-dc73d1acd184'
 
+    bootindex = '1'
     cdrom = ""
     if iso_img:
-        cdrom = f"-boot d -cdrom {iso_img}"
+        cdrom = f' -boot d' \
+                f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on' \
+                f' -device ahci,id=achi0' \
+                f' -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex={bootindex}'
+
+        # Set regular harddisk bootindex to 2 as we boot from a CDROM drive
+        bootindex = '2'
 
     # test using half of the available CPUs on the system
     cpucount = get_half_cpus()
@@ -138,6 +145,12 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
         {uefi} \
         -m 1G \
         -vga none \
+        -nographic \
+        -machine accel=kvm \
+        -uuid {uuid} \
+        {cpu} \
+        {cdrom} \
+        {kvm} \
         -netdev user,id=n0 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="" \
         -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="" \
         -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="" \
@@ -146,16 +159,15 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
         -netdev user,id=n5 -device virtio-net-pci,netdev=n5,mac={macbase}:05,romfile="" \
         -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06,romfile="" \
         -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07,romfile="" \
-        -machine accel=kvm \
-        -uuid {uuid} \
-        -nographic {cpu} {cdrom} {kvm} \
         -device virtio-scsi-pci,id=scsi0 \
         -drive format=raw,file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
-        -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex=1'
+        -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex={bootindex}'
 
+    # dynamically increment bootindex - required for RAID system
+    bootindex = str(int(bootindex) + 1)
     if raid:
-        cmd += f' -drive format=raw,file={raid},if=none,media=disk,id=drive-hd2,readonly=off \
-                  -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex=2'
+        cmd += f' -drive format=raw,file={raid},if=none,media=disk,id=drive-hd2,readonly=off' \
+               f' -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex={bootindex}'
 
     return cmd
 
