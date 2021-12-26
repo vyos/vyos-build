@@ -235,7 +235,7 @@ diskname_raid = None
 def gen_disk(name):
     if not os.path.isfile(name):
         log.info(f'Creating Disk image {name}')
-        c = subprocess.check_output(['qemu-img', 'create', name, '2G'])
+        c = subprocess.check_output(['qemu-img', 'create', name, '1G'])
         log.debug(c.decode())
     else:
         log.info(f'Diskimage "{name}" already exists, using the existing one.')
