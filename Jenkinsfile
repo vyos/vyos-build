@@ -149,9 +149,13 @@ pipeline {
                 if (isCustomBuild())
                     return
 
+                // only deploy ISO if requested via parameter
+                if (! params.BUILD_PUBLISH)
+                    return
+
                 files = findFiles(glob: 'build/vyos*.iso')
                 // Publish ISO image to daily builds bucket
-                if (files && params.BUILD_PUBLISH) {
+                if (files) {
                     // Publish ISO image to snapshot bucket
                     if (files && params.BUILD_SNAPSHOT) {
                         withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
