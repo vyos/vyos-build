@@ -1,0 +1,9 @@
+ATTR{[dmi/id]board_name}!="FWS-2280", GOTO="end_aaeon_nic"
+
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:01:00.0", ENV{VYOS_IFNAME}="eth1",  ATTR{ifalias}="LAN1"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.0", ENV{VYOS_IFNAME}="eth2",  ATTR{ifalias}="LAN2"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:03:00.0", ENV{VYOS_IFNAME}="eth3",  ATTR{ifalias}="LAN3"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:06:00.0", ENV{VYOS_IFNAME}="eth4",  ATTR{ifalias}="LAN4"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:07:00.0", ENV{VYOS_IFNAME}="eth5",  ATTR{ifalias}="SFP"
+
+LABEL="end_aaeon_nic"
