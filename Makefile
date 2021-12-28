@@ -237,6 +237,18 @@ edgecore: check_build_config clean prepare
 	cd ..
 	@scripts/copy-image
 
+.PHONY: aaeon
+.ONESHELL:
+aaeon: check_build_config clean prepare
+	@set -e
+	@echo "It's not like I'm building this specially for you or anything!"
+	mkdir -p build/config/includes.chroot/lib/udev/rules.d/
+	cp tools/vendors/aaeon/64-vyos-aaeon*net.rules build/config/includes.chroot/lib/udev/rules.d/
+	cd $(build_dir)
+	lb build 2>&1 | tee build.log
+	cd ..
+	@scripts/copy-image
+
 .PHONY: xcp-ng-iso
 .ONESHELL:
 xcp-ng-iso: check_build_config clean prepare
