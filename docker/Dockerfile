@@ -485,6 +485,27 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       openvpn
 
+# Packages needed for keepalived
+RUN apt-get update && apt-get install -y \
+      autoconf \
+      libglib2.0-dev \
+      libip4tc-dev \
+      libipset-dev \
+      libjson-c-dev \
+      libnfnetlink-dev \
+      libnftnl-dev \
+      libnl-3-dev \
+      libnl-genl-3-dev \
+      libnl-nf-3-dev \
+      libpcre2-dev \
+      libpopt-dev \
+      libsnmp-dev \
+      libssl-dev \
+      libsystemd-dev \
+      linux-libc-dev \
+      pkg-config
+
+
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
       parted udev zip
