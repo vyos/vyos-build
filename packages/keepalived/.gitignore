@@ -1,0 +1,6 @@
+keepalived/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
