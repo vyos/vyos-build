@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-// Copyright (C) 2019 VyOS maintainers and contributors
+// Copyright (C) 2019-2021 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -13,112 +13,92 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 @NonCPS
 
-def getGitBranchName() {
-    def branch = scm.branches[0].name
-    return branch.split('/')[-1]
-}
-
-def getGitRepoURL() {
-    return scm.userRemoteConfigs[0].url
-}
-
-def getGitRepoName() {
-    return getGitRepoURL().split('/').last()
-}
-
-// Returns true if this is a custom build launched on any project fork.
-// Returns false if this is build from git@github.com:vyos/<reponame>.
-// <reponame> can be e.g. vyos-1x.git or vyatta-op.git
-def isCustomBuild() {
-    // GitHub organisation base URL
-    def gitURI = 'git@github.com:vyos/' + getGitRepoName()
-    def httpURI = 'https://github.com/vyos/' + getGitRepoName()
-
-    return ! ((getGitRepoURL() == gitURI) || (getGitRepoURL() == httpURI))
-}
-
-def setDescription() {
-    def item = Jenkins.instance.getItemByFullName(env.JOB_NAME)
-
-    // build up the main description text
-    def description = ""
-    description += "<h2>Build VyOS ISO image</h2>"
-
-    if (isCustomBuild()) {
-        description += "<p style='border: 3px dashed red; width: 50%;'>"
-        description += "<b>Build not started from official Git repository!</b><br>"
-        description += "<br>"
-        description += "Repository: <font face = 'courier'>" + getGitRepoURL() + "</font><br>"
-        description += "Branch: <font face = 'courier'>" + getGitBranchName() + "</font><br>"
-        description += "</p>"
-    } else {
-        description += "Sources taken from Git branch: <font face = 'courier'>" + getGitBranchName() + "</font><br>"
-    }
-
-    item.setDescription(description)
-    item.save()
-}
-
-// Only keep the 10 most recent builds
-def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
-]
-
-properties(projectProperties)
+// Using a version specifier library, use 'current' branch. The underscore (_)
+// is not a typo! You need this underscore if the line immediately after the
+// @Library annotation is not an import statement!
+@Library('vyos-build@crux')_
 setDescription()
 
-// Due to long build times on DockerHub we rather build the container by ourself
-// and publish it later on.
 node('Docker') {
-    stage('Build Container') {
+    stage('Setup Container') {
         script {
-            git branch: getGitBranchName(),
-                url: getGitRepoURL()
-
             // create container name on demand
-            env.DOCKER_IMAGE = "vyos/vyos-build:" + getGitBranchName()
-            sh "docker build -t ${env.DOCKER_IMAGE} docker"
-            withDockerRegistry([credentialsId: "DockerHub"]) {
-                sh "docker push ${env.DOCKER_IMAGE}"
-            }
+            def branchName = getGitBranchName()
+            // Adjust PR target branch name so we can re-map it to the proper Docker image.
+            if (isPullRequest())
+                branchName = env.CHANGE_TARGET.toLowerCase()
+            if (branchName.equals('master'))
+                branchName = 'current'
+
+            env.DOCKER_IMAGE = 'vyos/vyos-build:' + branchName
+
+            // Get the current UID and GID from the jenkins agent to allow use of the same UID inside Docker
+            env.USR_ID = sh(returnStdout: true, script: 'id -u').toString().trim()
+            env.GRP_ID = sh(returnStdout: true, script: 'id -g').toString().trim()
+            env.DOCKER_ARGS = '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
+            env.BASE_VERSION = '1.2-stable-'
         }
     }
 }
 
 pipeline {
-    options {
-        skipDefaultCheckout()
-        disableConcurrentBuilds()
-        timeout(time: 90, unit: 'MINUTES')
-        parallelsAlwaysFailFast()
-        timestamps()
+    agent {
+        docker {
+            label "Docker"
+            args "${env.DOCKER_ARGS}"
+            image "${env.DOCKER_IMAGE}"
+            alwaysPull true
+            reuseNode true
+        }
     }
     triggers {
         cron('H 6 * * *')
     }
-    agent {
-        dockerfile {
-            filename 'Dockerfile'
-            dir 'docker'
-            args '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=1006 -e GOSU_GID=1006'
-        }
+    parameters {
+        string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
+        string(name: 'BUILD_VERSION', defaultValue: env.BASE_VERSION + 'ISO8601-TIMESTAMP', description: 'Version number (release builds only)')
+        booleanParam(name: 'BUILD_PUBLISH', defaultValue: false, description: 'Publish this build to downloads.vyos.io and AWS S3')
+        booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
+        booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
+    }
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 180, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
     stages {
         stage('Build ISO') {
+            when {
+                beforeOptions true
+                beforeAgent true
+                // Only run ISO image build process of explicit user request or
+                // once a night triggered by the timer.
+                anyOf {
+                    triggeredBy 'TimerTrigger'
+                    triggeredBy cause: "UserIdCause"
+                }
+            }
             steps {
                 script {
+                    // Display Git commit Id used with the Jenkinsfile on the Job "Build History" pane
                     def commitId = sh(returnStdout: true, script: 'git rev-parse --short=11 HEAD').trim()
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
+                    def CUSTOM_PACKAGES = ''
+
+                    def VYOS_VERSION = params.BUILD_BY
+                    if (params.BUILD_VERSION == env.BASE_VERSION + 'ISO8601-TIMESTAMP')
+                        VYOS_VERSION = env.BASE_VERSION + sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
+
                     sh """
                         ./configure \
-                            --build-by autobuild@vyos.net \
-                            --debian-mirror http://ftp.us.debian.org/debian/ \
+                            --build-by "${params.BUILD_BY}" \
+                            --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
-                            --version 1.2-stable-\$(date +%Y%m%d%H%M)
+                            --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES}
                         sudo make iso
                     """
 
@@ -128,26 +108,80 @@ pipeline {
                 }
             }
         }
-        stage('QEMU') {
+        stage('Test') {
             when {
-                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                expression { return params.BUILD_SMOKETESTS }
             }
-            steps {
-                sh "sudo make test"
+            parallel {
+                stage('Smoketests') {
+                    when {
+                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                    }
+                    steps {
+                        sh "sudo make test"
+                    }
+                }
             }
         }
     }
     post {
+        success {
+            script {
+                // only deploy ISO if build from official repository
+                if (isCustomBuild())
+                    return
+
+                // only deploy ISO if requested via parameter
+                if (! params.BUILD_PUBLISH)
+                    return
+
+                files = findFiles(glob: 'build/vyos*.iso')
+                // Publish ISO image to daily builds bucket
+                if (files) {
+                    // Publish ISO image to snapshot bucket
+                    if (files && params.BUILD_SNAPSHOT) {
+                        withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                            s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/' + params.BUILD_VERSION + '/', workingDir: 'build', includePathPattern: 'vyos*.iso')
+                        }
+                    } else {
+                        // Publish build result to AWS S3 rolling bucket
+                        withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                            s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
+                                     workingDir: 'build', includePathPattern: 'vyos*.iso')
+                            s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
+                                   toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
+                        }
+                    }
+
+                    // Trigger GitHub action which will re-build the static community website which
+                    // also holds the AWS download links to the generated ISO images
+                    withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
+                        sh '''
+                            curl -X POST --header "Accept: application/vnd.github.v3+json" \
+                            --header "authorization: Bearer $TOKEN" --data '{"ref": "production"}' \
+                            https://api.github.com/repos/vyos/community.vyos.net/actions/workflows/main.yml/dispatches
+                        '''
+                    }
+                }
+
+                // Publish ISO image to snapshot bucket
+                if (files && params.BUILD_SNAPSHOT) {
+                    withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
+                        s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/',
+                                 workingDir: 'build', includePathPattern: 'vyos*.iso')
+                    }
+                }
+            }
+        }
+        failure {
+            archiveArtifacts artifacts: '**/build/vyos-*.iso, **/build/vyos-*.qcow2',
+                allowEmptyArchive: true
+        }
         cleanup {
             echo 'One way or another, I have finished'
             // the 'build' directory got elevated permissions during the build
             // cdjust permissions so it can be cleaned up by the regular user
-            sh '''
-                #!/bin/bash
-                if [ -d build ]; then
-                    sudo chmod -R 777 build/
-                fi
-            '''
+            sh 'sudo make purge'
             deleteDir() /* cleanup our workspace */
         }
     }
