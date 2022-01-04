@@ -162,28 +162,7 @@ pipeline {
                             s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/' + params.BUILD_VERSION + '/', workingDir: 'build', includePathPattern: 'vyos*.iso')
                         }
                     } else {
-                        // Publish build result to rolling bucket and downloads.vyos.io
-                        sshagent(['SSH-dev.packages.vyos.net']) {
-                            dir('build') {
-                                // build up some fancy groovy variables so we do not need to write/copy
-                                // every option over and over again!
-                                def ARCH = sh(returnStdout: true, script: "dpkg --print-architecture").trim()
-                                def ISO = sh(returnStdout: true, script: "ls vyos-*.iso").trim()
-                                def SSH_DIR = '/home/sentrium/web/downloads.vyos.io/public_html/rolling/' + getGitBranchName() + '/' + ARCH
-                                def SSH_OPTS = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
-                                def SSH_REMOTE = env.DOWNLOADS_VYOS_IO_HOST // defined as global variable
-
-                                // No need to explicitly check the return code. The pipeline
-                                // will fail if sh returns a non 0 exit code
-                                sh """
-                                    sha256sum ${ISO} > ${ISO}.sha256
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'mkdir -p ${SSH_DIR}'"
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c 'find ${SSH_DIR} -type f -mtime +14 -exec rm -f {} \\;'"
-                                    scp ${SSH_OPTS} -r ${ISO} ${ISO}.sha256 ${SSH_REMOTE}:${SSH_DIR}/
-                                    ssh ${SSH_OPTS} ${SSH_REMOTE} -t "bash --login -c '/usr/bin/make-latest-rolling-symlink.sh'"
-                                """
-                            }
-                        }
+                        // Publish build result to AWS S3 rolling bucket
                         withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                             s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
                                      workingDir: 'build', includePathPattern: 'vyos*.iso')
