@@ -181,7 +181,12 @@ pipeline {
             echo 'One way or another, I have finished'
             // the 'build' directory got elevated permissions during the build
             // cdjust permissions so it can be cleaned up by the regular user
-            sh 'sudo make purge'
+            sh '''
+                #!/bin/bash
+                if [ -d build ]; then
+                    sudo chmod -R 777 build/
+                fi
+            '''
             deleteDir() /* cleanup our workspace */
         }
     }
