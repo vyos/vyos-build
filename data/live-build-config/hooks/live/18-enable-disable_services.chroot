@@ -14,7 +14,6 @@ systemctl disable lldpd.service
 systemctl disable LCDd.service
 systemctl disable lcdproc.service
 systemctl disable conntrackd.service
-systemctl disable mdns-repeater.service
 systemctl disable 'udp-broadcast-relay@*.service'
 systemctl disable pdns-recursor.service
 systemctl disable tftpd-hpa.service
@@ -53,6 +52,7 @@ systemctl disable strongswan-starter.service
 systemctl disable avahi-daemon.service
 systemctl disable atop-rotate.timer
 systemctl disable ModemManager.service
+systemctl disable dnsdist.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
