@@ -53,6 +53,7 @@ systemctl disable avahi-daemon.service
 systemctl disable atop-rotate.timer
 systemctl disable ModemManager.service
 systemctl disable dnsdist.service
+systemctl disable haproxy.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
