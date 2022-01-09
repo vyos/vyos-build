@@ -23,7 +23,7 @@
 // and not via a DEB package
 def pkgList = [
     ['name': 'keepalived',
-     'scmCommit': 'master',
+     'scmCommit': '8af889bc',
      'scmUrl': 'https://github.com/acassen/keepalived',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
