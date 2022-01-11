@@ -1,0 +1,25 @@
+From b0789cf679b0179d37e22f5a936af273d982abeb Mon Sep 17 00:00:00 2001
+From: Henning Surmeier <me@hensur.de>
+Date: Tue, 11 Jan 2022 13:05:47 +0100
+Subject: [PATCH 2/2] set -vyos version
+
+---
+ src/ndppd.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/ndppd.h b/src/ndppd.h
+index 008726c..61ed950 100644
+--- a/src/ndppd.h
++++ b/src/ndppd.h
+@@ -21,7 +21,7 @@
+ #define NDPPD_NS_BEGIN   namespace ndppd {
+ #define NDPPD_NS_END     }
+ 
+-#define NDPPD_VERSION   "0.2.4"
++#define NDPPD_VERSION   "0.2.5-vyos"
+ 
+ #include <assert.h>
+ 
+-- 
+2.34.1
+
