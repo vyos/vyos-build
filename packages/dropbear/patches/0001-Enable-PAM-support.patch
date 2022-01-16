@@ -1,0 +1,46 @@
+From 3ac8b338e248801eca917e6091ff6b601e55a1fc Mon Sep 17 00:00:00 2001
+From: Christian Poessinger <christian@poessinger.com>
+Date: Sun, 16 Jan 2022 21:04:35 +0100
+Subject: [PATCH] Enable PAM support
+
+---
+ debian/rules      | 2 +-
+ default_options.h | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/debian/rules b/debian/rules
+index 673a5a3..4092be7 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -27,5 +27,5 @@ override_dh_installinit:
+ 	dh_installinit -R --name dropbear
+ 
+ override_dh_auto_configure:
+-	dh_auto_configure -- --disable-bundled-libtom \
++	dh_auto_configure -- --disable-bundled-libtom --enable-pam \
+ 	  CC='$(CC)' CFLAGS='$(CFLAGS)' $(CONFFLAGS)
+diff --git a/default_options.h b/default_options.h
+index 375506d..e4fc5bf 100644
+--- a/default_options.h
++++ b/default_options.h
+@@ -193,7 +193,7 @@ group1 in Dropbear server too */
+ 
+ /* Authentication Types - at least one required.
+    RFC Draft requires pubkey auth, and recommends password */
+-#define DROPBEAR_SVR_PASSWORD_AUTH 1
++#define DROPBEAR_SVR_PASSWORD_AUTH 0
+ 
+ /* Note: PAM auth is quite simple and only works for PAM modules which just do
+  * a simple "Login: " "Password: " (you can edit the strings in svr-authpam.c).
+@@ -201,7 +201,7 @@ group1 in Dropbear server too */
+  * but there's an interface via a PAM module. It won't work for more complex
+  * PAM challenge/response.
+  * You can't enable both PASSWORD and PAM. */
+-#define DROPBEAR_SVR_PAM_AUTH 0
++#define DROPBEAR_SVR_PAM_AUTH 1
+ 
+ /* ~/.ssh/authorized_keys authentication */
+ #define DROPBEAR_SVR_PUBKEY_AUTH 1
+-- 
+2.20.1
+
