@@ -568,6 +568,13 @@ RUN apt-get update && apt-get install -y \
       linux-libc-dev \
       pkg-config
 
+# Packages needed for dropbear
+RUN apt-get update && apt-get install -y \
+      debhelper-compat \
+      libtomcrypt-dev \
+      libtommath-dev \
+      libz-dev
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
