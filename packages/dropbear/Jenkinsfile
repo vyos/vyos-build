@@ -21,7 +21,7 @@
 
 def pkgList = [
     ['name': 'dropbear',
-     'scmCommit': 'debian/2020.81-5',
+     'scmCommit': 'debian/2019.78-2',
      'scmUrl': 'https://salsa.debian.org/debian/dropbear.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
