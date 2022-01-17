@@ -8,16 +8,15 @@ if [ ! -d ${SRC} ]; then
     exit 1
 fi
 
+cd ${SRC}
 PATCH_DIR=${CWD}/patches
 if [ -d $PATCH_DIR ]; then
     for patch in $(ls ${PATCH_DIR})
     do
         echo "I: Apply patch: ${patch} to main repository"
-        cp ${PATCH_DIR}/${patch} ${SRC}/debian/patches/
-        echo ${patch} >> ${SRC}/debian/patches/series
+        patch -p1 < ${PATCH_DIR}/${patch}
     done
 fi
 
-cd ${SRC}
 echo "I: Build Debian Package"
 dpkg-buildpackage -uc -us -tc -b
