@@ -571,6 +571,7 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for dropbear
 RUN apt-get update && apt-get install -y \
       debhelper-compat \
+      dh-exec \
       libtomcrypt-dev \
       libtommath-dev \
       libz-dev
