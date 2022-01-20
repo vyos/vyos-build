@@ -125,6 +125,10 @@ pipeline {
         }
     }
     post {
+        always {
+            archiveArtifacts artifacts: '**/build/vyos-*.iso, **/build/vyos-*.qcow2',
+                allowEmptyArchive: true
+        }
         success {
             script {
                 // only deploy ISO if build from official repository
@@ -172,10 +176,6 @@ pipeline {
                     }
                 }
             }
-        }
-        failure {
-            archiveArtifacts artifacts: '**/build/vyos-*.iso, **/build/vyos-*.qcow2',
-                allowEmptyArchive: true
         }
         cleanup {
             echo 'One way or another, I have finished'
