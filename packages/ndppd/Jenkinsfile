@@ -23,7 +23,7 @@
 // and not via a DEB package
 def pkgList = [
     ['name': 'ndppd',
-     'scmCommit': 'debian/0.2.5.6',
+     'scmCommit': 'debian/0.2.5-6',
      'scmUrl': 'https://salsa.debian.org/debian/ndppd',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
