@@ -167,7 +167,7 @@ pipeline {
                             s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
                                      workingDir: 'build', includePathPattern: 'vyos*.iso')
                             s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
-                                   toBucket: 's3-us.vyos.io', toPath: getGitBranchName() + '/vyos-rolling-latest.iso')
+                                   toBucket: 's3-us.vyos.io', toPath: 'rolling/' + getGitBranchName() + '/vyos-rolling-latest.iso')
                         }
                     }
 
