@@ -54,6 +54,7 @@ systemctl disable atop-rotate.timer
 systemctl disable ModemManager.service
 systemctl disable dnsdist.service
 systemctl disable haproxy.service
+systemctl disable miniupnpd.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
