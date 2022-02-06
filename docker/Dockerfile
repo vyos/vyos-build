@@ -196,6 +196,19 @@ RUN apt-get update && apt-get install -y \
       automake \
       cpio
 
+# Packages needed for Linux Kernel
+# gnupg2 is required by Jenkins for the TAR verification
+RUN apt-get update && apt-get install -y \
+      gnupg2 \
+      rsync \
+      libncurses5-dev \
+      flex \
+      bison \
+      bc \
+      kmod \
+      cpio \
+      python-is-python2
+
 # Packages needed for Intel QAT out-of-tree drivers
 RUN apt-get update && apt-get install -y \
       yasm
@@ -499,26 +512,13 @@ RUN apt-get update && apt-get install -y \
       libtommath-dev \
       libz-dev
 
-# Packages needed for Linux Kernel
-# gnupg2 is required by Jenkins for the TAR verification
-RUN apt-get update && apt-get install -y \
-      gnupg2 \
-      rsync \
-      libncurses5-dev \
-      flex \
-      bison \
-      bc \
-      kmod \
-      cpio \
-      python-is-python2
-
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
-      parted \
-      udev \
-      zip
+      parted udev zip
 
+#
 # fpm: a command-line program designed to help you build packages (e.g. deb)
+#
 RUN apt-get update && apt-get install -y \
       ruby \
       ruby-dev \
