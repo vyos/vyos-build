@@ -207,7 +207,7 @@ RUN apt-get update && apt-get install -y \
       bc \
       kmod \
       cpio \
-      python-is-python2
+      python-is-python3
 
 # Packages needed for Intel QAT out-of-tree drivers
 RUN apt-get update && apt-get install -y \
@@ -514,7 +514,9 @@ RUN apt-get update && apt-get install -y \
 
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
-      parted udev zip
+      parted \
+      udev \
+      zip
 
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
