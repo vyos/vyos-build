@@ -22,12 +22,12 @@
 
 def pkgList = [
     ['name': 'libyang',
-     'scmCommit': 'v2.0.97',
+     'scmCommit': 'v2.0.164',
      'scmUrl': 'https://github.com/CESNET/libyang.git',
      'buildCmd': 'apkg build -i && find pkg/pkgs -type f -name *.deb -exec mv -t .. {} +'],
 
     ['name': 'frr',
-     'scmCommit': 'stable/8.1',
+     'scmCommit': 'stable/8.2',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
      'buildCmd': 'cd ..; ./build-frr.sh'],
 ]
