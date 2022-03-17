@@ -51,9 +51,12 @@ try:
 
     # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
     build_git = repo.head.object.hexsha[:14]
-    # If somone played around with the source tree and the build is "dirty", mark it
-    if repo.is_dirty():
-        build_git += "-dirty"
+    # If someone played around with the source tree and the build is "dirty", mark it.
+    # Release builds can be "ditry by design" (e.g. modified default config) though,
+    # so the dirtiness check is only applied to development builds.
+    if build_config["build_type"] == "development":
+        if repo.is_dirty():
+            build_git += "-dirty"
 
     # Retrieve git branch name
     git_branch = repo.active_branch.name
