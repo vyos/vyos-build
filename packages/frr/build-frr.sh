@@ -31,4 +31,6 @@ fi
 
 # Build Debian FRR package
 echo "I: Build Debian FRR Package"
+# extract "real" git commit for FRR version identifier
+dch -v "$(git describe --tags | cut -c5-)" "VyOS build - FRR"
 dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib
