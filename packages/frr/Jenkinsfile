@@ -27,7 +27,7 @@ def pkgList = [
      'buildCmd': 'apkg build -i && find pkg/pkgs -type f -name *.deb -exec mv -t .. {} +'],
 
     ['name': 'frr',
-     'scmCommit': 'frr-8.2.2',
+     'scmCommit': 'stable/8.2',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
      'buildCmd': 'cd ..; ./build-frr.sh'],
 ]
