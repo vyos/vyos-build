@@ -169,8 +169,8 @@ RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archiv
 #
 RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch \
       -O /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
-    git clone https://salsa.debian.org/installer-team/debootstrap /tmp/debootstrap && \
-    cd /tmp/debootstrap && git checkout 1.0.114 && \
+    git clone --depth=1 -b 1.0.114 https://salsa.debian.org/installer-team/debootstrap /tmp/debootstrap && \
+    cd /tmp/debootstrap && \
     patch -p1 < /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
     dch -n "Applying fix for docker image compile" && \
     dpkg-buildpackage -us -uc && \
