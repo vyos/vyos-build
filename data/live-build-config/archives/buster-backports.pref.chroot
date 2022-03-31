@@ -18,10 +18,6 @@ Package: conserver-client
 Pin: release n=buster-backports
 Pin-Priority: 600
 
-Package: keepalived
-Pin: release n=buster-backports
-Pin-Priority: 600
-
 Package: wireguard-tools
 Pin: release n=buster-backports
 Pin-Priority: 600
