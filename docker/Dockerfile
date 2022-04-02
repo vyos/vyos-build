@@ -155,8 +155,6 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
     cd /tmp/open-vmdk-master/ && \
-    wget -O gcc-10.patch https://github.com/dongsupark/open-vmdk/commit/74dffbca5d6fa37ed4ecd9b3a75206e33497e3df.patch && \
-    patch -p1 < gcc-10.patch && \
     make && \
     make install
 
