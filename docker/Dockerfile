@@ -263,7 +263,7 @@ RUN export RTRLIB_VERSION="56e67e7805953eb84d3d68dfb4ff4447f2a8c925" \
     dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
 
 # Packages needed to build libyang2
-RUN pip3 install apkg
+RUN pip install apkg
 RUN apt-get update && apt-get install -y \
       graphviz \
       cmake \
@@ -313,6 +313,7 @@ RUN apt-get update && apt-get install -y \
       gprbuild
 
 # Packages needed for vyos-1x
+RUN pip install git+https://github.com/aristanetworks/j2lint.git@341b5d5db86
 RUN apt-get update && apt-get install -y \
       dh-python \
       fakeroot \
