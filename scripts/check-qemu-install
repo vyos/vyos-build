@@ -72,6 +72,9 @@ parser.add_argument('--no-interfaces', help='Execute testsuite without interface
                 action='store_true', default=False)
 parser.add_argument('--configtest', help='Execute load/commit config tests',
 				action='store_true', default=False)
+parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
+                action='store_true', default=False)
+
 
 args = parser.parse_args()
 
@@ -262,6 +265,11 @@ if args.raid:
 # must be called after the raid disk as args.disk name is altered in the RAID path
 gen_disk(args.disk)
 
+if args.qemu_cmd:
+    tmp = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, args.iso)
+    print(tmp)
+    exit(0)
+
 test_timeout = 3 *3600 # 3 hours (in seconds)
 try:
     #################################################
@@ -388,6 +396,9 @@ try:
     c.sendline('show version frr')
     c.expect(op_mode_prompt)
     c.sendline('show interfaces')
+    c.expect(op_mode_prompt)
+    c.sendline('systemd-detect-virt')
+    c.expect('kvm')
     c.expect(op_mode_prompt)
 
     #################################################
