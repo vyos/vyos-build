@@ -90,6 +90,8 @@ def call(description=null, pkgList=null, buildCmd=null, changesPattern="**") {
                             script {
                                 cloneAndBuild(description, 'amd64', pkgList, buildCmd)
                                 stash includes: '**/*.deb', name: 'binary-amd64'
+                                stash includes: '**/*.dsc', name: 'source-dsc'
+                                stash includes: '**/*.tar.*z', name: 'source-tar'
                             }
                         }
                         post {
@@ -112,9 +114,10 @@ def call(description=null, pkgList=null, buildCmd=null, changesPattern="**") {
                 }
                 steps {
                     script {
-                        // Unpack files for amd64
+                        // Unpack files for amd64 + sources
                         unstash 'binary-amd64'
-
+                        unstash 'source-dsc'
+                        unstash 'source-tar'
                         if (isCustomBuild()) {
                             echo "Build not started from official Git repository! Artifacts are not uploaded to external repository"
                             return
@@ -138,10 +141,23 @@ def call(description=null, pkgList=null, buildCmd=null, changesPattern="**") {
 
                         // publish build result, using SSH-dev.packages.vyos.net Jenkins Credentials
                         sshagent(['SSH-dev.packages.vyos.net']) {
+
+                            sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"bash --login -c 'mkdir -p ${SSH_DIR}'\"")
+
+                            // Removing of source and binary packages should be BEFORE adding new ones. Else "reprepro [remove/removesrc]" command may remove [source/binary] package correspondingly (behavior depends on package links).
+                            // To omit this feature(bug?) do not merge removing-adding sequence by sources and binaries as it used to be
+                            files = findFiles(glob: '**/*.dsc')
+                            if (files) {
+                                echo "Remove deprecated source package(s) from the repository..."
+                                files.each { FILE ->
+                                    def PACKAGE = sh(returnStdout: true, script: "cat ${FILE} | grep Source ").trim().tokenize(' ').last()
+                                    sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} removesrc ${RELEASE} ${PACKAGE}'\"")
+                                }
+                            }
+
                             files = findFiles(glob: '**/*.deb')
                             if (files) {
-                                sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"bash --login -c 'mkdir -p ${SSH_DIR}'\"")
-                                echo "Uploading package(s) and updating package(s) in the repository ..."
+                                echo "Remove deprecated binary package(s) from the repository..."
                                 files.each { FILE ->
                                     // NOTE: Groovy is a pain in the ass and " quotes differ from ', so all shell code must use " in the beginning
                                     def PACKAGE = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
@@ -149,13 +165,43 @@ def call(description=null, pkgList=null, buildCmd=null, changesPattern="**") {
                                     def ARCH = ''
                                     if (PACKAGE_ARCH != 'all')
                                         ARCH = '-A ' + PACKAGE_ARCH
-
-                                    sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
                                     sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} remove ${RELEASE} ${PACKAGE}'\"")
+                                }
+                            }
 
+                            files = findFiles(glob: '**/*.tar.*z')
+                            if (files) {
+                                echo "Uploading tarball package(s) to the repository..."
+                                files.each { FILE ->
+                                    sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
+                                }
+                            }
+
+                            files = findFiles(glob: '**/*.dsc')
+                            if (files) {
+                                echo "Uploading *.dsc package(s) to the repository..."
+                                files.each { FILE ->
+                                    def PACKAGE = sh(returnStdout: true, script: "cat ${FILE} | grep Source ").trim().tokenize(' ').last()
+                                    sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
+                                    def FILENAME = FILE.toString().tokenize('/').last()
+                                    sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} includedsc ${RELEASE} ${SSH_DIR}/${FILENAME}'\"")
+                                }
+                            }
+
+                            files = findFiles(glob: '**/*.deb')
+                            if (files) {
+                                echo "Uploading binary package(s) to the repository ..."
+                                files.each { FILE ->
+                                    // NOTE: Groovy is a pain in the ass and " quotes differ from ', so all shell code must use " in the beginning
+                                    def PACKAGE = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Package").trim()
+                                    def PACKAGE_ARCH = sh(returnStdout: true, script: "dpkg-deb -f ${FILE} Architecture").trim()
+                                    def ARCH = ''
+                                    if (PACKAGE_ARCH != 'all')
+                                        ARCH = '-A ' + PACKAGE_ARCH
+                                    sh(script: "scp ${SSH_OPTS} ${FILE} ${SSH_REMOTE}:${SSH_DIR}")
                                     // Packages like FRR produce their binary in a nested path e.g. packages/frr/frr-rpki-rtrlib-dbgsym_7.5_arm64.deb,
                                     // thus we will only extract the filename portion from FILE as the binary is scp'ed to SSH_DIR without any subpath.
-                                    def FILENAME = FILE.toString().tokenize('/')[-1]
+                                    def FILENAME = FILE.toString().tokenize('/').last()
                                     sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} ${ARCH} includedeb ${RELEASE} ${SSH_DIR}/${FILENAME}'\"")
                                 }
                                 sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} deleteunreferenced'\"")
