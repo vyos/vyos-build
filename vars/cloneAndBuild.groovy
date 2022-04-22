@@ -56,11 +56,13 @@ def call(description, architecture, pkgList, buildCmd) {
         } else if (buildCmd) {
             sh buildCmd
         } else {
-            sh 'dpkg-buildpackage -uc -us -tc -b'
+            sh 'dpkg-buildpackage -uc -us -tc -F'
         }
     }
     if (architecture == 'amd64') {
         archiveArtifacts artifacts: "**/*.deb", fingerprint: true
+        archiveArtifacts artifacts: "**/*.dsc", fingerprint: true
+        archiveArtifacts artifacts: "**/*.tar.*z", fingerprint: true
     } else {
         archiveArtifacts artifacts: "**/*_${architecture}.deb", fingerprint: true
     }
