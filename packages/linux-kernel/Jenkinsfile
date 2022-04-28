@@ -17,7 +17,7 @@
 // Using a version specifier library, use 'current' branch. The underscore (_)
 // is not a typo! You need this underscore if the line immediately after the
 // @Library annotation is not an import statement!
-@Library('vyos-build@current')_
+@Library('vyos-build@71c91e6')_
 
 def pkgList = [
     // The Linux Kernel
