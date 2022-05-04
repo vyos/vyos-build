@@ -255,11 +255,9 @@ RUN apt-get update && apt-get install -y \
       doxygen
 
 # Build rtrlib release 0.8.0
-RUN export RTRLIB_VERSION="0.8.0" \
-    export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
-    wget -P /tmp https://github.com/rtrlib/rtrlib/archive/v${RTRLIB_VERSION}.tar.gz && \
-    tar xf /tmp/v${RTRLIB_VERSION}.tar.gz -C /tmp && \
-    cd /tmp/rtrlib-${RTRLIB_VERSION} && dpkg-buildpackage -uc -us -tc -b && \
+RUN export RTRLIB_VERSION="0.8.0" export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
+    git clone https://github.com/rtrlib/rtrlib.git /tmp/rtrlib && cd /tmp/rtrlib && \
+    dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
 
 # Packages needed to build libyang2
