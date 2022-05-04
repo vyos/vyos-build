@@ -254,8 +254,8 @@ RUN apt-get update && apt-get install -y \
       libssh-dev \
       doxygen
 
-# Build rtrlib release 0.7.0
-RUN export RTRLIB_VERSION="56e67e7805953eb84d3d68dfb4ff4447f2a8c925" \
+# Build rtrlib release 0.8.0
+RUN export RTRLIB_VERSION="v0.8.0" \
     export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
     wget -P /tmp https://github.com/rtrlib/rtrlib/archive/${RTRLIB_VERSION}.tar.gz && \
     tar xf /tmp/${RTRLIB_VERSION}.tar.gz -C /tmp && \
