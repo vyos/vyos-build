@@ -30,7 +30,7 @@ def pkgList = [
      'scmUrl': 'https://github.com/rtrlib/rtrlib.git',
      'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
     ['name': 'frr',
-     'scmCommit': 'stable/8.2',
+     'scmCommit': '56694ea7d5ceae3e0cb54f8b4d15fa73c41b53b6',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
      'buildCmd': 'cd ..; ./build-frr.sh'],
 ]
