@@ -1,3 +1,7 @@
 Package: sshguard
 Pin: release n=buster-backports
 Pin-Priority: 600
+
+Package: *
+Pin: release n=buster-backports
+Pin-Priority: -10
