@@ -58,7 +58,7 @@ lb config noauto \
         --firmware-binary false \
         --updates true \
         --security false \
-        --backports false \
+        --backports true \
         --utc-time true \
         --debug \
         --apt-recommends false \
