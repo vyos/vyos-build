@@ -56,11 +56,24 @@ def call(description, architecture, pkgList, buildCmd) {
         } else if (buildCmd) {
             sh buildCmd
         } else {
-            sh 'dpkg-buildpackage -uc -us -tc -b'
+            try {
+                sh 'dpkg-buildpackage -uc -us -tc -F'
+            } catch (e) {
+                print "Source packages build failed, ignoring - building binaries only"
+                currentBuild.result = 'SUCCESS'
+                sh 'dpkg-buildpackage -uc -us -tc -b'
+            }
         }
     }
     if (architecture == 'amd64') {
         archiveArtifacts artifacts: "**/*.deb", fingerprint: true
+        try {
+            archiveArtifacts artifacts: "**/*.dsc", fingerprint: true
+            archiveArtifacts artifacts: "**/*.tar.*z", fingerprint: true
+        } catch (e) {
+            print "Archiving failed, ignoring - no source packages"
+            currentBuild.result = 'SUCCESS'
+        }
     } else {
         archiveArtifacts artifacts: "**/*_${architecture}.deb", fingerprint: true
     }
