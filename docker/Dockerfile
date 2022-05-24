@@ -38,7 +38,16 @@ FROM ${ARCH}debian:bullseye
 # On some versions of docker the emulation framework is not installed by default and
 # you need to install qemu, qemu-user-static and register qemu inside docker manually using:
 # `docker run --rm --privileged multiarch/qemu-user-static:register --reset`
-LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
+LABEL authors="VyOS Maintainers <maintainers@vyos.io>" \
+      org.opencontainers.image.authors="VyOS Maintainers <maintainers@vyos.io>" \
+      org.opencontainers.image.url="https://github.com/vyos/vyos-build" \
+      org.opencontainers.image.documentation="https://docs.vyos.io/en/latest/contributing/build-vyos.html" \
+      org.opencontainers.image.source="https://github.com/vyos/vyos-build" \
+      org.opencontainers.image.vendor="Sentrium S.L." \
+      org.opencontainers.image.licenses="GNU" \
+      org.opencontainers.image.title="vyos-build" \
+      org.opencontainers.image.description="Container to build VyOS ISO" \
+      org.opencontainers.image.base.name="docker.io/debian/debian:bullseye"
 ENV DEBIAN_FRONTEND noninteractive
 
 # Standard shell should be bash not dash
@@ -333,7 +342,7 @@ RUN apt-get update && apt-get install -y \
       quilt \
       whois
 
-Run git clone https://github.com/dsoprea/PyInotify.git /tmp/inotify && \
+RUN git clone https://github.com/dsoprea/PyInotify.git /tmp/inotify && \
     cd /tmp/inotify && \
     python3 setup.py --command-packages=stdeb.command bdist_deb && \
     sudo dpkg -i ./deb_dist/python3-inotify*.deb
