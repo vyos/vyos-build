@@ -486,6 +486,12 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       openvpn
 
+# Packages needed for OWAMP/TWAMP (service sla)
+RUN apt-get update && apt-get install -y \
+      dh-exec \
+      libi2util-dev \
+      i2util-tools
+
 # Packages needed for keepalived
 RUN apt-get update && apt-get install -y \
       autoconf \
