@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Geolocation data provided by DB-IP.com
+# License: https://creativecommons.org/licenses/by/4.0/ (CC BY 4.0)
+
+DATE_SUFFIX=$(date +%Y-%m)
+URL="https://download.db-ip.com/free/dbip-country-lite-${DATE_SUFFIX}.csv.gz"
+OUT_PATH="/usr/share/vyos-geoip/dbip-country-lite.csv.gz"
+
+mkdir -p $(dirname $OUT_PATH)
+wget -O - $URL > $OUT_PATH
+
+if [ $? -ne 0 ]; then
+    echo "Failed to download GeoIP database"
+    rm $OUT_PATH
+fi
