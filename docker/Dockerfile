@@ -554,7 +554,7 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
        libmongoc-dev \
        libncurses5-dev \
        libpcap-dev \
-       pkg-config
+       pkg-config; \
      fi
 
 #
