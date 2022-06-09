@@ -528,26 +528,33 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for Fastnetmon
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
      apt-get update && apt-get install -y \
-       build-essential \
-       make \
-       autoconf \
-       automake \
-       libtool \
        cmake \
-       pkg-config \
-       capnproto \
+       debhelper-compat \
+       libboost-atomic-dev \
+       libboost-chrono-dev \
+       libboost-date-time-dev \
+       libboost-program-options-dev \
+       libboost-regex-dev \
+       libboost-system-dev \
+       libboost-thread-dev \
+       libbson-dev \
        libcapnp-dev \
-       libgrpc++-dev \
        libgrpc-dev \
-       libgrpc10 \
+       libgrpc++-dev \
        libprotobuf-dev \
        protobuf-compiler \
        protobuf-compiler-grpc \
-       libboost-thread1.74-dev  \
-       libboost-regex1.74-dev \
-       libboost-program-options1.74-dev \
+       capnproto \
+       golang-github-osrg-gobgp-dev \
+       libhiredis-dev \
+       libjson-c-dev \
+       liblog4cpp5-dev \
+       libluajit-5.1-dev \
+       libicu-dev \
        libmongoc-dev \
-       liblog4cpp5-dev; \
+       libncurses5-dev \
+       libpcap-dev \
+       pkg-config
      fi
 
 #
