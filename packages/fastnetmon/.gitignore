@@ -1,0 +1,7 @@
+fastnetmon/
+fastnetmon-debian-salsa/
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
