@@ -33,4 +33,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('fastnetmon', pkgList, null, true, "**/packages/fastnetmon/*")
+buildPackage('fastnetmon', pkgList, null, false, "**/packages/fastnetmon/*")
