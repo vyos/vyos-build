@@ -352,9 +352,15 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
         cd /tmp/libbpf && git checkout b91f53ec5f1aba2 && cd src && make install; \
     fi
 
-# Packages needed for vyos-xe-guest-utilities
-RUN apt-get update && apt-get install -y \
-      golang
+# Go required for validators and vyos-xe-guest-utilities
+RUN GO_VERSION_INSTALL="1.18.3" ; \
+    if [ "$ARCH" = "arm64v8" ] ; then \
+        wget -O /tmp/go${GO_VERSION_INSTALL}.linux-arm64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-arm64.tar.gz ; \
+    else \
+        wget -O /tmp/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz ; \
+    fi && \
+    tar -C /opt -xzf /tmp/go*.tar.gz && \
+    rm /tmp/go*.tar.gz
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
@@ -545,7 +551,6 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
        protobuf-compiler \
        protobuf-compiler-grpc \
        capnproto \
-       golang-github-osrg-gobgp-dev \
        libhiredis-dev \
        libjson-c-dev \
        liblog4cpp5-dev \
@@ -571,8 +576,9 @@ RUN gem install --no-document fpm
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     chmod a+s /usr/sbin/useradd /usr/sbin/groupadd /usr/sbin/gosu /usr/sbin/usermod
 
-# Ensure sure all users have access to our OCAM installation
-RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc
+# Ensure sure all users have access to our OCAM and Go installation
+RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc && \
+    echo "export PATH=/opt/go/bin:\$PATH" >> /etc/skel/.bashrc
 
 # Cleanup
 RUN rm -rf /tmp/*
