@@ -23,11 +23,11 @@
 // and not via a DEB package
 def pkgList = [
     ['name': 'fastnetmon-debian-salsa',
-     'scmCommit': 'debian/1.2.1-1',
+     'scmCommit': 'debian/1.2.2-1',
      'scmUrl': 'https://salsa.debian.org/debian/fastnetmon.git',
      'buildCmd': '/bin/true'],
     ['name': 'fastnetmon',
-     'scmCommit': 'v1.2.1',
+     'scmCommit': 'v1.2.2',
      'scmUrl': 'https://github.com/pavel-odintsov/fastnetmon.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
