@@ -523,7 +523,15 @@ try:
         log.info('Generating some OpenVPN keys')
         subject = '/C=DE/ST=BY/O=VyOS/localityName=Cloud/commonName=vyos/' \
                   'organizationalUnitName=VyOS/emailAddress=maintainers@vyos.io/'
-        ca_cert  = '/config/auth/ovpn_test_ca.pem'
+        ca_subject = '/C=DE/ST=BY/O=VyOS/localityName=Cloud/commonName=vyos\ CA/' \
+                  'organizationalUnitName=VyOS/emailAddress=maintainers@vyos.io/'
+        subca_subject = '/C=DE/ST=BY/O=VyOS/localityName=Cloud/commonName=vyos\ SubCA/' \
+                  'organizationalUnitName=VyOS/emailAddress=maintainers@vyos.io/'
+        ca_cert = '/config/auth/ovpn_test_ca.pem'
+        ca_cert_chain = '/config/auth/ovpn_test_chain.pem'
+        subca_cert = '/config/auth/ovpn_test_subca.pem'
+        subca_csr = '/tmp/subca.csr'
+        subca_key = '/config/auth/ovpn_test_subca.key'
         ssl_cert = '/config/auth/ovpn_test_server.pem'
         ssl_key  = '/config/auth/ovpn_test_server.key'
         dh_pem   = '/config/auth/ovpn_test_dh.pem'
@@ -533,7 +541,13 @@ try:
         c.sendline(f'openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 '\
                    f'-keyout {ssl_key} -out {ssl_cert} -subj {subject}')
         c.expect(op_mode_prompt, timeout=600)
-        c.sendline(f'openssl req -new -x509 -key {ssl_key} -out {ca_cert} -subj {subject}')
+        c.sendline(f'openssl req -new -x509 -extensions v3_ca -key {ssl_key} -out {ca_cert} -subj {ca_subject}')
+        c.expect(op_mode_prompt, timeout=600)
+        c.sendline(f'openssl req -newkey rsa:2048 -new -nodes -keyout {subca_key} -out {subca_csr} -subj {subca_subject}')
+        c.expect(op_mode_prompt, timeout=600)
+        c.sendline(f'openssl x509 -req -CA {ca_cert} -CAkey {ssl_key} -set_serial 01 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -days 3650 -out {subca_cert} -in {subca_csr}')
+        c.expect(op_mode_prompt, timeout=600)
+        c.sendline(f'cat {subca_cert} {ca_cert} > {ca_cert_chain}')
         c.expect(op_mode_prompt, timeout=600)
         c.sendline(f'openssl dhparam -out {dh_pem} 2048')
         c.expect(op_mode_prompt, timeout=600)
@@ -546,7 +560,7 @@ try:
         c.sendline(f'echo "#!/bin/sh" > {script_file}; chmod 775 {script_file}')
         c.expect(op_mode_prompt)
 
-        for file in [ca_cert, ssl_cert, ssl_key, dh_pem, s2s_key, auth_key]:
+        for file in [ca_cert, ca_cert_chain, ssl_cert, ssl_key, dh_pem, s2s_key, auth_key]:
             c.sendline(f'sudo chown openvpn:openvpn {file}')
             c.expect(op_mode_prompt)
 
