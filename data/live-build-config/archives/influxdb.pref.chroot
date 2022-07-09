@@ -1,3 +1,0 @@
-Package: telegraf
-Pin: origin repos.influxdata.com
-Pin-Priority: 600
