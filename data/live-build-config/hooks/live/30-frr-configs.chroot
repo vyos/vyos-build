@@ -30,22 +30,22 @@ bfdd=yes
 staticd=yes
 
 vtysh_enable=yes
-zebra_options="  -s 90000000 --daemon -A 127.0.0.1 -M snmp"
-bgpd_options="   --daemon -A 127.0.0.1 -M snmp -M rpki -M bmp"
-ospfd_options="  --daemon -A 127.0.0.1 -M snmp"
-ospf6d_options=" --daemon -A ::1 -M snmp"
-ripd_options="   --daemon -A 127.0.0.1 -M snmp"
-ripngd_options=" --daemon -A ::1"
-isisd_options="  --daemon -A 127.0.0.1 -M snmp"
-pimd_options="  --daemon -A 127.0.0.1"
-ldpd_options="  --daemon -A 127.0.0.1"
-nhrpd_options="  --daemon -A 127.0.0.1"
-eigrpd_options="  --daemon -A 127.0.0.1"
-babeld_options="  --daemon -A 127.0.0.1"
-sharpd_options="  --daemon -A 127.0.0.1"
-pbrd_options="  --daemon -A 127.0.0.1"
-staticd_options="  --daemon -A 127.0.0.1"
-bfdd_options="  --daemon -A 127.0.0.1"
+zebra_options="-s 90000000 --daemon -A 127.0.0.1 -M snmp"
+bgpd_options="--daemon -A 127.0.0.1 -M snmp -M rpki -M bmp"
+ospfd_options="--daemon -A 127.0.0.1 -M snmp"
+ospf6d_options="--daemon -A ::1 -M snmp"
+ripd_options="--daemon -A 127.0.0.1 -M snmp"
+ripngd_options="--daemon -A ::1"
+isisd_options="--daemon -A 127.0.0.1 -M snmp"
+pimd_options="--daemon -A 127.0.0.1"
+ldpd_options="--daemon -A 127.0.0.1"
+nhrpd_options="--daemon -A 127.0.0.1"
+eigrpd_options="--daemon -A 127.0.0.1"
+babeld_options="--daemon -A 127.0.0.1"
+sharpd_options="--daemon -A 127.0.0.1"
+pbrd_options="--daemon -A 127.0.0.1"
+staticd_options="--daemon -A 127.0.0.1"
+bfdd_options="--daemon -A 127.0.0.1"
 
 watchfrr_enable=no
 valgrind_enable=no
@@ -67,7 +67,3 @@ with open("/etc/frr/frr.conf", "w") as f:
 # Prevent writing logs to /var/log/frr/frr.log. T2061
 with open("/etc/rsyslog.d/45-frr.conf", "w") as f:
     f.write(frr_log)
-
-# Create empty daemon configs so that they start properly
-for name in ["zebra.conf", "bgpd.conf", "ospfd.conf", "ospf6d.conf", "ripd.conf", "ripngd.conf"]:
-    open(os.path.join("/etc/frr", name), 'a').close()
