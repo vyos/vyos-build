@@ -60,6 +60,7 @@ systemctl disable owamp-server.service
 systemctl disable twamp-server.service
 
 echo I: Enabling services
+systemctl enable frr.service
 systemctl enable ssh-session-cleanup.service
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
