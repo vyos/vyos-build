@@ -211,6 +211,7 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for Intel QAT out-of-tree drivers
 RUN apt-get update && apt-get install -y \
+      pciutils \
       yasm
 
 # Packages needed for Accel-PPP
