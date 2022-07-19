@@ -42,6 +42,7 @@ import (
 	_ "github.com/influxdata/telegraf/plugins/inputs/mem"
 	_ "github.com/influxdata/telegraf/plugins/inputs/net"
 	_ "github.com/influxdata/telegraf/plugins/inputs/netstat"
+	_ "github.com/influxdata/telegraf/plugins/inputs/nstat"
 	_ "github.com/influxdata/telegraf/plugins/inputs/ntpq"
 	_ "github.com/influxdata/telegraf/plugins/inputs/ping"
 	_ "github.com/influxdata/telegraf/plugins/inputs/powerdns_recursor"
