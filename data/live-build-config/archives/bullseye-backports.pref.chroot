@@ -1,0 +1,3 @@
+Package: wpasupplicant
+Pin: release n=bullseye-backports
+Pin-Priority: 600
