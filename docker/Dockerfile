@@ -563,6 +563,20 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
        pkg-config; \
      fi
 
+# Packages needed for hostapd (wpa_supplicant)
+RUN apt-get update && apt-get install -y \
+      libdbus-1-dev \
+      libssl-dev \
+      libncurses5-dev \
+      libpcsclite-dev \
+      libnl-3-dev \
+      libnl-genl-3-dev \
+      libnl-route-3-dev  \
+      libreadline-dev \
+      pkg-config \
+      docbook-to-man \
+      docbook-utils
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
