@@ -1,0 +1,6 @@
+*.udeb
+*.deb
+*.dsc
+*.buildinfo
+*.changes
+*.git
