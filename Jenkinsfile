@@ -160,17 +160,17 @@ pipeline {
                     if (files && params.BUILD_SNAPSHOT) {
                         withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                             s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/' + params.BUILD_VERSION + '/', workingDir: 'build', includePathPattern: 'vyos*.iso',
-                            cacheControl: "public, max-age=14400")
+                            cacheControl: "public, max-age=2592000")
                         }
                     } else {
                         // Publish build result to AWS S3 rolling bucket
                         withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
                             s3Upload(bucket: 's3-us.vyos.io', path: 'rolling/' + getGitBranchName() + '/',
                                      workingDir: 'build', includePathPattern: 'vyos*.iso',
-                                     cacheControl: "public, max-age=14400")
+                                     cacheControl: "public, max-age=2592000")
                             s3Copy(fromBucket: 's3-us.vyos.io', fromPath: 'rolling/' + getGitBranchName() + '/' + files[0].name,
                                    toBucket: 's3-us.vyos.io', toPath: 'rolling/' + getGitBranchName() + '/vyos-rolling-latest.iso',
-                                   cacheControl: "public, max-age=14400")
+                                   cacheControl: "public, max-age=2592000")
                         }
                     }
 
