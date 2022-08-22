@@ -355,13 +355,10 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
 
 # Go required for validators and vyos-xe-guest-utilities
 RUN GO_VERSION_INSTALL="1.18.3" ; \
-    if [ "$ARCH" = "arm64v8" ] ; then \
-        wget -O /tmp/go${GO_VERSION_INSTALL}.linux-arm64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-arm64.tar.gz ; \
-    else \
-        wget -O /tmp/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz ; \
-    fi && \
+    wget -O /tmp/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-$(dpkg-architecture -qDEB_HOST_ARCH).tar.gz ; \
     tar -C /opt -xzf /tmp/go*.tar.gz && \
     rm /tmp/go*.tar.gz
+RUN echo "export PATH=/opt/go/bin:$PATH" >> /etc/bash.bashrc
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
@@ -576,6 +573,27 @@ RUN apt-get update && apt-get install -y \
       pkg-config \
       docbook-to-man \
       docbook-utils
+
+# Packages needed for podman
+RUN apt-get update && sudo apt-get install -y \
+      btrfs-progs \
+      git \
+      iptables \
+      libassuan-dev \
+      libbtrfs-dev \
+      libc6-dev \
+      libdevmapper-dev \
+      libglib2.0-dev \
+      libgpgme-dev \
+      libgpg-error-dev \
+      libprotobuf-dev \
+      libprotobuf-c-dev \
+      libseccomp-dev \
+      libselinux1-dev \
+      libsystemd-dev \
+      pkg-config \
+      runc \
+      uidmap
 
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
