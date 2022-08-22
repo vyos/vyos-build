@@ -23,7 +23,7 @@ install -m 0755 -d tmp/lib/systemd/system
 install -m 0755 bin/* tmp/usr/bin/
 install -m 0644 contrib/systemd/system/* tmp/lib/systemd/system
 
-rm *.deb
+rm -f *.deb
 fpm --input-type dir --output-type deb --name podman \
     --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
     --description "engine to run OCI-based containers in Pods" \
