@@ -16,7 +16,9 @@ fi
 
 echo "I: Copy Debian build instructions"
 cp -a ${SRC_DEB}/debian ${SRC}
-rm -rf ${SRC}/debian/patches
+# Preserve Debian's default of allowing TLSv1.0 for compatibility
+find ${SRC}/debian/patches -mindepth 1 ! -name allow-tlsv1.patch -delete
+echo 'allow-tlsv1.patch' > ${SRC}/debian/patches/series
 
 # Build Debian package
 cd ${SRC}
