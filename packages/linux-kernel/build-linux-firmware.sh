@@ -38,15 +38,46 @@ if [ -d ${VYOS_FIRMWARE_DIR} ]; then
 fi
 mkdir -p ${VYOS_FIRMWARE_DIR}
 
-# Copy firmware file from linux firmware repository into
+# Install firmware files to build directory
+LINUX_FIRMWARE_BUILD_DIR="${LINUX_FIRMWARE}_${GIT_COMMIT}"
+
+if [ -d ${LINUX_FIRMWARE_BUILD_DIR} ]; then
+    rm -rf "${LINUX_FIRMWARE_BUILD_DIR}"
+fi
+
+mkdir -p "${LINUX_FIRMWARE_BUILD_DIR}"
+
+(
+    cd ${LINUX_FIRMWARE}
+    ./copy-firmware.sh "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}"
+)
+
+# Copy firmware file from linux firmware build directory into
 # assembly folder for the vyos-firmware package
 SED_REPLACE="s@${CWD}/${LINUX_FIRMWARE}/@@"
 for FILE in ${FW_FILES}; do
-    if [ -f ${LINUX_FIRMWARE}/${FILE} ]; then
+    # If file is a symlink install the symlink target as well
+    if [ -h "${LINUX_FIRMWARE_BUILD_DIR}/${FILE}" ]; then
+        TARGET="$(realpath --relative-to="${LINUX_FIRMWARE_BUILD_DIR}" "${LINUX_FIRMWARE_BUILD_DIR}/${FILE}")"
+        TARGET_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname "${TARGET}")"
+
+        if [ ! -f "${TARGET_DIR}/$(basename "${TARGET}")" ]; then
+            if [ -f "${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" ]; then
+                mkdir -p "${TARGET_DIR}"
+
+                echo "I: install firmware: ${TARGET}"
+                cp "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" "${TARGET_DIR}"
+            else
+                echo "I: firmware file not found: ${TARGET}"
+            fi
+        fi
+    fi
+
+    if [ -f ${LINUX_FIRMWARE_BUILD_DIR}/${FILE} ]; then
         FW_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname ${FILE})"
-        mkdir -p ${FW_DIR}
+        mkdir -p "${FW_DIR}"
         echo "I: install firmware: ${FILE}"
-        cp ${CWD}/${LINUX_FIRMWARE}/${FILE} ${FW_DIR}
+        cp -P "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${FILE}" "${FW_DIR}"
     else
         echo "I: firmware file not found: ${FILE}"
     fi
@@ -59,4 +90,5 @@ fpm --input-type dir --output-type deb --name ${VYOS_FIRMWARE_NAME} \
     --description "Binary firmware for various drivers in the Linux kernel" \
     --architecture all --version ${GIT_COMMIT} --deb-compression gz -C ${VYOS_FIRMWARE_DIR}
 
+rm -rf "${LINUX_FIRMWARE_BUILD_DIR}"
 rm -rf ${VYOS_FIRMWARE_DIR}
