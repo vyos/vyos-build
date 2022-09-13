@@ -604,6 +604,7 @@ RUN apt-get update && apt-get install -y \
       ruby-dev \
       rubygems \
       build-essential
+RUN gem install public_suffix -v 4.0.7
 RUN gem install --no-document fpm
 
 # Allow password-less 'sudo' for all users in group 'sudo'
