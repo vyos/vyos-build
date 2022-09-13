@@ -480,6 +480,7 @@ RUN apt-get update && apt-get install -y \
       dh-python \
       docbook-xsl \
       flex \
+      libeditreadline-dev \
       libgmp-dev \
       libjansson-dev \
       libmnl-dev \
@@ -495,6 +496,9 @@ RUN apt-get update && apt-get install -y \
       debhelper-compat \
       libmnl-dev \
       libnfnetlink-dev \
+      libnetfilter-cthelper-dev \
+      libnetfilter-cttimeout-dev \
+      libnetfilter-queue-dev \
       libtool
 
 # Packages needed for wide-dhcpv6
