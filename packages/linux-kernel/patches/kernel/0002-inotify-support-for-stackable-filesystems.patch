@@ -19,7 +19,6 @@ for bug #303, and will allow that commit to be reverted.
 Bug #425 http://bugzilla.vyos.net/show_bug.cgi?id=425
 
 (cherry picked from commit a93f1128bc83b5a6628da242e71c18ef05e81ea2)
-
 ---
  fs/notify/inotify/Kconfig        |   9 +++
  fs/notify/inotify/inotify_user.c | 114 ++++++++++++++++++++++++++++++-
@@ -45,7 +44,7 @@ index 1cc8be25df7e..bc4acd1a6ea4 100644
 +
 +	  If unsure, say N.
 diff --git a/fs/notify/inotify/inotify_user.c b/fs/notify/inotify/inotify_user.c
-index 186722ba3894..1ce328e506c8 100644
+index 9fb7701d2f8a..a605abbf04ce 100644
 --- a/fs/notify/inotify/inotify_user.c
 +++ b/fs/notify/inotify/inotify_user.c
 @@ -15,6 +15,7 @@
@@ -56,7 +55,7 @@ index 186722ba3894..1ce328e506c8 100644
  #include <linux/fsnotify_backend.h>
  #include <linux/idr.h>
  #include <linux/init.h> /* fs_initcall */
-@@ -75,6 +76,93 @@ struct ctl_table inotify_table[] = {
+@@ -89,6 +90,93 @@ struct ctl_table inotify_table[] = {
  };
  #endif /* CONFIG_SYSCTL */
  
@@ -150,7 +149,7 @@ index 186722ba3894..1ce328e506c8 100644
  static inline __u32 inotify_arg_to_mask(struct inode *inode, u32 arg)
  {
  	__u32 mask;
-@@ -334,8 +422,8 @@ static const struct file_operations inotify_fops = {
+@@ -347,8 +435,8 @@ static const struct file_operations inotify_fops = {
  /*
   * find_inode - resolve a user-given path to a specific inode
   */
@@ -161,7 +160,7 @@ index 186722ba3894..1ce328e506c8 100644
  {
  	int error;
  
-@@ -356,6 +444,28 @@ static int inotify_find_inode(const char __user *dirname, struct path *path,
+@@ -369,6 +457,28 @@ static int inotify_find_inode(const char __user *dirname, struct path *path,
  	return error;
  }
  
@@ -191,7 +190,7 @@ index 186722ba3894..1ce328e506c8 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 290983bcfbb3..c751b0c8d9e5 100644
+index 7bb0a47cb615..6dd5f1000151 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -15,6 +15,7 @@
@@ -202,7 +201,7 @@ index 290983bcfbb3..c751b0c8d9e5 100644
  #include "overlayfs.h"
  
  MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
-@@ -2040,6 +2041,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -2178,6 +2179,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -221,7 +220,7 @@ index 290983bcfbb3..c751b0c8d9e5 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -2055,18 +2068,24 @@ static int __init ovl_init(void)
+@@ -2193,18 +2206,24 @@ static int __init ovl_init(void)
  	err = ovl_aio_request_cache_init();
  	if (!err) {
  		err = register_filesystem(&ovl_fs_type);
@@ -295,5 +294,5 @@ index 6a24905f6e1e..4484f0760588 100644
 +
  #endif	/* _LINUX_INOTIFY_H */
 -- 
-2.20.1
+2.30.2
 
