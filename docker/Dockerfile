@@ -484,7 +484,6 @@ RUN apt-get update && apt-get install -y \
       libgmp-dev \
       libjansson-dev \
       libmnl-dev \
-      libreadline-dev \
       libtool \
       libxtables-dev \
       python3-all \
