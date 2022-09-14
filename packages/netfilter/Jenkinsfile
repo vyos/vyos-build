@@ -32,6 +32,7 @@ def pkgList = [
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-nftables.git',
      'buildCmd': '''sudo dpkg -i ../libnftnl*.deb;
                     sed -i "s/debhelper-compat.*/debhelper-compat (= 12),/" debian/control;
+                    sudo apt-get update; sudo apt-get install -y libeditreadline-dev;
                     dpkg-buildpackage -uc -us -tc -b'''],
 
     // libnetfilter-conntrack
