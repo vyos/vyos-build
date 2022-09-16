@@ -216,7 +216,6 @@ RUN apt-get update && apt-get install -y \
 
 # Packages needed for Accel-PPP
 RUN apt-get update && apt-get install -y \
-      liblua5.3-dev \
       libssl1.1 \
       libssl-dev \
       libpcre3-dev
