@@ -1,0 +1,46 @@
+# ISO image for EdgeCore routers
+
+image_format = "iso"
+
+# udev rules for correct ordering of onboard NICs
+[[includes_chroot]]
+  path = "lib/udev/rules.d/64-vyos-SAF51015I-net.rules"
+  data = '''
+ATTR{[dmi/id]board_name}!="SAF51015I-0318-EC", GOTO="end_ec_nic"
+
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.0", ENV{VYOS_IFNAME}="eth1"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:03:00.0", ENV{VYOS_IFNAME}="eth2"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:04:00.0", ENV{VYOS_IFNAME}="eth3"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:05:00.0", ENV{VYOS_IFNAME}="eth4"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:06:00.0", ENV{VYOS_IFNAME}="eth5"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:06:00.1", ENV{VYOS_IFNAME}="eth6"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:06:00.2", ENV{VYOS_IFNAME}="eth7"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:06:00.3", ENV{VYOS_IFNAME}="eth8"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:0a:00.0", ENV{VYOS_IFNAME}="eth9"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:0a:00.1", ENV{VYOS_IFNAME}="eth10"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:0b:00.0", ENV{VYOS_IFNAME}="eth11"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:0b:00.1", ENV{VYOS_IFNAME}="eth12"
+
+LABEL="end_ec_nic"
+
+'''
+
+[[includes_chroot]]
+  path = "lib/udev/rules.d/64-vyos-SAF51003I-net.rules"
+  data = '''
+ATTR{[dmi/id]board_name}!="SAF51003I", GOTO="end_ec_nic"
+
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.0", ENV{VYOS_IFNAME}="eth1",  ATTR{ifalias}="LAN1"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.1", ENV{VYOS_IFNAME}="eth2",  ATTR{ifalias}="LAN2"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.2", ENV{VYOS_IFNAME}="eth3",  ATTR{ifalias}="LAN3"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:02:00.3", ENV{VYOS_IFNAME}="eth4",  ATTR{ifalias}="LAN4"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:05:00.0", ENV{VYOS_IFNAME}="eth5",  ATTR{ifalias}="LAN5"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:05:00.1", ENV{VYOS_IFNAME}="eth6",  ATTR{ifalias}="LAN6"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:05:00.2", ENV{VYOS_IFNAME}="eth7",  ATTR{ifalias}="LAN7"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:05:00.3", ENV{VYOS_IFNAME}="eth8",  ATTR{ifalias}="LAN8"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:08:00.0", ENV{VYOS_IFNAME}="eth9",  ATTR{ifalias}="DMZ"
+ACTION=="add", SUBSYSTEM=="net", KERNELS=="0000:08:00.1", ENV{VYOS_IFNAME}="eth10", ATTR{ifalias}="WAN"
+
+LABEL="end_ec_nic"
+
+'''

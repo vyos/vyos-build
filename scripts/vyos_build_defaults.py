@@ -18,19 +18,28 @@
 
 import os
 
+# Relative to the repository directory
+
 BUILD_DIR = 'build'
-BUILD_CONFIG = os.path.join(BUILD_DIR, 'build-config.json')
+BUILD_CONFIG = os.path.join(BUILD_DIR, 'build-config.toml')
 
-PBUILDER_CONFIG = os.path.join(BUILD_DIR, 'pbuilderrc')
-PBUILDER_DIR = os.path.join(BUILD_DIR, 'pbuilder')
+DEFAULTS_FILE = 'data/defaults.toml'
 
-LB_CONFIG_DIR = os.path.join(BUILD_DIR, 'config')
-CHROOT_INCLUDES_DIR = os.path.join(LB_CONFIG_DIR, 'includes.chroot')
+BUILD_TYPES_DIR = 'data/build-types'
+BUILD_ARCHES_DIR = 'data/architectures'
+BUILD_FLAVORS_DIR = 'data/build-flavors'
 
+# Relative to the build directory
+
+PBUILDER_CONFIG = 'pbuilderrc'
+PBUILDER_DIR = 'pbuilder'
+
+LB_CONFIG_DIR = 'config'
+
+CHROOT_INCLUDES_DIR = 'config/includes.chroot'
 ARCHIVES_DIR = 'config/archives/'
 
 VYOS_REPO_FILE = 'config/archives/vyos.list.chroot'
 CUSTOM_REPO_FILE = 'config/archives/custom.list.chroot'
-CUSTOM_PACKAGE_LIST_FILE = 'config/package-lists/custom.list.chroot'
+PACKAGE_LIST_FILE = 'config/package-lists/custom.list.chroot'
 
-DEFAULT_BUILD_FLAVOR = 'data/defaults.json'

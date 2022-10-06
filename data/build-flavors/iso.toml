@@ -1,0 +1,14 @@
+# Generic (aka "universal") ISO image
+
+image_format = "iso"
+
+# Include these packages in the image regardless of the architecture
+packages = [
+  # QEMU and Xen guest tools exist for multiple architectures
+  "qemu-guest-agent",
+  "vyos-xe-guest-utilities",
+]
+
+[architectures.amd64]
+  # Hyper-V and VMware guest tools are x86-only
+  packages = ["hyperv-daemons", "vyos-1x-vmware"]
