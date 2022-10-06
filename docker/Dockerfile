@@ -214,13 +214,6 @@ RUN apt-get update && apt-get install -y \
       pciutils \
       yasm
 
-# Packages needed for Accel-PPP
-RUN apt-get update && apt-get install -y \
-      liblua5.3-dev \
-      libssl1.1 \
-      libssl-dev \
-      libpcre3-dev
-
 # Packages needed for Wireguard
 RUN apt-get update && apt-get install -y \
       debhelper-compat \
@@ -623,6 +616,15 @@ RUN apt-get update && sudo apt-get install -y \
       pkg-config \
       runc \
       uidmap
+
+# Packages needed for Accel-PPP
+# XXX: please note that this must be installed after nftable dependencies - otherwise
+# APT will remove liblua5.4-dev which breaks the Accel-PPP build
+RUN apt-get update && apt-get install -y \
+      liblua5.4-dev \
+      libssl1.1 \
+      libssl-dev \
+      libpcre3-dev
 
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
