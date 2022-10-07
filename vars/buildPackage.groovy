@@ -42,7 +42,6 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                 when {
                     anyOf {
                         changeset "${changesPattern}"
-                        changeset "**/data/defaults.json"
                         triggeredBy cause: "UserIdCause"
                     }
                 }
