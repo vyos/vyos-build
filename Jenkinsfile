@@ -95,14 +95,7 @@ pipeline {
                     if (params.BUILD_VERSION == env.BASE_VERSION + 'ISO8601-TIMESTAMP')
                         VYOS_VERSION = env.BASE_VERSION + sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
 
-                    sh """
-                        ./configure \
-                            --build-by "${params.BUILD_BY}" \
-                            --debian-mirror http://deb.debian.org/debian/ \
-                            --build-type release \
-                            --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES}
-                        sudo make iso
-                    """
+                    sh "sudo make iso"
 
                     if (fileExists('build/live-image-amd64.hybrid.iso') == false) {
                         error('ISO build error')
