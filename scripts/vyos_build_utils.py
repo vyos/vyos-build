@@ -21,7 +21,7 @@ import sys
 import os
 from distutils.spawn import find_executable
 
-import defaults
+import vyos_build_defaults as defaults
 
 def check_build_config():
     if not os.path.exists(defaults.BUILD_CONFIG):
@@ -60,6 +60,18 @@ class DependencyChecker(object):
             return self.__missing
         return None
 
-    def print_missing_deps(self):
-        print("Missing packages: " + " ".join(self.__missing['packages']))
-        print("Missing binaries: " + " ".join(self.__missing['binaries']))
+    def format_missing_dependencies(self):
+        msg = "E: There are missing system dependencies!\n"
+        if self.__missing['packages']:
+            msg += "E: Missing packages: " + " ".join(self.__missing['packages'])
+        if self.__missing['binaries']:
+            msg += "E: Missing binaries: " + " ".join(self.__missing['binaries'])
+        return msg
+
+def check_system_dependencies(deps):
+    checker = DependencyChecker(deps)
+    missing = checker.get_missing_dependencies()
+    if missing:
+        raise OSError(checker.format_missing_dependencies())
+    else:
+        pass

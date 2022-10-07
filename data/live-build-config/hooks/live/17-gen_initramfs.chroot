@@ -9,4 +9,15 @@ if [ -e /boot/initrd.img-* ]; then
 	rm -f /boot/initrd.img-*
 fi
 
-update-initramfs -c -k `ls /boot | grep vmlinuz- | sed 's/vmlinuz-//g'`
+KERNEL_COUNT=$(find /boot/ -type f -name vmlinuz* | wc -l)
+if [ "$KERNEL_COUNT" -gt 1 ]; then
+    echo "E: there is more than one kernel image file installed!"
+    echo "E: please make sure that kernel_version in data/defaults.toml is up to date"
+    echo "E: if your repository is up to date, then there is a bug"
+fi
+
+kernel=`ls /boot | grep vmlinuz- | sed 's/vmlinuz-//g'`
+
+echo "I: Executing update-initramfs -c -k $kernel"
+
+update-initramfs -c -k $kernel

@@ -1,0 +1,10 @@
+# Packages added to images for x86 by default
+packages = [
+  "grub2",
+  "grub-pc",
+  "vyos-linux-firmware",
+  "vyos-intel-qat",
+  "telegraf"
+]
+
+kernel_flavor = "amd64-vyos"

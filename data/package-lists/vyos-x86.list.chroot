@@ -1,8 +1,0 @@
-grub2
-grub-pc
-qemu-guest-agent
-hyperv-daemons
-vyos-xe-guest-utilities
-vyos-1x-vmware
-vyos-linux-firmware
-vyos-intel-qat
