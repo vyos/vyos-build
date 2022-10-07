@@ -27,7 +27,7 @@ def pkgList = [
         cd ..
 
         # read the required Kernel version
-        KERNEL_VER=\$(cat ../../data/defaults.json | jq -r .kernel_version)
+        KERNEL_VER=\$(cat ../../data/defaults.toml | tomlq -r .kernel_version)
         gpg2 --locate-keys torvalds@kernel.org gregkh@kernel.org
         curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.xz
         curl -OL https://www.kernel.org/pub/linux/kernel/v5.x/linux-${KERNEL_VER}.tar.sign
