@@ -94,6 +94,9 @@ RUN apt-get update && apt-get install -y \
       debootstrap \
       live-build
 
+# vyos-build now also makes use of TOML - install yq which has toml support
+RUN pip install yq==3.1.0
+
 # Syslinux and Grub2 is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       apt-get update && apt-get install -y \
