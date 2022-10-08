@@ -81,6 +81,9 @@ pipeline {
                     triggeredBy cause: "UserIdCause"
                 }
             }
+            environment {
+                PYTHONDONTWRITEBYTECODE = 1
+            }
             steps {
                 script {
                     // Display Git commit Id used with the Jenkinsfile on the Job "Build History" pane
