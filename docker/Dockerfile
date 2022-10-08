@@ -622,9 +622,9 @@ RUN apt-get update && sudo apt-get install -y \
 
 # Packages needed for Accel-PPP
 # XXX: please note that this must be installed after nftable dependencies - otherwise
-# APT will remove liblua5.4-dev which breaks the Accel-PPP build
+# APT will remove liblua5.3-dev which breaks the Accel-PPP build
 RUN apt-get update && apt-get install -y \
-      liblua5.4-dev \
+      liblua5.3-dev \
       libssl1.1 \
       libssl-dev \
       libpcre3-dev
