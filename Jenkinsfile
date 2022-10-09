@@ -100,8 +100,9 @@ pipeline {
 
                     sh """
                         env
-                        sudo env
-                        sudo ./build-vyos-image --build-by "${params.BUILD_BY}" \
+                        sudo --preserve-env env
+                        sudo --preserve-env ./build-vyos-image \
+                            --build-by "${params.BUILD_BY}" \
                             --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
                             --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES} iso
