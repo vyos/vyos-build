@@ -99,8 +99,6 @@ pipeline {
                         VYOS_VERSION = env.BASE_VERSION + sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
 
                     sh """
-                        env
-                        sudo --preserve-env env
                         sudo --preserve-env ./build-vyos-image \
                             --build-by "${params.BUILD_BY}" \
                             --debian-mirror http://deb.debian.org/debian/ \
