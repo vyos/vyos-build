@@ -447,13 +447,21 @@ if __name__ == "__main__":
             --security true \
             --backports true \
             --apt-recommends false \
-            --apt-options "--yes -oAPT::Default-Release="{{release_train}}" -oAPT::Get::allow-downgrades=true" \
+            --apt-options "--yes -oAPT::Get::allow-downgrades=true" \
             --apt-indices false
             "${@}"
     """)
 
-
     lb_config_command = lb_config_tmpl.render(build_config)
+
+    ## Pin release for VyOS packages
+    apt_pin = f"""Package: *
+Pin: release n={build_config['release_train']}
+Pin-Priority: 600
+"""
+
+    with open(f'../data/live-build-config/archives/vyos.pref.chroot', 'w') as f:
+        f.write(apt_pin)
 
     print("I: Configuring live-build")
 
@@ -471,6 +479,11 @@ if __name__ == "__main__":
         print("I: dry-run, not starting image build")
         sys.exit(0)
 
+    ## Add local packages
+    local_packages = glob.glob('../packages/*.deb')
+    if local_packages:
+        for f in local_packages:
+            shutil.copy(f, 'config/packages.chroot/' + os.path.basename(f))
 
     ## Build the image
     print("I: Starting image build")
