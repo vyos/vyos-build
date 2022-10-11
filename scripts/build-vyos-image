@@ -460,7 +460,7 @@ Pin: release n={build_config['release_train']}
 Pin-Priority: 600
 """
 
-    with open(f'../data/live-build-config/archives/vyos.pref.chroot', 'w') as f:
+    with open(defaults.VYOS_PIN_FILE, 'w') as f:
         f.write(apt_pin)
 
     print("I: Configuring live-build")
@@ -483,7 +483,7 @@ Pin-Priority: 600
     local_packages = glob.glob('../packages/*.deb')
     if local_packages:
         for f in local_packages:
-            shutil.copy(f, 'config/packages.chroot/' + os.path.basename(f))
+            shutil.copy(f, os.path.join(defaults.LOCAL_PACKAGES_PATH, os.path.basename(f)))
 
     ## Build the image
     print("I: Starting image build")
