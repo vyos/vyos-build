@@ -12,7 +12,7 @@ vyos_mirror = "http://dev.packages.vyos.net/repositories/current"
 vyos_branch = "current"
 release_train = "current"
 
-kernel_version = "5.15.73"
+kernel_version = "5.15.74"
 
 additional_repositories = [
   "deb [arch=amd64] https://repo.saltproject.io/py3/debian/11/amd64/3004 bullseye main",
