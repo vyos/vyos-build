@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021 VyOS maintainers and contributors
+# Copyright (C) 2018-2022 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # in order to easy exprort images built to "external" world
@@ -344,9 +344,8 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
         llvm \
         libelf-dev \
         libpcap-dev \
+        libbpf-dev \
         build-essential; \
-      git clone https://github.com/libbpf/libbpf.git /tmp/libbpf && \
-        cd /tmp/libbpf && git checkout b91f53ec5f1aba2 && cd src && make install; \
     fi
 
 # Go required for validators and vyos-xe-guest-utilities
