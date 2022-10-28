@@ -2,6 +2,7 @@ packages = [
   "gdb",
   "strace",
   "apt-rdepends",
+  "skopeo",
   "tshark",
   "vim",
   "vyos-1x-smoketest"
