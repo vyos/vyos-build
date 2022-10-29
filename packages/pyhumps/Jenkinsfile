@@ -27,4 +27,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('owamp', pkgList, null, true, "**/packages/pyhumps/*")
+buildPackage('owamp', pkgList, null, false, "**/packages/pyhumps/*")
