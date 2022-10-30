@@ -328,11 +328,11 @@ if __name__ == "__main__":
     NAME="VyOS"
     VERSION_ID="{version}"
     VERSION="{version} ({build_config['release_train']})"
-    VERSION_CODENAME=buster
+    VERSION_CODENAME={build_defaults['debian_distribution']}
     ID=vyos
-    HOME_URL="https://vyos.io"
-    SUPPORT_URL="https://support.vyos.io"
-    BUG_REPORT_URL="https://phabricator.vyos.net"
+    HOME_URL="{build_defaults['website_url']}"
+    SUPPORT_URL="{build_defaults['support_url']}"
+    BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
     """
 
     chroot_includes_dir = os.path.join(defaults.BUILD_DIR, defaults.CHROOT_INCLUDES_DIR)
