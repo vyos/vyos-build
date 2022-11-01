@@ -335,6 +335,11 @@ Run git clone https://github.com/dsoprea/PyInotify.git /tmp/inotify && \
     python3 setup.py --command-packages=stdeb.command bdist_deb && \
     sudo dpkg -i ./deb_dist/python3-inotify*.deb
 
+Run git clone https://github.com/nficano/humps.git /tmp/humps && \
+    cd /tmp/humps && git checkout v3.8.0 && \
+    python3 setup.py --command-packages=stdeb.command bdist_deb; cp deb_dist/*.deb .. && \
+    dpkg -i /tmp/python3-pyhumps_*_all.deb
+
 # Packages needed for vyos-1x-xdp package, gcc-multilib is not available on
 # arm64 but required by XDP
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
