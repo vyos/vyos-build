@@ -176,7 +176,7 @@ pipeline {
 
                     // Trigger GitHub action which will re-build the static community website which
                     // also holds the AWS download links to the generated ISO images
-                    withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
+                    withCredentials([string(credentialsId: 'vyos.net-build-trigger-token', variable: 'TOKEN')]) {
                         sh '''
                             curl -X POST --header "Accept: application/vnd.github.v3+json" \
                             --header "authorization: Bearer $TOKEN" --data '{"ref": "production"}' \
