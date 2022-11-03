@@ -215,7 +215,7 @@ if __name__ == "__main__":
     args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
 
     ## Combine the arguments with non-configurable defaults
-    build_config = merge_dicts(build_defaults, args)
+    build_config = merge_dicts(args, build_defaults)
 
     ## Load the flavor file and mix-ins
     with open(make_toml_path(defaults.BUILD_TYPES_DIR, build_config["build_type"]), 'r') as f:
