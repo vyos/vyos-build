@@ -1,0 +1,59 @@
+# Generic (aka "universal") ISO image + AWS STUFF (to be able to create an AMI)
+
+image_format = "iso"
+
+packages = [
+  "qemu-guest-agent",
+  "cloud-init",
+  "awscli",
+]
+
+[[includes_chroot]]
+  path = "etc/cloud/cloud.cfg.d/90_dpkg.cfg"
+  data = '''
+datasource_list: [ Ec2 ]
+  '''
+
+[[includes_chroot]]
+  path = "opt/vyatta/etc/config.boot.default"
+  data = '''
+system {
+    host-name vyos
+    login {
+        user vyos {
+            authentication {
+                encrypted-password "*"
+                plaintext-password ""
+            }
+            level admin
+        }
+    }
+    syslog {
+        global {
+            facility all {
+                level info
+            }
+            facility protocols {
+                level debug
+            }
+        }
+    }
+    ntp {
+        server "169.254.169.123"
+    }
+    console {
+        device ttyS0 {
+            speed 115200
+        }
+    }
+    config-management {
+        commit-revisions 100
+    }
+}
+
+interfaces {
+    loopback lo {
+    }
+}
+  '''
+
