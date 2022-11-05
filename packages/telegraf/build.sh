@@ -2,6 +2,8 @@
 CWD=$(pwd)
 set -e
 
+BUILD_ARCH=$(dpkg-architecture -qDEB_TARGET_ARCH)
+
 SRC=telegraf
 if [ ! -d ${SRC} ]; then
     echo "Source directory does not exists, please 'git clone'"
@@ -16,7 +18,7 @@ cp ${PLUGIN_DIR}/inputs/all/all.go ${SRC}/plugins/inputs/all/all.go
 echo "I: Selecting Output plugins"
 cp ${PLUGIN_DIR}/outputs/all/all.go ${SRC}/plugins/outputs/all/all.go
 
-echo "I: Build Debian amd64 package"
+echo "I: Build Debian ${BUILD_ARCH} package"
 cd ${SRC}
 export PATH=/opt/go/bin:$PATH
-LDFLAGS=-w make amd64.deb
+LDFLAGS=-w make "${BUILD_ARCH}.deb"
