@@ -71,7 +71,7 @@ def merge_dicts(source, destination):
         if key not in tmp:
             tmp[key] = value
         elif isinstance(source[key], dict):
-            tmp[key] = dict_merge(source[key], tmp[key])
+            tmp[key] = merge_dicts(source[key], tmp[key])
         elif isinstance(source[key], list):
             tmp[key] = source[key] + tmp[key]
         else:
