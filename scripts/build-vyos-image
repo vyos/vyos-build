@@ -71,7 +71,7 @@ def merge_dicts(source, destination):
         if key not in tmp:
             tmp[key] = value
         elif isinstance(source[key], dict):
-            tmp[key] = dict_merge(source[key], tmp[key])
+            tmp[key] = merge_dicts(source[key], tmp[key])
         elif isinstance(source[key], list):
             tmp[key] = source[key] + tmp[key]
         else:
@@ -205,10 +205,6 @@ if __name__ == "__main__":
             print("Version can only be set for release builds")
             print("Use --build-type=release option if you want to set version number")
             sys.exit(1)
-
-    if not args['custom_apt_entry']:
-        args['custom_apt_entry'] = []
-    args['custom_apt_entry'] = args['custom_apt_entry'] + build_defaults['additional_repositories']
 
     ## Inject some useful hardcoded options
     args['build_dir'] = defaults.BUILD_DIR
@@ -385,6 +381,10 @@ if __name__ == "__main__":
         f.write(vyos_repo_entry)
 
     # Add custom APT entries
+    if not args['custom_apt_entry']:
+        args['custom_apt_entry'] = []
+    if build_config['additional_repositories']:
+        args['custom_apt_entry'] = args['custom_apt_entry'] + build_config['additional_repositories']
     if build_config['custom_apt_entry']:
         custom_apt_file = defaults.CUSTOM_REPO_FILE
         entries = "\n".join(build_config['custom_apt_entry'])
@@ -397,7 +397,7 @@ if __name__ == "__main__":
 
     # Add custom APT keys
     if has_nonempty_key(build_config, 'custom_apt_key'):
-        key_dir = ARCHIVES_DIR
+        key_dir = defaults.ARCHIVES_DIR
         for k in build_config['custom_apt_key']:
             dst_name = '{0}.key.chroot'.format(os.path.basename(k))
             shutil.copy(k, os.path.join(key_dir, dst_name))
