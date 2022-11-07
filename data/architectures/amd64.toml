@@ -1,3 +1,10 @@
+additional_repositories = [
+  "deb [arch=amd64] https://repo.saltproject.io/py3/debian/11/amd64/3004 bullseye main",
+  "deb [arch=amd64] http://repo.powerdns.com/debian bullseye-rec-48 main"
+]
+
+kernel_flavor = "amd64-vyos"
+
 # Packages added to images for x86 by default
 packages = [
   "grub2",
@@ -6,5 +13,3 @@ packages = [
   "vyos-intel-qat",
   "telegraf"
 ]
-
-kernel_flavor = "amd64-vyos"
