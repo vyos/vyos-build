@@ -397,7 +397,7 @@ if __name__ == "__main__":
 
     # Add custom APT keys
     if has_nonempty_key(build_config, 'custom_apt_key'):
-        key_dir = ARCHIVES_DIR
+        key_dir = defaults.ARCHIVES_DIR
         for k in build_config['custom_apt_key']:
             dst_name = '{0}.key.chroot'.format(os.path.basename(k))
             shutil.copy(k, os.path.join(key_dir, dst_name))
