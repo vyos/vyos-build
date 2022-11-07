@@ -206,10 +206,6 @@ if __name__ == "__main__":
             print("Use --build-type=release option if you want to set version number")
             sys.exit(1)
 
-    if not args['custom_apt_entry']:
-        args['custom_apt_entry'] = []
-    args['custom_apt_entry'] = args['custom_apt_entry'] + build_defaults['additional_repositories']
-
     ## Inject some useful hardcoded options
     args['build_dir'] = defaults.BUILD_DIR
     args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
@@ -385,6 +381,10 @@ if __name__ == "__main__":
         f.write(vyos_repo_entry)
 
     # Add custom APT entries
+    if not args['custom_apt_entry']:
+        args['custom_apt_entry'] = []
+    if build_config['additional_repositories']:
+        args['custom_apt_entry'] = args['custom_apt_entry'] + build_config['additional_repositories']
     if build_config['custom_apt_entry']:
         custom_apt_file = defaults.CUSTOM_REPO_FILE
         entries = "\n".join(build_config['custom_apt_entry'])
