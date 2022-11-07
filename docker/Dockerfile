@@ -92,8 +92,7 @@ RUN apt-get update && apt-get install -y \
       python3-flake8 \
       python3-autopep8 \
       debootstrap \
-      live-build \
-      skopeo
+      live-build
 
 # vyos-build now also makes use of TOML - install yq which has toml support
 RUN pip install yq==3.1.0

@@ -1,8 +1,0 @@
-#!/bin/sh
-
-# Download busybox container image for smoketests (only ~1MB)
-# Skopeo only added on development builds
-
-if command -v skopeo &>/dev/null; then
-    skopeo copy --additional-tag docker.io/library/busybox:stable docker://docker.io/library/busybox:stable docker-archive://usr/share/vyos/busybox-stable.tar
-fi
