@@ -164,9 +164,9 @@ if __name__ == "__main__":
     parser.add_argument('--dry-run', help='Check build configuration and exit', action='store_true')
 
     # Custom APT entry and APT key options can be used multiple times
-    parser.add_argument('--custom-apt-entry', help="Custom APT entry", action='append')
-    parser.add_argument('--custom-apt-key', help="Custom APT key file", action='append')
-    parser.add_argument('--custom-package', help="Custom package to install from repositories", action='append')
+    parser.add_argument('--custom-apt-entry', help="Custom APT entry", action='append', default=[])
+    parser.add_argument('--custom-apt-key', help="Custom APT key file", action='append', default=[])
+    parser.add_argument('--custom-package', help="Custom package to install from repositories", action='append', default=[])
 
     # Build flavor is a positional argument
     parser.add_argument('build_flavor', help='Build flavor', nargs='?', action='store')
