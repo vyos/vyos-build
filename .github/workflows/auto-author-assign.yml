@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Request review based on files changes and/or groups the author belongs to
-        uses: shufo/auto-assign-reviewer-by-files@v1.1.1
+        uses: shufo/auto-assign-reviewer-by-files@v1.1.4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config: .github/reviewers.yml
