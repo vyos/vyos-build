@@ -216,15 +216,15 @@ if __name__ == "__main__":
     ## Load the flavor file and mix-ins
     with open(make_toml_path(defaults.BUILD_TYPES_DIR, build_config["build_type"]), 'r') as f:
         build_type_config = toml.load(f)
-        build_config = merge_dicts(build_config, build_type_config)
+        build_config = merge_dicts(build_type_config, build_config)
 
     with open(make_toml_path(defaults.BUILD_ARCHES_DIR, build_config["architecture"]), 'r') as f:
         build_arch_config = toml.load(f)
-        build_config = merge_dicts(build_config, build_arch_config)
+        build_config = merge_dicts(build_arch_config, build_config)
 
     with open(make_toml_path(defaults.BUILD_FLAVORS_DIR, build_config["build_flavor"]), 'r') as f:
         flavor_config = toml.load(f)
-        build_config = merge_dicts(build_config, flavor_config)
+        build_config = merge_dicts(flavor_config, build_config)
 
     ## Rename and merge some fields for simplicity
     ## E.g. --custom-packages is for the user, but internally
