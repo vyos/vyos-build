@@ -412,7 +412,7 @@ if __name__ == "__main__":
     ## Create includes
     if has_nonempty_key(build_config, "includes_chroot"):
         for i in build_config["includes_chroot"]:
-            file_path = os.path.join(includes_chroot_dir, i["path"])
+            file_path = os.path.join(chroot_includes_dir, i["path"])
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, 'w') as f:
                 f.write(i["data"])
