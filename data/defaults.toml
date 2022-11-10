@@ -12,7 +12,7 @@ vyos_mirror = "http://dev.packages.vyos.net/repositories/current"
 vyos_branch = "current"
 release_train = "current"
 
-kernel_version = "5.15.77"
+kernel_version = "5.15.78"
 
 website_url = "https://vyos.io"
 support_url = "https://support.vyos.io"
