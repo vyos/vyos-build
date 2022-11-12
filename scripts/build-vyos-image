@@ -425,7 +425,7 @@ if __name__ == "__main__":
             --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
             --linux-flavours {{kernel_flavor}} \
             --linux-packages linux-image-{{kernel_version}} \
-            --bootloader syslinux,grub-efi \
+            --bootloader {{ bootloaders }} \
             --binary-images iso-hybrid \
             --checksums 'sha256 md5' \
             --debian-installer none \
