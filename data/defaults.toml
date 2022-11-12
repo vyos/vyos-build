@@ -13,6 +13,7 @@ vyos_branch = "current"
 release_train = "current"
 
 kernel_version = "5.15.78"
+bootloaders = "syslinux,grub-efi"
 
 website_url = "https://vyos.io"
 support_url = "https://support.vyos.io"
