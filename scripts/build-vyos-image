@@ -381,10 +381,9 @@ if __name__ == "__main__":
         f.write(vyos_repo_entry)
 
     # Add custom APT entries
-    if not args['custom_apt_entry']:
-        args['custom_apt_entry'] = []
     if build_config.get('additional_repositories', False):
-        args['custom_apt_entry'] = args['custom_apt_entry'] + build_config['additional_repositories']
+        build_config['custom_apt_entry'] += build_config['additional_repositories']
+
     if build_config.get('custom_apt_entry', False):
         custom_apt_file = defaults.CUSTOM_REPO_FILE
         entries = "\n".join(build_config['custom_apt_entry'])
