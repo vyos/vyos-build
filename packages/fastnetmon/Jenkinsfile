@@ -19,8 +19,6 @@
 // @Library annotation is not an import statement!
 @Library('vyos-build@current')_
 
-// NOTE: we can build with -d as the libbpf dependency is installed manually
-// and not via a DEB package
 def pkgList = [
     ['name': 'fastnetmon-debian-salsa',
      'scmCommit': 'debian/1.2.2-1',
