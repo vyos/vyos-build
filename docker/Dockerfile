@@ -634,6 +634,13 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       libpcre3-dev
 
+# Packages needed for pam_tacplus
+RUN apt-get update &&  apt-get install -y \
+      libpam-dev \
+      autoconf-archive \
+      gnulib \
+      libtool
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
