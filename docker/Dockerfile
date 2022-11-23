@@ -635,7 +635,7 @@ RUN apt-get update && apt-get install -y \
       libpcre3-dev
 
 # Packages needed for pam_tacplus
-RUN apt-get update &&  apt-get install -y \
+RUN apt-get update && apt-get install -y \
       libpam-dev \
       autoconf-archive \
       gnulib \
