@@ -1,8 +1,2 @@
 fastnetmon/
 fastnetmon-debian-salsa/
-*.tar.gz
-*.deb
-*.dsc
-*.buildinfo
-*.changes
-*.git

@@ -5,14 +5,10 @@
 /intel-qat
 /linux-firmware
 /qat*
-*.deb
-*.changes
-*.buildinfo
 *.tar.xz
 /*.postinst
 
 # Intel Driver source
-*.tar.gz
 i40e-*/
 igb-*/
 ixgbe-*/

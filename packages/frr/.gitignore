@@ -1,7 +1,2 @@
 frr/
 libyang/
-*.deb
-*.dsc
-*.buildinfo
-*.changes
-*.git
