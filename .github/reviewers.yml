@@ -5,15 +5,13 @@ docker-vyos/**:
 
 vars/**:
   - c-po
-  - UnicronNL
 
 .github/**:
   - c-po
   - dmbaturin
-  - UnicronNL
 
 '**':
   - c-po
   - dmbaturin
   - jestabro
-  - UnicronNL
+  
