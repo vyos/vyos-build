@@ -1,17 +1,14 @@
 ---
 docker-vyos/**:
-  - sever-sever
-  - DmitriyEshenko
-
+  - vyos/reviewers
 vars/**:
-  - c-po
+  - vyos/reviewers
 
 .github/**:
-  - c-po
-  - dmbaturin
+  - vyos/reviewers
 
 '**':
-  - c-po
-  - dmbaturin
-  - jestabro
+  - vyos/reviewers
+
+
   
