@@ -23,7 +23,7 @@ def pkgList = [
     ['name': 'sstp-client',
      'scmCommit': 'debian/1.0.18-1',
      'scmUrl': 'https://salsa.debian.org/debian/sstp-client',
-     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b; cp *.deb ..'],
+     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
