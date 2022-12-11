@@ -634,6 +634,12 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       libpcre3-dev
 
+# Packages needed for sstp-client
+RUN apt-get update && apt-get install -y \
+      libssl-dev \
+      libevent-dev \
+      ppp-dev
+
 # Packages needed for pam_tacplus
 RUN apt-get update && apt-get install -y \
       libpam-dev \
