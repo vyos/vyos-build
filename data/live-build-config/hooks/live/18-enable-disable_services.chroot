@@ -2,7 +2,9 @@
 
 echo I: Disabling services
 systemctl disable smartd.service
-systemctl disable isc-dhcp-server.service
+systemctl disable kea-ctrl-agent.service
+systemctl disable kea-dhcp4-server.service
+systemctl disable kea-dhcp6-server.service
 systemctl disable isc-dhcp-relay.service
 systemctl disable nfacctd.service
 systemctl disable pmacctd.service
