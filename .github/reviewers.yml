@@ -1,14 +1,3 @@
 ---
-docker-vyos/**:
-  - vyos/reviewers
-vars/**:
-  - vyos/reviewers
-
-.github/**:
-  - vyos/reviewers
-
-'**':
-  - vyos/reviewers
-
-
-  
+"**/*":
+  - team: reviewers
