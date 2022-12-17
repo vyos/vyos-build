@@ -23,5 +23,5 @@ jobs:
       - name: Request review based on files changes and/or groups the author belongs to
         uses: shufo/auto-assign-reviewer-by-files@v1.1.4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PR_ACTION_ASSIGN_REVIEWERS }}
           config: .github/reviewers.yml
