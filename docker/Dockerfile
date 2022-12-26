@@ -396,6 +396,7 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       libsystemd-dev \
       libtool \
+      libtss2-dev \
       libxml2-dev \
       pkg-config \
       po-debconf \
