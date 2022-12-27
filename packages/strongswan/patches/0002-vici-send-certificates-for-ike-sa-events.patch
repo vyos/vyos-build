@@ -1,21 +1,21 @@
-From 62802d545bc6c9143d44511d25d2df435d3099aa Mon Sep 17 00:00:00 2001
+From 39d537b875e907c63a54d5de8ba6d2ea0ede4604 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
 Date: Mon, 21 Sep 2015 13:42:05 +0300
-Subject: [PATCH 3/4] vici: send certificates for ike-sa events
+Subject: [PATCH 2/3] vici: send certificates for ike-sa events
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
 Signed-off-by: Timo Teräs <timo.teras@iki.fi>
 ---
- src/libcharon/plugins/vici/vici_query.c | 48 +++++++++++++++++++++----
- 1 file changed, 41 insertions(+), 7 deletions(-)
+ src/libcharon/plugins/vici/vici_query.c | 50 +++++++++++++++++++++----
+ 1 file changed, 42 insertions(+), 8 deletions(-)
 
 diff --git a/src/libcharon/plugins/vici/vici_query.c b/src/libcharon/plugins/vici/vici_query.c
-index ad07ff12d..e3f6a0d26 100644
+index bacb7b101..19acc0789 100644
 --- a/src/libcharon/plugins/vici/vici_query.c
 +++ b/src/libcharon/plugins/vici/vici_query.c
-@@ -379,7 +379,7 @@ static void list_vips(private_vici_query_t *this, vici_builder_t *b,
+@@ -402,7 +402,7 @@ static void list_vips(private_vici_query_t *this, vici_builder_t *b,
   * List details of an IKE_SA
   */
  static void list_ike(private_vici_query_t *this, vici_builder_t *b,
@@ -24,7 +24,7 @@ index ad07ff12d..e3f6a0d26 100644
  {
  	time_t t;
  	ike_sa_id_t *id;
-@@ -388,6 +388,8 @@ static void list_ike(private_vici_query_t *this, vici_builder_t *b,
+@@ -411,6 +411,8 @@ static void list_ike(private_vici_query_t *this, vici_builder_t *b,
  	uint32_t if_id;
  	uint16_t alg, ks;
  	host_t *host;
@@ -33,7 +33,7 @@ index ad07ff12d..e3f6a0d26 100644
  
  	b->add_kv(b, "uniqueid", "%u", ike_sa->get_unique_id(ike_sa));
  	b->add_kv(b, "version", "%u", ike_sa->get_version(ike_sa));
-@@ -397,11 +399,43 @@ static void list_ike(private_vici_query_t *this, vici_builder_t *b,
+@@ -420,11 +422,43 @@ static void list_ike(private_vici_query_t *this, vici_builder_t *b,
  	b->add_kv(b, "local-host", "%H", host);
  	b->add_kv(b, "local-port", "%d", host->get_port(host));
  	b->add_kv(b, "local-id", "%Y", ike_sa->get_my_id(ike_sa));
@@ -77,7 +77,7 @@ index ad07ff12d..e3f6a0d26 100644
  
  	eap = ike_sa->get_other_eap_id(ike_sa);
  
-@@ -531,7 +565,7 @@ CALLBACK(list_sas, vici_message_t*,
+@@ -556,7 +590,7 @@ CALLBACK(list_sas, vici_message_t*,
  		b = vici_builder_create();
  		b->begin_section(b, ike_sa->get_name(ike_sa));
  
@@ -86,7 +86,7 @@ index ad07ff12d..e3f6a0d26 100644
  
  		b->begin_section(b, "child-sas");
  		csas = ike_sa->create_child_sa_enumerator(ike_sa);
-@@ -1717,7 +1751,7 @@ METHOD(listener_t, ike_updown, bool,
+@@ -1774,7 +1808,7 @@ METHOD(listener_t, ike_updown, bool,
  	}
  
  	b->begin_section(b, ike_sa->get_name(ike_sa));
@@ -95,7 +95,7 @@ index ad07ff12d..e3f6a0d26 100644
  	b->end_section(b);
  
  	this->dispatcher->raise_event(this->dispatcher,
-@@ -1742,10 +1776,10 @@ METHOD(listener_t, ike_rekey, bool,
+@@ -1799,10 +1833,10 @@ METHOD(listener_t, ike_rekey, bool,
  	b = vici_builder_create();
  	b->begin_section(b, old->get_name(old));
  	b->begin_section(b, "old");
@@ -108,7 +108,16 @@ index ad07ff12d..e3f6a0d26 100644
  	b->end_section(b);
  	b->end_section(b);
  
-@@ -1776,7 +1810,7 @@ METHOD(listener_t, child_updown, bool,
+@@ -1833,7 +1867,7 @@ METHOD(listener_t, ike_update, bool,
+ 	b->add_kv(b, "remote-port", "%d", remote->get_port(remote));
+ 
+ 	b->begin_section(b, ike_sa->get_name(ike_sa));
+-	list_ike(this, b, ike_sa, now);
++	list_ike(this, b, ike_sa, now, TRUE);
+ 	b->end_section(b);
+ 
+ 	this->dispatcher->raise_event(this->dispatcher,
+@@ -1863,7 +1897,7 @@ METHOD(listener_t, child_updown, bool,
  	}
  
  	b->begin_section(b, ike_sa->get_name(ike_sa));
@@ -117,7 +126,7 @@ index ad07ff12d..e3f6a0d26 100644
  	b->begin_section(b, "child-sas");
  
  	snprintf(buf, sizeof(buf), "%s-%u", child_sa->get_name(child_sa),
-@@ -1811,7 +1845,7 @@ METHOD(listener_t, child_rekey, bool,
+@@ -1898,7 +1932,7 @@ METHOD(listener_t, child_rekey, bool,
  	b = vici_builder_create();
  
  	b->begin_section(b, ike_sa->get_name(ike_sa));
@@ -127,5 +136,5 @@ index ad07ff12d..e3f6a0d26 100644
  
  	b->begin_section(b, old->get_name(old));
 -- 
-2.20.1
+2.38.1
 

@@ -1,7 +1,7 @@
-From 809c18140e39d9f16137e478c2142f7c55f39b1c Mon Sep 17 00:00:00 2001
+From db627ec8a8e72bc6b23dc8ab00f4e6b4f448d01c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
 Date: Mon, 21 Sep 2015 13:41:58 +0300
-Subject: [PATCH 2/4] charon: add optional source and remote overrides for
+Subject: [PATCH 1/3] charon: add optional source and remote overrides for
  initiate
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -17,7 +17,7 @@ and is a prerequisite for dmvpn support.
 Signed-off-by: Timo Teräs <timo.teras@iki.fi>
 ---
  src/charon-cmd/cmd/cmd_connection.c           |  2 +-
- src/libcharon/control/controller.c            | 43 ++++++++++++-
+ src/libcharon/control/controller.c            | 42 +++++++++++-
  src/libcharon/control/controller.h            |  3 +
  src/libcharon/plugins/stroke/stroke_control.c |  5 +-
  src/libcharon/plugins/vici/vici_config.c      |  2 +-
@@ -25,15 +25,15 @@ Signed-off-by: Timo Teräs <timo.teras@iki.fi>
  .../processing/jobs/start_action_job.c        |  2 +-
  src/libcharon/sa/ike_sa_manager.c             | 50 ++++++++++++++-
  src/libcharon/sa/ike_sa_manager.h             |  8 ++-
- src/libcharon/sa/trap_manager.c               | 45 ++++++-------
+ src/libcharon/sa/trap_manager.c               | 44 +++++--------
  src/swanctl/commands/initiate.c               | 40 +++++++++++-
- 11 files changed, 217 insertions(+), 47 deletions(-)
+ 11 files changed, 215 insertions(+), 47 deletions(-)
 
 diff --git a/src/charon-cmd/cmd/cmd_connection.c b/src/charon-cmd/cmd/cmd_connection.c
-index 0481d78d4..805d6f198 100644
+index 8c09cac89..8582798d2 100644
 --- a/src/charon-cmd/cmd/cmd_connection.c
 +++ b/src/charon-cmd/cmd/cmd_connection.c
-@@ -438,7 +438,7 @@ static job_requeue_t initiate(private_cmd_connection_t *this)
+@@ -439,7 +439,7 @@ static job_requeue_t initiate(private_cmd_connection_t *this)
  	child_cfg = create_child_cfg(this, peer_cfg);
  
  	if (charon->controller->initiate(charon->controller, peer_cfg, child_cfg,
@@ -43,7 +43,7 @@ index 0481d78d4..805d6f198 100644
  		terminate(pid);
  	}
 diff --git a/src/libcharon/control/controller.c b/src/libcharon/control/controller.c
-index 3baa9342a..5abc4c1df 100644
+index cff504966..9c5afe833 100644
 --- a/src/libcharon/control/controller.c
 +++ b/src/libcharon/control/controller.c
 @@ -15,6 +15,28 @@
@@ -92,7 +92,7 @@ index 3baa9342a..5abc4c1df 100644
  	/**
  	 * unique ID, used for various methods
  	 */
-@@ -414,9 +446,14 @@ METHOD(job_t, initiate_execute, job_requeue_t,
+@@ -414,10 +446,15 @@ METHOD(job_t, initiate_execute, job_requeue_t,
  	ike_sa_t *ike_sa;
  	interface_listener_t *listener = &job->listener;
  	peer_cfg_t *peer_cfg = listener->peer_cfg;
@@ -102,21 +102,14 @@ index 3baa9342a..5abc4c1df 100644
  	ike_sa = charon->ike_sa_manager->checkout_by_config(charon->ike_sa_manager,
 -														peer_cfg);
 +														peer_cfg, my_host, other_host);
+ 	peer_cfg->destroy(peer_cfg);
 +	DESTROY_IF(my_host);
 +	DESTROY_IF(other_host);
 +
  	if (!ike_sa)
  	{
  		DESTROY_IF(listener->child_cfg);
-@@ -425,6 +462,7 @@ METHOD(job_t, initiate_execute, job_requeue_t,
- 		listener_done(listener);
- 		return JOB_REQUEUE_NONE;
- 	}
-+
- 	listener->lock->lock(listener->lock);
- 	listener->ike_sa = ike_sa;
- 	listener->lock->unlock(listener->lock);
-@@ -497,6 +535,7 @@ METHOD(job_t, initiate_execute, job_requeue_t,
+@@ -492,6 +529,7 @@ METHOD(job_t, initiate_execute, job_requeue_t,
  
  METHOD(controller_t, initiate, status_t,
  	private_controller_t *this, peer_cfg_t *peer_cfg, child_cfg_t *child_cfg,
@@ -124,7 +117,7 @@ index 3baa9342a..5abc4c1df 100644
  	controller_cb_t callback, void *param, u_int timeout, bool limits)
  {
  	interface_job_t *job;
-@@ -519,6 +558,8 @@ METHOD(controller_t, initiate, status_t,
+@@ -514,6 +552,8 @@ METHOD(controller_t, initiate, status_t,
  			.status = FAILED,
  			.child_cfg = child_cfg,
  			.peer_cfg = peer_cfg,
@@ -134,10 +127,10 @@ index 3baa9342a..5abc4c1df 100644
  			.options.limits = limits,
  		},
 diff --git a/src/libcharon/control/controller.h b/src/libcharon/control/controller.h
-index b4ccfced2..7a088b122 100644
+index cdd3a5d43..507c19fb3 100644
 --- a/src/libcharon/control/controller.h
 +++ b/src/libcharon/control/controller.h
-@@ -79,6 +79,8 @@ struct controller_t {
+@@ -80,6 +80,8 @@ struct controller_t {
  	 *
  	 * @param peer_cfg		peer_cfg to use for IKE_SA setup
  	 * @param child_cfg		optional child_cfg to set up CHILD_SA from
@@ -146,7 +139,7 @@ index b4ccfced2..7a088b122 100644
  	 * @param cb			logging callback
  	 * @param param			parameter to include in each call of cb
  	 * @param timeout		timeout in ms to wait for callbacks, 0 to disable
-@@ -92,6 +94,7 @@ struct controller_t {
+@@ -93,6 +95,7 @@ struct controller_t {
  	 */
  	status_t (*initiate)(controller_t *this,
  						 peer_cfg_t *peer_cfg, child_cfg_t *child_cfg,
@@ -155,10 +148,10 @@ index b4ccfced2..7a088b122 100644
  						 bool limits);
  
 diff --git a/src/libcharon/plugins/stroke/stroke_control.c b/src/libcharon/plugins/stroke/stroke_control.c
-index 8d84b934e..b00d0e62d 100644
+index ba4e5bf9e..db2c6f00b 100644
 --- a/src/libcharon/plugins/stroke/stroke_control.c
 +++ b/src/libcharon/plugins/stroke/stroke_control.c
-@@ -108,7 +108,7 @@ static void charon_initiate(private_stroke_control_t *this, peer_cfg_t *peer_cfg
+@@ -109,7 +109,7 @@ static void charon_initiate(private_stroke_control_t *this, peer_cfg_t *peer_cfg
  	if (msg->output_verbosity < 0)
  	{
  		charon->controller->initiate(charon->controller, peer_cfg, child_cfg,
@@ -167,7 +160,7 @@ index 8d84b934e..b00d0e62d 100644
  	}
  	else
  	{
-@@ -116,7 +116,8 @@ static void charon_initiate(private_stroke_control_t *this, peer_cfg_t *peer_cfg
+@@ -117,7 +117,8 @@ static void charon_initiate(private_stroke_control_t *this, peer_cfg_t *peer_cfg
  		status_t status;
  
  		status = charon->controller->initiate(charon->controller,
@@ -178,23 +171,23 @@ index 8d84b934e..b00d0e62d 100644
  		switch (status)
  		{
 diff --git a/src/libcharon/plugins/vici/vici_config.c b/src/libcharon/plugins/vici/vici_config.c
-index 2a4d58eab..0e9d24d11 100644
+index 0c061d4b2..2da616700 100644
 --- a/src/libcharon/plugins/vici/vici_config.c
 +++ b/src/libcharon/plugins/vici/vici_config.c
-@@ -2149,7 +2149,7 @@ static void run_start_action(private_vici_config_t *this, peer_cfg_t *peer_cfg,
- 			DBG1(DBG_CFG, "initiating '%s'", child_cfg->get_name(child_cfg));
- 			charon->controller->initiate(charon->controller,
+@@ -2215,7 +2215,7 @@ static void run_start_action(private_vici_config_t *this, peer_cfg_t *peer_cfg,
+ 		DBG1(DBG_CFG, "initiating '%s'", child_cfg->get_name(child_cfg));
+ 		charon->controller->initiate(charon->controller,
  					peer_cfg->get_ref(peer_cfg), child_cfg->get_ref(child_cfg),
 -					NULL, NULL, 0, FALSE);
 +					NULL, NULL, NULL, NULL, 0, FALSE);
- 			break;
- 		case ACTION_ROUTE:
- 			DBG1(DBG_CFG, "installing '%s'", child_cfg->get_name(child_cfg));
+ 	}
+ }
+ 
 diff --git a/src/libcharon/plugins/vici/vici_control.c b/src/libcharon/plugins/vici/vici_control.c
-index 4c09b578d..abd7b5d4b 100644
+index 7b8ff1215..8d996c044 100644
 --- a/src/libcharon/plugins/vici/vici_control.c
 +++ b/src/libcharon/plugins/vici/vici_control.c
-@@ -16,6 +16,28 @@
+@@ -15,6 +15,28 @@
   * for more details.
   */
  
@@ -223,7 +216,7 @@ index 4c09b578d..abd7b5d4b 100644
  #include "vici_control.h"
  #include "vici_builder.h"
  
-@@ -174,9 +196,11 @@ static child_cfg_t* find_child_cfg(char *name, char *pname, peer_cfg_t **out)
+@@ -173,9 +195,11 @@ static child_cfg_t* find_child_cfg(char *name, char *pname, peer_cfg_t **out)
  CALLBACK(initiate, vici_message_t*,
  	private_vici_control_t *this, char *name, u_int id, vici_message_t *request)
  {
@@ -236,7 +229,7 @@ index 4c09b578d..abd7b5d4b 100644
  	int timeout;
  	bool limits;
  	controller_cb_t log_cb = NULL;
-@@ -190,6 +214,8 @@ CALLBACK(initiate, vici_message_t*,
+@@ -189,6 +213,8 @@ CALLBACK(initiate, vici_message_t*,
  	timeout = request->get_int(request, 0, "timeout");
  	limits = request->get_bool(request, FALSE, "init-limits");
  	log.level = request->get_int(request, 1, "loglevel");
@@ -245,7 +238,7 @@ index 4c09b578d..abd7b5d4b 100644
  
  	if (!child && !ike)
  	{
-@@ -200,31 +226,51 @@ CALLBACK(initiate, vici_message_t*,
+@@ -199,31 +225,51 @@ CALLBACK(initiate, vici_message_t*,
  		log_cb = (controller_cb_t)log_vici;
  	}
  
@@ -306,23 +299,23 @@ index 4c09b578d..abd7b5d4b 100644
  
  CALLBACK(terminate, vici_message_t*,
 diff --git a/src/libcharon/processing/jobs/start_action_job.c b/src/libcharon/processing/jobs/start_action_job.c
-index 3a0ed879f..e3399007b 100644
+index b966cd132..23ed1e01f 100644
 --- a/src/libcharon/processing/jobs/start_action_job.c
 +++ b/src/libcharon/processing/jobs/start_action_job.c
-@@ -61,7 +61,7 @@ METHOD(job_t, execute, job_requeue_t,
- 					charon->controller->initiate(charon->controller,
- 												 peer_cfg->get_ref(peer_cfg),
- 												 child_cfg->get_ref(child_cfg),
--												 NULL, NULL, 0, FALSE);
-+												 NULL, NULL, NULL, NULL, 0, FALSE);
- 					break;
- 				case ACTION_ROUTE:
- 					DBG1(DBG_JOB, "start action: route '%s'", name);
+@@ -84,7 +84,7 @@ METHOD(job_t, execute, job_requeue_t,
+ 				charon->controller->initiate(charon->controller,
+ 											 peer_cfg->get_ref(peer_cfg),
+ 											 child_cfg->get_ref(child_cfg),
+-											 NULL, NULL, 0, FALSE);
++											 NULL, NULL, NULL, NULL, 0, FALSE);
+ 			}
+ 		}
+ 		children->destroy(children);
 diff --git a/src/libcharon/sa/ike_sa_manager.c b/src/libcharon/sa/ike_sa_manager.c
-index f95ff19af..5ead905a8 100644
+index c8d439630..d9c32d8cc 100644
 --- a/src/libcharon/sa/ike_sa_manager.c
 +++ b/src/libcharon/sa/ike_sa_manager.c
-@@ -17,6 +17,28 @@
+@@ -16,6 +16,28 @@
   * for more details.
   */
  
@@ -351,8 +344,8 @@ index f95ff19af..5ead905a8 100644
  #include <string.h>
  #include <inttypes.h>
  
-@@ -1423,7 +1445,8 @@ out:
- }
+@@ -1497,7 +1519,8 @@ typedef struct {
+ } config_entry_t;
  
  METHOD(ike_sa_manager_t, checkout_by_config, ike_sa_t*,
 -	private_ike_sa_manager_t *this, peer_cfg_t *peer_cfg)
@@ -361,9 +354,9 @@ index f95ff19af..5ead905a8 100644
  {
  	enumerator_t *enumerator;
  	entry_t *entry;
-@@ -1432,7 +1455,17 @@ METHOD(ike_sa_manager_t, checkout_by_config, ike_sa_t*,
- 	ike_cfg_t *current_ike;
+@@ -1508,7 +1531,17 @@ METHOD(ike_sa_manager_t, checkout_by_config, ike_sa_t*,
  	u_int segment;
+ 	int i;
  
 -	DBG2(DBG_MGR, "checkout IKE_SA by config");
 +	if (my_host && my_host->get_port(my_host) == 0)
@@ -380,7 +373,7 @@ index f95ff19af..5ead905a8 100644
  
  	if (!this->reuse_ikesa && peer_cfg->get_ike_version(peer_cfg) != IKEV1)
  	{	/* IKE_SA reuse disabled by config (not possible for IKEv1) */
-@@ -1455,6 +1488,15 @@ METHOD(ike_sa_manager_t, checkout_by_config, ike_sa_t*,
+@@ -1566,6 +1599,15 @@ METHOD(ike_sa_manager_t, checkout_by_config, ike_sa_t*,
  			continue;
  		}
  
@@ -396,22 +389,22 @@ index f95ff19af..5ead905a8 100644
  		current_peer = entry->ike_sa->get_peer_cfg(entry->ike_sa);
  		if (current_peer && current_peer->equals(current_peer, peer_cfg))
  		{
-@@ -1477,6 +1519,10 @@ METHOD(ike_sa_manager_t, checkout_by_config, ike_sa_t*,
- 	if (!ike_sa)
- 	{	/* no IKE_SA using such a config, hand out a new */
- 		ike_sa = checkout_new(this, peer_cfg->get_ike_version(peer_cfg), TRUE);
-+		if (my_host || other_host)
-+		{
-+			ike_sa->update_hosts(ike_sa, my_host, other_host, TRUE);
-+		}
+@@ -1592,6 +1634,10 @@ METHOD(ike_sa_manager_t, checkout_by_config, ike_sa_t*,
+ 		{
+ 			ike_sa->set_peer_cfg(ike_sa, peer_cfg);
+ 			checkout_new(this, ike_sa);
++			if (my_host || other_host)
++			{
++				ike_sa->update_hosts(ike_sa, my_host, other_host, TRUE);
++			}
+ 		}
  	}
  	charon->bus->set_sa(charon->bus, ike_sa);
- 
 diff --git a/src/libcharon/sa/ike_sa_manager.h b/src/libcharon/sa/ike_sa_manager.h
-index efad2e4d6..c43edabbb 100644
+index 004cc2216..50f8246f8 100644
 --- a/src/libcharon/sa/ike_sa_manager.h
 +++ b/src/libcharon/sa/ike_sa_manager.h
-@@ -93,7 +93,8 @@ struct ike_sa_manager_t {
+@@ -123,7 +123,8 @@ struct ike_sa_manager_t {
  	ike_sa_t* (*checkout_by_message) (ike_sa_manager_t* this, message_t *message);
  
  	/**
@@ -421,26 +414,25 @@ index efad2e4d6..c43edabbb 100644
  	 *
  	 * To initiate, a CHILD_SA may be established within an existing IKE_SA.
  	 * This call checks for an existing IKE_SA by comparing the configuration.
-@@ -103,10 +104,13 @@ struct ike_sa_manager_t {
- 	 * the found IKE_SA is in the DELETING state.
+@@ -136,9 +137,12 @@ struct ike_sa_manager_t {
+ 	 * @note The peer_config is always set on the returned IKE_SA.
  	 *
  	 * @param peer_cfg			configuration used to find an existing IKE_SA
 +	 * @param my_host			source host address for wildcard peer_cfg
 +	 * @param other_host		remote host address for wildcard peer_cfg
  	 * @return					checked out/created IKE_SA
  	 */
- 	ike_sa_t* (*checkout_by_config) (ike_sa_manager_t* this,
--									 peer_cfg_t *peer_cfg);
-+									 peer_cfg_t *peer_cfg,
-+									 host_t *my_host, host_t *other_host);
+-	ike_sa_t *(*checkout_by_config)(ike_sa_manager_t* this, peer_cfg_t *peer_cfg);
++	ike_sa_t *(*checkout_by_config)(ike_sa_manager_t* this, peer_cfg_t *peer_cfg,
++									host_t *my_host, host_t *other_host);
  
  	/**
  	 * Reset initiator SPI.
 diff --git a/src/libcharon/sa/trap_manager.c b/src/libcharon/sa/trap_manager.c
-index 2bc531b38..7220ea597 100644
+index d8d8a421a..e7c906eb7 100644
 --- a/src/libcharon/sa/trap_manager.c
 +++ b/src/libcharon/sa/trap_manager.c
-@@ -432,7 +432,7 @@ METHOD(trap_manager_t, acquire, void,
+@@ -523,7 +523,7 @@ METHOD(trap_manager_t, acquire, void,
  	peer_cfg_t *peer;
  	child_cfg_t *child;
  	ike_sa_t *ike_sa;
@@ -449,12 +441,12 @@ index 2bc531b38..7220ea597 100644
  	bool wildcard, ignore = FALSE;
  
  	this->lock->read_lock(this->lock);
-@@ -508,36 +508,27 @@ METHOD(trap_manager_t, acquire, void,
+@@ -600,37 +600,27 @@ METHOD(trap_manager_t, acquire, void,
  	this->lock->unlock(this->lock);
  
  	if (wildcard)
 -	{	/* the peer config would match IKE_SAs with other peers */
--		ike_sa = charon->ike_sa_manager->checkout_new(charon->ike_sa_manager,
+-		ike_sa = charon->ike_sa_manager->create_new(charon->ike_sa_manager,
 -											peer->get_ike_version(peer), TRUE);
 -		if (ike_sa)
 -		{
@@ -470,17 +462,17 @@ index 2bc531b38..7220ea597 100644
 +		uint8_t mask;
  
 -			port = ike_cfg->get_other_port(ike_cfg);
--			dst->to_subnet(dst, &host, &mask);
+-			data->dst->to_subnet(data->dst, &host, &mask);
 -			host->set_port(host, port);
 -			ike_sa->set_other_host(ike_sa, host);
 +		ike_cfg = peer->get_ike_cfg(peer);
  
 -			port = ike_cfg->get_my_port(ike_cfg);
--			src->to_subnet(src, &host, &mask);
+-			data->src->to_subnet(data->src, &host, &mask);
 -			host->set_port(host, port);
 -			ike_sa->set_my_host(ike_sa, host);
 +		port = ike_cfg->get_other_port(ike_cfg);
-+		dst->to_subnet(dst, &other_host, &mask);
++		data->dst->to_subnet(data->dst, &other_host, &mask);
 +		other_host->set_port(other_host, port);
  
 -			charon->bus->set_sa(charon->bus, ike_sa);
@@ -491,23 +483,23 @@ index 2bc531b38..7220ea597 100644
 -		ike_sa = charon->ike_sa_manager->checkout_by_config(
 -											charon->ike_sa_manager, peer);
 +		port = ike_cfg->get_my_port(ike_cfg);
-+		src->to_subnet(src, &my_host, &mask);
++		data->src->to_subnet(data->src, &my_host, &mask);
 +		my_host->set_port(my_host, port);
  	}
 +	ike_sa = charon->ike_sa_manager->checkout_by_config(
 +											charon->ike_sa_manager, peer,
 +											my_host, other_host);
+ 	peer->destroy(peer);
 +	DESTROY_IF(my_host);
 +	DESTROY_IF(other_host);
-+
+ 
  	if (ike_sa)
  	{
- 		if (ike_sa->get_peer_cfg(ike_sa) == NULL)
 diff --git a/src/swanctl/commands/initiate.c b/src/swanctl/commands/initiate.c
-index 8ade8bf41..03b2cb0f4 100644
+index e0fffb907..dcaded59d 100644
 --- a/src/swanctl/commands/initiate.c
 +++ b/src/swanctl/commands/initiate.c
-@@ -13,6 +13,28 @@
+@@ -14,6 +14,28 @@
   * for more details.
   */
  
@@ -536,7 +528,7 @@ index 8ade8bf41..03b2cb0f4 100644
  #include "command.h"
  
  #include <errno.h>
-@@ -37,7 +59,7 @@ static int initiate(vici_conn_t *conn)
+@@ -38,7 +60,7 @@ static int initiate(vici_conn_t *conn)
  	vici_req_t *req;
  	vici_res_t *res;
  	command_format_options_t format = COMMAND_FORMAT_NONE;
@@ -545,7 +537,7 @@ index 8ade8bf41..03b2cb0f4 100644
  	int ret = 0, timeout = 0, level = 1;
  
  	while (TRUE)
-@@ -64,6 +86,12 @@ static int initiate(vici_conn_t *conn)
+@@ -65,6 +87,12 @@ static int initiate(vici_conn_t *conn)
  			case 'l':
  				level = atoi(arg);
  				continue;
@@ -558,7 +550,7 @@ index 8ade8bf41..03b2cb0f4 100644
  			case EOF:
  				break;
  			default:
-@@ -87,6 +115,14 @@ static int initiate(vici_conn_t *conn)
+@@ -88,6 +116,14 @@ static int initiate(vici_conn_t *conn)
  	{
  		vici_add_key_valuef(req, "ike", "%s", ike);
  	}
@@ -573,7 +565,7 @@ index 8ade8bf41..03b2cb0f4 100644
  	if (timeout)
  	{
  		vici_add_key_valuef(req, "timeout", "%d", timeout * 1000);
-@@ -133,6 +169,8 @@ static void __attribute__ ((constructor))reg()
+@@ -134,6 +170,8 @@ static void __attribute__ ((constructor))reg()
  			{"help",		'h', 0, "show usage information"},
  			{"child",		'c', 1, "initiate a CHILD_SA configuration"},
  			{"ike",			'i', 1, "initiate an IKE_SA, or name of child's parent"},
@@ -583,5 +575,5 @@ index 8ade8bf41..03b2cb0f4 100644
  			{"raw",			'r', 0, "dump raw response message"},
  			{"pretty",		'P', 0, "dump raw response message in pretty print"},
 -- 
-2.20.1
+2.38.1
 

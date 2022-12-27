@@ -1,7 +1,7 @@
-From 85538df79427beec3556505f2f74eb2f328171df Mon Sep 17 00:00:00 2001
+From df6b501ed29b838efde0f1cb1c906ab9befc7b45 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
 Date: Mon, 21 Sep 2015 13:42:11 +0300
-Subject: [PATCH 4/4] vici: add support for individual sa state changes
+Subject: [PATCH 3/3] vici: add support for individual sa state changes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -14,13 +14,13 @@ Signed-off-by: Timo Teräs <timo.teras@iki.fi>
  1 file changed, 105 insertions(+)
 
 diff --git a/src/libcharon/plugins/vici/vici_query.c b/src/libcharon/plugins/vici/vici_query.c
-index e3f6a0d26..9968cdd3c 100644
+index 19acc0789..e008885f7 100644
 --- a/src/libcharon/plugins/vici/vici_query.c
 +++ b/src/libcharon/plugins/vici/vici_query.c
-@@ -1717,8 +1717,16 @@ static void manage_commands(private_vici_query_t *this, bool reg)
- 	this->dispatcher->manage_event(this->dispatcher, "list-cert", reg);
+@@ -1774,8 +1774,16 @@ static void manage_commands(private_vici_query_t *this, bool reg)
  	this->dispatcher->manage_event(this->dispatcher, "ike-updown", reg);
  	this->dispatcher->manage_event(this->dispatcher, "ike-rekey", reg);
+ 	this->dispatcher->manage_event(this->dispatcher, "ike-update", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "ike-state-established", reg);
 +	this->dispatcher->manage_event(this->dispatcher, "ike-state-destroying", reg);
  	this->dispatcher->manage_event(this->dispatcher, "child-updown", reg);
@@ -34,7 +34,7 @@ index e3f6a0d26..9968cdd3c 100644
  	manage_command(this, "list-sas", list_sas, reg);
  	manage_command(this, "list-policies", list_policies, reg);
  	manage_command(this, "list-conns", list_conns, reg);
-@@ -1789,6 +1797,45 @@ METHOD(listener_t, ike_rekey, bool,
+@@ -1876,6 +1884,45 @@ METHOD(listener_t, ike_update, bool,
  	return TRUE;
  }
  
@@ -80,7 +80,7 @@ index e3f6a0d26..9968cdd3c 100644
  METHOD(listener_t, child_updown, bool,
  	private_vici_query_t *this, ike_sa_t *ike_sa, child_sa_t *child_sa, bool up)
  {
-@@ -1868,6 +1915,62 @@ METHOD(listener_t, child_rekey, bool,
+@@ -1955,6 +2002,62 @@ METHOD(listener_t, child_rekey, bool,
  	return TRUE;
  }
  
@@ -143,10 +143,10 @@ index e3f6a0d26..9968cdd3c 100644
  METHOD(vici_query_t, destroy, void,
  	private_vici_query_t *this)
  {
-@@ -1887,8 +1990,10 @@ vici_query_t *vici_query_create(vici_dispatcher_t *dispatcher)
- 			.listener = {
+@@ -1975,8 +2078,10 @@ vici_query_t *vici_query_create(vici_dispatcher_t *dispatcher)
  				.ike_updown = _ike_updown,
  				.ike_rekey = _ike_rekey,
+ 				.ike_update = _ike_update,
 +				.ike_state_change = _ike_state_change,
  				.child_updown = _child_updown,
  				.child_rekey = _child_rekey,
@@ -155,5 +155,5 @@ index e3f6a0d26..9968cdd3c 100644
  			.destroy = _destroy,
  		},
 -- 
-2.20.1
+2.38.1
 
