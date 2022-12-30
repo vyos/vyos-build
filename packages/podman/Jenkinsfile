@@ -21,7 +21,7 @@
 
 def pkgList = [
     ['name': 'podman',
-     'scmCommit': 'v4.2.0',
+     'scmCommit': 'v4.3.1',
      'scmUrl': 'https://github.com/containers/podman',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
