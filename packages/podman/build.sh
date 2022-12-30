@@ -16,12 +16,8 @@ export PATH=/opt/go/bin:$PATH
 cd ${SRC}
 version="$(git describe --tags | tr _ .)"
 echo "I: Build Debian $SRC Package"
-make
 
-install -m 0755 -d tmp/usr/bin
-install -m 0755 -d tmp/lib/systemd/system
-install -m 0755 bin/* tmp/usr/bin/
-install -m 0644 contrib/systemd/system/* tmp/lib/systemd/system
+PREFIX=/usr DESTDIR=tmp make all install.systemd install
 
 rm -f *.deb
 fpm --input-type dir --output-type deb --name podman \
