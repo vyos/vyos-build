@@ -172,7 +172,7 @@ RUN wget https://salsa.debian.org/jestabro-guest/live-build/commit/63425b3e4f7ad
     patch -p1 < /tmp/63425b3e4f7ad3712ced4c9a3584ef9851c0355a.patch && \
     dch -n "Applying fix for missing archive keys" && \
     dpkg-buildpackage -us -uc && \
-    sudo dpkg -i ../live-build*.deb
+    dpkg -i ../live-build*.deb
 
 #
 # live-build: building in docker fails with mounting /proc | /sys
@@ -188,7 +188,7 @@ RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17
     patch -p1 < /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
     dch -n "Applying fix for docker image compile" && \
     dpkg-buildpackage -us -uc && \
-    sudo dpkg -i ../debootstrap*.deb
+    dpkg -i ../debootstrap*.deb
 
 #
 # Install Packer
@@ -360,13 +360,10 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
 
 # Go required for validators and vyos-xe-guest-utilities
 RUN GO_VERSION_INSTALL="1.18.3" ; \
-    if [ "$ARCH" = "arm64v8" ] ; then \
-        wget -O /tmp/go${GO_VERSION_INSTALL}.linux-arm64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-arm64.tar.gz ; \
-    else \
-        wget -O /tmp/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz ; \
-    fi && \
+    wget -O /tmp/go${GO_VERSION_INSTALL}.linux-$(dpkg-architecture -qDEB_HOST_ARCH).tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-$(dpkg-architecture -qDEB_HOST_ARCH).tar.gz ; \
     tar -C /opt -xzf /tmp/go*.tar.gz && \
     rm /tmp/go*.tar.gz
+RUN echo "export PATH=/opt/go/bin:$PATH" >> /etc/bash.bashrc
 
 # Packages needed for ipaddrcheck
 RUN apt-get update && apt-get install -y \
