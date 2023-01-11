@@ -18,10 +18,10 @@ Backport of earlier Vyatta patch.
  8 files changed, 34 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
-index ba0e8e6337c0..845599a58e0c 100644
+index e7b3fa7bb3f7..081b344ea52b 100644
 --- a/Documentation/networking/ip-sysctl.rst
 +++ b/Documentation/networking/ip-sysctl.rst
-@@ -1526,6 +1526,17 @@ src_valid_mark - BOOLEAN
+@@ -1592,6 +1592,17 @@ src_valid_mark - BOOLEAN
  
  	Default value is 0.
  
@@ -40,23 +40,23 @@ index ba0e8e6337c0..845599a58e0c 100644
  	- 1 - Allows you to have multiple network interfaces on the same
  	  subnet, and have the ARPs for each interface be answered
 diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index a038feb63f23..8720f70360a7 100644
+index ddb27fc0ee8c..8ee3191d9558 100644
 --- a/include/linux/inetdevice.h
 +++ b/include/linux/inetdevice.h
-@@ -133,6 +133,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
- #define IN_DEV_ARP_ANNOUNCE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
- #define IN_DEV_ARP_IGNORE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
+@@ -137,6 +137,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
  #define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
-+#define IN_DEV_LINKFILTER(in_dev)      IN_DEV_MAXCONF((in_dev), LINKFILTER)
+ #define IN_DEV_ARP_EVICT_NOCARRIER(in_dev) IN_DEV_ANDCONF((in_dev), \
+ 							  ARP_EVICT_NOCARRIER)
++#define IN_DEV_LINKFILTER(in_dev)	IN_DEV_MAXCONF((in_dev), LINKFILTER)
  
  struct in_ifaddr {
  	struct hlist_node	hash;
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index d1f386430795..6f24c8827d88 100644
+index 37dfdcfcdd54..d549006be04c 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
-@@ -81,6 +81,7 @@ struct ipv6_devconf {
- 	__u8		ioam6_enabled;
+@@ -83,6 +83,7 @@ struct ipv6_devconf {
+ 	__u8		ndisc_evict_nocarrier;
  
  	struct ctl_table_header *sysctl_header;
 +	__s32           link_filter;
@@ -64,34 +64,34 @@ index d1f386430795..6f24c8827d88 100644
  
  struct ipv6_params {
 diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
-index e42d13b55cf3..8f5291976f04 100644
+index 874a92349bf5..37a9c7c7b56c 100644
 --- a/include/uapi/linux/ip.h
 +++ b/include/uapi/linux/ip.h
-@@ -169,6 +169,7 @@ enum
- 	IPV4_DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+@@ -172,6 +172,7 @@ enum
  	IPV4_DEVCONF_DROP_GRATUITOUS_ARP,
  	IPV4_DEVCONF_BC_FORWARDING,
+ 	IPV4_DEVCONF_ARP_EVICT_NOCARRIER,
 +	IPV4_DEVCONF_LINKFILTER,
  	__IPV4_DEVCONF_MAX
  };
  
 diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index b243a53fa985..9a3e0c89d17c 100644
+index 81f4243bebb1..9e001ea84841 100644
 --- a/include/uapi/linux/ipv6.h
 +++ b/include/uapi/linux/ipv6.h
-@@ -193,6 +193,7 @@ enum {
- 	DEVCONF_IOAM6_ENABLED,
- 	DEVCONF_IOAM6_ID,
+@@ -197,6 +197,7 @@ enum {
  	DEVCONF_IOAM6_ID_WIDE,
+ 	DEVCONF_NDISC_EVICT_NOCARRIER,
+ 	DEVCONF_ACCEPT_UNTRACKED_NA,
 +	DEVCONF_LINK_FILTER,
  	DEVCONF_MAX
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 4744c7839de5..4470bd7a9380 100644
+index e8b9a9202fec..1bb48732e619 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -2552,6 +2552,7 @@ static struct devinet_sysctl_table {
+@@ -2561,6 +2561,7 @@ static struct devinet_sysctl_table {
  					      "route_localnet"),
  		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
  					      "drop_unicast_in_l2_multicast"),
@@ -100,20 +100,20 @@ index 4744c7839de5..4470bd7a9380 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6dcf034835ec..c1820333fd55 100644
+index 9c3f5202a97b..fbc072c3534e 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5579,6 +5579,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_IOAM6_ENABLED] = cnf->ioam6_enabled;
- 	array[DEVCONF_IOAM6_ID] = cnf->ioam6_id;
+@@ -5591,6 +5591,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
  	array[DEVCONF_IOAM6_ID_WIDE] = cnf->ioam6_id_wide;
+ 	array[DEVCONF_NDISC_EVICT_NOCARRIER] = cnf->ndisc_evict_nocarrier;
+ 	array[DEVCONF_ACCEPT_UNTRACKED_NA] = cnf->accept_untracked_na;
 +	array[DEVCONF_LINK_FILTER] = cnf->link_filter;
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7020,6 +7021,13 @@ static const struct ctl_table addrconf_sysctl[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_douintvec,
+@@ -7016,6 +7017,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.extra1		= (void *)SYSCTL_ZERO,
+ 		.extra2		= (void *)SYSCTL_ONE,
  	},
 +	{
 +		.procname	= "link_filter",
@@ -123,13 +123,13 @@ index 6dcf034835ec..c1820333fd55 100644
 +		.proc_handler	= proc_dointvec,
 +	},
  	{
- 		/* sentinel */
- 	}
+ 		.procname	= "ioam6_id",
+ 		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 27274fc3619a..56e546ab8453 100644
+index 2f355f0ec32a..388e0342c989 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -672,6 +672,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
+@@ -675,6 +675,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
  }
  #endif
  
@@ -144,7 +144,7 @@ index 27274fc3619a..56e546ab8453 100644
  /*
   * Default Router Selection (RFC 2461 6.3.6)
   */
-@@ -713,6 +721,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
+@@ -716,6 +724,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
  
  	if (!m && (strict & RT6_LOOKUP_F_IFACE))
  		return RT6_NUD_FAIL_HARD;

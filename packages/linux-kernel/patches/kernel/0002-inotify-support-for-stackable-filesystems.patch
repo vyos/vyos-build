@@ -44,7 +44,7 @@ index 1cc8be25df7e..bc4acd1a6ea4 100644
 +
 +	  If unsure, say N.
 diff --git a/fs/notify/inotify/inotify_user.c b/fs/notify/inotify/inotify_user.c
-index 9fb7701d2f8a..a605abbf04ce 100644
+index 1c4bfdab008d..cf567cc33679 100644
 --- a/fs/notify/inotify/inotify_user.c
 +++ b/fs/notify/inotify/inotify_user.c
 @@ -15,6 +15,7 @@
@@ -55,8 +55,8 @@ index 9fb7701d2f8a..a605abbf04ce 100644
  #include <linux/fsnotify_backend.h>
  #include <linux/idr.h>
  #include <linux/init.h> /* fs_initcall */
-@@ -89,6 +90,93 @@ struct ctl_table inotify_table[] = {
- };
+@@ -97,6 +98,93 @@ static void __init inotify_sysctls_init(void)
+ #define inotify_sysctls_init() do { } while (0)
  #endif /* CONFIG_SYSCTL */
  
 +#ifdef CONFIG_INOTIFY_STACKFS
@@ -149,7 +149,7 @@ index 9fb7701d2f8a..a605abbf04ce 100644
  static inline __u32 inotify_arg_to_mask(struct inode *inode, u32 arg)
  {
  	__u32 mask;
-@@ -347,8 +435,8 @@ static const struct file_operations inotify_fops = {
+@@ -370,8 +458,8 @@ static const struct file_operations inotify_fops = {
  /*
   * find_inode - resolve a user-given path to a specific inode
   */
@@ -160,7 +160,7 @@ index 9fb7701d2f8a..a605abbf04ce 100644
  {
  	int error;
  
-@@ -369,6 +457,28 @@ static int inotify_find_inode(const char __user *dirname, struct path *path,
+@@ -392,6 +480,28 @@ static int inotify_find_inode(const char __user *dirname, struct path *path,
  	return error;
  }
  
@@ -190,7 +190,7 @@ index 9fb7701d2f8a..a605abbf04ce 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 7bb0a47cb615..6dd5f1000151 100644
+index 3d14a3f1465d..adee0c20295a 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -15,6 +15,7 @@
@@ -198,10 +198,10 @@ index 7bb0a47cb615..6dd5f1000151 100644
  #include <linux/posix_acl_xattr.h>
  #include <linux/exportfs.h>
 +#include <linux/inotify.h>
+ #include <linux/file.h>
  #include "overlayfs.h"
  
- MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
-@@ -2178,6 +2179,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -2202,6 +2203,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -220,7 +220,7 @@ index 7bb0a47cb615..6dd5f1000151 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -2193,18 +2206,24 @@ static int __init ovl_init(void)
+@@ -2217,18 +2230,24 @@ static int __init ovl_init(void)
  	err = ovl_aio_request_cache_init();
  	if (!err) {
  		err = register_filesystem(&ovl_fs_type);
@@ -250,19 +250,19 @@ index 7bb0a47cb615..6dd5f1000151 100644
  
  	/*
 diff --git a/include/linux/inotify.h b/include/linux/inotify.h
-index 6a24905f6e1e..4484f0760588 100644
+index 8d20caa1b268..c126e2f93a73 100644
 --- a/include/linux/inotify.h
 +++ b/include/linux/inotify.h
-@@ -9,6 +9,8 @@
+@@ -8,6 +8,8 @@
+ #define _LINUX_INOTIFY_H
  
- #include <linux/sysctl.h>
  #include <uapi/linux/inotify.h>
 +#include <linux/list.h>
 +#include <linux/fs.h>
  
- extern struct ctl_table inotify_table[]; /* for sysctl */
- 
-@@ -20,4 +22,30 @@ extern struct ctl_table inotify_table[]; /* for sysctl */
+ #define ALL_INOTIFY_BITS (IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
+ 			  IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
+@@ -17,4 +19,30 @@
  			  IN_DONT_FOLLOW | IN_EXCL_UNLINK | IN_MASK_ADD | \
  			  IN_MASK_CREATE | IN_ISDIR | IN_ONESHOT)
  
