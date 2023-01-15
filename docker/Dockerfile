@@ -648,6 +648,47 @@ RUN apt-get update && apt-get install -y \
       gnulib \
       libtool
 
+# Packages required for ocserv
+RUN apt-get update && apt-get install -y \
+      autogen \
+      debhelper \
+      freeradius \
+      gawk \
+      gnutls-bin \
+      gperf \
+      gss-ntlmssp \
+      haproxy \
+      iproute2 \
+      iputils-ping \
+      libcjose-dev \
+      libcurl4-gnutls-dev \
+      libev-dev \
+      libgnutls28-dev \
+      libhttp-parser-dev \
+      libjansson-dev \
+      libkrb5-dev \
+      liblz4-dev \
+      libmaxminddb-dev \
+      libnl-route-3-dev \
+      libnss-wrapper \
+      liboath-dev \
+      libpam-wrapper \
+      libpam0g-dev \
+      libprotobuf-c-dev \
+      libradcli-dev \
+      libreadline-dev \
+      libseccomp-dev \
+      libsocket-wrapper \
+      libtalloc-dev \
+      libuid-wrapper \
+      nettle-dev \
+      nuttcp \
+      pkg-config \
+      protobuf-c-compiler \
+      ronn \
+      tcpdump \
+      yajl-tools
+
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
