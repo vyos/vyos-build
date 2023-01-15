@@ -112,12 +112,20 @@ pipeline {
                 }
             }
         }
-        stage('Test') {
+        stage('Smoketests for RAID-1 system installation') {
+            when {
+                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+            }
+            steps {
+                sh "sudo make testraid"
+            }
+        }
+        stage('Smoketests') {
             when {
                 expression { return params.BUILD_SMOKETESTS }
             }
             parallel {
-                stage('Smoketests') {
+                stage('CLI validation') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
@@ -125,20 +133,12 @@ pipeline {
                         sh "sudo make test"
                     }
                 }
-                stage('Smoketests with vyos-configd and arbitrary config loader') {
+                stage('vyos-configd and arbitrary config loader') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
                     steps {
                         sh "sudo make testc"
-                    }
-                }
-                stage('Smoketests for RAID-1 system installation') {
-                    when {
-                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
-                    }
-                    steps {
-                        sh "sudo make testraid"
                     }
                 }
             }
