@@ -18,7 +18,7 @@
 // Using a version specifier library, use 'equuleus' branch. The underscore (_)
 // is not a typo! You need this underscore if the line immediately after the
 // @Library annotation is not an import statement!
-@Library('vyos-build@equuleus')_
+@Library('vyos-build@current')_
 
 def pkgList = [
     ['name': 'ocserv',
