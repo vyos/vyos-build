@@ -1,0 +1,97 @@
+From a2b1e06f07569e8d3f08a37b68a206164b67fbe3 Mon Sep 17 00:00:00 2001
+From: Tobias Brunner <tobias@strongswan.org>
+Date: Tue, 6 Dec 2022 17:33:20 +0100
+Subject: [PATCH] vici: Base default soft lifetime on hard lifetime if
+ configured
+
+Depending on the configured hard lifetime the default soft lifetime
+might not make sense and could even cause rekeying to get disabled.
+To avoid that, derive the soft lifetime from the hard lifetime so it's
+10% higher than the soft lifetime.
+
+References strongswan/strongswan#1414
+---
+ src/libcharon/plugins/vici/vici_config.c | 46 ++++++++++++++++++++----
+ 1 file changed, 40 insertions(+), 6 deletions(-)
+
+diff --git a/src/libcharon/plugins/vici/vici_config.c b/src/libcharon/plugins/vici/vici_config.c
+index 0c061d4b2d7..a59d799caf6 100644
+--- a/src/libcharon/plugins/vici/vici_config.c
++++ b/src/libcharon/plugins/vici/vici_config.c
+@@ -1981,18 +1981,52 @@ CALLBACK(auth_sn, bool,
+  */
+ static void check_lifetimes(lifetime_cfg_t *lft)
+ {
++	/* if no soft lifetime specified, set a default or base it on the hard lifetime */
++	if (lft->time.rekey == LFT_UNDEFINED)
++	{
++		if (lft->time.life != LFT_UNDEFINED)
++		{
++			lft->time.rekey = lft->time.life / 1.1;
++		}
++		else
++		{
++			lft->time.rekey = LFT_DEFAULT_CHILD_REKEY_TIME;
++		}
++	}
++	if (lft->bytes.rekey == LFT_UNDEFINED)
++	{
++		if (lft->bytes.life != LFT_UNDEFINED)
++		{
++			lft->bytes.rekey = lft->bytes.life / 1.1;
++		}
++		else
++		{
++			lft->bytes.rekey = LFT_DEFAULT_CHILD_REKEY_BYTES;
++		}
++	}
++	if (lft->packets.rekey == LFT_UNDEFINED)
++	{
++		if (lft->packets.life != LFT_UNDEFINED)
++		{
++			lft->packets.rekey = lft->packets.life / 1.1;
++		}
++		else
++		{
++			lft->packets.rekey = LFT_DEFAULT_CHILD_REKEY_PACKETS;
++		}
++	}
+ 	/* if no hard lifetime specified, add one at soft lifetime + 10% */
+ 	if (lft->time.life == LFT_UNDEFINED)
+ 	{
+-		lft->time.life = lft->time.rekey * 110 / 100;
++		lft->time.life = lft->time.rekey * 1.1;
+ 	}
+ 	if (lft->bytes.life == LFT_UNDEFINED)
+ 	{
+-		lft->bytes.life = lft->bytes.rekey * 110 / 100;
++		lft->bytes.life = lft->bytes.rekey * 1.1;
+ 	}
+ 	if (lft->packets.life == LFT_UNDEFINED)
+ 	{
+-		lft->packets.life = lft->packets.rekey * 110 / 100;
++		lft->packets.life = lft->packets.rekey * 1.1;
+ 	}
+ 	/* if no rand time defined, use difference of hard and soft */
+ 	if (lft->time.jitter == LFT_UNDEFINED)
+@@ -2026,17 +2060,17 @@ CALLBACK(children_sn, bool,
+ 			.mode = MODE_TUNNEL,
+ 			.lifetime = {
+ 				.time = {
+-					.rekey = LFT_DEFAULT_CHILD_REKEY_TIME,
++					.rekey = LFT_UNDEFINED,
+ 					.life = LFT_UNDEFINED,
+ 					.jitter = LFT_UNDEFINED,
+ 				},
+ 				.bytes = {
+-					.rekey = LFT_DEFAULT_CHILD_REKEY_BYTES,
++					.rekey = LFT_UNDEFINED,
+ 					.life = LFT_UNDEFINED,
+ 					.jitter = LFT_UNDEFINED,
+ 				},
+ 				.packets = {
+-					.rekey = LFT_DEFAULT_CHILD_REKEY_PACKETS,
++					.rekey = LFT_UNDEFINED,
+ 					.life = LFT_UNDEFINED,
+ 					.jitter = LFT_UNDEFINED,
+ 				},
