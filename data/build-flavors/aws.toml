@@ -11,7 +11,7 @@ packages = [
 [[includes_chroot]]
   path = "etc/cloud/cloud.cfg.d/90_dpkg.cfg"
   data = '''
-datasource_list: [ Ec2 ]
+datasource_list: [ Ec2, None ]
   '''
 
 [[includes_chroot]]
