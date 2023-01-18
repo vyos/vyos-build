@@ -8,6 +8,9 @@ if [ ! -d ${SRC} ]; then
     exit 1
 fi
 
+# Re-install libcurl4-openssl-dev, removed during docker build by ocserv
+apt-get install -y libcurl4-openssl-dev
+
 PATCH_DIR=${CWD}/patches
 if [ -d $PATCH_DIR ]; then
     for patch in $(ls ${PATCH_DIR})
