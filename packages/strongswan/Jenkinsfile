@@ -23,7 +23,7 @@ def pkgList = [
     ['name': 'strongswan',
      'scmCommit': 'debian/5.9.8-3',
      'scmUrl': 'https://salsa.debian.org/debian/strongswan.git',
-     'buildCmd': 'cd ..; ./build.sh'],
+     'buildCmd': 'sudo apt-get install -y libcurl4-openssl-dev; cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
