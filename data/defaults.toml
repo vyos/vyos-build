@@ -12,7 +12,7 @@ vyos_mirror = "http://dev.packages.vyos.net/repositories/current"
 vyos_branch = "current"
 release_train = "current"
 
-kernel_version = "6.1.6"
+kernel_version = "6.1.7"
 bootloaders = "syslinux,grub-efi"
 
 website_url = "https://vyos.io"
