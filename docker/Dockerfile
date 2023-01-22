@@ -96,6 +96,9 @@ RUN apt-get update && apt-get install -y \
       debootstrap \
       live-build
 
+# Packages for TPM test
+RUN apt-get update && apt-get install -y swtpm
+
 # Syslinux and Grub2 is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       apt-get update && apt-get install -y \

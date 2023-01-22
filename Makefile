@@ -64,6 +64,11 @@ qemu-live: checkiso
 oci: checkiso
 	scripts/iso-to-oci build/live-image-amd64.hybrid.iso
 
+.PHONY: testtpm
+.ONESHELL:
+testtpm: checkiso
+	scripts/check-qemu-install --debug --tpmtest build/live-image-amd64.hybrid.iso
+
 .PHONY: clean
 .ONESHELL:
 clean:

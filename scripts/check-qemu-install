@@ -50,6 +50,7 @@ from datetime import datetime
 
 EXCEPTION = 0
 now = datetime.now()
+tpm_folder = '/tmp/vyos_tpm_test'
 
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
 parser.add_argument('iso', help='ISO file to install')
@@ -73,6 +74,8 @@ parser.add_argument('--no-interfaces', help='Execute testsuite without interface
                 action='store_true', default=False)
 parser.add_argument('--configtest', help='Execute load/commit config tests',
 				action='store_true', default=False)
+parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
+                action='store_true', default=False)
 parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
                 action='store_true', default=False)
 
@@ -113,7 +116,7 @@ def get_half_cpus():
         cpu /= 2
     return int(cpu)
 
-def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=None):
+def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False):
     kvm = "-enable-kvm"
     cpu = "-cpu host"
     if not enable_kvm:
@@ -172,6 +175,11 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
     if raid:
         cmd += f' -drive format=raw,file={raid},if=none,media=disk,id=drive-hd2,readonly=off' \
                f' -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex={bootindex}'
+
+    if tpm:
+        cmd += f' -chardev socket,id=chrtpm,path={tpm_folder}/swtpm-sock' \
+               ' -tpmdev emulator,id=tpm0,chardev=chrtpm' \
+               ' -device tpm-tis,tpmdev=tpm0'
 
     return cmd
 
@@ -270,6 +278,22 @@ if args.raid:
 # must be called after the raid disk as args.disk name is altered in the RAID path
 gen_disk(args.disk)
 
+# Create software emulated TPM
+def start_swtpm():
+    if not os.path.exists(tpm_folder):
+        os.mkdir(tpm_folder)
+
+    def swtpm_thread():
+        c = subprocess.check_output([
+                'swtpm', 'socket', '--tpmstate', f'dir={tpm_folder}',
+                '--ctrl', f'type=unixio,path={tpm_folder}/swtpm-sock', '--tpm2', '--log', 'level=1'
+            ])
+
+    from multiprocessing import Process
+    tpm_process = Process(target=swtpm_thread)
+    tpm_process.start()
+    return tpm_process
+
 if args.qemu_cmd:
     tmp = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, args.iso)
     os.system(tmp)
@@ -338,11 +362,14 @@ try:
     shutdownVM(c, log, 'Shutting down installation system')
     c.close()
 
+    if args.tpmtest:
+        tpm_process = start_swtpm()
+
     #################################################
     # Booting installed system
     #################################################
     log.info('Booting installed system')
-    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid)
+    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl)
 
@@ -396,7 +423,147 @@ try:
     #################################################
     # Executing test-suite
     #################################################
-    if args.raid:
+    if args.tpmtest:
+        def verify_mount():
+            # Verify encrypted and mounted
+            c.sendline('mount | grep vyos_config')
+            c.expect('/dev/mapper/vyos_config on /config.*')
+            c.expect(op_mode_prompt)
+
+        def verify_config():
+            # Verify encrypted config is loaded
+            c.sendline('show config commands | cat')
+            c.expect('set system option performance \'latency\'')
+            c.expect('set system option reboot-on-panic')
+            c.expect(op_mode_prompt)
+
+        log.info('Running TPM encrypted config tests')
+
+        tpm_timeout = 600 # Give it 10 mins to encrypt
+
+        # Verify TPM is loaded
+        c.sendline('ls /dev/tpm0')
+        c.expect('/dev/tpm0')
+        c.expect(op_mode_prompt)
+
+        # Create recovery key
+        import string
+        from random import choices
+        test_recovery_key = ''.join(choices(string.ascii_uppercase + string.digits, k=32))
+
+        log.info('Encrypting config to TPM')
+        c.sendline('encryption enable')
+        c.expect('Automatically generate a recovery key\?.*')
+        c.sendline('n')
+        c.expect('Enter recovery key: ')
+        c.sendline(test_recovery_key)
+        c.expect('Enter size of encrypted config partition.*', timeout=30)
+        c.sendline('32')
+        c.expect('Encrypted config volume has been enabled', timeout=tpm_timeout)
+        c.expect('Backup the recovery key in a safe place!')
+        c.expect(f'Recovery key: {test_recovery_key}')
+        c.expect(op_mode_prompt)
+
+        verify_mount()
+
+        # Add some non-default config nodes this encrypted config
+        log.info('Adding nodes for encrypted config test')
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline('set system option performance latency')
+        c.expect(cfg_mode_prompt)
+        c.sendline('set system option reboot-on-panic')
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('save')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+        # Shutdown VM
+        shutdownVM(c, log, 'Shutdown VM after TPM encryption')
+
+        # Shutdown kills swtpm
+        tpm_process.join()
+        tpm_process.close()
+
+        # Start emulator again
+        tpm_process = start_swtpm()
+
+        # Booting back into VM
+        log.info('Booting TPM-backed system')
+        cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
+        log.debug(f'Executing command: {cmd}')
+        c = pexpect.spawn(cmd, logfile=stl)
+
+        try:
+            c.expect('The highlighted entry will be executed automatically in', timeout=10)
+            c.sendline('')
+        except pexpect.TIMEOUT:
+            log.warning('Did not find GRUB countdown window, ignoring')
+
+        # Check for vyos-router message
+        c.expect('.*Mounted encrypted config volume', timeout=120)
+
+        loginVM(c, log)
+
+        verify_mount()
+        verify_config()
+
+        # Shutdown VM
+        shutdownVM(c, log, 'Shutdown VM for TPM fail test')
+
+        # Clear swtpm
+        from glob import glob
+        for f in glob(f'{tpm_folder}/*'):
+            os.remove(f)
+
+        # Shutdown kills swtpm
+        tpm_process.join()
+        tpm_process.close()
+
+        # Start emulator again
+        tpm_process = start_swtpm()
+
+        # Booting back into VM
+        log.info('Booting system with cleared TPM')
+        cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
+        log.debug(f'Executing command: {cmd}')
+        c = pexpect.spawn(cmd, logfile=stl)
+
+        try:
+            c.expect('The highlighted entry will be executed automatically in', timeout=10)
+            c.sendline('')
+        except pexpect.TIMEOUT:
+            log.warning('Did not find GRUB countdown window, ignoring')
+
+        c.expect('.*Encrypted config volume has not been mounted', timeout=120)
+
+        loginVM(c, log)
+
+        # Test loading config with recovery key
+        c.sendline('encryption load')
+        c.expect('Enter recovery key: ')
+        c.sendline(test_recovery_key)
+        c.expect('Encrypted config volume has been mounted', timeout=120)
+        c.expect(op_mode_prompt)
+
+        verify_mount()
+
+        log.info('Loading encrypted config.boot')
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline('load /config/config.boot')
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+        verify_config()
+
+    elif args.raid:
         # Verify RAID subsystem - by deleting a disk and re-create the array
         # from scratch
         c.sendline('cat /proc/mdstat')
@@ -570,6 +737,10 @@ except Exception:
 # Cleaning up
 #################################################
 log.info("Cleaning up")
+
+if tpm_process:
+    tpm_process.terminate()
+    tpm_process.join()
 
 if not args.keep:
     log.info(f'Removing disk file: {args.disk}')
