@@ -127,8 +127,11 @@ RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
     sed -i 's/read BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
     opam init --root=/opt/opam --comp=${OCAML_VERSION} --disable-sandboxing --no-setup
 
+RUN eval $(opam env --root=/opt/opam --set-root) && \
+    opam pin add pcre https://github.com/mmottl/pcre-ocaml.git#0c4ca03a -y
+
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
-      pcre re
+      re
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       num \
