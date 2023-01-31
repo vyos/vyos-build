@@ -5,4 +5,3 @@
 # Need to delete this rule to prevent overhead on interface creation stage
 
 rm /lib/systemd/network/99-default.link
-rm /etc/udev/rules.d/62-temporary-interface-rename.rules
