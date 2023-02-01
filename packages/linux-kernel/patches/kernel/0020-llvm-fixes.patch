@@ -1,0 +1,50 @@
+diff --git c/drivers/net/ipoe/ipoe.c w/drivers/net/ipoe/ipoe.c
+index 972a043ef537..7862050e0eff 100644
+--- c/drivers/net/ipoe/ipoe.c
++++ w/drivers/net/ipoe/ipoe.c
+@@ -1154,7 +1154,7 @@ static int ipoe_create(__be32 peer_addr, __be32 addr, __be32 gw, int ifindex, co
+ 
+ 	if (link_dev) {
+ 		dev->features = link_dev->features & ~(NETIF_F_HW_VLAN_FILTER | NETIF_F_LRO);
+-		memcpy(dev->dev_addr, link_dev->dev_addr, ETH_ALEN);
++		memcpy((void *)dev->dev_addr, link_dev->dev_addr, ETH_ALEN);
+ 		memcpy(dev->broadcast, link_dev->broadcast, ETH_ALEN);
+ 	}
+ 
+@@ -1446,7 +1446,7 @@ static int ipoe_nl_cmd_modify(struct sk_buff *skb, struct genl_info *info)
+ 
+ 		if (link_dev) {
+ 			ses->dev->features = link_dev->features & ~(NETIF_F_HW_VLAN_FILTER | NETIF_F_LRO);
+-			memcpy(dev->dev_addr, link_dev->dev_addr, ETH_ALEN);
++			memcpy((void *)dev->dev_addr, link_dev->dev_addr, ETH_ALEN);
+ 			memcpy(dev->broadcast, link_dev->broadcast, ETH_ALEN);
+ 		}
+ 	}
+diff --git c/fs/aufs/opts.c w/fs/aufs/opts.c
+index 20421440c004..15546111f33f 100644
+--- c/fs/aufs/opts.c
++++ w/fs/aufs/opts.c
+@@ -670,8 +670,9 @@ static int au_opt_br(struct super_block *sb, struct au_opt *opt,
+ 		/* Always goto add, not fallthrough */
+ 	case Opt_prepend:
+ 		opt->add.bindex = 0;
+-		fallthrough;
+ 	add: /* indented label */
++		;
++		fallthrough;
+ 	case Opt_add:
+ 		err = au_br_add(sb, &opt->add,
+ 				au_ftest_opts(opts->flags, REMOUNT));
+diff --git c/net/pf_ring/pf_ring.c w/net/pf_ring/pf_ring.c
+index adbb8211c532..341b0b5e3acc 100644
+--- c/net/pf_ring/pf_ring.c
++++ w/net/pf_ring/pf_ring.c
+@@ -7956,7 +7956,7 @@ static int ring_getsockopt(struct socket *sock,
+ 	if(copy_to_user(optval, lowest_if_mac, ETH_ALEN))
+ 	  return(-EFAULT);
+       } else {
+-        char *dev_addr = pfr->ring_dev->dev->dev_addr;
++        const unsigned char *dev_addr = pfr->ring_dev->dev->dev_addr;
+ 
+         if (dev_addr == NULL) /* e.g. 'any' device */
+           dev_addr = empty_mac;

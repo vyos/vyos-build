@@ -1,7 +1,20 @@
-diff --git a/security/Kconfig b/security/Kconfig
+diff --git c/kernel/seccomp.c w/kernel/seccomp.c
+index e9852d1b4a5e..e430748a32b2 100644
+--- c/kernel/seccomp.c
++++ w/kernel/seccomp.c
+@@ -542,6 +542,8 @@ static void __put_seccomp_filter(struct seccomp_filter *orig)
+ 	}
+ }
+ 
++EXPORT_SYMBOL(__put_seccomp_filter);
++
+ static void __seccomp_filter_release(struct seccomp_filter *orig)
+ {
+ 	/* Notify about any unused filters in the task's former filter tree. */
+diff --git c/security/Kconfig w/security/Kconfig
 index 9322f1482db0..c3ea80d160bb 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
+--- c/security/Kconfig
++++ w/security/Kconfig
 @@ -236,6 +236,7 @@ source "security/lockdown/Kconfig"
  source "security/landlock/Kconfig"
  
@@ -10,10 +23,10 @@ index 9322f1482db0..c3ea80d160bb 100644
  
  choice
  	prompt "First legacy 'major LSM' to be initialized"
-diff --git a/security/Makefile b/security/Makefile
+diff --git c/security/Makefile w/security/Makefile
 index 18121f8f85cd..d8fff5fed8f2 100644
---- a/security/Makefile
-+++ b/security/Makefile
+--- c/security/Makefile
++++ w/security/Makefile
 @@ -27,3 +27,7 @@ obj-$(CONFIG_SECURITY_LANDLOCK)		+= landlock/
  
  # Object integrity file lists
@@ -22,11 +35,11 @@ index 18121f8f85cd..d8fff5fed8f2 100644
 +# LKRG file list
 +subdir-$(CONFIG_SECURITY_LKRG)         += lkrg
 +obj-$(CONFIG_SECURITY_LKRG)            += lkrg/
-diff --git a/security/lkrg/Kconfig b/security/lkrg/Kconfig
+diff --git c/security/lkrg/Kconfig w/security/lkrg/Kconfig
 new file mode 100644
 index 000000000000..142c9a298f85
 --- /dev/null
-+++ b/security/lkrg/Kconfig
++++ w/security/lkrg/Kconfig
 @@ -0,0 +1,19 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +config SECURITY_LKRG
@@ -47,11 +60,11 @@ index 000000000000..142c9a298f85
 +	  This builds LKRG - Linux Kernel Runtime Guard, in debug mode
 +
 +	  If you are unsure how to answer this question, answer N.
-diff --git a/security/lkrg/Makefile b/security/lkrg/Makefile
+diff --git c/security/lkrg/Makefile w/security/lkrg/Makefile
 new file mode 100644
 index 000000000000..d7940d8b6f58
 --- /dev/null
-+++ b/security/lkrg/Makefile
++++ w/security/lkrg/Makefile
 @@ -0,0 +1,76 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +
@@ -129,11 +142,11 @@ index 000000000000..d7940d8b6f58
 +                  modules/exploit_detection/p_exploit_detection.o \
 +                  p_lkrg_main.o
 + 
-diff --git a/security/lkrg/modules/comm_channel/p_comm_channel.c b/security/lkrg/modules/comm_channel/p_comm_channel.c
+diff --git c/security/lkrg/modules/comm_channel/p_comm_channel.c w/security/lkrg/modules/comm_channel/p_comm_channel.c
 new file mode 100644
 index 000000000000..20ac98620b93
 --- /dev/null
-+++ b/security/lkrg/modules/comm_channel/p_comm_channel.c
++++ w/security/lkrg/modules/comm_channel/p_comm_channel.c
 @@ -0,0 +1,1278 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -1413,11 +1426,11 @@ index 000000000000..20ac98620b93
 +
 +   unregister_sysctl_table(p_sysctl_handle);
 +}
-diff --git a/security/lkrg/modules/comm_channel/p_comm_channel.h b/security/lkrg/modules/comm_channel/p_comm_channel.h
+diff --git c/security/lkrg/modules/comm_channel/p_comm_channel.h w/security/lkrg/modules/comm_channel/p_comm_channel.h
 new file mode 100644
 index 000000000000..85f7b18859ba
 --- /dev/null
-+++ b/security/lkrg/modules/comm_channel/p_comm_channel.h
++++ w/security/lkrg/modules/comm_channel/p_comm_channel.h
 @@ -0,0 +1,27 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -1446,11 +1459,11 @@ index 000000000000..85f7b18859ba
 +void p_deregister_comm_channel(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/database/CPU.c b/security/lkrg/modules/database/CPU.c
+diff --git c/security/lkrg/modules/database/CPU.c w/security/lkrg/modules/database/CPU.c
 new file mode 100644
 index 000000000000..2c350ed0b2f3
 --- /dev/null
-+++ b/security/lkrg/modules/database/CPU.c
++++ w/security/lkrg/modules/database/CPU.c
 @@ -0,0 +1,242 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -1694,11 +1707,11 @@ index 000000000000..2c350ed0b2f3
 +   .notifier_call = p_cpu_callback,
 +};
 +#endif
-diff --git a/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.c b/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.c
+diff --git c/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.c w/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.c
 new file mode 100644
 index 000000000000..0ec887d22ebf
 --- /dev/null
-+++ b/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.c
++++ w/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.c
 @@ -0,0 +1,91 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -1791,11 +1804,11 @@ index 000000000000..0ec887d22ebf
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.h b/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.h
+diff --git c/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.h w/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.h
 new file mode 100644
 index 000000000000..283e2f180340
 --- /dev/null
-+++ b/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.h
++++ w/security/lkrg/modules/database/FTRACE/p_ftrace_enable_sysctl/p_ftrace_enable_sysctl.h
 @@ -0,0 +1,46 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -1843,11 +1856,11 @@ index 000000000000..283e2f180340
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.c b/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.c
+diff --git c/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.c w/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.c
 new file mode 100644
 index 000000000000..85b452382883
 --- /dev/null
-+++ b/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.c
++++ w/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.c
 @@ -0,0 +1,250 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -2099,11 +2112,11 @@ index 000000000000..85b452382883
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.h b/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.h
+diff --git c/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.h w/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.h
 new file mode 100644
 index 000000000000..ea2fde485b4b
 --- /dev/null
-+++ b/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.h
++++ w/security/lkrg/modules/database/FTRACE/p_ftrace_modify_all_code/p_ftrace_modify_all_code.h
 @@ -0,0 +1,51 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -2156,11 +2169,11 @@ index 000000000000..ea2fde485b4b
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.c b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.c
+diff --git c/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.c w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.c
 new file mode 100644
 index 000000000000..c583add3bc37
 --- /dev/null
-+++ b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.c
++++ w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.c
 @@ -0,0 +1,233 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -2395,11 +2408,11 @@ index 000000000000..c583add3bc37
 +      p_arch_jump_label_transform_kretprobe_state = 0;
 +   }
 +}
-diff --git a/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.h b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.h
+diff --git c/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.h w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.h
 new file mode 100644
 index 000000000000..4473e7cb5c78
 --- /dev/null
-+++ b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.h
++++ w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform/p_arch_jump_label_transform.h
 @@ -0,0 +1,43 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -2444,11 +2457,11 @@ index 000000000000..4473e7cb5c78
 +void p_uninstall_arch_jump_label_transform_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.c b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.c
+diff --git c/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.c w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.c
 new file mode 100644
 index 000000000000..a5224a32005e
 --- /dev/null
-+++ b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.c
++++ w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.c
 @@ -0,0 +1,294 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -2744,11 +2757,11 @@ index 000000000000..a5224a32005e
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.h b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.h
+diff --git c/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.h w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.h
 new file mode 100644
 index 000000000000..6551683519ce
 --- /dev/null
-+++ b/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.h
++++ w/security/lkrg/modules/database/JUMP_LABEL/p_arch_jump_label_transform_apply/p_arch_jump_label_transform_apply.h
 @@ -0,0 +1,105 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -2855,11 +2868,11 @@ index 000000000000..6551683519ce
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.c b/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.c
+diff --git c/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.c w/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.c
 new file mode 100644
 index 000000000000..7435192a4468
 --- /dev/null
-+++ b/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.c
++++ w/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.c
 @@ -0,0 +1,303 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3164,11 +3177,11 @@ index 000000000000..7435192a4468
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.h b/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.h
+diff --git c/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.h w/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.h
 new file mode 100644
 index 000000000000..c0dd5815d364
 --- /dev/null
-+++ b/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.h
++++ w/security/lkrg/modules/database/TRACEPOINT/p_arch_static_call_transform/p_arch_static_call_transform.h
 @@ -0,0 +1,41 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3211,11 +3224,11 @@ index 000000000000..c0dd5815d364
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/arm/p_arm_metadata.c b/security/lkrg/modules/database/arch/arm/p_arm_metadata.c
+diff --git c/security/lkrg/modules/database/arch/arm/p_arm_metadata.c w/security/lkrg/modules/database/arch/arm/p_arm_metadata.c
 new file mode 100644
 index 000000000000..50209623a2e8
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/arm/p_arm_metadata.c
++++ w/security/lkrg/modules/database/arch/arm/p_arm_metadata.c
 @@ -0,0 +1,60 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3277,11 +3290,11 @@ index 000000000000..50209623a2e8
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/arm/p_arm_metadata.h b/security/lkrg/modules/database/arch/arm/p_arm_metadata.h
+diff --git c/security/lkrg/modules/database/arch/arm/p_arm_metadata.h w/security/lkrg/modules/database/arch/arm/p_arm_metadata.h
 new file mode 100644
 index 000000000000..43e052106283
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/arm/p_arm_metadata.h
++++ w/security/lkrg/modules/database/arch/arm/p_arm_metadata.h
 @@ -0,0 +1,42 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3325,11 +3338,11 @@ index 000000000000..43e052106283
 +//void p_dump_arm_metadata(p_CPU_metadata_hash_mem *p_arg);
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.c b/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.c
+diff --git c/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.c w/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.c
 new file mode 100644
 index 000000000000..a0a52c3eb9c4
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.c
++++ w/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.c
 @@ -0,0 +1,60 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3391,11 +3404,11 @@ index 000000000000..a0a52c3eb9c4
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.h b/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.h
+diff --git c/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.h w/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.h
 new file mode 100644
 index 000000000000..b64ed7506b59
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.h
++++ w/security/lkrg/modules/database/arch/arm64/p_arm64_metadata.h
 @@ -0,0 +1,42 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3439,11 +3452,11 @@ index 000000000000..b64ed7506b59
 +//void p_dump_arm64_metadata(p_CPU_metadata_hash_mem *p_arg);
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/p_arch_metadata.c b/security/lkrg/modules/database/arch/p_arch_metadata.c
+diff --git c/security/lkrg/modules/database/arch/p_arch_metadata.c w/security/lkrg/modules/database/arch/p_arch_metadata.c
 new file mode 100644
 index 000000000000..21826981c341
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/p_arch_metadata.c
++++ w/security/lkrg/modules/database/arch/p_arch_metadata.c
 @@ -0,0 +1,133 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3578,11 +3591,11 @@ index 000000000000..21826981c341
 +
 +   return P_LKRG_SUCCESS;
 +}
-diff --git a/security/lkrg/modules/database/arch/p_arch_metadata.h b/security/lkrg/modules/database/arch/p_arch_metadata.h
+diff --git c/security/lkrg/modules/database/arch/p_arch_metadata.h w/security/lkrg/modules/database/arch/p_arch_metadata.h
 new file mode 100644
 index 000000000000..3ca8b26cb3ec
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/p_arch_metadata.h
++++ w/security/lkrg/modules/database/arch/p_arch_metadata.h
 @@ -0,0 +1,48 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3632,11 +3645,11 @@ index 000000000000..3ca8b26cb3ec
 +int p_unregister_arch_metadata(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/x86/MSR.h b/security/lkrg/modules/database/arch/x86/MSR.h
+diff --git c/security/lkrg/modules/database/arch/x86/MSR.h w/security/lkrg/modules/database/arch/x86/MSR.h
 new file mode 100644
 index 000000000000..efe8e3f8fbcd
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/x86/MSR.h
++++ w/security/lkrg/modules/database/arch/x86/MSR.h
 @@ -0,0 +1,41 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3679,11 +3692,11 @@ index 000000000000..efe8e3f8fbcd
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.c b/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.c
+diff --git c/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.c w/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.c
 new file mode 100644
 index 000000000000..0cf1ead8d43c
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.c
++++ w/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.c
 @@ -0,0 +1,98 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3783,11 +3796,11 @@ index 000000000000..0cf1ead8d43c
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.h b/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.h
+diff --git c/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.h w/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.h
 new file mode 100644
 index 000000000000..991374bcc6fc
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.h
++++ w/security/lkrg/modules/database/arch/x86/p_switch_idt/p_switch_idt.h
 @@ -0,0 +1,46 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -3835,11 +3848,11 @@ index 000000000000..991374bcc6fc
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/x86/p_x86_metadata.c b/security/lkrg/modules/database/arch/x86/p_x86_metadata.c
+diff --git c/security/lkrg/modules/database/arch/x86/p_x86_metadata.c w/security/lkrg/modules/database/arch/x86/p_x86_metadata.c
 new file mode 100644
 index 000000000000..853328ef8094
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/x86/p_x86_metadata.c
++++ w/security/lkrg/modules/database/arch/x86/p_x86_metadata.c
 @@ -0,0 +1,373 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -4214,11 +4227,11 @@ index 000000000000..853328ef8094
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/database/arch/x86/p_x86_metadata.h b/security/lkrg/modules/database/arch/x86/p_x86_metadata.h
+diff --git c/security/lkrg/modules/database/arch/x86/p_x86_metadata.h w/security/lkrg/modules/database/arch/x86/p_x86_metadata.h
 new file mode 100644
 index 000000000000..69b23962c16a
 --- /dev/null
-+++ b/security/lkrg/modules/database/arch/x86/p_x86_metadata.h
++++ w/security/lkrg/modules/database/arch/x86/p_x86_metadata.h
 @@ -0,0 +1,132 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -4352,11 +4365,11 @@ index 000000000000..69b23962c16a
 +//void p_dump_x86_metadata(p_CPU_metadata_hash_mem *p_arg);
 +
 +#endif
-diff --git a/security/lkrg/modules/database/p_database.c b/security/lkrg/modules/database/p_database.c
+diff --git c/security/lkrg/modules/database/p_database.c w/security/lkrg/modules/database/p_database.c
 new file mode 100644
 index 000000000000..d5a287b5008a
 --- /dev/null
-+++ b/security/lkrg/modules/database/p_database.c
++++ w/security/lkrg/modules/database/p_database.c
 @@ -0,0 +1,352 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -4710,11 +4723,11 @@ index 000000000000..d5a287b5008a
 +p_sym_error:
 +   return P_LKRG_GENERAL_ERROR;
 +}
-diff --git a/security/lkrg/modules/database/p_database.h b/security/lkrg/modules/database/p_database.h
+diff --git c/security/lkrg/modules/database/p_database.h w/security/lkrg/modules/database/p_database.h
 new file mode 100644
 index 000000000000..2e95be4e23a7
 --- /dev/null
-+++ b/security/lkrg/modules/database/p_database.h
++++ w/security/lkrg/modules/database/p_database.h
 @@ -0,0 +1,251 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -4967,11 +4980,11 @@ index 000000000000..2e95be4e23a7
 +
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/arch/arm/p_ed_arm_arch.h b/security/lkrg/modules/exploit_detection/arch/arm/p_ed_arm_arch.h
+diff --git c/security/lkrg/modules/exploit_detection/arch/arm/p_ed_arm_arch.h w/security/lkrg/modules/exploit_detection/arch/arm/p_ed_arm_arch.h
 new file mode 100644
 index 000000000000..acc45edcd857
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/arch/arm/p_ed_arm_arch.h
++++ w/security/lkrg/modules/exploit_detection/arch/arm/p_ed_arm_arch.h
 @@ -0,0 +1,29 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -5002,11 +5015,11 @@ index 000000000000..acc45edcd857
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/arch/arm64/p_ed_arm64_arch.h b/security/lkrg/modules/exploit_detection/arch/arm64/p_ed_arm64_arch.h
+diff --git c/security/lkrg/modules/exploit_detection/arch/arm64/p_ed_arm64_arch.h w/security/lkrg/modules/exploit_detection/arch/arm64/p_ed_arm64_arch.h
 new file mode 100644
 index 000000000000..def139b6b40b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/arch/arm64/p_ed_arm64_arch.h
++++ w/security/lkrg/modules/exploit_detection/arch/arm64/p_ed_arm64_arch.h
 @@ -0,0 +1,29 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -5037,11 +5050,11 @@ index 000000000000..def139b6b40b
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/arch/x86/p_ed_x86_arch.h b/security/lkrg/modules/exploit_detection/arch/x86/p_ed_x86_arch.h
+diff --git c/security/lkrg/modules/exploit_detection/arch/x86/p_ed_x86_arch.h w/security/lkrg/modules/exploit_detection/arch/x86/p_ed_x86_arch.h
 new file mode 100644
 index 000000000000..61562fff63d5
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/arch/x86/p_ed_x86_arch.h
++++ w/security/lkrg/modules/exploit_detection/arch/x86/p_ed_x86_arch.h
 @@ -0,0 +1,210 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -5253,11 +5266,11 @@ index 000000000000..61562fff63d5
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/p_exploit_detection.c b/security/lkrg/modules/exploit_detection/p_exploit_detection.c
+diff --git c/security/lkrg/modules/exploit_detection/p_exploit_detection.c w/security/lkrg/modules/exploit_detection/p_exploit_detection.c
 new file mode 100644
 index 000000000000..bd73b58efaa7
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/p_exploit_detection.c
++++ w/security/lkrg/modules/exploit_detection/p_exploit_detection.c
 @@ -0,0 +1,2072 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -7331,11 +7344,11 @@ index 000000000000..bd73b58efaa7
 +
 +   p_print_log(P_LOG_WATCH, "kmem_cache 'p_ed_pids' destroyed");
 +}
-diff --git a/security/lkrg/modules/exploit_detection/p_exploit_detection.h b/security/lkrg/modules/exploit_detection/p_exploit_detection.h
+diff --git c/security/lkrg/modules/exploit_detection/p_exploit_detection.h w/security/lkrg/modules/exploit_detection/p_exploit_detection.h
 new file mode 100644
 index 000000000000..1e8895ccfe59
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/p_exploit_detection.h
++++ w/security/lkrg/modules/exploit_detection/p_exploit_detection.h
 @@ -0,0 +1,614 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -7951,11 +7964,11 @@ index 000000000000..1e8895ccfe59
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.c b/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.c
+diff --git c/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.c w/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.c
 new file mode 100644
 index 000000000000..6d0e841f5cac
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.c
++++ w/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.c
 @@ -0,0 +1,124 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8081,11 +8094,11 @@ index 000000000000..6d0e841f5cac
 +   }
 +
 +}
-diff --git a/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.h b/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.h
+diff --git c/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.h w/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.h
 new file mode 100644
 index 000000000000..f7b0cec195ff
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.h
++++ w/security/lkrg/modules/exploit_detection/p_rb_ed_trees/p_rb_ed_pids/p_rb_ed_pids_tree.h
 @@ -0,0 +1,104 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8191,11 +8204,11 @@ index 000000000000..f7b0cec195ff
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/p_selinux_state.c b/security/lkrg/modules/exploit_detection/p_selinux_state.c
+diff --git c/security/lkrg/modules/exploit_detection/p_selinux_state.c w/security/lkrg/modules/exploit_detection/p_selinux_state.c
 new file mode 100644
 index 000000000000..87f3507bb5ce
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/p_selinux_state.c
++++ w/security/lkrg/modules/exploit_detection/p_selinux_state.c
 @@ -0,0 +1,78 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8275,11 +8288,11 @@ index 000000000000..87f3507bb5ce
 +}
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.c b/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.c w/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.c
 new file mode 100644
 index 000000000000..254aad2396cc
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.c
 @@ -0,0 +1,92 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8373,11 +8386,11 @@ index 000000000000..254aad2396cc
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.h b/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.h w/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.h
 new file mode 100644
 index 000000000000..f6d5f4b1a69e
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/__x32/p_x32_sys_keyctl/p_x32_sys_keyctl.h
 @@ -0,0 +1,43 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8422,11 +8435,11 @@ index 000000000000..f6d5f4b1a69e
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.c b/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.c w/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.c
 new file mode 100644
 index 000000000000..811ab22a2b2b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.c
 @@ -0,0 +1,85 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8513,11 +8526,11 @@ index 000000000000..811ab22a2b2b
 +
 +
 +GENERATE_INSTALL_FUNC(cap_task_prctl)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.h b/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.h w/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.h
 new file mode 100644
 index 000000000000..c29a5e73c4a0
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/caps/p_cap_task_prctl/p_cap_task_prctl.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8554,11 +8567,11 @@ index 000000000000..c29a5e73c4a0
 +void p_uninstall_cap_task_prctl_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.c b/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.c w/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.c
 new file mode 100644
 index 000000000000..12fccc209135
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8644,11 +8657,11 @@ index 000000000000..12fccc209135
 +
 +
 +GENERATE_INSTALL_FUNC(sys_capset)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.h b/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.h w/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.h
 new file mode 100644
 index 000000000000..3c7569b9adbd
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/caps/p_sys_capset/p_sys_capset.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8685,11 +8698,11 @@ index 000000000000..3c7569b9adbd
 +void p_uninstall_sys_capset_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.c b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.c w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.c
 new file mode 100644
 index 000000000000..3626f2686617
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.c
 @@ -0,0 +1,97 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8788,11 +8801,11 @@ index 000000000000..3626f2686617
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.h b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.h w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.h
 new file mode 100644
 index 000000000000..6c4dce85fdb0
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_add_key/p_compat_sys_add_key.h
 @@ -0,0 +1,44 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8838,11 +8851,11 @@ index 000000000000..6c4dce85fdb0
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.c b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.c w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.c
 new file mode 100644
 index 000000000000..53507619790f
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.c
 @@ -0,0 +1,97 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8941,11 +8954,11 @@ index 000000000000..53507619790f
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.h b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.h w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.h
 new file mode 100644
 index 000000000000..9d4c0b681800
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_capset/p_compat_sys_capset.h
 @@ -0,0 +1,44 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -8991,11 +9004,11 @@ index 000000000000..9d4c0b681800
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.c b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.c w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.c
 new file mode 100644
 index 000000000000..229d57aa9241
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.c
 @@ -0,0 +1,88 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9085,11 +9098,11 @@ index 000000000000..229d57aa9241
 +GENERATE_INSTALL_FUNC(compat_sys_keyctl)
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.h b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.h w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.h
 new file mode 100644
 index 000000000000..555f81f61109
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_keyctl/p_compat_sys_keyctl.h
 @@ -0,0 +1,39 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9130,11 +9143,11 @@ index 000000000000..555f81f61109
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.c b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.c w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.c
 new file mode 100644
 index 000000000000..0d1fd966712d
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.c
 @@ -0,0 +1,97 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9233,11 +9246,11 @@ index 000000000000..0d1fd966712d
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.h b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.h w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.h
 new file mode 100644
 index 000000000000..226688c06caf
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/compat/p_compat_sys_request_key/p_compat_sys_request_key.h
 @@ -0,0 +1,44 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9283,11 +9296,11 @@ index 000000000000..226688c06caf
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.c b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.c w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.c
 new file mode 100644
 index 000000000000..a3423eba75a7
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.c
 @@ -0,0 +1,105 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9394,11 +9407,11 @@ index 000000000000..a3423eba75a7
 +}
 +
 +GENERATE_INSTALL_FUNC(security_bprm_committed_creds)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.h b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.h w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.h
 new file mode 100644
 index 000000000000..883f4b965591
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committed_creds/p_security_bprm_committed_creds.h
 @@ -0,0 +1,45 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9445,11 +9458,11 @@ index 000000000000..883f4b965591
 +void p_uninstall_security_bprm_committed_creds_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.c b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.c w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.c
 new file mode 100644
 index 000000000000..63c99213a532
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.c
 @@ -0,0 +1,63 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9514,11 +9527,11 @@ index 000000000000..63c99213a532
 +}
 +
 +GENERATE_INSTALL_FUNC(security_bprm_committing_creds)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.h b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.h w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.h
 new file mode 100644
 index 000000000000..a6fc9a765880
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/exec/p_security_bprm_committing_creds/p_security_bprm_committing_creds.h
 @@ -0,0 +1,40 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9560,11 +9573,11 @@ index 000000000000..a6fc9a765880
 +void p_uninstall_security_bprm_committing_creds_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.c b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.c w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.c
 new file mode 100644
 index 000000000000..5b2a7e7dccac
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.c
 @@ -0,0 +1,81 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9647,11 +9660,11 @@ index 000000000000..5b2a7e7dccac
 +
 +
 +GENERATE_INSTALL_FUNC(key_change_session_keyring)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.h b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.h w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.h
 new file mode 100644
 index 000000000000..97eed2c84838
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_key_change_session_keyring/p_key_change_session_keyring.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9688,11 +9701,11 @@ index 000000000000..97eed2c84838
 +void p_uninstall_key_change_session_keyring_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.c b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.c w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.c
 new file mode 100644
 index 000000000000..580225bfc5d8
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9778,11 +9791,11 @@ index 000000000000..580225bfc5d8
 +
 +
 +GENERATE_INSTALL_FUNC(sys_add_key)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.h b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.h w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.h
 new file mode 100644
 index 000000000000..f6dcabb67969
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_add_key/p_sys_add_key.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9819,11 +9832,11 @@ index 000000000000..f6dcabb67969
 +void p_uninstall_sys_add_key_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.c b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.c w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.c
 new file mode 100644
 index 000000000000..7999122b3795
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9909,11 +9922,11 @@ index 000000000000..7999122b3795
 +
 +
 +GENERATE_INSTALL_FUNC(sys_keyctl)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.h b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.h w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.h
 new file mode 100644
 index 000000000000..d0990758e29b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_keyctl/p_sys_keyctl.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -9950,11 +9963,11 @@ index 000000000000..d0990758e29b
 +void p_uninstall_sys_keyctl_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.c b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.c w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.c
 new file mode 100644
 index 000000000000..d0fcc8d5b8f8
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10040,11 +10053,11 @@ index 000000000000..d0fcc8d5b8f8
 +
 +
 +GENERATE_INSTALL_FUNC(sys_request_key)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.h b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.h w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.h
 new file mode 100644
 index 000000000000..b4a5bafefae9
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/keyring/p_sys_request_key/p_sys_request_key.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10081,11 +10094,11 @@ index 000000000000..b4a5bafefae9
 +void p_uninstall_sys_request_key_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.c b/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.c w/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.c
 new file mode 100644
 index 000000000000..451d98c83375
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.c
 @@ -0,0 +1,82 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10169,11 +10182,11 @@ index 000000000000..451d98c83375
 +
 +GENERATE_INSTALL_FUNC(ovl_override_sync)
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.h b/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.h w/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.h
 new file mode 100644
 index 000000000000..fd4c8b323f2e
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/override/overlayfs/p_ovl_override_sync/p_ovl_override_sync.h
 @@ -0,0 +1,58 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10233,11 +10246,11 @@ index 000000000000..fd4c8b323f2e
 +
 +#endif
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.c b/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.c w/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.c
 new file mode 100644
 index 000000000000..1999c7250aba
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.c
 @@ -0,0 +1,79 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10318,11 +10331,11 @@ index 000000000000..1999c7250aba
 +
 +
 +GENERATE_INSTALL_FUNC(override_creds)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.h b/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.h w/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.h
 new file mode 100644
 index 000000000000..4d5df8ecaf56
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/override/p_override_creds/p_override_creds.h
 @@ -0,0 +1,36 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10360,11 +10373,11 @@ index 000000000000..4d5df8ecaf56
 +void p_uninstall_override_creds_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.c b/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.c w/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.c
 new file mode 100644
 index 000000000000..f720ed779c3a
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.c
 @@ -0,0 +1,73 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10439,11 +10452,11 @@ index 000000000000..f720ed779c3a
 +
 +
 +GENERATE_INSTALL_FUNC(revert_creds)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.h b/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.h w/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.h
 new file mode 100644
 index 000000000000..8404de9c9e4e
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/override/p_revert_creds/p_revert_creds.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10480,11 +10493,11 @@ index 000000000000..8404de9c9e4e
 +void p_uninstall_revert_creds_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.c b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.c w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.c
 new file mode 100644
 index 000000000000..eaee2ae68312
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.c
 @@ -0,0 +1,71 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10557,11 +10570,11 @@ index 000000000000..eaee2ae68312
 +
 +
 +GENERATE_INSTALL_FUNC(pcfi___queue_work)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.h b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.h w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.h
 new file mode 100644
 index 000000000000..5e99281eab7b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p___queue_work/p___queue_work.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10598,11 +10611,11 @@ index 000000000000..5e99281eab7b
 +void p_uninstall_pcfi___queue_work_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.c b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.c w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.c
 new file mode 100644
 index 000000000000..99fdf41d3991
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.c
 @@ -0,0 +1,77 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10681,11 +10694,11 @@ index 000000000000..99fdf41d3991
 +
 +
 +GENERATE_INSTALL_FUNC(pcfi_lookup_fast)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.h b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.h w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.h
 new file mode 100644
 index 000000000000..0ff90d940906
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_lookup_fast/p_lookup_fast.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10722,11 +10735,11 @@ index 000000000000..0ff90d940906
 +void p_uninstall_pcfi_lookup_fast_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.c b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.c w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.c
 new file mode 100644
 index 000000000000..0cf21230aea6
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.c
 @@ -0,0 +1,83 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10811,11 +10824,11 @@ index 000000000000..0cf21230aea6
 +
 +
 +GENERATE_INSTALL_FUNC(pcfi_mark_inode_dirty)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.h b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.h w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.h
 new file mode 100644
 index 000000000000..aa8611fcd77c
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_mark_inode_dirty/p_mark_inode_dirty.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10852,11 +10865,11 @@ index 000000000000..aa8611fcd77c
 +void p_uninstall_pcfi_mark_inode_dirty_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.c b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.c w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.c
 new file mode 100644
 index 000000000000..1319544206b5
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.c
 @@ -0,0 +1,74 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10932,11 +10945,11 @@ index 000000000000..1319544206b5
 +
 +
 +GENERATE_INSTALL_FUNC(pcfi_schedule)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.h b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.h w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.h
 new file mode 100644
 index 000000000000..95f928a57b6b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/pCFI/p_schedule/p_schedule.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -10973,12 +10986,12 @@ index 000000000000..95f928a57b6b
 +void p_uninstall_pcfi_schedule_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.c b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.c w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.c
 new file mode 100644
-index 000000000000..51536d070de9
+index 000000000000..cb26c0703c09
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.c
-@@ -0,0 +1,156 @@
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.c
+@@ -0,0 +1,158 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
 + *
@@ -11031,6 +11044,8 @@ index 000000000000..51536d070de9
 +   "/sbin/drbdadm",
 +   "/sbin/hotplug",
 +   "/sbin/modprobe",
++   "/usr/bin/modprobe",
++   "/usr/sbin/modprobe",
 +   "/sbin/nfs_cache_getent",
 +   "/sbin/nfsd-recall-failed",
 +   "/sbin/nfsdcltrack",
@@ -11135,11 +11150,11 @@ index 000000000000..51536d070de9
 +
 +
 +GENERATE_INSTALL_FUNC(call_usermodehelper)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.h b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.h w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.h
 new file mode 100644
 index 000000000000..c1921c2c3e21
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_call_usermodehelper.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11176,11 +11191,11 @@ index 000000000000..c1921c2c3e21
 +void p_uninstall_call_usermodehelper_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_usermode_kernel_dep.h b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_usermode_kernel_dep.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_usermode_kernel_dep.h w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_usermode_kernel_dep.h
 new file mode 100644
 index 000000000000..5de74779a6e4
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_usermode_kernel_dep.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper/p_usermode_kernel_dep.h
 @@ -0,0 +1,51 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11233,11 +11248,11 @@ index 000000000000..5de74779a6e4
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.c b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.c w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.c
 new file mode 100644
 index 000000000000..b0ef63f1619f
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.c
 @@ -0,0 +1,59 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11298,11 +11313,11 @@ index 000000000000..b0ef63f1619f
 +
 +
 +GENERATE_INSTALL_FUNC(call_usermodehelper_exec)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.h b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.h w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.h
 new file mode 100644
 index 000000000000..73ecf3d32a79
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_call_usermodehelper_exec/p_call_usermodehelper_exec.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11339,11 +11354,11 @@ index 000000000000..73ecf3d32a79
 +void p_uninstall_call_usermodehelper_exec_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.c b/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.c w/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.c
 new file mode 100644
 index 000000000000..ae8594ef75b3
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.c
 @@ -0,0 +1,73 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11418,11 +11433,11 @@ index 000000000000..ae8594ef75b3
 +
 +
 +GENERATE_INSTALL_FUNC(capable)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.h b/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.h w/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.h
 new file mode 100644
 index 000000000000..db0633d1004a
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_capable/p_capable.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11459,11 +11474,11 @@ index 000000000000..db0633d1004a
 +void p_uninstall_capable_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.c b/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.c w/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.c
 new file mode 100644
 index 000000000000..ac67f5d78d83
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.c
 @@ -0,0 +1,63 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11528,11 +11543,11 @@ index 000000000000..ac67f5d78d83
 +
 +
 +GENERATE_INSTALL_FUNC(do_exit)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.h b/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.h w/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.h
 new file mode 100644
 index 000000000000..2d72582f55a9
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_do_exit/p_do_exit.h
 @@ -0,0 +1,36 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11570,11 +11585,11 @@ index 000000000000..2d72582f55a9
 +void p_uninstall_do_exit_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.c b/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.c w/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.c
 new file mode 100644
 index 000000000000..edd01ea54b92
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.c
 @@ -0,0 +1,90 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11666,11 +11681,11 @@ index 000000000000..edd01ea54b92
 +
 +
 +GENERATE_INSTALL_FUNC(generic_permission)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.h b/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.h w/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.h
 new file mode 100644
 index 000000000000..58e37beab867
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_generic_permission/p_generic_permission.h
 @@ -0,0 +1,53 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11725,11 +11740,11 @@ index 000000000000..58e37beab867
 +void p_uninstall_generic_permission_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_install.c b/security/lkrg/modules/exploit_detection/syscalls/p_install.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_install.c w/security/lkrg/modules/exploit_detection/syscalls/p_install.c
 new file mode 100644
 index 000000000000..4ef81e6e9192
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_install.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_install.c
 @@ -0,0 +1,104 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11835,11 +11850,11 @@ index 000000000000..4ef81e6e9192
 +      *state = 0;
 +   }
 +}
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_install.h b/security/lkrg/modules/exploit_detection/syscalls/p_install.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_install.h w/security/lkrg/modules/exploit_detection/syscalls/p_install.h
 new file mode 100644
 index 000000000000..8617ec739caa
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_install.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_install.h
 @@ -0,0 +1,38 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11879,11 +11894,11 @@ index 000000000000..8617ec739caa
 +   }
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.c b/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.c w/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.c
 new file mode 100644
 index 000000000000..dfb8f1a77e28
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.c
 @@ -0,0 +1,49 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11934,11 +11949,11 @@ index 000000000000..dfb8f1a77e28
 +
 +
 +GENERATE_INSTALL_FUNC(scm_send)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.h b/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.h w/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.h
 new file mode 100644
 index 000000000000..ff6f2aedaccd
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_scm_send/p_scm_send.h
 @@ -0,0 +1,36 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -11976,11 +11991,11 @@ index 000000000000..ff6f2aedaccd
 +void p_uninstall_scm_send_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.c b/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.c w/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.c
 new file mode 100644
 index 000000000000..23f22b270067
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.c
 @@ -0,0 +1,164 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12146,11 +12161,11 @@ index 000000000000..23f22b270067
 +
 +GENERATE_INSTALL_FUNC(seccomp)
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.h b/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.h w/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.h
 new file mode 100644
 index 000000000000..5660a31abcb6
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_seccomp/p_seccomp.h
 @@ -0,0 +1,39 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12191,11 +12206,11 @@ index 000000000000..5660a31abcb6
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.c b/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.c w/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.c
 new file mode 100644
 index 000000000000..74b6beb7fe5b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.c
 @@ -0,0 +1,59 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12256,11 +12271,11 @@ index 000000000000..74b6beb7fe5b
 +
 +
 +GENERATE_INSTALL_FUNC(security_ptrace_access)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.h b/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.h w/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.h
 new file mode 100644
 index 000000000000..b50979467e9d
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_security_ptrace_access/p_security_ptrace_access.h
 @@ -0,0 +1,33 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12295,11 +12310,11 @@ index 000000000000..b50979467e9d
 +void p_uninstall_security_ptrace_access_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.c b/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.c w/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.c
 new file mode 100644
 index 000000000000..009b6ca25b51
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.c
 @@ -0,0 +1,95 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12396,11 +12411,11 @@ index 000000000000..009b6ca25b51
 +GENERATE_INSTALL_FUNC(sel_write_enforce)
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.h b/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.h w/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.h
 new file mode 100644
 index 000000000000..53ac41cfaf47
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sel_write_enforce/p_sel_write_enforce.h
 @@ -0,0 +1,40 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12442,11 +12457,11 @@ index 000000000000..53ac41cfaf47
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.c b/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.c w/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.c
 new file mode 100644
 index 000000000000..075e2bbd135b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.c
 @@ -0,0 +1,83 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12531,11 +12546,11 @@ index 000000000000..075e2bbd135b
 +}
 +
 +GENERATE_INSTALL_FUNC(set_current_groups)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.h b/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.h w/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.h
 new file mode 100644
 index 000000000000..e3f722f629e5
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_set_current_groups/p_set_current_groups.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12572,11 +12587,11 @@ index 000000000000..e3f722f629e5
 +void p_uninstall_set_current_groups_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.c
 new file mode 100644
 index 000000000000..24113fe8598b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.c
 @@ -0,0 +1,88 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12666,11 +12681,11 @@ index 000000000000..24113fe8598b
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setfsgid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.h
 new file mode 100644
 index 000000000000..f9b87b81a0c5
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsgid/p_sys_setfsgid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12707,11 +12722,11 @@ index 000000000000..f9b87b81a0c5
 +void p_uninstall_sys_setfsgid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.c
 new file mode 100644
 index 000000000000..d0e22e5857b1
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.c
 @@ -0,0 +1,88 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12801,11 +12816,11 @@ index 000000000000..d0e22e5857b1
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setfsuid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.h
 new file mode 100644
 index 000000000000..96f361aedb69
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setfsuid/p_sys_setfsuid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12842,11 +12857,11 @@ index 000000000000..96f361aedb69
 +void p_uninstall_sys_setfsuid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.c
 new file mode 100644
 index 000000000000..fab8375756bd
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12932,11 +12947,11 @@ index 000000000000..fab8375756bd
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setgid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.h
 new file mode 100644
 index 000000000000..8067693b6259
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setgid/p_sys_setgid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -12973,11 +12988,11 @@ index 000000000000..8067693b6259
 +void p_uninstall_sys_setgid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.c
 new file mode 100644
 index 000000000000..c58d4e88ddf9
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13063,11 +13078,11 @@ index 000000000000..c58d4e88ddf9
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setns)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.h
 new file mode 100644
 index 000000000000..353a6662cf9d
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setns/p_sys_setns.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13104,11 +13119,11 @@ index 000000000000..353a6662cf9d
 +void p_uninstall_sys_setns_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.c
 new file mode 100644
 index 000000000000..c5434bfa62d3
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13194,11 +13209,11 @@ index 000000000000..c5434bfa62d3
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setregid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.h
 new file mode 100644
 index 000000000000..fa20e4060d41
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setregid/p_sys_setregid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13235,11 +13250,11 @@ index 000000000000..fa20e4060d41
 +void p_uninstall_sys_setregid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.c
 new file mode 100644
 index 000000000000..5df678788b4c
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13325,11 +13340,11 @@ index 000000000000..5df678788b4c
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setresgid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.h
 new file mode 100644
 index 000000000000..1530337b3461
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresgid/p_sys_setresgid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13366,11 +13381,11 @@ index 000000000000..1530337b3461
 +void p_uninstall_sys_setresgid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.c
 new file mode 100644
 index 000000000000..7dd6024b93c6
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13456,11 +13471,11 @@ index 000000000000..7dd6024b93c6
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setresuid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.h
 new file mode 100644
 index 000000000000..1a485c6c76d9
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setresuid/p_sys_setresuid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13497,11 +13512,11 @@ index 000000000000..1a485c6c76d9
 +void p_uninstall_sys_setresuid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.c
 new file mode 100644
 index 000000000000..1afaa589694a
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13587,11 +13602,11 @@ index 000000000000..1afaa589694a
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setreuid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.h
 new file mode 100644
 index 000000000000..439babeb5a7b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setreuid/p_sys_setreuid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13628,11 +13643,11 @@ index 000000000000..439babeb5a7b
 +void p_uninstall_sys_setreuid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.c
 new file mode 100644
 index 000000000000..310b663e5636
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.c
 @@ -0,0 +1,84 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13718,11 +13733,11 @@ index 000000000000..310b663e5636
 +
 +
 +GENERATE_INSTALL_FUNC(sys_setuid)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.h
 new file mode 100644
 index 000000000000..5740c4f8f334
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_setuid/p_sys_setuid.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13759,11 +13774,11 @@ index 000000000000..5740c4f8f334
 +void p_uninstall_sys_setuid_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.c b/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.c w/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.c
 new file mode 100644
 index 000000000000..3f846435f28e
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.c
 @@ -0,0 +1,88 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13853,11 +13868,11 @@ index 000000000000..3f846435f28e
 +
 +
 +GENERATE_INSTALL_FUNC(sys_unshare)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.h b/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.h w/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.h
 new file mode 100644
 index 000000000000..0e1b7e16b82b
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_sys_unshare/p_sys_unshare.h
 @@ -0,0 +1,35 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13894,11 +13909,11 @@ index 000000000000..0e1b7e16b82b
 +void p_uninstall_sys_unshare_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.c b/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.c
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.c w/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.c
 new file mode 100644
 index 000000000000..cf26fcbe69d4
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.c
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.c
 @@ -0,0 +1,80 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -13980,11 +13995,11 @@ index 000000000000..cf26fcbe69d4
 +
 +
 +GENERATE_INSTALL_FUNC(wake_up_new_task)
-diff --git a/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.h b/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.h
+diff --git c/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.h w/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.h
 new file mode 100644
 index 000000000000..4d10ee259c8a
 --- /dev/null
-+++ b/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.h
++++ w/security/lkrg/modules/exploit_detection/syscalls/p_wake_up_new_task/p_wake_up_new_task.h
 @@ -0,0 +1,36 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -14022,11 +14037,11 @@ index 000000000000..4d10ee259c8a
 +void p_uninstall_wake_up_new_task_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/hashing/p_lkrg_fast_hash.c b/security/lkrg/modules/hashing/p_lkrg_fast_hash.c
+diff --git c/security/lkrg/modules/hashing/p_lkrg_fast_hash.c w/security/lkrg/modules/hashing/p_lkrg_fast_hash.c
 new file mode 100644
 index 000000000000..bbd6ba0da8e3
 --- /dev/null
-+++ b/security/lkrg/modules/hashing/p_lkrg_fast_hash.c
++++ w/security/lkrg/modules/hashing/p_lkrg_fast_hash.c
 @@ -0,0 +1,106 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -14134,11 +14149,11 @@ index 000000000000..bbd6ba0da8e3
 +   b = v0 ^ v1 ^ v2 ^ v3;
 +   U64TO8_LE(out, b);
 +}
-diff --git a/security/lkrg/modules/hashing/p_lkrg_fast_hash.h b/security/lkrg/modules/hashing/p_lkrg_fast_hash.h
+diff --git c/security/lkrg/modules/hashing/p_lkrg_fast_hash.h w/security/lkrg/modules/hashing/p_lkrg_fast_hash.h
 new file mode 100644
 index 000000000000..1c72ec3ace11
 --- /dev/null
-+++ b/security/lkrg/modules/hashing/p_lkrg_fast_hash.h
++++ w/security/lkrg/modules/hashing/p_lkrg_fast_hash.h
 @@ -0,0 +1,83 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -14223,11 +14238,11 @@ index 000000000000..1c72ec3ace11
 +uint64_t p_lkrg_fast_hash(const char *data, unsigned int len);
 +
 +#endif
-diff --git a/security/lkrg/modules/integrity_timer/p_integrity_timer.c b/security/lkrg/modules/integrity_timer/p_integrity_timer.c
+diff --git c/security/lkrg/modules/integrity_timer/p_integrity_timer.c w/security/lkrg/modules/integrity_timer/p_integrity_timer.c
 new file mode 100644
 index 000000000000..eb53e1edccec
 --- /dev/null
-+++ b/security/lkrg/modules/integrity_timer/p_integrity_timer.c
++++ w/security/lkrg/modules/integrity_timer/p_integrity_timer.c
 @@ -0,0 +1,1009 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -15238,11 +15253,11 @@ index 000000000000..eb53e1edccec
 +      p_free_offload(p_work);
 +   }
 +}
-diff --git a/security/lkrg/modules/integrity_timer/p_integrity_timer.h b/security/lkrg/modules/integrity_timer/p_integrity_timer.h
+diff --git c/security/lkrg/modules/integrity_timer/p_integrity_timer.h w/security/lkrg/modules/integrity_timer/p_integrity_timer.h
 new file mode 100644
 index 000000000000..6f57baff5ad0
 --- /dev/null
-+++ b/security/lkrg/modules/integrity_timer/p_integrity_timer.h
++++ w/security/lkrg/modules/integrity_timer/p_integrity_timer.h
 @@ -0,0 +1,46 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -15290,11 +15305,11 @@ index 000000000000..6f57baff5ad0
 +extern struct kmem_cache *p_offload_cache;
 +
 +#endif
-diff --git a/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.c b/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.c
+diff --git c/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.c w/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.c
 new file mode 100644
 index 000000000000..73ddd96c2bb6
 --- /dev/null
-+++ b/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.c
++++ w/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.c
 @@ -0,0 +1,74 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -15370,11 +15385,11 @@ index 000000000000..73ddd96c2bb6
 +}
 +
 +GENERATE_INSTALL_FUNC(lkrg_dummy)
-diff --git a/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.h b/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.h
+diff --git c/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.h w/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.h
 new file mode 100644
 index 000000000000..cf87ff764451
 --- /dev/null
-+++ b/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.h
++++ w/security/lkrg/modules/integrity_timer/verify_kprobes/p_verify_kprobes.h
 @@ -0,0 +1,26 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -15402,11 +15417,11 @@ index 000000000000..cf87ff764451
 +void p_uninstall_lkrg_dummy_hook(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/kmod/p_kmod.c b/security/lkrg/modules/kmod/p_kmod.c
+diff --git c/security/lkrg/modules/kmod/p_kmod.c w/security/lkrg/modules/kmod/p_kmod.c
 new file mode 100644
 index 000000000000..0de7077ea7f5
 --- /dev/null
-+++ b/security/lkrg/modules/kmod/p_kmod.c
++++ w/security/lkrg/modules/kmod/p_kmod.c
 @@ -0,0 +1,619 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -16027,11 +16042,11 @@ index 000000000000..0de7077ea7f5
 +
 +   return p_ret;
 +}
-diff --git a/security/lkrg/modules/kmod/p_kmod.h b/security/lkrg/modules/kmod/p_kmod.h
+diff --git c/security/lkrg/modules/kmod/p_kmod.h w/security/lkrg/modules/kmod/p_kmod.h
 new file mode 100644
 index 000000000000..597998fb4f09
 --- /dev/null
-+++ b/security/lkrg/modules/kmod/p_kmod.h
++++ w/security/lkrg/modules/kmod/p_kmod.h
 @@ -0,0 +1,70 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -16103,11 +16118,11 @@ index 000000000000..597998fb4f09
 +void p_register_module_notifier(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/kmod/p_kmod_notifier.c b/security/lkrg/modules/kmod/p_kmod_notifier.c
+diff --git c/security/lkrg/modules/kmod/p_kmod_notifier.c w/security/lkrg/modules/kmod/p_kmod_notifier.c
 new file mode 100644
 index 000000000000..586d6c76e547
 --- /dev/null
-+++ b/security/lkrg/modules/kmod/p_kmod_notifier.c
++++ w/security/lkrg/modules/kmod/p_kmod_notifier.c
 @@ -0,0 +1,343 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -16452,11 +16467,11 @@ index 000000000000..586d6c76e547
 +      p_db.p_jump_label.p_mod_mask = NULL;
 +   }
 +}
-diff --git a/security/lkrg/modules/ksyms/p_resolve_ksym.c b/security/lkrg/modules/ksyms/p_resolve_ksym.c
+diff --git c/security/lkrg/modules/ksyms/p_resolve_ksym.c w/security/lkrg/modules/ksyms/p_resolve_ksym.c
 new file mode 100644
 index 000000000000..ac2eb7694a44
 --- /dev/null
-+++ b/security/lkrg/modules/ksyms/p_resolve_ksym.c
++++ w/security/lkrg/modules/ksyms/p_resolve_ksym.c
 @@ -0,0 +1,134 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -16592,11 +16607,11 @@ index 000000000000..ac2eb7694a44
 +
 +   return P_LKRG_SUCCESS;
 +}
-diff --git a/security/lkrg/modules/ksyms/p_resolve_ksym.h b/security/lkrg/modules/ksyms/p_resolve_ksym.h
+diff --git c/security/lkrg/modules/ksyms/p_resolve_ksym.h w/security/lkrg/modules/ksyms/p_resolve_ksym.h
 new file mode 100644
 index 000000000000..7c0ede580231
 --- /dev/null
-+++ b/security/lkrg/modules/ksyms/p_resolve_ksym.h
++++ w/security/lkrg/modules/ksyms/p_resolve_ksym.h
 @@ -0,0 +1,32 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -16630,11 +16645,11 @@ index 000000000000..7c0ede580231
 +long get_kallsyms_address(void);
 +
 +#endif
-diff --git a/security/lkrg/modules/notifiers/p_notifiers.c b/security/lkrg/modules/notifiers/p_notifiers.c
+diff --git c/security/lkrg/modules/notifiers/p_notifiers.c w/security/lkrg/modules/notifiers/p_notifiers.c
 new file mode 100644
 index 000000000000..53f3d0e5b9e2
 --- /dev/null
-+++ b/security/lkrg/modules/notifiers/p_notifiers.c
++++ w/security/lkrg/modules/notifiers/p_notifiers.c
 @@ -0,0 +1,279 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -16915,11 +16930,11 @@ index 000000000000..53f3d0e5b9e2
 +   unregister_acpi_notifier(&p_acpi_notifier_nb);
 +#endif
 +}
-diff --git a/security/lkrg/modules/notifiers/p_notifiers.h b/security/lkrg/modules/notifiers/p_notifiers.h
+diff --git c/security/lkrg/modules/notifiers/p_notifiers.h w/security/lkrg/modules/notifiers/p_notifiers.h
 new file mode 100644
 index 000000000000..9449b5902140
 --- /dev/null
-+++ b/security/lkrg/modules/notifiers/p_notifiers.h
++++ w/security/lkrg/modules/notifiers/p_notifiers.h
 @@ -0,0 +1,59 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -16980,11 +16995,11 @@ index 000000000000..9449b5902140
 +
 +
 +#endif
-diff --git a/security/lkrg/modules/print_log/p_lkrg_debug_log.c b/security/lkrg/modules/print_log/p_lkrg_debug_log.c
+diff --git c/security/lkrg/modules/print_log/p_lkrg_debug_log.c w/security/lkrg/modules/print_log/p_lkrg_debug_log.c
 new file mode 100644
 index 000000000000..40c6b4a9fade
 --- /dev/null
-+++ b/security/lkrg/modules/print_log/p_lkrg_debug_log.c
++++ w/security/lkrg/modules/print_log/p_lkrg_debug_log.c
 @@ -0,0 +1,198 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -17184,11 +17199,11 @@ index 000000000000..40c6b4a9fade
 +   }
 +}
 +#endif /* P_LKRG_DEBUG_BUILD */
-diff --git a/security/lkrg/modules/print_log/p_lkrg_print_log.h b/security/lkrg/modules/print_log/p_lkrg_print_log.h
+diff --git c/security/lkrg/modules/print_log/p_lkrg_print_log.h w/security/lkrg/modules/print_log/p_lkrg_print_log.h
 new file mode 100644
 index 000000000000..3a41c3d91bd5
 --- /dev/null
-+++ b/security/lkrg/modules/print_log/p_lkrg_print_log.h
++++ w/security/lkrg/modules/print_log/p_lkrg_print_log.h
 @@ -0,0 +1,182 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -17372,11 +17387,11 @@ index 000000000000..3a41c3d91bd5
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/self-defense/hiding/p_hiding.c b/security/lkrg/modules/self-defense/hiding/p_hiding.c
+diff --git c/security/lkrg/modules/self-defense/hiding/p_hiding.c w/security/lkrg/modules/self-defense/hiding/p_hiding.c
 new file mode 100644
 index 000000000000..698717eeaccc
 --- /dev/null
-+++ b/security/lkrg/modules/self-defense/hiding/p_hiding.c
++++ w/security/lkrg/modules/self-defense/hiding/p_hiding.c
 @@ -0,0 +1,108 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -17486,11 +17501,11 @@ index 000000000000..698717eeaccc
 +   mutex_unlock(P_SYM(p_module_mutex));
 +}
 +#endif
-diff --git a/security/lkrg/modules/self-defense/hiding/p_hiding.h b/security/lkrg/modules/self-defense/hiding/p_hiding.h
+diff --git c/security/lkrg/modules/self-defense/hiding/p_hiding.h w/security/lkrg/modules/self-defense/hiding/p_hiding.h
 new file mode 100644
 index 000000000000..041e8cb20920
 --- /dev/null
-+++ b/security/lkrg/modules/self-defense/hiding/p_hiding.h
++++ w/security/lkrg/modules/self-defense/hiding/p_hiding.h
 @@ -0,0 +1,144 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -17636,11 +17651,11 @@ index 000000000000..041e8cb20920
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/modules/wrap/p_struct_wrap.h b/security/lkrg/modules/wrap/p_struct_wrap.h
+diff --git c/security/lkrg/modules/wrap/p_struct_wrap.h w/security/lkrg/modules/wrap/p_struct_wrap.h
 new file mode 100644
 index 000000000000..05dccc997121
 --- /dev/null
-+++ b/security/lkrg/modules/wrap/p_struct_wrap.h
++++ w/security/lkrg/modules/wrap/p_struct_wrap.h
 @@ -0,0 +1,795 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -18437,11 +18452,11 @@ index 000000000000..05dccc997121
 +#endif
 +
 +#endif
-diff --git a/security/lkrg/p_lkrg_main.c b/security/lkrg/p_lkrg_main.c
+diff --git c/security/lkrg/p_lkrg_main.c w/security/lkrg/p_lkrg_main.c
 new file mode 100644
 index 000000000000..ad0011fcfaf7
 --- /dev/null
-+++ b/security/lkrg/p_lkrg_main.c
++++ w/security/lkrg/p_lkrg_main.c
 @@ -0,0 +1,698 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
@@ -19141,11 +19156,11 @@ index 000000000000..ad0011fcfaf7
 +MODULE_AUTHOR("Adam 'pi3' Zabrocki (http://pi3.com.pl)");
 +MODULE_DESCRIPTION("pi3's Linux kernel Runtime Guard");
 +MODULE_LICENSE("GPL v2");
-diff --git a/security/lkrg/p_lkrg_main.h b/security/lkrg/p_lkrg_main.h
+diff --git c/security/lkrg/p_lkrg_main.h w/security/lkrg/p_lkrg_main.h
 new file mode 100644
 index 000000000000..14674534d37c
 --- /dev/null
-+++ b/security/lkrg/p_lkrg_main.h
++++ w/security/lkrg/p_lkrg_main.h
 @@ -0,0 +1,447 @@
 +/*
 + * pi3's Linux kernel Runtime Guard
