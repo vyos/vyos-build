@@ -5,6 +5,7 @@
 
 # Install dependencies (only once)
 if [[ -z "$(grep llvm /etc/apt/sources.list)" ]]; then
+sudo apt purge -y $(dpkg -l|grep -E 'clang|llvm' | awk '/1:11/{print$2}')
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 sudo sh -c 'echo "deb http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-16 main" >> /etc/apt/sources.list'
 sudo sh -c 'echo "deb-src http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-16 main" >> /etc/apt/sources.list'
@@ -22,9 +23,11 @@ libomp-16-dev \
 libclc-16-dev \
 libunwind-16-dev
 # Configure LLVM build
-sudo ln -s $(which lld-16) /usr/local/bin/ld.lld
-sudo ln -s $(which lld-16) /usr/local/bin/lld
-export CC=clang-16
+pushd .
+cd /usr/bin/
+ls -1|grep '\-16$'|while read LN; do sudo ln -s "$LN" "$(echo "$LN"|sed -e 's|-16$||')" ;done
+popd
+export CC=clang
 export LLVM=1
 mv arch/x86/configs/vyos_defconfig arch/x86/configs/vyos_defconfig.real
 fi
@@ -42,6 +45,10 @@ fi
 # Unpack Kernel source
 tar xf linux-${KERNEL_VER}.tar.xz
 ln -s linux-${KERNEL_VER} linux
+# Prevent git reset
+sed -i 's|^git|#git|' build-kernel.sh
 # ... Build Kernel
 ./build-kernel.sh
-
+# Restore sanity
+sed -i 's|^#git|git|' build-kernel.sh
+git reset --hard
