@@ -1,0 +1,37 @@
+From bad924dd359670b92cfb44e4657ba047a0ffec10 Mon Sep 17 00:00:00 2001
+From: Yuxiang Zhu <vfreex@gmail.com>
+Date: Tue, 10 Jan 2023 03:18:05 +0800
+Subject: [PATCH 1/2] tools: Add missing daemons
+
+Got `ERROR: Daemon babeld is not a valid option for 'show running-config'` when using `frr-reload.py --reload --daemon babeld`.
+
+Adds `babeld` and `nhrpd` as valid daemons.
+
+Signed-off-by: Yuxiang Zhu <vfreex@gmail.com>
+---
+ tools/frr-reload.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/tools/frr-reload.py b/tools/frr-reload.py
+index bf402e1be..dfbc9b800 100755
+--- a/tools/frr-reload.py
++++ b/tools/frr-reload.py
+@@ -1914,6 +1914,7 @@ if __name__ == "__main__":
+         "bgpd",
+         "fabricd",
+         "isisd",
++        "babeld",
+         "ospf6d",
+         "ospfd",
+         "pbrd",
+@@ -1925,6 +1926,7 @@ if __name__ == "__main__":
+         "staticd",
+         "vrrpd",
+         "ldpd",
++        "nhrpd",
+         "pathd",
+         "bfdd",
+         "eigrpd",
+-- 
+2.37.1 (Apple Git-137.1)
+
