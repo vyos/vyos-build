@@ -19,7 +19,7 @@ the box, please use [x]
 
 ## Related Task(s)
 <!-- All submitted PRs must be linked to a Task on Phabricator. -->
-* https://phabricator.vyos.net/Txxxx
+* https://vyos.dev/Txxxx
 
 ## Component(s) name
 <!-- A rather incomplete list of components: ethernet, wireguard, bgp, mpls, ldp, l2tp, dhcp ... -->
