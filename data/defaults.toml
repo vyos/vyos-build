@@ -2,7 +2,7 @@ build_type = "development"
 
 architecture = "amd64"
 
-debian_distribution = "bullseye"
+debian_distribution = "bookworm"
 
 debian_mirror = "http://deb.debian.org/debian"
 debian_security_mirror = "http://deb.debian.org/debian-security"
@@ -17,4 +17,4 @@ bootloaders = "syslinux,grub-efi"
 
 website_url = "https://vyos.io"
 support_url = "https://support.vyos.io"
-bugtracker_url = "https://phabricator.vyos.net"
+bugtracker_url = "https://vyos.dev"

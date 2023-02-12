@@ -18,7 +18,9 @@
 
 # This Dockerfile is installable on both x86, x86-64, armhf and arm64 systems
 ARG ARCH=
-FROM ${ARCH}debian:bullseye
+FROM ${ARCH}debian:bookworm
+
+RUN grep "VERSION_ID" /etc/os-release || (echo 'VERSION_ID="12"' >> /etc/os-release)
 
 # It is also possible to emulate an arm system inside docker,
 # execution of this emulated system needs to be executed on an x86 or x86-64 host.
@@ -45,7 +47,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
     dpkg-reconfigure dash
 
-RUN echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
+RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
 
 RUN apt-get update && apt-get install -y \
       dialog \
@@ -228,24 +230,6 @@ RUN apt-get update && apt-get install -y \
       pkg-config \
       systemd
 
-# Packages needed for iproute2
-RUN apt-get update && apt-get install -y \
-      bison \
-      debhelper \
-      flex \
-      libxtables-dev \
-      libatm1-dev \
-      libcap-dev \
-      libdb-dev \
-      libbsd-dev \
-      libelf-dev \
-      libmnl-dev \
-      libselinux1-dev \
-      linux-libc-dev \
-      pkg-config \
-      po-debconf \
-      zlib1g-dev
-
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 RUN apt-get update && apt-get install -y \
@@ -275,7 +259,7 @@ RUN apt-get update && apt-get install -y \
 RUN export LIBYANG_COMMIT="v2.0.164" && \
     git clone https://github.com/CESNET/libyang.git && \
     cd libyang && git checkout $LIBYANG_COMMIT && apkg build -i && \
-    cd pkg/pkgs/debian-11/libyang2_* && dpkg -i *.deb
+    cd pkg/pkgs/debian-*/libyang2_* && dpkg -i *.deb
 
 # FRR documentation also has a dependency on an up to date spinx version
 RUN pip install sphinx==4.0.2
@@ -318,6 +302,7 @@ RUN pip install git+https://github.com/aristanetworks/j2lint.git@341b5d5db86
 RUN apt-get update && apt-get install -y \
       dh-python \
       fakeroot \
+      iproute2 \
       libzmq3-dev \
       python3 \
       python3-setuptools \
@@ -405,7 +390,7 @@ RUN apt-get update && apt-get install -y \
       po-debconf \
       systemd \
       tzdata \
-      python-setuptools \
+      python3-setuptools \
       python3-stdeb
 
 # Packages needed for opennhrp
@@ -468,42 +453,6 @@ RUN if dpkg-architecture -iarm64; then \
       u-boot-tools \
       grub-efi-arm; \
     fi
-
-# Packages needed for libnftnl
-RUN apt-get update && apt-get install -y \
-      debhelper-compat \
-      libmnl-dev \
-      libtool \
-      pkg-config
-
-# Packages needed for nftables
-RUN apt-get update && apt-get install -y \
-      asciidoc-base \
-      automake \
-      bison \
-      debhelper-compat \
-      dh-python \
-      docbook-xsl \
-      flex \
-      libeditreadline-dev \
-      libgmp-dev \
-      libjansson-dev \
-      libmnl-dev \
-      libtool \
-      libxtables-dev \
-      python3-all \
-      python3-setuptools \
-      xsltproc
-
-# Packages needed for libnetfilter-conntrack
-RUN apt-get update && apt-get install -y \
-      debhelper-compat \
-      libmnl-dev \
-      libnfnetlink-dev \
-      libnetfilter-cthelper-dev \
-      libnetfilter-cttimeout-dev \
-      libnetfilter-queue-dev \
-      libtool
 
 # Packages needed for wide-dhcpv6
 RUN apt-get update && apt-get install -y \
@@ -594,47 +543,13 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
        pkg-config; \
      fi
 
-# Packages needed for hostapd (wpa_supplicant)
-RUN apt-get update && apt-get install -y \
-      libdbus-1-dev \
-      libssl-dev \
-      libncurses5-dev \
-      libpcsclite-dev \
-      libnl-3-dev \
-      libnl-genl-3-dev \
-      libnl-route-3-dev  \
-      libreadline-dev \
-      pkg-config \
-      docbook-to-man \
-      docbook-utils
-
-# Packages needed for podman
-RUN apt-get update && sudo apt-get install -y \
-      btrfs-progs \
-      git \
-      iptables \
-      libassuan-dev \
-      libbtrfs-dev \
-      libc6-dev \
-      libdevmapper-dev \
-      libglib2.0-dev \
-      libgpgme-dev \
-      libgpg-error-dev \
-      libprotobuf-dev \
-      libprotobuf-c-dev \
-      libseccomp-dev \
-      libselinux1-dev \
-      libsystemd-dev \
-      pkg-config \
-      runc \
-      uidmap
-
 # Packages needed for Accel-PPP
 # XXX: please note that this must be installed after nftable dependencies - otherwise
 # APT will remove liblua5.3-dev which breaks the Accel-PPP build
+# With bookworm, updated to libssl3 (Note: https://github.com/accel-ppp/accel-ppp/issues/68)
 RUN apt-get update && apt-get install -y \
       liblua5.3-dev \
-      libssl1.1 \
+      libssl3 \
       libssl-dev \
       libpcre3-dev
 
@@ -651,47 +566,6 @@ RUN apt-get update && apt-get install -y \
       gnulib \
       libtool
 
-# Packages required for ocserv
-RUN apt-get update && apt-get install -y \
-      autogen \
-      debhelper \
-      freeradius \
-      gawk \
-      gnutls-bin \
-      gperf \
-      gss-ntlmssp \
-      haproxy \
-      iproute2 \
-      iputils-ping \
-      libcjose-dev \
-      libcurl4-gnutls-dev \
-      libev-dev \
-      libgnutls28-dev \
-      libhttp-parser-dev \
-      libjansson-dev \
-      libkrb5-dev \
-      liblz4-dev \
-      libmaxminddb-dev \
-      libnl-route-3-dev \
-      libnss-wrapper \
-      liboath-dev \
-      libpam-wrapper \
-      libpam0g-dev \
-      libprotobuf-c-dev \
-      libradcli-dev \
-      libreadline-dev \
-      libseccomp-dev \
-      libsocket-wrapper \
-      libtalloc-dev \
-      libuid-wrapper \
-      nettle-dev \
-      nuttcp \
-      pkg-config \
-      protobuf-c-compiler \
-      ronn \
-      tcpdump \
-      yajl-tools
-
 #
 # fpm: a command-line program designed to help you build packages (e.g. deb)
 #
@@ -704,7 +578,7 @@ RUN gem install --no-document fpm
 
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
-    chmod a+s /usr/sbin/useradd /usr/sbin/groupadd /usr/sbin/gosu /usr/sbin/usermod
+    chmod a+s /usr/sbin/useradd /usr/sbin/groupadd /usr/sbin/usermod
 
 # Ensure sure all users have access to our OCAM and Go installation
 RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc && \
