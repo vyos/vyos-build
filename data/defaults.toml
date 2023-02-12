@@ -17,4 +17,4 @@ bootloaders = "syslinux,grub-efi"
 
 website_url = "https://vyos.io"
 support_url = "https://support.vyos.io"
-bugtracker_url = "https://phabricator.vyos.net"
+bugtracker_url = "https://vyos.dev"
