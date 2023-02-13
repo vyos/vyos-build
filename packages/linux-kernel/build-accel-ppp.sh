@@ -24,7 +24,7 @@ cmake -DBUILD_IPOE_DRIVER=TRUE \
     -DKDIR=${KERNEL_DIR} \
     -DLUA=5.3 \
     -DMODULES_KDIR=${KERNEL_VERSION}${KERNEL_SUFFIX} \
-    -DCPACK_TYPE=Debian11 ..
+    -DCPACK_TYPE=Debian12 ..
 make
 cpack -G DEB
 
