@@ -50,6 +50,7 @@ systemctl disable ipvsadm.service
 systemctl disable telegraf.service
 systemctl disable ndppd.service
 systemctl disable ipsec.service
+systemctl disable strongswan.service
 systemctl disable strongswan-starter.service
 systemctl disable avahi-daemon.service
 systemctl disable atop-rotate.timer
