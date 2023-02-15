@@ -2,7 +2,7 @@ build_type = "development"
 
 architecture = "amd64"
 
-debian_distribution = "bullseye"
+debian_distribution = "bookworm"
 
 debian_mirror = "http://deb.debian.org/debian"
 debian_security_mirror = "http://deb.debian.org/debian-security"
