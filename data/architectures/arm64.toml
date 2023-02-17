@@ -1,3 +1,5 @@
+kernel_flavor = "v8-arm64-vyos"
+
 # Packages included in ARM64 images by default
 packages = ["grub-efi-arm64"]
 bootloaders = "grub-efi"
