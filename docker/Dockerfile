@@ -43,10 +43,6 @@ RUN grep "VERSION_ID" /etc/os-release || (echo 'VERSION_ID="12"' >> /etc/os-rele
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 ENV DEBIAN_FRONTEND noninteractive
 
-# Standard shell should be bash not dash
-RUN echo "dash dash/sh boolean false" | debconf-set-selections && \
-    dpkg-reconfigure dash
-
 RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
 
 RUN apt-get update && apt-get install -y \
