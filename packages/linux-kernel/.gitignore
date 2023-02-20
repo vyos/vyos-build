@@ -5,6 +5,7 @@
 /intel-qat
 /linux-firmware
 /qat*
+/QAT*
 *.tar.xz
 /*.postinst
 
