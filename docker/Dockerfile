@@ -269,6 +269,7 @@ RUN apt-get update && apt-get install -y \
       install-info \
       libc-ares-dev \
       libcap-dev \
+      libelf-dev \
       libjson-c-dev \
       libpam0g-dev \
       libpcre3-dev \
