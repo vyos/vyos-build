@@ -257,9 +257,6 @@ RUN export LIBYANG_COMMIT="v2.0.164" && \
     cd libyang && git checkout $LIBYANG_COMMIT && apkg build -i && \
     cd pkg/pkgs/debian-*/libyang2_* && dpkg -i *.deb
 
-# FRR documentation also has a dependency on an up to date spinx version
-RUN pip install sphinx==4.0.2
-
 # Packages needed to build FRR itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
@@ -286,6 +283,7 @@ RUN apt-get update && apt-get install -y \
       python3 \
       python3-dev \
       python3-pytest \
+      python3-sphinx \
       texinfo
 
 # Packages needed for hvinfo
@@ -574,7 +572,8 @@ RUN gem install --no-document fpm
 
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
-    chmod a+s /usr/sbin/useradd /usr/sbin/groupadd /usr/sbin/usermod
+    echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    chmod a+s /usr/sbin/useradd /usr/sbin/groupadd
 
 # Ensure sure all users have access to our OCAM and Go installation
 RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc && \
@@ -587,4 +586,5 @@ RUN rm -rf /tmp/*
 RUN echo -e "set mouse=\nset ttymouse=" > /etc/vim/vimrc.local
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
