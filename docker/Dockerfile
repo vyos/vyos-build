@@ -468,10 +468,13 @@ RUN apt-get update && apt-get install -y \
       openvpn
 
 # Packages needed for OWAMP/TWAMP (service sla)
+RUN git clone -b 4.4.6 https://github.com/perfsonar/i2util.git /tmp/i2util && \
+      cd /tmp/i2util && \
+      dpkg-buildpackage -uc -us -tc -b && \
+      dpkg -i /tmp/*i2util*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
+
 RUN apt-get update && apt-get install -y \
-      dh-exec \
-      libi2util-dev \
-      i2util-tools
+      dh-exec
 
 # Packages needed for keepalived
 RUN apt-get update && apt-get install -y \
