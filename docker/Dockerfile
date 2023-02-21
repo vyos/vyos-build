@@ -257,9 +257,6 @@ RUN export LIBYANG_COMMIT="v2.0.164" && \
     cd libyang && git checkout $LIBYANG_COMMIT && apkg build -i && \
     cd pkg/pkgs/debian-*/libyang2_* && dpkg -i *.deb
 
-# FRR documentation also has a dependency on an up to date spinx version
-RUN pip install sphinx==4.0.2
-
 # Packages needed to build FRR itself
 # https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
 # for more info
@@ -286,6 +283,7 @@ RUN apt-get update && apt-get install -y \
       python3 \
       python3-dev \
       python3-pytest \
+      python3-sphinx \
       texinfo
 
 # Packages needed for hvinfo
