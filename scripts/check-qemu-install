@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2022, VyOS maintainers and contributors
+# Copyright (C) 2019-2023, VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -185,6 +185,10 @@ def shutdownVM(c, log, message=''):
     log.info('Shutting down virtual machine')
     for i in range(30):
         log.info('Waiting for shutdown...')
+        # Shutdown in qemu doesnt work first time
+        # Use this workaround
+        # https://vyos.dev/T5024
+        c.sendline('poweroff now')
         if not c.isalive():
             log.info('VM is shut down!')
             break
