@@ -85,15 +85,14 @@ RUN apt-get update && apt-get install -y \
       squashfs-tools \
       genisoimage \
       fakechroot \
+      pipx \
       python3-git \
       python3-pip \
       python3-flake8 \
       python3-autopep8 \
+      yq \
       debootstrap \
       live-build
-
-# vyos-build now also makes use of TOML - install yq which has toml support
-RUN pip install yq==3.1.0
 
 # Syslinux and Grub2 is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
@@ -155,6 +154,10 @@ RUN eval $(opam env --root=/opt/opam --set-root) && \
     cd /tmp/libvyosconfig && git checkout 020716d9 && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i /tmp/libvyosconfig0_*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
+
+# Packages needed for open-vmdk
+RUN apt-get update && apt-get install -y \
+      zlib1g-dev
 
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
@@ -242,19 +245,17 @@ RUN export RTRLIB_VERSION="0.8.0" export ARCH=$(dpkg-architecture -qDEB_HOST_ARC
     dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
 
 # Packages needed to build libyang2
-RUN pip install apkg
 RUN apt-get update && apt-get install -y \
       graphviz \
       cmake \
-      libpcre3-dev \
-      python3-pip
+      libpcre3-dev
 
 # Prerequisites for building FRR from source
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 #
 RUN export LIBYANG_COMMIT="v2.0.164" && \
     git clone https://github.com/CESNET/libyang.git && \
-    cd libyang && git checkout $LIBYANG_COMMIT && apkg build -i && \
+    cd libyang && git checkout $LIBYANG_COMMIT && pipx run apkg build -i && \
     cd pkg/pkgs/debian-*/libyang2_* && dpkg -i *.deb
 
 # Packages needed to build FRR itself
@@ -293,7 +294,7 @@ RUN apt-get update && apt-get install -y \
       gprbuild
 
 # Packages needed for vyos-1x
-RUN pip install git+https://github.com/aristanetworks/j2lint.git@341b5d5db86
+RUN pip install --break-system-packages git+https://github.com/aristanetworks/j2lint.git@341b5d5db86
 RUN apt-get update && apt-get install -y \
       dh-python \
       fakeroot \
