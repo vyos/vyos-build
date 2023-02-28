@@ -22,7 +22,7 @@
 
 def pkgList = [
     ['name': 'ocserv',
-     'scmCommit': 'debian/0.12.2-3',
+     'scmCommit': 'debian/1.1.6-3',
      'scmUrl': 'https://salsa.debian.org/debian/ocserv/',
      'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
 ]
