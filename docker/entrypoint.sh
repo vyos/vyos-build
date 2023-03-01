@@ -24,9 +24,12 @@ if ! grep -q $NEW_GID /etc/group; then
 fi
 
 useradd --shell /bin/bash --uid $NEW_UID --gid $NEW_GID --non-unique --create-home $USER_NAME
-usermod --append --groups sudo $USER_NAME
 sudo chown $NEW_UID:$NEW_GID /home/$USER_NAME
 export HOME=/home/$USER_NAME
 
+if [ "$(id -u)" == "0" ]; then
+    exec gosu $USER_NAME "$@"
+fi
+
 # Execute process
-exec /usr/sbin/gosu $USER_NAME "$@"
+exec "$@"
