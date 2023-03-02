@@ -609,8 +609,8 @@ RUN gem install public_suffix -v 4.0.7
 RUN gem install --no-document fpm
 
 # Allow password-less 'sudo' for all users in group 'sudo'
-RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
-    chmod a+s /usr/sbin/useradd /usr/sbin/groupadd /usr/sbin/gosu /usr/sbin/usermod
+RUN echo -e "vyos_bld\tALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vyos_bld && \
+    chmod a+s /usr/sbin/useradd /usr/sbin/groupadd
 
 # Ensure sure all users have access to our OCAM and Go installation
 RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc && \
