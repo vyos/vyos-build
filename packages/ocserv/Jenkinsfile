@@ -24,7 +24,7 @@ def pkgList = [
     ['name': 'ocserv',
      'scmCommit': 'debian/1.1.6-3',
      'scmUrl': 'https://salsa.debian.org/debian/ocserv/',
-     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b'],
+     'buildCmd': 'dpkg-buildpackage -uc -us -tc -b -d'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
