@@ -197,13 +197,6 @@ RUN apt-get update && apt-get install -y \
       pkg-config \
       cpio
 
-# Packages needed for vyatta-cfg-firewall
-RUN apt-get update && apt-get install -y \
-      autotools-dev \
-      autoconf \
-      automake \
-      cpio
-
 # Packages needed for Linux Kernel
 # gnupg2 is required by Jenkins for the TAR verification
 RUN apt-get update && apt-get install -y \
