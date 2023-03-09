@@ -55,6 +55,7 @@ ENV LANG en_US.utf8
 
 ENV OCAML_VERSION 4.12.0
 
+# Base packaged needed to build packages and their package dependencies
 RUN apt-get update && apt-get install -y \
       bash \
       bash-completion \
@@ -67,6 +68,7 @@ RUN apt-get update && apt-get install -y \
       mc \
       pbuilder \
       devscripts \
+      equivs \
       lsb-release \
       libtool \
       libapt-pkg-dev \
@@ -335,38 +337,6 @@ RUN echo "export PATH=/opt/go/bin:$PATH" >> /etc/bash.bashrc
 RUN apt-get update && apt-get install -y \
       libcidr-dev \
       check
-
-# Packages needed for vyos-strongswan
-RUN apt-get update && apt-get install -y \
-      bison \
-      bzip2 \
-      debhelper \
-      dh-apparmor \
-      dpkg-dev \
-      flex \
-      gperf \
-      libxtables-dev \
-      libcap-dev \
-      libcurl4-openssl-dev \
-      libgcrypt20-dev \
-      libgmp3-dev \
-      libiptc-dev \
-      libkrb5-dev \
-      libldap2-dev \
-      libnm-dev \
-      libpam0g-dev \
-      libsqlite3-dev \
-      libssl-dev \
-      libsystemd-dev \
-      libtool \
-      libtss2-dev \
-      libxml2-dev \
-      pkg-config \
-      po-debconf \
-      systemd \
-      tzdata \
-      python3-setuptools \
-      python3-stdeb
 
 # Packages needed for opennhrp
 RUN apt-get update && apt-get install -y \

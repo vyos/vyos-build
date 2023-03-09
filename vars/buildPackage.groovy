@@ -100,8 +100,6 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                                 deleteDir()
                             }
                         }
-
-
                     }
                     stage('arm64') {
                         agent {
