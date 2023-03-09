@@ -1,4 +1,4 @@
-// Copyright (C) 2021 VyOS maintainers and contributors
+// Copyright (C) 2021-2023 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -23,7 +23,7 @@ def pkgList = [
     ['name': 'strongswan',
      'scmCommit': 'debian/5.9.8-5',
      'scmUrl': 'https://salsa.debian.org/debian/strongswan.git',
-     'buildCmd': 'sudo apt-get install -y libcurl4-openssl-dev; cd ..; ./build.sh'],
+     'buildCmd': 'sudo mk-build-deps --install debian/control; sudo dpkg -i *build-deps*.deb; cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
