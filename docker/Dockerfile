@@ -215,13 +215,6 @@ RUN apt-get update && apt-get install -y \
       pciutils \
       yasm
 
-# Packages needed for Wireguard
-RUN apt-get update && apt-get install -y \
-      debhelper-compat \
-      dkms \
-      pkg-config \
-      systemd
-
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
 RUN apt-get update && apt-get install -y \
