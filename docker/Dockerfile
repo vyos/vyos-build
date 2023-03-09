@@ -336,13 +336,6 @@ RUN apt-get update && apt-get install -y \
       libcidr-dev \
       check
 
-# Packages needed for vyatta-quagga
-RUN apt-get update && apt-get install -y \
-      libpam-dev \
-      libcap-dev \
-      libsnmp-dev \
-      gawk
-
 # Packages needed for vyos-strongswan
 RUN apt-get update && apt-get install -y \
       bison \
