@@ -23,7 +23,7 @@ def pkgList = [
     ['name': 'strongswan',
      'scmCommit': 'debian/5.9.8-5',
      'scmUrl': 'https://salsa.debian.org/debian/strongswan.git',
-     'buildCmd': 'sudo mk-build-deps --install --tool 'apt-get --yes --no-install-recommends'; cd ..; ./build.sh'],
+     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
