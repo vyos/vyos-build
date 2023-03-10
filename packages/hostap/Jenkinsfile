@@ -1,4 +1,4 @@
-// Copyright (C) 2022 VyOS maintainers and contributors
+// Copyright (C) 2022-2023 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -27,7 +27,7 @@ def pkgList = [
     ['name': 'hostap',
      'scmCommit': '6b9c86466',
      'scmUrl': 'git://w1.fi/srv/git/hostap.git',
-     'buildCmd': 'cd ..; ./build.sh'],
+     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build

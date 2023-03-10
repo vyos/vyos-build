@@ -484,20 +484,6 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
        pkg-config; \
      fi
 
-# Packages needed for hostapd (wpa_supplicant)
-RUN apt-get update && apt-get install -y \
-      libdbus-1-dev \
-      libssl-dev \
-      libncurses5-dev \
-      libpcsclite-dev \
-      libnl-3-dev \
-      libnl-genl-3-dev \
-      libnl-route-3-dev  \
-      libreadline-dev \
-      pkg-config \
-      docbook-to-man \
-      docbook-utils
-
 # Packages needed for Accel-PPP
 # XXX: please note that this must be installed after nftable dependencies - otherwise
 # APT will remove liblua5.3-dev which breaks the Accel-PPP build
