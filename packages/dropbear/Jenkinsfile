@@ -1,4 +1,4 @@
-// Copyright (C) 2022 VyOS maintainers and contributors
+// Copyright (C) 2022-2023 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -23,7 +23,7 @@ def pkgList = [
     ['name': 'dropbear',
      'scmCommit': 'debian/2020.81-5',
      'scmUrl': 'https://salsa.debian.org/debian/dropbear.git',
-     'buildCmd': 'cd ..; ./build.sh'],
+     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build

@@ -447,13 +447,6 @@ RUN apt-get update && apt-get install -y \
       linux-libc-dev \
       pkg-config
 
-# Packages needed for dropbear
-RUN apt-get update && apt-get install -y \
-      debhelper-compat \
-      libtomcrypt-dev \
-      libtommath-dev \
-      libz-dev
-
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
       parted \
