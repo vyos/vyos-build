@@ -213,9 +213,15 @@ RUN apt-get update && apt-get install -y \
       python-is-python3
 
 # Packages needed for Intel QAT out-of-tree drivers
+# FPM is used when generation Debian pckages for e.g. Intel QAT drivers
 RUN apt-get update && apt-get install -y \
       pciutils \
-      yasm
+      yasm \
+      ruby \
+      ruby-dev \
+      rubygems \
+      build-essential
+RUN gem install --no-document fpm
 
 # Prerequisites for building rtrlib
 # see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
@@ -282,8 +288,11 @@ RUN apt-get update && apt-get install -y \
       gprbuild
 
 # Packages needed for vyos-1x
-RUN pip install --break-system-packages git+https://github.com/aristanetworks/j2lint.git@341b5d5db86
-RUN apt-get update && apt-get install -y \
+RUN pip install --break-system-packages \
+      git+https://github.com/aristanetworks/j2lint.git@341b5d5db86 \
+      inotify==0.2.10 \
+      pyhumps==3.8.0; \
+    apt-get update && apt-get install -y \
       dh-python \
       fakeroot \
       iproute2 \
@@ -302,16 +311,6 @@ RUN apt-get update && apt-get install -y \
       python3-coverage \
       quilt \
       whois
-
-Run git clone https://github.com/dsoprea/PyInotify.git /tmp/inotify && \
-    cd /tmp/inotify && \
-    python3 setup.py --command-packages=stdeb.command bdist_deb && \
-    sudo dpkg -i ./deb_dist/python3-inotify*.deb
-
-Run git clone https://github.com/nficano/humps.git /tmp/humps && \
-    cd /tmp/humps && git checkout v3.8.0 && \
-    python3 setup.py --command-packages=stdeb.command bdist_deb; cp deb_dist/*.deb .. && \
-    dpkg -i /tmp/python3-pyhumps_*_all.deb
 
 # Packages needed for vyos-1x-xdp package, gcc-multilib is not available on
 # arm64 but required by XDP
@@ -506,16 +505,6 @@ RUN apt-get update && apt-get install -y \
       autoconf-archive \
       gnulib \
       libtool
-
-#
-# fpm: a command-line program designed to help you build packages (e.g. deb)
-#
-RUN apt-get update && apt-get install -y \
-      ruby \
-      ruby-dev \
-      rubygems \
-      build-essential
-RUN gem install --no-document fpm
 
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
