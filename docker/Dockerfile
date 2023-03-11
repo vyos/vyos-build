@@ -288,7 +288,6 @@ RUN apt-get update && apt-get install -y \
 # Packages needed for vyos-1x
 RUN pip install --break-system-packages \
       git+https://github.com/aristanetworks/j2lint.git@341b5d5db86 \
-      inotify==0.2.10 \
       pyhumps==3.8.0; \
     apt-get update && apt-get install -y \
       dh-python \
@@ -297,6 +296,7 @@ RUN pip install --break-system-packages \
       libzmq3-dev \
       python3 \
       python3-setuptools \
+      python3-inotify \
       python3-sphinx \
       python3-xmltodict \
       python3-lxml \
