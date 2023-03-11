@@ -345,37 +345,6 @@ RUN apt-get update && apt-get install -y \
       udev \
       zip
 
-# Packages needed for Fastnetmon
-RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
-     apt-get update && apt-get install -y \
-       cmake \
-       debhelper-compat \
-       libboost-atomic-dev \
-       libboost-chrono-dev \
-       libboost-date-time-dev \
-       libboost-program-options-dev \
-       libboost-regex-dev \
-       libboost-system-dev \
-       libboost-thread-dev \
-       libbson-dev \
-       libcapnp-dev \
-       libgrpc-dev \
-       libgrpc++-dev \
-       libprotobuf-dev \
-       protobuf-compiler \
-       protobuf-compiler-grpc \
-       capnproto \
-       libhiredis-dev \
-       libjson-c-dev \
-       liblog4cpp5-dev \
-       libluajit-5.1-dev \
-       libicu-dev \
-       libmongoc-dev \
-       libncurses5-dev \
-       libpcap-dev \
-       pkg-config; \
-     fi
-
 # Packages needed for Accel-PPP
 # XXX: please note that this must be installed after nftable dependencies - otherwise
 # APT will remove liblua5.3-dev which breaks the Accel-PPP build
