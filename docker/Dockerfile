@@ -338,13 +338,6 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       libpcre3-dev
 
-# Packages needed for pam_tacplus
-RUN apt-get update && apt-get install -y \
-      libpam-dev \
-      autoconf-archive \
-      gnulib \
-      libtool
-
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
