@@ -258,11 +258,6 @@ RUN GO_VERSION_INSTALL="1.18.3" ; \
     rm /tmp/go*.tar.gz
 RUN echo "export PATH=/opt/go/bin:$PATH" >> /etc/bash.bashrc
 
-# Packages needed for ipaddrcheck
-RUN apt-get update && apt-get install -y \
-      libcidr-dev \
-      check
-
 # Packages needed for opennhrp
 RUN apt-get update && apt-get install -y \
       libc-ares-dev \
