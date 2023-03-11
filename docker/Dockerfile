@@ -499,7 +499,7 @@ RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc && \
 RUN rm -rf /tmp/*
 
 # Disable mouse in vim
-RUN echo -e "set mouse=\nset ttymouse=" > /etc/vim/vimrc.local
+RUN printf "set mouse=\nset ttymouse=\n" > /etc/vim/vimrc.local
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
