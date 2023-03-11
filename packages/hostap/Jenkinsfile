@@ -27,7 +27,7 @@ def pkgList = [
     ['name': 'hostap',
      'scmCommit': '6b9c86466',
      'scmUrl': 'git://w1.fi/srv/git/hostap.git',
-     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build.sh'],
+     'buildCmd': 'cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
