@@ -221,64 +221,12 @@ RUN apt-get update && apt-get install -y \
       build-essential
 RUN gem install --no-document fpm
 
-# Prerequisites for building rtrlib
-# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
-RUN apt-get update && apt-get install -y \
-      cmake \
-      dpkg-dev \
-      debhelper \
-      libssh-dev \
-      doxygen
-
 # Build rtrlib release 0.8.0
 RUN export RTRLIB_VERSION="0.8.0" export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
     git clone https://github.com/rtrlib/rtrlib.git /tmp/rtrlib && cd /tmp/rtrlib && \
+    mk-build-deps --install --tool "apt-get --yes --no-install-recommends" && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
-
-# Packages needed to build libyang2
-RUN apt-get update && apt-get install -y \
-      graphviz \
-      cmake \
-      libpcre3-dev
-
-# Prerequisites for building FRR from source
-# see http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-debian8.html
-#
-RUN export LIBYANG_COMMIT="v2.0.164" && \
-    git clone https://github.com/CESNET/libyang.git && \
-    cd libyang && git checkout $LIBYANG_COMMIT && pipx run apkg build -i && \
-    cd pkg/pkgs/debian-*/libyang2_* && dpkg -i *.deb
-
-# Packages needed to build FRR itself
-# https://github.com/FRRouting/frr/blob/master/doc/developer/building-libyang.rst
-# for more info
-RUN apt-get update && apt-get install -y \
-      bison \
-      chrpath \
-      debhelper \
-      flex \
-      gawk \
-      install-info \
-      libc-ares-dev \
-      libcap-dev \
-      libelf-dev \
-      libjson-c-dev \
-      libpam0g-dev \
-      libpcre3-dev \
-      libpython3-dev \
-      libreadline-dev \
-      librtr-dev \
-      libsnmp-dev \
-      libssh-dev \
-      libsystemd-dev \
-      lsb-base \
-      pkg-config \
-      python3 \
-      python3-dev \
-      python3-pytest \
-      python3-sphinx \
-      texinfo
 
 # Packages needed for hvinfo
 RUN apt-get update && apt-get install -y \
