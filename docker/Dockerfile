@@ -103,9 +103,7 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
         grub2; \
     fi
 
-#
 # Building libvyosconf requires a full configured OPAM/OCaml setup
-#
 RUN apt-get update && apt-get install -y \
       debhelper \
       libffi-dev \
@@ -118,7 +116,6 @@ RUN dpkg-reconfigure ca-certificates; \
     if dpkg-architecture -iarmhf; then \
       echo "cacert=/etc/ssl/certs/ca-certificates.crt" >> ~/.curlrc; \
     fi
-
 
 # Installing OCAML needed to compile libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
@@ -162,9 +159,7 @@ RUN apt-get update && apt-get install -y \
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
-    cd /tmp/open-vmdk-master/ && \
-    make && \
-    make install
+    cd /tmp/open-vmdk-master/ && make && make install
 
 #
 # live-build: building in docker fails with mounting /proc | /sys
@@ -335,9 +330,6 @@ RUN git clone -b 4.4.6 https://github.com/perfsonar/i2util.git /tmp/i2util && \
       cd /tmp/i2util && \
       dpkg-buildpackage -uc -us -tc -b && \
       dpkg -i /tmp/*i2util*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
-
-RUN apt-get update && apt-get install -y \
-      dh-exec
 
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
