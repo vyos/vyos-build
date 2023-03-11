@@ -310,11 +310,6 @@ RUN if dpkg-architecture -iarm64; then \
       grub-efi-arm; \
     fi
 
-# Packages needed for vyos-http-api-tools
-RUN apt-get update && apt-get install -y \
-      dh-virtualenv \
-      python3-venv
-
 # Packages needed for openvpn-otp
 RUN apt-get update && apt-get install -y \
       debhelper \
