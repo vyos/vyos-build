@@ -23,7 +23,7 @@ def pkgList = [
     ['name': 'wide-dhcpv6',
      'scmCommit': 'debian/20080615-23',
      'scmUrl': 'https://salsa.debian.org/debian/wide-dhcpv6',
-     'buildCmd': '''cd ..; ./build.sh'''],
+     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build

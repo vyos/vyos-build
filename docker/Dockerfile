@@ -324,14 +324,6 @@ RUN if dpkg-architecture -iarm64; then \
       grub-efi-arm; \
     fi
 
-# Packages needed for wide-dhcpv6
-RUN apt-get update && apt-get install -y \
-      bison \
-      debhelper \
-      flex \
-      libfl-dev \
-      rsync
-
 # Packages needed for vyos-http-api-tools
 RUN apt-get update && apt-get install -y \
       dh-virtualenv \
