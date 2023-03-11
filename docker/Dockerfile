@@ -297,10 +297,6 @@ RUN apt-get update && apt-get install -y \
       python3-pytest-cov \
       cloud-utils
 
-# Packages needed for libnss-mapuser & libpam-radius
-RUN apt-get update && apt-get install -y \
-      libaudit-dev
-
 # Install utillities for building grub and u-boot images
 RUN if dpkg-architecture -iarm64; then \
     apt-get update && apt-get install -y \
