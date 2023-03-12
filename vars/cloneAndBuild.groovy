@@ -59,7 +59,7 @@ def call(description, architecture, pkgList, buildCmd) {
             // build dependency package and install it
             sh """
                 if [ -f debian/control ]; then
-                    sudo mk-build-deps --install debian/control
+                    sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"
                     sudo dpkg -i *build-deps*.deb
                 fi
             """
