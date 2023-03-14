@@ -45,6 +45,7 @@ systemctl disable ocserv.service
 systemctl disable tuned.service
 systemctl disable radvd.service
 systemctl disable hostapd.service
+systemctl disable hsflowd.service
 systemctl disable keepalived.service
 systemctl disable ipvsadm.service
 systemctl disable telegraf.service
