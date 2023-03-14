@@ -196,6 +196,7 @@ RUN apt-get update && apt-get install -y \
       pciutils \
       yasm \
       ruby \
+      libudev-dev \
       ruby-dev \
       rubygems \
       build-essential
