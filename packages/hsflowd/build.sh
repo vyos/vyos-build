@@ -10,6 +10,10 @@ if [ ! -d ${SRC} ]; then
 fi
 
 cd ${SRC}
+
+echo "I: Ensure Debian build dependencies are met"
+sudo apt-get install -y libpcap0.8-dev
+
 # Build hsflowd
 # make deb FEATURES="NFLOG PCAP TCP DOCKER KVM OVS DBUS SYSTEMD DROPMON PSAMPLE DENT CONTAINERD"
 echo "I: Build VyOS hsflowd Package"
