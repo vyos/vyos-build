@@ -22,8 +22,8 @@
 // NOTE: we can build with -d as the libbpf dependency is installed manually
 // and not via a DEB package
 def pkgList = [
-    ['name': 'hsflowd',
-     'scmCommit': 'v2.0.47-1',
+    ['name': 'host-sflow',
+     'scmCommit': 'v2.0.48-1',
      'scmUrl': 'https://github.com/sflow/host-sflow.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
