@@ -439,7 +439,7 @@ if __name__ == "__main__":
             --mirror-chroot-security {{debian_security_mirror}} \
             --mirror-binary {{debian_mirror}} \
             --mirror-binary-security {{debian_security_mirror}} \
-            --archive-areas "main contrib non-free" \
+            --archive-areas {{debian_archive_areas}} \
             --firmware-chroot false \
             --firmware-binary false \
             --updates true \

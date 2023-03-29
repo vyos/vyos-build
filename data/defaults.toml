@@ -7,6 +7,8 @@ debian_distribution = "bookworm"
 debian_mirror = "http://deb.debian.org/debian"
 debian_security_mirror = "http://deb.debian.org/debian-security"
 
+debian_archive_areas = "main contrib non-free"
+
 vyos_mirror = "http://dev.packages.vyos.net/repositories/current"
 
 vyos_branch = "current"
