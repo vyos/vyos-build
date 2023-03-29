@@ -23,7 +23,7 @@
 // and not via a DEB package
 def pkgList = [
     ['name': 'host-sflow',
-     'scmCommit': 'v2.0.48-1',
+     'scmCommit': 'v2.0.50-3',
      'scmUrl': 'https://github.com/sflow/host-sflow.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
