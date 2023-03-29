@@ -146,7 +146,8 @@ if __name__ == "__main__":
        'vyos-mirror': ('VyOS package mirror', lambda: build_defaults["vyos_mirror"], None),
        'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development']),
        'version': ('Version number (release builds only)', None, None),
-       'build-comment': ('Optional build comment', lambda: '', None)
+       'build-comment': ('Optional build comment', lambda: '', None),
+       'debian-mirror-server': ('Replace (deb|security).debian.org to debian-mirror-server in all debian mirror settings (e.g. mirrors.bit.edu.cn)', None, None)
     }
 
     # Create the option parser
@@ -238,6 +239,22 @@ if __name__ == "__main__":
         arch = build_config["architecture"]
         if arch in build_config["architectures"]:
             build_config["packages"] += build_config["architectures"][arch]["packages"]
+
+    # Replace (deb|security).debian.org to debian_mirror_server if it's set
+    if build_config['debian_mirror_server'] is not None:
+        build_config['debian_mirror'] = re.sub('(deb|security).debian.org', build_config['debian_mirror_server'], build_config['debian_mirror'])
+        build_config['debian_security_mirror'] = re.sub('(deb|security).debian.org', build_config['debian_mirror_server'], build_config['debian_security_mirror'])
+        build_config['pbuilder_debian_mirror'] = re.sub('(deb|security).debian.org', build_config['debian_mirror_server'], build_config['pbuilder_debian_mirror'])
+
+        # overwrite data/live-build-config/archives/buster.list.chroot
+        with open('data/live-build-config/archives/buster.list.chroot', 'w+') as fp:
+            buster_repo = """
+deb http://deb.debian.org/debian/ buster main non-free
+deb http://deb.debian.org/debian/ buster-updates main non-free
+deb http://security.debian.org/debian-security buster/updates main non-free
+"""
+            fp.write(re.sub('(deb|security).debian.org', build_config['debian_mirror_server'], buster_repo))
+
 
     ## Dump the complete config if the user enabled debug mode
     if debug:
