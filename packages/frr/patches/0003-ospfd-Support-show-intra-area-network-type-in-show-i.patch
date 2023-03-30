@@ -1,0 +1,103 @@
+From bfb64fc1ba595e6f45df776d61f302ca080928ca Mon Sep 17 00:00:00 2001
+From: Zhiyuan Wan <h@iloli.bid>
+Date: Mon, 3 Apr 2023 16:21:15 +0800
+Subject: [PATCH 3/3] ospfd: Support show intra-area network type in 'show ip
+ ospf route' command
+
+User can now use 'show ip ospf route detail' command to distinguish
+intra-area stub network and transit network.
+Transit network will be displayed as 'N T prefix ...'.
+
+NOTICE: Json output format has been changed, intra-area stub networks
+still has 'N' routeType, transit networks has 'N T' routeType. And
+'adv' (means advertise router) change to 'advertisedRouter'.
+
+Signed-off-by: Zhiyuan Wan <h@iloli.bid>
+---
+ ospfd/ospf_route.c |  2 ++
+ ospfd/ospf_route.h |  2 ++
+ ospfd/ospf_vty.c   | 15 +++++++++------
+ 3 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/ospfd/ospf_route.c b/ospfd/ospf_route.c
+index 744d47dc2..073daca78 100644
+--- a/ospfd/ospf_route.c
++++ b/ospfd/ospf_route.c
+@@ -48,6 +48,7 @@ struct ospf_route *ospf_route_new(void)
+ 
+ 	new->paths = list_new();
+ 	new->paths->del = (void (*)(void *))ospf_path_free;
++	new->u.std.transit = false;
+ 
+ 	return new;
+ }
+@@ -500,6 +501,7 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
+ 	or->cost = v->distance;
+ 	or->type = OSPF_DESTINATION_NETWORK;
+ 	or->u.std.origin = (struct lsa_header *)lsa;
++	or->u.std.transit = true;
+ 
+ 	ospf_route_copy_nexthops_from_vertex(area, or, v);
+ 
+diff --git a/ospfd/ospf_route.h b/ospfd/ospf_route.h
+index 2582067ae..d90e26222 100644
+--- a/ospfd/ospf_route.h
++++ b/ospfd/ospf_route.h
+@@ -69,6 +69,8 @@ struct route_standard {
+ 
+ 	/*  */
+ 	uint8_t flags; /* From router-LSA */
++
++	bool transit;
+ };
+ 
+ struct route_external {
+diff --git a/ospfd/ospf_vty.c b/ospfd/ospf_vty.c
+index 3de36d49c..92dfef763 100644
+--- a/ospfd/ospf_vty.c
++++ b/ospfd/ospf_vty.c
+@@ -10460,16 +10460,17 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
+ 		case OSPF_PATH_INTRA_AREA:
+ 			if (json) {
+ 				json_object_string_add(json_route, "routeType",
+-						       "N");
++						       or->u.std.transit ? "N T"
++									 : "N");
+ 				json_object_int_add(json_route, "cost",
+ 						    or->cost);
+ 				json_object_string_addf(json_route, "area",
+ 							"%pI4",
+ 							&or->u.std.area_id);
+ 			} else {
+-				vty_out(vty, "N    %-18s    [%d] area: %pI4\n",
+-					buf1, or->cost,
+-					&or->u.std.area_id);
++				vty_out(vty, "N %s  %-18s    [%d] area: %pI4\n",
++					or->u.std.transit && detail ? "T" : " ",
++					buf1, or->cost, & or->u.std.area_id);
+ 			}
+ 			break;
+ 		default:
+@@ -10528,7 +10529,8 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
+ 									ospf->vrf_id));
+ 							json_object_string_addf(
+ 								json_nexthop,
+-								"adv", "%pI4",
++								"advertisedRouter",
++								"%pI4",
+ 								&path->adv_router);
+ 						} else {
+ 							vty_out(vty,
+@@ -10803,7 +10805,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
+ 								path->ifindex,
+ 								ospf->vrf_id));
+ 						json_object_string_addf(
+-							json_nexthop, "adv",
++							json_nexthop,
++							"advertisedRouter",
+ 							"%pI4",
+ 							&path->adv_router);
+ 					} else {
+-- 
+2.30.2
+
