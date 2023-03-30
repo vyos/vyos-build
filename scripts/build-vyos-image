@@ -145,8 +145,7 @@ if __name__ == "__main__":
        'vyos-mirror': ('VyOS package mirror', None, None),
        'build-type': ('Build type, release or development', None, lambda x: x in ['release', 'development']),
        'version': ('Version number (release builds only)', None, None),
-       'build-comment': ('Optional build comment', lambda: '', None),
-       'debian-mirror-server': ('Replace (deb|security).debian.org to debian-mirror-server in all debian mirror settings (e.g. mirrors.bit.edu.cn)', None, None)
+       'build-comment': ('Optional build comment', lambda: '', None)
     }
 
     # Create the option parser
@@ -211,22 +210,6 @@ if __name__ == "__main__":
 
     if pre_build_config['pbuilder_debian_mirror'] is None:
         args['pbuilder_debian_mirror'] = pre_build_config['pbuilder_debian_mirror'] = pre_build_config['debian_mirror']
-
-    # Replace (deb|security).debian.org to debian_mirror_server if it's set
-    if args['debian_mirror_server'] is not None:
-        args['debian_mirror'] = re.sub('(deb|security).debian.org', args['debian_mirror_server'], pre_build_config['debian_mirror'])
-        args['debian_security_mirror'] = re.sub('(deb|security).debian.org', args['debian_mirror_server'], pre_build_config['debian_security_mirror'])
-        args['pbuilder_debian_mirror'] = re.sub('(deb|security).debian.org', args['debian_mirror_server'], pre_build_config['pbuilder_debian_mirror'])
-
-        # overwrite data/live-build-config/archives/buster.list.chroot
-        with open('data/live-build-config/archives/buster.list.chroot', 'w+') as fp:
-            print(fp.read())
-            buster_repo = """
-deb http://deb.debian.org/debian/ buster main non-free
-deb http://deb.debian.org/debian/ buster-updates main non-free
-deb http://security.debian.org/debian-security buster/updates main non-free
-"""
-            fp.write(re.sub('(deb|security).debian.org', args['debian_mirror_server'], buster_repo))
 
     # Version can only be set for release builds,
     # for dev builds it hardly makes any sense
