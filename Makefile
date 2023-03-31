@@ -127,7 +127,6 @@ GCE-debug: clean prepare
 AWS: clean prepare
 	@set -e
 	@echo "It's not like I'm building this specially for you or anything!"
-	wget -O build/config/packages.chroot/amazon-cloudwatch-agent-amd64.deb https://s3.eu-central-1.amazonaws.com/amazoncloudwatch-agent-eu-central-1/debian/amd64/latest/amazon-cloudwatch-agent.deb
 	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
 	cp tools/cloud-init/AWS/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
 	cp tools/cloud-init/AWS/cloud-init.list.chroot build/config/package-lists/
