@@ -17,7 +17,7 @@ sudo apt-get install -y libpcap0.8-dev
 # Build hsflowd
 # make deb FEATURES="NFLOG PCAP TCP DOCKER KVM OVS DBUS SYSTEMD DROPMON PSAMPLE DENT CONTAINERD"
 echo "I: Build VyOS hsflowd Package"
-make deb FEATURES="PCAP DROPMON"
+make deb FEATURES="PCAP DROPMON DBUS"
 
 # hsflowd builds ARM package as aarch64 extension, rename to arm64
 for file in *.deb ; do mv $file ${file//aarch64/arm64} || true ; done
