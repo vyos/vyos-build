@@ -71,3 +71,6 @@ systemctl enable ssh-session-cleanup.service
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
 systemctl enable vyos-configd.service
+
+echo I: Masking services
+systemctl mask systemd-journald-audit.socket
