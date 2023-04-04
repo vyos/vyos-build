@@ -13,6 +13,16 @@ if [ ! -f ${KERNEL_VAR_FILE} ]; then
     exit 1
 fi
 
+PATCH_DIR=${CWD}/patches/accel-ppp
+if [ -d $PATCH_DIR ]; then
+    cd ${ACCEL_SRC}
+    for patch in $(ls ${PATCH_DIR})
+    do
+        echo "I: Apply patch: ${PATCH_DIR}/${patch}"
+        patch -p1 < ${PATCH_DIR}/${patch}
+    done
+fi
+
 . ${KERNEL_VAR_FILE}
 mkdir -p ${ACCEL_SRC}/build
 cd ${ACCEL_SRC}/build
