@@ -16,9 +16,12 @@ fi
 
 echo "I: Copy Debian build instructions"
 cp -a ${SRC_DEB}/debian ${SRC}
-# Preserve Debian's default of allowing TLSv1.0 for compatibility
-find ${SRC}/debian/patches -mindepth 1 ! -name allow-tlsv1.patch -delete
-echo 'allow-tlsv1.patch' > ${SRC}/debian/patches/series
+# Preserve Debian's default of allowing TLSv1.0 and legacy renegotiation for
+# compatibility with networks that use legacy crypto
+cat > ${SRC}/debian/patches/series << EOF
+allow-tlsv1.patch
+allow-legacy-renegotiation.patch
+EOF
 
 # Build Debian package
 cd ${SRC}

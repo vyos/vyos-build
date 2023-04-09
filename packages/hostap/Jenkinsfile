@@ -21,7 +21,7 @@
 
 def pkgList = [
     ['name': 'wpa',
-     'scmCommit': 'debian/2%2.10-10',
+     'scmCommit': 'debian/2%2.10-12',
      'scmUrl': 'https://salsa.debian.org/debian/wpa',
      'buildCmd': '/bin/true'],
     ['name': 'hostap',
