@@ -23,6 +23,11 @@ allow-tlsv1.patch
 allow-legacy-renegotiation.patch
 EOF
 
+# Don't block hostapd service from starting if the config path doesn't match
+# Debian's default. This reverse the following change from Debian:
+# https://salsa.debian.org/debian/wpa/-/commit/d204ceb5a2dc33db888eb55b5fee542a1005e69c
+sed -i '/ConditionFileNotEmpty/d' ${SRC}/debian/hostapd{,@}.service
+
 # Build Debian package
 cd ${SRC}
 
