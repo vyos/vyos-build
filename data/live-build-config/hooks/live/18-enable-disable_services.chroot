@@ -64,8 +64,6 @@ systemctl disable owamp-server.service
 systemctl disable twamp-server.service
 systemctl disable podman-auto-update.service
 systemctl disable podman-restart.service
-systemctl disable rsyslog.service
-systemctl disable sendmail.service
 
 echo I: Enabling services
 systemctl enable frr.service
