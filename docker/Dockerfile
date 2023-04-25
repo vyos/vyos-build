@@ -649,6 +649,11 @@ RUN apt-get update && apt-get install -y \
 RUN gem install public_suffix -v 4.0.7
 RUN gem install --no-document fpm
 
+# debmake: a native Debian tool for preparing sources for packaging
+RUN apt-get update && apt-get install -y \
+      debmake \
+      python3-debian
+
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN echo -e "vyos_bld\tALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vyos_bld && \
     chmod a+s /usr/sbin/useradd /usr/sbin/groupadd

@@ -236,6 +236,22 @@ pipeline {
                         }
                     }
                 }
+                stage('Intel ICE driver') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "**/packages/linux-kernel/*"
+                            changeset pattern: "**/data/defaults.json"
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
+                    steps {
+                        dir(env.BASE_DIR) {
+                            sh "./build-intel-ice.py"
+                        }
+                    }
+                }
             }
         }
         // This stage should not be run in the parallel section as it will call "make"
