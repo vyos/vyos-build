@@ -7,3 +7,4 @@ vyos-1x-vmware
 vyos-linux-firmware
 vyos-intel-qat
 wireguard-modules
+vyos-drivers-intel-ice

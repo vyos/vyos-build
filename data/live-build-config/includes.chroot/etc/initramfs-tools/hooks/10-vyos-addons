@@ -14,7 +14,7 @@ esac
 # Begin real processing below this line
 
 # include listed modules to initramfs but not load them without the necessity
-manual_add_modules igb ixgbe ixgbevf i40e i40evf
+manual_add_modules igb ixgbe ixgbevf i40e i40evf ice
 
 # include modules from file (one per line) to initramfs but not load them without the necessity
 # add_modules_from_file /tmp/modlist
