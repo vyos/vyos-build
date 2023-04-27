@@ -1,4 +1,4 @@
-From fa263896c413f0a31425743a38d426dc3cfd659f Mon Sep 17 00:00:00 2001
+From 8113b8d3ba0646715a3b922a2a2afc5bc25375d7 Mon Sep 17 00:00:00 2001
 From: Zhiyuan Wan <h@iloli.bid>
 Date: Wed, 29 Mar 2023 23:05:20 +0800
 Subject: [PATCH 1/3] ospfd: Support show advertise router in 'show ip ospf
@@ -14,12 +14,12 @@ Signed-off-by: Zhiyuan Wan <h@iloli.bid>
  2 files changed, 48 insertions(+), 15 deletions(-)
 
 diff --git a/doc/user/ospfd.rst b/doc/user/ospfd.rst
-index 30d55f34a..69db359bd 100644
+index b69230b99..419928d9f 100644
 --- a/doc/user/ospfd.rst
 +++ b/doc/user/ospfd.rst
-@@ -824,10 +824,11 @@ Showing Information
+@@ -826,10 +826,11 @@ Showing Information
  
-    Show detailed information about the OSPF link-state database.
+    Show the OSPF database summary.
  
 -.. clicmd:: show ip ospf route [json]
 +.. clicmd:: show ip ospf route [detail] [json]
@@ -31,7 +31,7 @@ index 30d55f34a..69db359bd 100644
  
  .. clicmd:: show ip ospf [vrf <NAME|all>] border-routers [json]
  
-@@ -838,7 +839,7 @@ Showing Information
+@@ -840,7 +841,7 @@ Showing Information
  
  .. clicmd:: show ip ospf graceful-restart helper [detail] [json]
  
@@ -41,10 +41,10 @@ index 30d55f34a..69db359bd 100644
  
  .. _opaque-lsa:
 diff --git a/ospfd/ospf_vty.c b/ospfd/ospf_vty.c
-index 8c0afd852..3de36d49c 100644
+index 469e9955e..40b38e18b 100644
 --- a/ospfd/ospf_vty.c
 +++ b/ospfd/ospf_vty.c
-@@ -10401,7 +10401,7 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
+@@ -10553,7 +10553,7 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
  
  static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
  				       struct route_table *rt,
@@ -53,7 +53,7 @@ index 8c0afd852..3de36d49c 100644
  {
  	struct route_node *rn;
  	struct ospf_route * or ;
-@@ -10526,6 +10526,10 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
+@@ -10678,6 +10678,10 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
  								ifindex2ifname(
  									path->ifindex,
  									ospf->vrf_id));
@@ -64,7 +64,7 @@ index 8c0afd852..3de36d49c 100644
  						} else {
  							vty_out(vty,
  								"%24s   via %pI4, %s\n",
-@@ -10535,6 +10539,11 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
+@@ -10687,6 +10691,11 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
  									path->ifindex,
  									ospf->vrf_id));
  						}
@@ -76,7 +76,7 @@ index 8c0afd852..3de36d49c 100644
  					}
  				}
  			}
-@@ -10689,7 +10698,7 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
+@@ -10841,7 +10850,7 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
  
  static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
  					struct route_table *rt,
@@ -85,7 +85,7 @@ index 8c0afd852..3de36d49c 100644
  {
  	struct route_node *rn;
  	struct ospf_route *er;
-@@ -10793,6 +10802,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
+@@ -10945,6 +10954,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
  							ifindex2ifname(
  								path->ifindex,
  								ospf->vrf_id));
@@ -96,7 +96,7 @@ index 8c0afd852..3de36d49c 100644
  					} else {
  						vty_out(vty,
  							"%24s   via %pI4, %s\n",
-@@ -10802,6 +10815,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
+@@ -10954,6 +10967,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
  								path->ifindex,
  								ospf->vrf_id));
  					}
@@ -107,7 +107,7 @@ index 8c0afd852..3de36d49c 100644
  				}
  			}
  		}
-@@ -11088,7 +11105,8 @@ DEFUN (show_ip_ospf_instance_border_routers,
+@@ -11240,7 +11257,8 @@ DEFUN (show_ip_ospf_instance_border_routers,
  }
  
  static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
@@ -117,7 +117,7 @@ index 8c0afd852..3de36d49c 100644
  {
  	json_object *json_vrf = NULL;
  
-@@ -11116,7 +11134,8 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
+@@ -11268,7 +11286,8 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
  	}
  
  	/* Show Network routes. */
@@ -127,7 +127,7 @@ index 8c0afd852..3de36d49c 100644
  
  	/* Show Router routes. */
  	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
-@@ -11127,7 +11146,7 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
+@@ -11279,7 +11298,7 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
  
  	/* Show AS External routes. */
  	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
@@ -136,7 +136,7 @@ index 8c0afd852..3de36d49c 100644
  
  	if (json) {
  		if (use_vrf) {
-@@ -11145,13 +11164,14 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
+@@ -11297,13 +11316,14 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
  
  DEFUN (show_ip_ospf_route,
         show_ip_ospf_route_cmd,
@@ -152,7 +152,7 @@ index 8c0afd852..3de36d49c 100644
  	JSON_STR)
  {
  	struct ospf *ospf = NULL;
-@@ -11160,14 +11180,19 @@ DEFUN (show_ip_ospf_route,
+@@ -11312,14 +11332,19 @@ DEFUN (show_ip_ospf_route,
  	bool all_vrf = false;
  	int ret = CMD_SUCCESS;
  	int inst = 0;
@@ -172,7 +172,7 @@ index 8c0afd852..3de36d49c 100644
  	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
  
  	/* vrf input is provided could be all or specific vrf*/
-@@ -11181,8 +11206,8 @@ DEFUN (show_ip_ospf_route,
+@@ -11333,8 +11358,8 @@ DEFUN (show_ip_ospf_route,
  				if (!ospf->oi_running)
  					continue;
  				ospf_output = true;
@@ -183,7 +183,7 @@ index 8c0afd852..3de36d49c 100644
  			}
  
  			if (uj) {
-@@ -11219,7 +11244,8 @@ DEFUN (show_ip_ospf_route,
+@@ -11371,7 +11396,8 @@ DEFUN (show_ip_ospf_route,
  	}
  
  	if (ospf) {
@@ -193,7 +193,7 @@ index 8c0afd852..3de36d49c 100644
  		/* Keep Non-pretty format */
  		if (uj)
  			vty_out(vty, "%s\n",
-@@ -11235,16 +11261,22 @@ DEFUN (show_ip_ospf_route,
+@@ -11387,16 +11413,22 @@ DEFUN (show_ip_ospf_route,
  
  DEFUN (show_ip_ospf_instance_route,
         show_ip_ospf_instance_route_cmd,
@@ -218,7 +218,7 @@ index 8c0afd852..3de36d49c 100644
  
  	instance = strtoul(argv[idx_number]->arg, NULL, 10);
  	if (instance != ospf_instance)
-@@ -11254,7 +11286,7 @@ DEFUN (show_ip_ospf_instance_route,
+@@ -11406,7 +11438,7 @@ DEFUN (show_ip_ospf_instance_route,
  	if (!ospf || !ospf->oi_running)
  		return CMD_SUCCESS;
  

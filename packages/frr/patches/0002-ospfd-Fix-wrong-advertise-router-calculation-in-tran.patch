@@ -1,4 +1,4 @@
-From 2c6087bec2e4e9360f6c9e1b3df88021f839f35e Mon Sep 17 00:00:00 2001
+From 29f1a00109eba4a5f23662b377d372f92735b2b6 Mon Sep 17 00:00:00 2001
 From: Zhiyuan Wan <h@iloli.bid>
 Date: Mon, 3 Apr 2023 14:35:14 +0800
 Subject: [PATCH 2/3] ospfd: Fix wrong advertise router calculation in transit
@@ -13,10 +13,10 @@ Signed-off-by: Zhiyuan Wan <h@iloli.bid>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/ospfd/ospf_route.c b/ospfd/ospf_route.c
-index 5f18bff1c..744d47dc2 100644
+index fea9f79bf..c98790b5e 100644
 --- a/ospfd/ospf_route.c
 +++ b/ospfd/ospf_route.c
-@@ -849,7 +849,7 @@ void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
+@@ -864,7 +864,7 @@ void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
  		    || area->spf_dry_run) {
  			path = ospf_path_new();
  			path->nexthop = nexthop->router;

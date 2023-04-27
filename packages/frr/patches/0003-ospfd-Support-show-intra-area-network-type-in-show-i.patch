@@ -1,4 +1,4 @@
-From bfb64fc1ba595e6f45df776d61f302ca080928ca Mon Sep 17 00:00:00 2001
+From fae730bd95bcd508e087dd11991d8c6c201d581c Mon Sep 17 00:00:00 2001
 From: Zhiyuan Wan <h@iloli.bid>
 Date: Mon, 3 Apr 2023 16:21:15 +0800
 Subject: [PATCH 3/3] ospfd: Support show intra-area network type in 'show ip
@@ -20,10 +20,10 @@ Signed-off-by: Zhiyuan Wan <h@iloli.bid>
  3 files changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/ospfd/ospf_route.c b/ospfd/ospf_route.c
-index 744d47dc2..073daca78 100644
+index c98790b5e..cc7f0c525 100644
 --- a/ospfd/ospf_route.c
 +++ b/ospfd/ospf_route.c
-@@ -48,6 +48,7 @@ struct ospf_route *ospf_route_new(void)
+@@ -63,6 +63,7 @@ struct ospf_route *ospf_route_new(void)
  
  	new->paths = list_new();
  	new->paths->del = (void (*)(void *))ospf_path_free;
@@ -31,7 +31,7 @@ index 744d47dc2..073daca78 100644
  
  	return new;
  }
-@@ -500,6 +501,7 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
+@@ -515,6 +516,7 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
  	or->cost = v->distance;
  	or->type = OSPF_DESTINATION_NETWORK;
  	or->u.std.origin = (struct lsa_header *)lsa;
@@ -40,10 +40,10 @@ index 744d47dc2..073daca78 100644
  	ospf_route_copy_nexthops_from_vertex(area, or, v);
  
 diff --git a/ospfd/ospf_route.h b/ospfd/ospf_route.h
-index 2582067ae..d90e26222 100644
+index fa9478fce..c75d694d3 100644
 --- a/ospfd/ospf_route.h
 +++ b/ospfd/ospf_route.h
-@@ -69,6 +69,8 @@ struct route_standard {
+@@ -84,6 +84,8 @@ struct route_standard {
  
  	/*  */
  	uint8_t flags; /* From router-LSA */
@@ -53,10 +53,10 @@ index 2582067ae..d90e26222 100644
  
  struct route_external {
 diff --git a/ospfd/ospf_vty.c b/ospfd/ospf_vty.c
-index 3de36d49c..92dfef763 100644
+index 40b38e18b..30048cb8d 100644
 --- a/ospfd/ospf_vty.c
 +++ b/ospfd/ospf_vty.c
-@@ -10460,16 +10460,17 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
+@@ -10612,16 +10612,17 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
  		case OSPF_PATH_INTRA_AREA:
  			if (json) {
  				json_object_string_add(json_route, "routeType",
@@ -78,7 +78,7 @@ index 3de36d49c..92dfef763 100644
  			}
  			break;
  		default:
-@@ -10528,7 +10529,8 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
+@@ -10680,7 +10681,8 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
  									ospf->vrf_id));
  							json_object_string_addf(
  								json_nexthop,
@@ -88,7 +88,7 @@ index 3de36d49c..92dfef763 100644
  								&path->adv_router);
  						} else {
  							vty_out(vty,
-@@ -10803,7 +10805,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
+@@ -10955,7 +10957,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
  								path->ifindex,
  								ospf->vrf_id));
  						json_object_string_addf(
