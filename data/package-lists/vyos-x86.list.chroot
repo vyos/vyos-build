@@ -8,3 +8,4 @@ vyos-linux-firmware
 vyos-intel-qat
 wireguard-modules
 vyos-drivers-intel-ice
+vyos-drivers-realtek-r8152
