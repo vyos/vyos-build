@@ -252,6 +252,22 @@ pipeline {
                         }
                     }
                 }
+                stage('Realtek r8152 driver') {
+                    when {
+                        beforeOptions true
+                        beforeAgent true
+                        anyOf {
+                            changeset pattern: "**/packages/linux-kernel/*"
+                            changeset pattern: "**/data/defaults.json"
+                            triggeredBy cause: "UserIdCause"
+                        }
+                    }
+                    steps {
+                        dir(env.BASE_DIR) {
+                            sh "./build-driver-realtek-r8152.py"
+                        }
+                    }
+                }
             }
         }
         // This stage should not be run in the parallel section as it will call "make"
