@@ -339,6 +339,16 @@ RUN apt-get update && apt-get install -y \
       libssl-dev \
       libpcre3-dev
 
+# debmake: a native Debian tool for preparing sources for packaging
+RUN apt-get update && apt-get install -y \
+      debmake \
+      python3-debian
+
+# Packages for jool
+RUN apt-get update && apt-get install -y \
+      libnl-genl-3-dev \
+      libxtables-dev
+
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
