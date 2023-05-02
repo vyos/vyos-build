@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 CWD=$(pwd)
 KERNEL_SRC=linux
 
