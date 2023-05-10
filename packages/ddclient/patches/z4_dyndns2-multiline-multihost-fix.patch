@@ -1,0 +1,111 @@
+From 69347bd2a27cfb517d0749f1293ad5acdfcf34ad Mon Sep 17 00:00:00 2001
+From: Franco Fichtner <franco@opnsense.org>
+Date: Thu, 1 Jun 2023 09:06:27 +0200
+Subject: [PATCH] dyndns2: fix multiline parsing and multiple host handling
+
+As seen in the wild with DynDNS.com -- status '14' is being stored
+for the first host which is removed from @hosts ending up reading
+empty host for next line causing 'nochg' to be misplaced in an empty
+host.  The same likely applies for multi-host handling so expand to
+loop where writing to config and use $hosts when logging to catch all.
+
+RECEIVE:  HTTP/1.1 200 OK
+RECEIVE:  Date: Thu, 01 Jun 2023 06:59:38 GMT
+RECEIVE:  Server: Apache/2.4.18 (Ubuntu)
+RECEIVE:  Strict-Transport-Security: max-age=31536000
+RECEIVE:  X-UpdateCode: n
+RECEIVE:  Vary: Accept-Encoding
+RECEIVE:  Content-Type: text/plain
+RECEIVE:  Accept-Ranges: none
+RECEIVE:  X-User-Status: vip
+RECEIVE:  Connection: close
+RECEIVE:  Transfer-Encoding: chunked
+RECEIVE:
+RECEIVE:  14
+RECEIVE:  nochg 192.168.178.20
+RECEIVE:  0
+RECEIVE:
+
+Ref: ddclient/ddclient#542
+---
+ ddclient.in | 51 +++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 31 insertions(+), 20 deletions(-)
+
+diff --git a/ddclient.in b/ddclient.in
+index a4464e2c..43eb3b15 100755
+--- a/ddclient.in
++++ b/ddclient.in
+@@ -4194,30 +4194,38 @@ sub nic_dyndns2_update {
+                 # bug #10: some dyndns providers does not return the IP so
+                 # we can't use the returned IP
+                 my ($status, $returnedips) = split / /, lc $line;
+-                my $h = shift @hosts;
+
+-                $config{$h}{'status'} = $status;
+-                $config{$h}{'status-ipv4'} = $status if $ipv4;
+-                $config{$h}{'status-ipv6'} = $status if $ipv6;
++                foreach my $h (@hosts) {
++                    $config{$h}{'status'} = $status;
++                    $config{$h}{'status-ipv4'} = $status if $ipv4;
++                    $config{$h}{'status-ipv6'} = $status if $ipv6;
++                }
++
+                 if ($status eq 'good') {
+-                    $config{$h}{'ipv4'}  = $ipv4 if $ipv4;
+-                    $config{$h}{'ipv6'}  = $ipv6 if $ipv6;
+-                    $config{$h}{'mtime'} = $now;
+-                    success("updating %s: %s: IPv4 address set to %s", $h, $status, $ipv4) if $ipv4;
+-                    success("updating %s: %s: IPv6 address set to %s", $h, $status, $ipv6) if $ipv6;
++                    foreach my $h (@hosts) {
++                        $config{$h}{'ipv4'}  = $ipv4 if $ipv4;
++                        $config{$h}{'ipv6'}  = $ipv6 if $ipv6;
++                        $config{$h}{'mtime'} = $now;
++                    }
++
++                    success("updating %s: %s: IPv4 address set to %s", $hosts, $status, $ipv4) if $ipv4;
++                    success("updating %s: %s: IPv6 address set to %s", $hosts, $status, $ipv6) if $ipv6;
+
+                 } elsif (exists $errors{$status}) {
+                     if ($status eq 'nochg') {
+-                        warning("updating %s: %s: %s", $h, $status, $errors{$status});
+-                        $config{$h}{'ipv4'}  = $ipv4 if $ipv4;
+-                        $config{$h}{'ipv6'}  = $ipv6 if $ipv6;
+-                        $config{$h}{'mtime'}  = $now;
+-                        $config{$h}{'status'} = 'good';
+-                        $config{$h}{'status-ipv4'} = 'good' if $ipv4;
+-                        $config{$h}{'status-ipv6'} = 'good' if $ipv6;
++                        warning("updating %s: %s: %s", $hosts, $status, $errors{$status});
++
++                        foreach my $h (@hosts) {
++                            $config{$h}{'ipv4'}  = $ipv4 if $ipv4;
++                            $config{$h}{'ipv6'}  = $ipv6 if $ipv6;
++                            $config{$h}{'mtime'}  = $now;
++                            $config{$h}{'status'} = 'good';
++                            $config{$h}{'status-ipv4'} = 'good' if $ipv4;
++                            $config{$h}{'status-ipv6'} = 'good' if $ipv6;
++                        }
+
+                     } else {
+-                        failed("updating %s: %s: %s", $h, $status, $errors{$status});
++                        failed("updating %s: %s: %s", $hosts, $status, $errors{$status});
+                     }
+
+                 } elsif ($status =~ /w(\d+)(.)/) {
+@@ -4229,11 +4237,14 @@ sub nic_dyndns2_update {
+                     ($scale, $units) = (60*60, 'hours') if $units eq 'h';
+
+                     $sec = $wait * $scale;
+-                    $config{$h}{'wtime'} = $now + $sec;
+-                    warning("updating %s: %s: wait %s %s before further updates", $h, $status, $wait, $units);
++                    foreach my $h (@hosts) {
++                        $config{$h}{'wtime'} = $now + $sec;
++                    }
++
++                    warning("updating %s: %s: wait %s %s before further updates", $hosts, $status, $wait, $units);
+
+                 } else {
+-                    failed("updating %s: unexpected status (%s)", $h, $line);
++                    failed("updating %s: unexpected status (%s)", $hosts, $line);
+                 }
+             }
+         }

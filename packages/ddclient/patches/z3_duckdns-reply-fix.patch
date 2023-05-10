@@ -1,0 +1,74 @@
+From d35d62f3e753ffe15b151f7b7c5dea96bfa3ca7a Mon Sep 17 00:00:00 2001
+From: drinn <drinn@users.noreply.github.com>
+Date: Sat, 28 Jan 2023 09:48:51 -0600
+Subject: [PATCH 1/2] updated nic_duckdns_update to account for extra lines in
+ duckdns reply
+
+Ref: ddclient/ddclient#506
+---
+ ddclient.in | 30 +++++++++++++++++++++---------
+ 1 file changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/ddclient.in b/ddclient.in
+index eff10fb4..8797d7d4 100755
+--- a/ddclient.in
++++ b/ddclient.in
+@@ -6559,16 +6559,28 @@ sub nic_duckdns_update {
+         next if !header_ok($h, $reply);
+
+         my @reply = split /\n/, $reply;
+-        my $returned = pop(@reply);
+-        if ($returned =~ /OK/) {
+-            $config{$h}{'ip'}     = $ip;
+-            $config{$h}{'mtime'}  = $now;
+-            $config{$h}{'status'} = 'good';
+-            success("updating %s: good: IP address set to %s", $h, $ip);
+-        } else {
+-            $config{$h}{'status'} = 'failed';
+-            failed("updating %s: Server said: '%s'", $h, $returned);
++        my $state = 'noresult';
++        my $line = '';
++
++        foreach $line (@reply) {
++            if ($line eq 'OK') {
++                $config{$h}{'ip'}     = $ip;
++                $config{$h}{'mtime'}  = $now;
++                $config{$h}{'status'} = 'good';
++                $state = 'result';
++                success("updating %s: good: IP address set to %s", $h, $ip);
++
++            } elsif ($line eq 'KO') {
++                $config{$h}{'status'} = 'failed';
++                $state = 'result';
++                failed("updating %s: Server said: '%s'", $h, $line);
++            }
++        }
++
++        if ($state eq 'noresult') {
++            failed("updating %s: Server said: '%s'", $h, $line);
+         }
++
+     }
+ }
+
+
+From dbc40557d22b36a6847d0cd11e59185647516f7b Mon Sep 17 00:00:00 2001
+From: drinn <drinn@users.noreply.github.com>
+Date: Sat, 28 Jan 2023 09:59:58 -0600
+Subject: [PATCH 2/2] removed empty space
+
+---
+ ddclient.in | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/ddclient.in b/ddclient.in
+index 8797d7d4..b818ea6e 100755
+--- a/ddclient.in
++++ b/ddclient.in
+@@ -6580,7 +6580,6 @@ sub nic_duckdns_update {
+         if ($state eq 'noresult') {
+             failed("updating %s: Server said: '%s'", $h, $line);
+         }
+-
+     }
+ }
