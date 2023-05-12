@@ -1,0 +1,77 @@
+From 6320d4941777d317989209f26ca513379f729c30 Mon Sep 17 00:00:00 2001
+From: zsdc <taras@vyos.io>
+Date: Fri, 12 May 2023 13:56:20 +0300
+Subject: [PATCH] Fix as-override behavior
+
+Backported 9bbdb4572d3bb255211fecf1c756452ab27e91c2 from FRR 8.5
+---
+ bgpd/bgp_aspath.c | 22 ----------------------
+ bgpd/bgp_aspath.h |  1 -
+ bgpd/bgp_route.c  |  4 +---
+ 3 files changed, 1 insertion(+), 26 deletions(-)
+
+diff --git a/bgpd/bgp_aspath.c b/bgpd/bgp_aspath.c
+index 5cf3c60fa..9595bae5f 100644
+--- a/bgpd/bgp_aspath.c
++++ b/bgpd/bgp_aspath.c
+@@ -1215,28 +1215,6 @@ bool aspath_private_as_check(struct aspath *aspath)
+ 	return true;
+ }
+ 
+-/* Return True if the entire ASPATH consist of the specified ASN */
+-bool aspath_single_asn_check(struct aspath *aspath, as_t asn)
+-{
+-	struct assegment *seg;
+-
+-	if (!(aspath && aspath->segments))
+-		return false;
+-
+-	seg = aspath->segments;
+-
+-	while (seg) {
+-		int i;
+-
+-		for (i = 0; i < seg->length; i++) {
+-			if (seg->as[i] != asn)
+-				return false;
+-		}
+-		seg = seg->next;
+-	}
+-	return true;
+-}
+-
+ /* Replace all instances of the target ASN with our own ASN */
+ struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
+ 					   as_t target_asn, as_t our_asn)
+diff --git a/bgpd/bgp_aspath.h b/bgpd/bgp_aspath.h
+index 9df352fcd..9bab5bb7b 100644
+--- a/bgpd/bgp_aspath.h
++++ b/bgpd/bgp_aspath.h
+@@ -108,7 +108,6 @@ extern unsigned int aspath_get_first_as(struct aspath *);
+ extern unsigned int aspath_get_last_as(struct aspath *);
+ extern int aspath_loop_check(struct aspath *, as_t);
+ extern bool aspath_private_as_check(struct aspath *);
+-extern bool aspath_single_asn_check(struct aspath *, as_t asn);
+ extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
+ 						  as_t target_asn,
+ 						  as_t our_asn);
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 48ccb669b..6de3e2a7f 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -1571,11 +1571,9 @@ static void bgp_peer_as_override(struct bgp *bgp, afi_t afi, safi_t safi,
+ 				 struct peer *peer, struct attr *attr)
+ {
+ 	if (peer->sort == BGP_PEER_EBGP
+-	    && peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE)) {
+-		if (aspath_single_asn_check(attr->aspath, peer->as))
++	    && peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE))
+ 			attr->aspath = aspath_replace_specific_asn(
+ 				attr->aspath, peer->as, bgp->as);
+-	}
+ }
+ 
+ void bgp_attr_add_gshut_community(struct attr *attr)
+-- 
+2.34.1
+
