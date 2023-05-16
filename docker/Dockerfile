@@ -133,7 +133,8 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       ctypes-foreign \
       ctypes-build \
       containers \
-      fileutils
+      fileutils \
+      xml-light
 
 # Build VyConf which is required to build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
