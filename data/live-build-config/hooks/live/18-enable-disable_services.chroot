@@ -78,6 +78,7 @@ systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
 systemctl enable vyos-router.service
 systemctl enable vyos-configd.service
+systemctl enable vyos-grub-update.service
 
 echo I: Masking services
 systemctl mask systemd-journald-audit.socket
