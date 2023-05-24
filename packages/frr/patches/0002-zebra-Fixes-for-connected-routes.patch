@@ -1,0 +1,176 @@
+From 18b1c3c06eb69c8d10666c40f55be4926f888042 Mon Sep 17 00:00:00 2001
+From: zsdc <taras@vyos.io>
+Date: Wed, 24 May 2023 20:43:27 +0300
+Subject: [PATCH] zebra: Fixes for connected routes
+
+This is a cumulative backport of:
+92980561382fc04380414a6e2f6ca6746c2fe5e9
+7fb9825cf7e762add68f5108df4eddda1247f198
+e3d901f8638dec32eac4c2690912138963ae5a05
+---
+ lib/if.h          |  3 ++
+ zebra/connected.c | 73 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 75 insertions(+), 1 deletion(-)
+
+diff --git a/lib/if.h b/lib/if.h
+index a2a40d095..0c73ab63a 100644
+--- a/lib/if.h
++++ b/lib/if.h
+@@ -393,6 +393,7 @@ struct connected {
+ #define ZEBRA_IFC_REAL         (1 << 0)
+ #define ZEBRA_IFC_CONFIGURED   (1 << 1)
+ #define ZEBRA_IFC_QUEUED       (1 << 2)
++#define ZEBRA_IFC_DOWN         (1 << 3)
+ 	/*
+ 	   The ZEBRA_IFC_REAL flag should be set if and only if this address
+ 	   exists in the kernel and is actually usable. (A case where it exists
+@@ -406,6 +407,8 @@ struct connected {
+ 	   in the kernel. It may and should be set although the address might
+ 	   not be
+ 	   usable yet. (compare with ZEBRA_IFC_REAL)
++	   The ZEBRA_IFC_DOWN flag is used to record that an address is
++	   present, but down/unavailable.
+ 	 */
+ 
+ 	/* Flags for connected address. */
+diff --git a/zebra/connected.c b/zebra/connected.c
+index 8c4ba163b..fd3fefdd2 100644
+--- a/zebra/connected.c
++++ b/zebra/connected.c
+@@ -207,6 +207,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
+ 	};
+ 	struct zebra_vrf *zvrf;
+ 	uint32_t metric;
++	uint32_t count = 0;
++	struct listnode *cnode;
++	struct connected *c;
+ 
+ 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+ 	if (!zvrf) {
+@@ -219,6 +222,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
+ 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
+ 		return;
+ 
++	/* Ensure 'down' flag is cleared */
++	UNSET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
++
+ 	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
+ 
+ 	/* Apply mask to the network. */
+@@ -251,6 +257,29 @@ void connected_up(struct interface *ifp, struct connected *ifc)
+ 
+ 	metric = (ifc->metric < (uint32_t)METRIC_MAX) ?
+ 				ifc->metric : ifp->metric;
++
++	/*
++	 * It's possible to add the same network and mask
++	 * to an interface over and over.  This would
++	 * result in an equivalent number of connected
++	 * routes.  Just add one connected route in
++	 * for all the addresses on an interface that
++	 * resolve to the same network and mask
++	 */
++	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
++		struct prefix cp;
++
++		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
++		apply_mask(&cp);
++
++		if (prefix_same(&cp, &p) &&
++		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
++			count++;
++
++		if (count >= 2)
++			return;
++	}
++
+ 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
+ 		0, 0, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+ 
+@@ -290,6 +319,8 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
+ 	/* If we get a notification from the kernel,
+ 	 * we can safely assume the address is known to the kernel */
+ 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
++	if (!if_is_operative(ifp))
++		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
+ 
+ 	/* Allocate new connected address. */
+ 	p = prefix_ipv4_new();
+@@ -350,12 +381,15 @@ void connected_down(struct interface *ifp, struct connected *ifc)
+ 		.vrf_id = ifp->vrf_id,
+ 	};
+ 	struct zebra_vrf *zvrf;
++	uint32_t count = 0;
++	struct listnode *cnode;
++	struct connected *c;
+ 
+ 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+ 	if (!zvrf) {
+ 		flog_err(
+ 			EC_ZEBRA_VRF_NOT_FOUND,
+-			"%s: Received Up for interface but no associated zvrf: %d",
++			"%s: Received Down for interface but no associated zvrf: %d",
+ 			__func__, ifp->vrf_id);
+ 		return;
+ 	}
+@@ -363,6 +397,17 @@ void connected_down(struct interface *ifp, struct connected *ifc)
+ 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
+ 		return;
+ 
++	/* Skip if we've already done this; this can happen if we have a
++	 * config change that takes an interface down, then we receive kernel
++	 * notifications about the downed interface and its addresses.
++	 */
++	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_DOWN)) {
++		if (IS_ZEBRA_DEBUG_RIB)
++			zlog_debug("%s: ifc %p, %pFX already DOWN",
++				   __func__, ifc, ifc->address);
++		return;
++	}
++
+ 	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
+ 
+ 	/* Apply mask to the network. */
+@@ -388,6 +433,30 @@ void connected_down(struct interface *ifp, struct connected *ifc)
+ 		break;
+ 	}
+ 
++	/* Mark the address as 'down' */
++	SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
++
++	/*
++	 * It's possible to have X number of addresses
++	 * on a interface that all resolve to the same
++	 * network and mask.  Find them and just
++	 * allow the deletion when are removing the last
++	 * one.
++	 */
++	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
++		struct prefix cp;
++
++		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
++		apply_mask(&cp);
++
++		if (prefix_same(&p, &cp) &&
++		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
++			count++;
++
++		if (count >= 1)
++			return;
++	}
++
+ 	/*
+ 	 * Same logic as for connected_up(): push the changes into the
+ 	 * head.
+@@ -481,6 +550,8 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
+ 	/* If we get a notification from the kernel,
+ 	 * we can safely assume the address is known to the kernel */
+ 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
++	if (!if_is_operative(ifp))
++		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
+ 
+ 	/* Allocate new connected address. */
+ 	p = prefix_ipv6_new();
+-- 
+2.34.1
+
