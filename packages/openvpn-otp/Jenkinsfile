@@ -28,4 +28,4 @@ def pkgList = [
      'buildCmd': 'cd ..; ./build-openvpn-otp.sh'],
 ]
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('openvpn-otp', pkgList, null, true, "**/packages/openvpn-otp/*")
+buildPackage('openvpn-otp', pkgList, null, true, "**/packages/openvpn-otp/**")

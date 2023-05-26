@@ -31,4 +31,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('pam_tacplus', pkgList, null, true, "**/packages/pam_tacplus/*")
+buildPackage('pam_tacplus', pkgList, null, true, "**/packages/pam_tacplus/**")

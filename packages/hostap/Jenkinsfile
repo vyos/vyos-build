@@ -31,4 +31,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('hostap', pkgList, null, true, "**/packages/hostap/*")
+buildPackage('hostap', pkgList, null, true, "**/packages/hostap/**")
