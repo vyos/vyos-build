@@ -1,29 +1,44 @@
-From 3ac8b338e248801eca917e6091ff6b601e55a1fc Mon Sep 17 00:00:00 2001
-From: Christian Poessinger <christian@poessinger.com>
-Date: Sun, 16 Jan 2022 21:04:35 +0100
+From 861bfb53de5909e25a952a83654c63de61af02b5 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Sun, 28 May 2023 15:45:32 +0200
 Subject: [PATCH] Enable PAM support
 
 ---
+ debian/control    | 1 +
  debian/rules      | 2 +-
  default_options.h | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
+diff --git a/debian/control b/debian/control
+index 77ea036..b252b97 100644
+--- a/debian/control
++++ b/debian/control
+@@ -6,6 +6,7 @@ Build-Depends: debhelper,
+                debhelper-compat (= 13),
+                libtomcrypt-dev (>= 1.18.2~),
+                libtommath-dev (>= 1.2.0~),
++               libpam0g-dev,
+                libz-dev
+ Rules-Requires-Root: no
+ Standards-Version: 4.6.1
 diff --git a/debian/rules b/debian/rules
-index 673a5a3..4092be7 100755
+index 7dab64c..ce11aa4 100755
 --- a/debian/rules
 +++ b/debian/rules
-@@ -27,5 +27,5 @@ override_dh_installinit:
- 	dh_installinit -R --name dropbear
+@@ -24,7 +24,7 @@ endif
+ 	dh $@
  
  override_dh_auto_configure:
 -	dh_auto_configure -- --disable-bundled-libtom \
 +	dh_auto_configure -- --disable-bundled-libtom --enable-pam \
  	  CC='$(CC)' CFLAGS='$(CFLAGS)' $(CONFFLAGS)
+ 
+ execute_before_dh_auto_build:
 diff --git a/default_options.h b/default_options.h
-index 375506d..e4fc5bf 100644
+index 5132775..e7d274c 100644
 --- a/default_options.h
 +++ b/default_options.h
-@@ -193,7 +193,7 @@ group1 in Dropbear server too */
+@@ -223,7 +223,7 @@ group1 in Dropbear server too */
  
  /* Authentication Types - at least one required.
     RFC Draft requires pubkey auth, and recommends password */
@@ -32,15 +47,15 @@ index 375506d..e4fc5bf 100644
  
  /* Note: PAM auth is quite simple and only works for PAM modules which just do
   * a simple "Login: " "Password: " (you can edit the strings in svr-authpam.c).
-@@ -201,7 +201,7 @@ group1 in Dropbear server too */
+@@ -231,7 +231,7 @@ group1 in Dropbear server too */
   * but there's an interface via a PAM module. It won't work for more complex
   * PAM challenge/response.
   * You can't enable both PASSWORD and PAM. */
 -#define DROPBEAR_SVR_PAM_AUTH 0
 +#define DROPBEAR_SVR_PAM_AUTH 1
  
- /* ~/.ssh/authorized_keys authentication */
- #define DROPBEAR_SVR_PUBKEY_AUTH 1
+ /* ~/.ssh/authorized_keys authentication.
+  * You must define DROPBEAR_SVR_PUBKEY_AUTH in order to use plugins. */
 -- 
-2.20.1
+2.30.2
 
