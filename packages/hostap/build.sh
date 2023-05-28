@@ -27,7 +27,7 @@ EOF
 cd ${SRC}
 
 echo "I: Ensure Debian build dependencies are met"
-sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"
+sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends" -Ppkg.wpa.nogui,noudeb
 
 echo "I: Create new Debian Package version"
 version="$(git describe --tags | tr _ .)"
