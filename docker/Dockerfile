@@ -228,6 +228,7 @@ RUN pip install --break-system-packages \
       python3-nose \
       python3-netifaces \
       python3-jinja2 \
+      python3-jmespath \
       python3-psutil \
       python3-stdeb \
       python3-all \
