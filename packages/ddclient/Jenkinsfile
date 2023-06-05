@@ -27,4 +27,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('ddclient', pkgList, null, true, "**/packages/ddclient/**")
+buildPackage('ddclient', pkgList, null, null, "**/packages/ddclient/**")
