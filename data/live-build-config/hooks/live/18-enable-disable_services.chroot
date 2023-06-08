@@ -69,7 +69,6 @@ systemctl disable nvmf-autoconnect.service
 systemctl disable sendmail.service
 
 echo I: Enabling services
-systemctl enable frr.service
 systemctl enable ssh-session-cleanup.service
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
