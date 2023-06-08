@@ -76,3 +76,4 @@ systemctl enable vyos-configd.service
 
 echo I: Masking services
 systemctl mask systemd-journald-audit.socket
+systemctl --global mask gpg-agent.service gpg-agent.socket gpg-agent-ssh.socket gpg-agent-extra.socket gpg-agent-browser.socket dirmngr.socket
