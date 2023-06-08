@@ -73,6 +73,7 @@ RUN apt-get update && apt-get install -y \
       mc \
       pbuilder \
       devscripts \
+      equivs \
       lsb-release \
       libtool \
       libapt-pkg-dev \
