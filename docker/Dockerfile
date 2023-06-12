@@ -236,19 +236,6 @@ RUN pip install --break-system-packages \
       quilt \
       whois
 
-# Packages needed for vyos-1x-xdp package, gcc-multilib is not available on
-# arm64 but required by XDP
-RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
-      apt-get update && apt-get install -y \
-        gcc-multilib \
-        clang \
-        llvm \
-        libelf-dev \
-        libpcap-dev \
-        libbpf-dev \
-        build-essential; \
-    fi
-
 # Go required for validators and vyos-xe-guest-utilities
 RUN GO_VERSION_INSTALL="1.18.3" ; \
     wget -O /tmp/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-$(dpkg-architecture -qDEB_HOST_ARCH).tar.gz ; \
