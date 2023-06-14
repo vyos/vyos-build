@@ -183,6 +183,7 @@ RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17
 RUN apt-get update && apt-get install -y \
       gnupg2 \
       rsync \
+      libelf-dev \
       libncurses5-dev \
       flex \
       bison \
