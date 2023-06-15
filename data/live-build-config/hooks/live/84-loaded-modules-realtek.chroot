@@ -1,0 +1,7 @@
+#!/bin/sh
+echo "DEPMOD)"
+depmod
+echo "load module r8168 and r8125 and r8152"
+modprobe r8168
+modprobe r8125
+modprobe r8152
