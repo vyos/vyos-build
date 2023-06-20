@@ -1,0 +1,14 @@
+{
+    "build_commands": [
+        [
+            "sudo",
+            "make",
+            "UNATTENDED=yes",
+            "install-dep"
+        ],
+        [
+            "make",
+            "pkg-deb"
+        ]
+    ]
+}

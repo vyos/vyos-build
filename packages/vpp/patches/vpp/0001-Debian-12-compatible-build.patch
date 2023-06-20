@@ -1,0 +1,54 @@
+From 3a4e62ad4844e84e93367a19cf1fae0191e677c6 Mon Sep 17 00:00:00 2001
+From: zsdc <taras@vyos.io>
+Date: Mon, 19 Jun 2023 16:39:04 +0300
+Subject: [PATCH] Debian 12 compatible build
+
+---
+ Makefile                                                      | 4 ++++
+ build/external/Makefile                                       | 3 +--
+ src/plugins/af_xdp/{CMakeLists.txt => CMakeLists.txt.disable} | 0
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+ rename src/plugins/af_xdp/{CMakeLists.txt => CMakeLists.txt.disable} (100%)
+
+diff --git a/Makefile b/Makefile
+index 88d42dfe4..9c10b62c6 100644
+--- a/Makefile
++++ b/Makefile
+@@ -103,6 +103,10 @@ else ifeq ($(OS_ID)-$(OS_VERSION_ID),debian-11)
+ 	DEB_DEPENDS += virtualenv
+ 	DEB_DEPENDS += clang clang-format-11
+ 	LIBFFI=libffi7
++else ifeq ($(OS_ID)-$(OS_VERSION_ID),debian-12)
++	DEB_DEPENDS += virtualenv
++	DEB_DEPENDS += clang clang-format
++	LIBFFI=libffi8
+ else
+ 	DEB_DEPENDS += clang-11 clang-format-11
+ 	LIBFFI=libffi7
+diff --git a/build/external/Makefile b/build/external/Makefile
+index d648f4fa1..8a4d8e115 100644
+--- a/build/external/Makefile
++++ b/build/external/Makefile
+@@ -40,14 +40,13 @@ include packages/ipsec-mb.mk
+ include packages/quicly.mk
+ include packages/rdma-core.mk
+ include packages/dpdk.mk
+-include packages/xdp-tools.mk
+ 
+ .PHONY: clean
+ clean:
+ 	@rm -rf $(B) $(I)
+ 
+ .PHONY: install
+-install: $(if $(ARCH_X86_64), ipsec-mb-install) dpdk-install rdma-core-install quicly-install xdp-tools-install
++install: $(if $(ARCH_X86_64), ipsec-mb-install) dpdk-install rdma-core-install quicly-install
+ 
+ .PHONY: config
+ config: $(if $(ARCH_X86_64), ipsec-mb-config) dpdk-config rdma-core-config quicly-build
+diff --git a/src/plugins/af_xdp/CMakeLists.txt b/src/plugins/af_xdp/CMakeLists.txt.disable
+similarity index 100%
+rename from src/plugins/af_xdp/CMakeLists.txt
+rename to src/plugins/af_xdp/CMakeLists.txt.disable
+-- 
+2.34.1
+
