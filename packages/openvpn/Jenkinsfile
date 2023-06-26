@@ -27,4 +27,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('openvpn', pkgList, null, true, "**/packages/openvpn/**")
+buildPackage('openvpn', pkgList, null, "**/packages/openvpn/**")
