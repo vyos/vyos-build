@@ -67,6 +67,7 @@ systemctl disable podman-restart.service
 systemctl disable vyos-wan-load-balance.service
 systemctl disable nvmf-autoconnect.service
 systemctl disable sendmail.service
+systemctl disable vpp.service
 
 echo I: Enabling services
 systemctl enable ssh-session-cleanup.service
