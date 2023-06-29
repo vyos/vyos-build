@@ -8,6 +8,8 @@
 /QAT*
 *.tar.xz
 /*.postinst
+/vyos-drivers-realtek*
+*.tar.bz2
 
 # Intel Driver source
 i40e-*/
@@ -16,4 +18,5 @@ ixgbe-*/
 ixgbevf-*/
 vyos-intel-*/
 vyos-linux-firmware*/
+vyos-drivers-realtek*/
 kernel-vars
