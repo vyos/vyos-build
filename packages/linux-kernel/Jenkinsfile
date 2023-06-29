@@ -58,6 +58,9 @@ def pkgList = [
 
     // Jool
     ['name': 'jool', 'buildCmd': 'cd ..; ./build-jool.py'],
+	
+	// Realtek R8152
+    ['name': 'vyos-drivers-realtek-r8152', 'buildCmd': 'cd ..; ./build-driver-realtek-r8152.py'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
