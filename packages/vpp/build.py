@@ -46,7 +46,9 @@ def apply_patches(package_name: str) -> bool:
     """
     patches_dir = Path(f'../patches/{package_name}')
     if patches_dir.exists():
-        for patch_file in patches_dir.iterdir():
+        patches_list = list(patches_dir.iterdir())
+        patches_list.sort()
+        for patch_file in patches_list:
             patch_cmd: list[str] = [
                 'git', '-c', 'user.email=support@vyos.io', '-c',
                 'user.name=vyos', 'am',

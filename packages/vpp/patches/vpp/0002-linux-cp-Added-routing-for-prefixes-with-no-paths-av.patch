@@ -1,0 +1,154 @@
+From 8bc4c239da8dac43e5d565a14b33c060f196ae37 Mon Sep 17 00:00:00 2001
+From: zsdc <taras@vyos.io>
+Date: Tue, 4 Jul 2023 12:21:41 +0300
+Subject: [PATCH] linux-cp: Added routing for prefixes with no paths available
+
+A new CLI option is available:
+
+```
+lcp param route-no-paths (on|enable|off|disable)
+```
+
+If it is enabled, routes with no paths in VPP will be installed as local.
+This allows punting traffic with destinations available only via a kernel
+routing table, but not via VPP.
+---
+ src/plugins/linux-cp/lcp.c        | 16 ++++++++++++++++
+ src/plugins/linux-cp/lcp.h        |  7 +++++++
+ src/plugins/linux-cp/lcp_cli.c    | 14 +++++++++++++-
+ src/plugins/linux-cp/lcp_router.c | 21 +++++++++++++++++----
+ 4 files changed, 53 insertions(+), 5 deletions(-)
+
+diff --git a/src/plugins/linux-cp/lcp.c b/src/plugins/linux-cp/lcp.c
+index 33c71e441..ebad3c2f3 100644
+--- a/src/plugins/linux-cp/lcp.c
++++ b/src/plugins/linux-cp/lcp.c
+@@ -145,6 +145,22 @@ lcp_get_del_dynamic_on_link_down (void)
+   return lcpm->del_dynamic_on_link_down;
+ }
+ 
++void
++lcp_set_route_no_paths (u8 is_del)
++{
++  lcp_main_t *lcpm = &lcp_main;
++
++  lcpm->route_no_paths = (is_del != 0);
++}
++
++u8
++lcp_get_route_no_paths (void)
++{
++  lcp_main_t *lcpm = &lcp_main;
++
++  return lcpm->route_no_paths;
++}
++
+ /*
+  * fd.io coding-style-patch-verification: ON
+  *
+diff --git a/src/plugins/linux-cp/lcp.h b/src/plugins/linux-cp/lcp.h
+index 4ddaa3898..f11c9d6f9 100644
+--- a/src/plugins/linux-cp/lcp.h
++++ b/src/plugins/linux-cp/lcp.h
+@@ -28,6 +28,7 @@ typedef struct lcp_main_s
+   u8 lcp_sync;	      /* Automatically sync VPP changes to LCP */
+   u8 del_static_on_link_down;  /* Delete static routes when link goes down */
+   u8 del_dynamic_on_link_down; /* Delete dynamic routes when link goes down */
++  u8 route_no_paths; /* Add routes with no paths as local */
+   u8 test_mode;	      /* Set when Unit testing */
+ } lcp_main_t;
+ 
+@@ -52,6 +53,12 @@ u8 lcp_get_del_static_on_link_down (void);
+ void lcp_set_del_dynamic_on_link_down (u8 is_del);
+ u8 lcp_get_del_dynamic_on_link_down (void);
+ 
++/**
++ * Get/Set whether to install routes with no paths as local
++ */
++void lcp_set_route_no_paths (u8 is_del);
++u8 lcp_get_route_no_paths (void);
++
+ #endif
+ 
+ /*
+diff --git a/src/plugins/linux-cp/lcp_cli.c b/src/plugins/linux-cp/lcp_cli.c
+index 0dcf600b3..c7f0658ee 100644
+--- a/src/plugins/linux-cp/lcp_cli.c
++++ b/src/plugins/linux-cp/lcp_cli.c
+@@ -192,6 +192,17 @@ lcp_param_command_fn (vlib_main_t *vm, unformat_input_t *input,
+ 	    return clib_error_return (0, "unknown input `%U'",
+ 				      format_unformat_error, line_input);
+ 	}
++      else if (unformat (line_input, "route-no-paths"))
++	{
++	  if (unformat (line_input, "on") || unformat (line_input, "enable"))
++	    lcp_set_route_no_paths (1 /* is_del */);
++	  else if (unformat (line_input, "off") ||
++		   unformat (line_input, "disable"))
++	    lcp_set_route_no_paths (0 /* is_del */);
++	  else
++	    return clib_error_return (0, "unknown input `%U'",
++				      format_unformat_error, line_input);
++	}
+       else
+ 	return clib_error_return (0, "unknown input `%U'",
+ 				  format_unformat_error, line_input);
+@@ -204,7 +215,8 @@ lcp_param_command_fn (vlib_main_t *vm, unformat_input_t *input,
+ VLIB_CLI_COMMAND (lcp_param_command, static) = {
+   .path = "lcp param",
+   .short_help = "lcp param [del-static-on-link-down (on|enable|off|disable)] "
+-		"[del-dynamic-on-link-down (on|enable|off|disable)]",
++		"[del-dynamic-on-link-down (on|enable|off|disable)] "
++		"[route-no-paths (on|enable|off|disable)]",
+   .function = lcp_param_command_fn,
+ };
+ 
+diff --git a/src/plugins/linux-cp/lcp_router.c b/src/plugins/linux-cp/lcp_router.c
+index 8148f9bde..b1728f96b 100644
+--- a/src/plugins/linux-cp/lcp_router.c
++++ b/src/plugins/linux-cp/lcp_router.c
+@@ -1049,7 +1049,7 @@ lcp_router_route_path_add_special (struct rtnl_route *rr,
+ {
+   fib_route_path_t *path;
+ 
+-  if (rtnl_route_get_type (rr) < RTN_BLACKHOLE)
++  if (rtnl_route_get_type (rr) < RTN_BLACKHOLE && !(lcp_get_route_no_paths ()))
+     return;
+ 
+   /* if it already has a path, it does not need us to add one */
+@@ -1058,8 +1058,21 @@ lcp_router_route_path_add_special (struct rtnl_route *rr,
+ 
+   vec_add2 (ctx->paths, path, 1);
+ 
+-  path->frp_flags = FIB_ROUTE_PATH_FLAG_NONE | ctx->type_flags;
+-  path->frp_sw_if_index = ~0;
++  /* If there are no paths, and `lcp param route-no-paths` is enabled
++   * we need to add an extra local path. This allows punting traffic
++   * with destinations available only via kernel */
++  if (lcp_get_route_no_paths ())
++    {
++      path->frp_flags = FIB_ROUTE_PATH_LOCAL | ctx->type_flags;
++    } else {
++      path->frp_flags = FIB_ROUTE_PATH_FLAG_NONE | ctx->type_flags;
++    }
++
++  /* Do not add interface to routes from kernel */
++  if (rtnl_route_get_protocol (rr) != RTPROT_KERNEL) {
++    path->frp_sw_if_index = ~0;
++  }
++
+   path->frp_proto = fib_proto_to_dpo (ctx->route_proto);
+   path->frp_preference = ctx->preference;
+ 
+@@ -1188,7 +1201,7 @@ lcp_router_route_add (struct rtnl_route *rr, int is_replace)
+ 
+   nlt = lcp_router_table_add_or_lock (table_id, pfx.fp_proto);
+   /* Skip any kernel routes and IPv6 LL or multicast routes */
+-  if (rproto == RTPROT_KERNEL ||
++  if ((rproto == RTPROT_KERNEL && !(lcp_get_route_no_paths ())) ||
+       (FIB_PROTOCOL_IP6 == pfx.fp_proto &&
+        (ip6_address_is_multicast (&pfx.fp_addr.ip6) ||
+ 	ip6_address_is_link_local_unicast (&pfx.fp_addr.ip6))))
+-- 
+2.34.1
+
