@@ -23,7 +23,7 @@ mkdir -p ${DEBIAN_DIR}
 cp drivers/net/ovpn-dco/ovpn-dco-v2.ko ${DEBIAN_DIR}
 
 # Build Debian Package
-fpm --input-type dir --output-type deb --name vyos-openvpn-dco \
+fpm --input-type dir --output-type deb --name openvpn-dco \
     --version $(git describe | sed s/^v//) --deb-compression gz \
     --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
     --description "OpenVPN Data Channel Offload" \
