@@ -60,8 +60,9 @@ pipeline {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
         string(name: 'BUILD_VERSION', defaultValue: env.BASE_VERSION + 'ISO8601-TIMESTAMP', description: 'Version number (release builds only)')
         booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
-        booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
         booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
+        booleanParam(name: 'TEST_SMOKETESTS', defaultValue: true, description: 'Run Smoketests after ISO build')
+        booleanParam(name: 'TEST_RAID1', defaultValue: true, description: 'Perform RAID1 installation tests')
     }
     options {
         disableConcurrentBuilds()
@@ -91,7 +92,7 @@ pipeline {
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
                     def CUSTOM_PACKAGES = ''
-                    if (params.BUILD_SMOKETESTS)
+                    if (params.TEST_SMOKETESTS)
                         CUSTOM_PACKAGES = '--custom-package vyos-1x-smoketest'
 
                     def VYOS_VERSION = params.BUILD_BY
@@ -115,6 +116,7 @@ pipeline {
         stage('Smoketests for RAID-1 system installation') {
             when {
                 expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                expression { return params.TEST_RAID1 }
             }
             steps {
                 sh "sudo make testraid"
@@ -122,7 +124,7 @@ pipeline {
         }
         stage('Smoketests') {
             when {
-                expression { return params.BUILD_SMOKETESTS }
+                expression { return params.TEST_SMOKETESTS }
             }
             parallel {
                 stage('CLI validation') {
