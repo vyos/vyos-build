@@ -4,6 +4,7 @@
 /accel-ppp
 /intel-qat
 /linux-firmware
+/ovpn-dco
 /qat*
 /QAT*
 *.tar.xz
