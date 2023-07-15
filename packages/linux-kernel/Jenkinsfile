@@ -60,8 +60,9 @@ def pkgList = [
     ['name': 'jool', 'buildCmd': 'cd ..; ./build-jool.py'],
 
     // OpenVPN DCO
-    ['name': 'ovpn-dco', 'buildCmd': 'cd ..; ./build-openvpn-dco.sh'],
-
+    ['name': 'ovpn-dco','scmCommit': 'v0.2.20230426',
+     'scmUrl': 'https://github.com/OpenVPN/ovpn-dco',
+     'buildCmd': 'cd ..; ./build-openvpn-dco.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
