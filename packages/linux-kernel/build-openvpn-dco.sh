@@ -18,7 +18,7 @@ fi
 cd ${SRC} && make KERNEL_SRC=$KERNEL_DIR
 
 # Copy binary to package directory
-DEBIAN_DIR=lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra
+DEBIAN_DIR=tmp/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra
 mkdir -p ${DEBIAN_DIR}
 cp drivers/net/ovpn-dco/ovpn-dco-v2.ko ${DEBIAN_DIR}
 
@@ -28,6 +28,6 @@ fpm --input-type dir --output-type deb --name openvpn-dco \
     --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
     --description "OpenVPN Data Channel Offload" \
     --depends linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} \
-    --license "GPL2" -C ${DEBIAN_DIR}
+    --license "GPL2" --chdir tmp
 
 mv *.deb ..
