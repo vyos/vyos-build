@@ -5,5 +5,5 @@ additional_repositories = [
 kernel_flavor = "v8-arm64-vyos"
 
 # Packages included in ARM64 images by default
-packages = ["grub-efi-arm64"]
+packages = ["grub-efi-arm64", "openvpn-dco"]
 bootloaders = "grub-efi"
