@@ -666,7 +666,7 @@ index 4b8d04640ff3..830db6c1a2ed 100644
  
  endmenu
 diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 0f060d100880..ad1735ed39a0 100644
+index 0f060d100880..aff13d1c2123 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
 @@ -226,3 +226,25 @@ obj-$(CONFIG_IP_VS) += ipvs/
@@ -675,26 +675,26 @@ index 0f060d100880..ad1735ed39a0 100644
  obj-$(CONFIG_LWTUNNEL) += nf_hooks_lwtunnel.o
 +
 +# XTables Addons
-+obj-$(CONFIG_NETFILTER_XT_MATCH_asn) += xt_asn.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_CHAOS) += xt_CHAOS.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_condition) += xt_condition.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_DELUDE) += xt_DELUDE.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_ASN) += xt_asn.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_CONDITION) += xt_condition.o
 +obj-$(CONFIG_NETFILTER_XT_MATCH_DHCPMAC) += xt_DHCPMAC.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_DNETMAP) += xt_DNETMAP.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_ECHO) += xt_ECHO.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_fuzzy) += xt_fuzzy.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_geoip) += xt_geoip.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_iface) += xt_iface.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_IPMARK) += xt_IPMARK.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_ipv4options) += xt_ipv4options.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_length2) += xt_length2.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_LOGMARK) += xt_LOGMARK.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_lscan) += xt_lscan.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_FUZZY) += xt_fuzzy.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_GEOIP) += xt_geoip.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_IFACE) += xt_iface.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_IPV4OPTIONS) += xt_ipv4options.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_LENGTH2) += xt_length2.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_LSCAN) += xt_lscan.o
 +obj-$(CONFIG_NETFILTER_XT_MATCH_PROTO) += xt_PROTO.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_psd) += xt_psd.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_quota2) += xt_quota2.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_SYSRQ) += xt_SYSRQ.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_TARPIT) += xt_TARPIT.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_PSD) += xt_psd.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_QUOTA2) += xt_quota2.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_CHAOS) += xt_CHAOS.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_DELUDE) += xt_DELUDE.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_DNETMAP) += xt_DNETMAP.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_ECHO) += xt_ECHO.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_IPMARK) += xt_IPMARK.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_LOGMARK) += xt_LOGMARK.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_SYSRQ) += xt_SYSRQ.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_TARPIT) += xt_TARPIT.o
 diff --git a/net/netfilter/compat_skbuff.h b/net/netfilter/compat_skbuff.h
 new file mode 100644
 index 000000000000..5ab6eae99bc6
@@ -4401,7 +4401,7 @@ index 000000000000..5c81452a8d53
 +}
 diff --git a/net/netfilter/xt_CHAOS.c b/net/netfilter/xt_CHAOS.c
 new file mode 100644
-index 000000000000..98825177d1cc
+index 000000000000..2e4c24dc9df3
 --- /dev/null
 +++ b/net/netfilter/xt_CHAOS.c
 @@ -0,0 +1,210 @@
@@ -4474,7 +4474,7 @@ index 000000000000..98825177d1cc
 +		ret = xm_tcp->match(skb, &local_par);
 +		hotdrop = local_par.hotdrop;
 +	}
-+	if (!ret || hotdrop || (unsigned int)prandom_u32() > delude_percentage)
++	if (!ret || hotdrop || (unsigned int)get_random_u32() > delude_percentage)
 +		return;
 +
 +	destiny = (info->variant == XTCHAOS_TARPIT) ? xt_tarpit : xt_delude;
@@ -4501,7 +4501,7 @@ index 000000000000..98825177d1cc
 +	const struct xt_chaos_tginfo *info = par->targinfo;
 +	const struct iphdr *iph = ip_hdr(skb);
 +
-+	if ((unsigned int)prandom_u32() <= reject_percentage) {
++	if ((unsigned int)get_random_u32() <= reject_percentage) {
 +		struct xt_action_param local_par;
 +		local_par.state    = par->state;
 +		local_par.target   = xt_reject;
@@ -7001,7 +7001,7 @@ index 000000000000..6461e6d74f1c
 +MODULE_ALIAS("ip6t_SYSRQ");
 diff --git a/net/netfilter/xt_TARPIT.c b/net/netfilter/xt_TARPIT.c
 new file mode 100644
-index 000000000000..9ebccd961818
+index 000000000000..42dbdfc3c180
 --- /dev/null
 +++ b/net/netfilter/xt_TARPIT.c
 @@ -0,0 +1,537 @@
@@ -7114,8 +7114,8 @@ index 000000000000..9ebccd961818
 +		tcph->syn     = true;
 +		tcph->ack     = true;
 +		tcph->window  = oth->window &
-+			((prandom_u32() & 0x1f) - 0xf);
-+		tcph->seq     = htonl(prandom_u32() & ~oth->seq);
++			((get_random_u32() & 0x1f) - 0xf);
++		tcph->seq     = htonl(get_random_u32() & ~oth->seq);
 +		tcph->ack_seq = htonl(ntohl(oth->seq) + oth->syn);
 +	}
 +
@@ -7124,7 +7124,7 @@ index 000000000000..9ebccd961818
 +		tcph->syn     = false;
 +		tcph->ack     = true;
 +		tcph->window  = oth->window &
-+			((prandom_u32() & 0x1f) - 0xf);
++			((get_random_u32() & 0x1f) - 0xf);
 +		tcph->ack_seq = payload > 100 ?
 +			htonl(ntohl(oth->seq) + payload) :
 +			oth->seq;
