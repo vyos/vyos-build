@@ -21,6 +21,10 @@
 @Library('vyos-build@current')_
 
 def pkgList = [
+    ['name': 'libyang',
+     'scmCommit': 'v2.1.80',
+     'scmUrl': 'https://github.com/CESNET/libyang.git',
+     'buildCmd': 'pipx run apkg build -i && find pkg/pkgs -type f -name *.deb -exec mv -t .. {} +'],
     ['name': 'rtrlib',
      'scmCommit': 'v0.8.0',
      'scmUrl': 'https://github.com/rtrlib/rtrlib.git',
