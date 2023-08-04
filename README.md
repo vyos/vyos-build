@@ -8,13 +8,9 @@ For the most up-to-date documentation, please read the online build guide at
 
 VyOS is an open source operating system for network devices (routers, firewalls
 and so on). If you want to use it in your network, check out download and
-installation instructions at https://vyos.io
+installation instructions at https://docs.vyos.io/en/latest/installation/index.html
 
 If you want to modify VyOS and/or join its development, read on.
-
-VyOS is not new. It is a fork of Vyatta Core that was created when the open
-source version of it was discontinued. If you are a Vyatta Core user, you can
-upgrade your installation to VyOS.
 
 # About this repository
 
