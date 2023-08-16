@@ -59,13 +59,14 @@ def pkgList = [
     // Jool
     ['name': 'jool', 'buildCmd': 'cd ..; ./build-jool.py'],
 	
-	// R8152
-	['name': 'vyos-drivers-realtek-r8152', 'buildCmd': 'cd ..; ./build-driver-realtek-r8152.py'],
-	
     // OpenVPN DCO
     ['name': 'ovpn-dco','scmCommit': 'v0.2.20230426',
      'scmUrl': 'https://github.com/OpenVPN/ovpn-dco',
      'buildCmd': 'cd ..; ./build-openvpn-dco.sh'],
+	 
+	// R8152
+	['name': 'vyos-drivers-realtek-r8152', 'buildCmd': 'cd ..; ./build-driver-realtek-r8152.py'],
+	
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
