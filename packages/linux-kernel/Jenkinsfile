@@ -65,7 +65,7 @@ def pkgList = [
      'buildCmd': 'cd ..; ./build-openvpn-dco.sh'],
 	 
 	// R8152
-	['name': 'vyos-drivers-realtek-r8152', 'buildCmd': 'cd ..; ./build-driver-realtek-r8152.py'],
+	['name': 'r8152', 'buildCmd': 'cd ..; ./build-driver-realtek-r8152.py'],
 	
 ]
 

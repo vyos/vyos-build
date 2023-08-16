@@ -32,7 +32,7 @@ KERNEL_FLAVOR: str = toml_loads(architecture_file).get('kernel_flavor')
 KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
 
 # define variables
-PACKAGE_NAME: str = 'vyos-drivers-realtek-r8152'
+PACKAGE_NAME: str = 'r8152'
 PACKAGE_VERSION: str = '2.17.1'
 PACKAGE_DIR: str = f'{PACKAGE_NAME}-{PACKAGE_VERSION}'
 SOURCES_ARCHIVE: str = 'r8152-2.17.1.tar.bz2'
