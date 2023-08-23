@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# We do not need any manpages on the system since man-binary is missing.
+# This frees some space.
+rm -rf /usr/share/man
