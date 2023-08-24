@@ -3,4 +3,8 @@
 # We do not need any documentation on the system. This frees some space.
 # Copyright/licenses files are ignored for deletion
 shopt -s extglob
-rm -rf /usr/share/doc/*/!(copyright) /usr/share/doc-base
+rm -rf /usr/share/doc/*/!(copyright*|README*) /usr/share/doc-base
+
+# We also do not need any manpages on the system since man-binary is missing.
+# This also frees some space.
+rm -rf /usr/share/man
