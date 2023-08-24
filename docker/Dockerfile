@@ -190,7 +190,8 @@ RUN apt-get update && apt-get install -y \
       bc \
       kmod \
       cpio \
-      python-is-python3
+      python-is-python3 \
+      dwarves
 
 # Packages needed for Intel QAT out-of-tree drivers
 # FPM is used when generation Debian pckages for e.g. Intel QAT drivers
