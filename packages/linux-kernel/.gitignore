@@ -5,6 +5,7 @@
 /intel-qat
 /linux-firmware
 /ovpn-dco
+/jool*
 /qat*
 /QAT*
 *.tar.xz

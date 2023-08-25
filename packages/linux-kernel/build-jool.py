@@ -6,9 +6,8 @@ from pathlib import Path
 from subprocess import run
 
 def find_arch() -> str:
-    import os
-    arch = os.system("dpkg-architecture -q DEB_HOST_ARCH").strip()
-    return arch
+    tmp=run(['dpkg-architecture', '-q', 'DEB_HOST_ARCH'], capture_output=True)
+    return tmp.stdout.decode().strip()
 
 # dependency modifier
 def add_depends(package_dir: str, package_name: str,
