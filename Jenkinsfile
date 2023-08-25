@@ -59,7 +59,7 @@ pipeline {
     parameters {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
         string(name: 'BUILD_VERSION', defaultValue: env.BASE_VERSION + 'ISO8601-TIMESTAMP', description: 'Version number (release builds only)')
-        booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
+        booleanParam(name: 'BUILD_PUBLISH', defaultValue: false, description: 'Publish this build to downloads.vyos.io and AWS S3')
         booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
         booleanParam(name: 'TEST_SMOKETESTS', defaultValue: true, description: 'Run Smoketests after ISO build')
         booleanParam(name: 'TEST_RAID1', defaultValue: true, description: 'Perform RAID1 installation tests')
