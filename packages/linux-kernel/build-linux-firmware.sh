@@ -55,32 +55,32 @@ mkdir -p "${LINUX_FIRMWARE_BUILD_DIR}"
 # Copy firmware file from linux firmware build directory into
 # assembly folder for the vyos-firmware package
 SED_REPLACE="s@${CWD}/${LINUX_FIRMWARE}/@@"
-for FILE in ${FW_FILES}; do
-    # If file is a symlink install the symlink target as well
-    if [ -h "${LINUX_FIRMWARE_BUILD_DIR}/${FILE}" ]; then
-        TARGET="$(realpath --relative-to="${LINUX_FIRMWARE_BUILD_DIR}" "${LINUX_FIRMWARE_BUILD_DIR}/${FILE}")"
+for FILE_PATTERN in ${FW_FILES}; do
+    find "${LINUX_FIRMWARE_BUILD_DIR}" -path "*/${FILE_PATTERN}" -print0 | while IFS= read -r -d $'\0' FILE; do
+        TARGET="$(realpath --relative-to="${LINUX_FIRMWARE_BUILD_DIR}" "${FILE}")"
         TARGET_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname "${TARGET}")"
+        # If file is a symlink install the symlink target as well
+        if [ -h "${FILE}" ]; then
+            if [ ! -f "${TARGET_DIR}/$(basename "${TARGET}")" ]; then
+                if [ -f "${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" ]; then
+                    mkdir -p "${TARGET_DIR}"
 
-        if [ ! -f "${TARGET_DIR}/$(basename "${TARGET}")" ]; then
-            if [ -f "${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" ]; then
-                mkdir -p "${TARGET_DIR}"
-
-                echo "I: install firmware: ${TARGET}"
-                cp "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" "${TARGET_DIR}"
-            else
-                echo "I: firmware file not found: ${TARGET}"
+                    echo "I: install firmware: ${TARGET}"
+                    cp "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" "${TARGET_DIR}"
+                else
+                    echo "I: firmware file not found: ${TARGET}"
+                fi
             fi
         fi
-    fi
 
-    if [ -f ${LINUX_FIRMWARE_BUILD_DIR}/${FILE} ]; then
-        FW_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname ${FILE})"
-        mkdir -p "${FW_DIR}"
-        echo "I: install firmware: ${FILE}"
-        cp -P "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${FILE}" "${FW_DIR}"
-    else
-        echo "I: firmware file not found: ${FILE}"
-    fi
+        if [ -f "${FILE}" ]; then
+            mkdir -p "${TARGET_DIR}"
+            echo "I: install firmware: ${TARGET}"
+            cp -P "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" "${TARGET_DIR}"
+        else
+            echo "I: firmware file not found: ${TARGET}"
+        fi
+    done
 done
 
 echo "I: Create linux-firmware package"
