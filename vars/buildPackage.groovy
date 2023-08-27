@@ -33,7 +33,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
         agent none
         options {
             disableConcurrentBuilds()
-            timeout(time: 240, unit: 'MINUTES')
+            timeout(time: 480, unit: 'MINUTES')
             timestamps()
             buildDiscarder(logRotator(numToKeepStr: '10'))
         }
