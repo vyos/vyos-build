@@ -57,7 +57,7 @@ mkdir -p "${LINUX_FIRMWARE_BUILD_DIR}"
 SED_REPLACE="s@${CWD}/${LINUX_FIRMWARE}/@@"
 for FILE_PATTERN in ${FW_FILES}; do
     find "${LINUX_FIRMWARE_BUILD_DIR}" -path "*/${FILE_PATTERN}" -print0 | while IFS= read -r -d $'\0' FILE; do
-        TARGET="$(realpath --relative-to="${LINUX_FIRMWARE_BUILD_DIR}" "${FILE}")"
+        TARGET="$(echo "${FILE}" | sed "s/${LINUX_FIRMWARE_BUILD_DIR}\///g")"
         TARGET_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname "${TARGET}")"
         # If file is a symlink install the symlink target as well
         if [ -h "${FILE}" ]; then
@@ -67,7 +67,15 @@ for FILE_PATTERN in ${FW_FILES}; do
 
                     echo "I: install firmware: ${TARGET}"
                     cp "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" "${TARGET_DIR}"
-                else
+		    # If file links to other folder which this script not cover. Create folder and copy together.
+                    if [ -L "${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" ]; then
+                        REALPATH_TARGET=$(realpath --relative-to="${CWD}/${LINUX_FIRMWARE_BUILD_DIR}" "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}")
+                        REALPATH_TARGET_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname "${REALPATH_TARGET}")"
+                        mkdir -p "${REALPATH_TARGET_DIR}"
+                        echo "I: install firmware: ${REALPATH_TARGET}"
+                        cp "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${REALPATH_TARGET}" "${REALPATH_TARGET_DIR}"
+                    fi
+                 else
                     echo "I: firmware file not found: ${TARGET}"
                 fi
             fi
