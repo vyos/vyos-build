@@ -3,6 +3,7 @@
 from json import loads as json_loads
 from requests import get
 from pathlib import Path
+from shutil import copy as copy_file
 from subprocess import run
 
 
@@ -22,6 +23,29 @@ def add_depends(package_dir: str, package_name: str, depends) -> None:
     substvars_file.write_text(depends_line)
 
 
+# copy patches
+def apply_deb_patches(package_name: str, sources_dir: str):
+    """Apply patches to sources directory
+
+    Args:
+        package_name (str): package name
+        sources_dir (str): sources dir
+    """
+    patches_dir = Path(f'patches/{package_name}')
+    if patches_dir.exists():
+        patches_list = list(patches_dir.iterdir())
+        patches_list.sort()
+        series_file = Path(f'{sources_dir}/debian/patches/series')
+        series_data = ''
+        for patch_file in patches_list:
+            print(f'Applying patch: {patch_file.name}')
+            copy_file(patch_file, f'{sources_dir}/debian/patches/')
+            if series_file.exists():
+                series_data = series_file.read_text()
+            series_data = f'{series_data}\n{patch_file.name}'
+            series_file.write_text(series_data)
+
+
 # find kernel version and source path
 defaults_file: str = Path('../../data/defaults.json').read_text()
 KERNEL_VER: str = json_loads(defaults_file).get('kernel_version')
@@ -30,9 +54,9 @@ KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
 
 # define variables
 PACKAGE_NAME: str = 'vyos-drivers-realtek-r8152'
-PACKAGE_VERSION: str = '2.16.3'
+PACKAGE_VERSION: str = '2.17.1'
 PACKAGE_DIR: str = f'{PACKAGE_NAME}-{PACKAGE_VERSION}'
-SOURCES_ARCHIVE: str = 'r8152-2.16.3.tar.bz2'
+SOURCES_ARCHIVE: str = 'r8152-2.17.1.tar.bz2'
 SOURCES_URL: str = f'https://dev.packages.vyos.net/source-mirror/{SOURCES_ARCHIVE}'
 
 # download sources
@@ -80,6 +104,9 @@ override_dh_auto_install:
 '''
 bild_rules = Path(f'{PACKAGE_DIR}/debian/rules')
 bild_rules.write_text(build_rules_text)
+
+# apply patches
+apply_deb_patches(PACKAGE_NAME, PACKAGE_DIR)
 
 # build a package
 debuild_cmd = ['debuild']
