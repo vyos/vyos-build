@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo I: Create config directory.
+
+mkdir -p /config
