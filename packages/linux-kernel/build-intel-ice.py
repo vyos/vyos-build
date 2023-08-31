@@ -52,8 +52,7 @@ override_dh_auto_clean:
 	make clean
 
 override_dh_auto_build:
-	cd src && \
-	make all
+	cd src && sed -e 's/#define NEED_ETH_HW_ADDR_SET/#undef NEED_ETH_HW_ADDR_SET/' -i kcompat_std_defs.h && make all
 
 override_dh_auto_install:
 	# DDP
