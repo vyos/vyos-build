@@ -20,11 +20,11 @@
 @Library('vyos-build@current')_
 
 def pkgList = [
-    ['name': 'aws-gwlbtun',
-     'scmCommit': 'eb51d33',
+    ['name': 'aws-gateway-load-balancer-tunnel-handler',
+     'scmCommit': 'f78058a',
      'scmUrl': 'https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage('aws-gwlbtun', pkgList, null, true, "**/packages/aws-gwlbtun/**")
+buildPackage('aws-gateway-load-balancer-tunnel-handler', pkgList, null, true, "**/packages/aws-gateway-load-balancer-tunnel-handler/**")
