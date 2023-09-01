@@ -425,9 +425,10 @@ if __name__ == "__main__":
             --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
             --linux-flavours {{kernel_flavor}} \
             --linux-packages linux-image-{{kernel_version}} \
-            --bootloader {{ bootloaders }} \
+            --bootloader {{bootloaders}} \
             --binary-images iso-hybrid \
             --checksums 'sha256 md5' \
+            --chroot-squashfs-compression-type {{chroot-squashfs-compression-type}} \
             --debian-installer none \
             --distribution {{debian_distribution}} \
             --iso-application "VyOS" \
