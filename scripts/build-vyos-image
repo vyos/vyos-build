@@ -420,35 +420,35 @@ if __name__ == "__main__":
     ## Configure live-build
     lb_config_tmpl = jinja2.Template("""
     lb config noauto \
-            --architectures {{architecture}} \
+            --apt-indices false \
+            --apt-options "--yes -oAPT::Get::allow-downgrades=true" \
+            --apt-recommends false \
+            --architecture {{architecture}} \
+            --archive-areas {{debian_archive_areas}} \
+            --backports true \
+            --binary-image iso-hybrid \
             --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
             --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
-            --linux-flavours {{kernel_flavor}} \
-            --linux-packages linux-image-{{kernel_version}} \
-            --bootloader {{bootloaders}} \
-            --binary-images iso-hybrid \
+            --bootloaders {{bootloaders}} \
             --checksums 'sha256 md5' \
             --chroot-squashfs-compression-type {{squashfs_compression_type}} \
             --debian-installer none \
+            --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2" \
             --distribution {{debian_distribution}} \
+            --firmware-binary false \
+            --firmware-chroot false \
             --iso-application "VyOS" \
             --iso-publisher "{{build_by}}" \
             --iso-volume "VyOS" \
-            --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2" \
+            --linux-flavours {{kernel_flavor}} \
+            --linux-packages linux-image-{{kernel_version}} \
+            --mirror-binary {{debian_mirror}} \
+            --mirror-binary-security {{debian_security_mirror}} \
             --mirror-bootstrap {{debian_mirror}} \
             --mirror-chroot {{debian_mirror}} \
             --mirror-chroot-security {{debian_security_mirror}} \
-            --mirror-binary {{debian_mirror}} \
-            --mirror-binary-security {{debian_security_mirror}} \
-            --archive-areas {{debian_archive_areas}} \
-            --firmware-chroot false \
-            --firmware-binary false \
-            --updates true \
             --security true \
-            --backports true \
-            --apt-recommends false \
-            --apt-options "--yes -oAPT::Get::allow-downgrades=true" \
-            --apt-indices false
+            --updates true
             "${@}"
     """)
 
