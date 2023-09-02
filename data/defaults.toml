@@ -17,7 +17,7 @@ release_train = "current"
 kernel_version = "6.1.50"
 bootloaders = "syslinux,grub-efi"
 
-chroot-squashfs-compression-type = "xz -Xbcj x86 -b 256k -no-recovery -always-use-fragments -no-duplicates"
+squashfs_compression_type = "xz -Xbcj x86 -b 256k -no-recovery -always-use-fragments -no-duplicates"
 
 website_url = "https://vyos.io"
 support_url = "https://support.vyos.io"
