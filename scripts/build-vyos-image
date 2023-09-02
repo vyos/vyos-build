@@ -431,7 +431,7 @@ if __name__ == "__main__":
             --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
             --bootloaders {{bootloaders}} \
             --checksums 'sha256 md5' \
-            --chroot-squashfs-compression-type {{squashfs_compression_type}} \
+            --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \
             --debian-installer none \
             --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2" \
             --distribution {{debian_distribution}} \
