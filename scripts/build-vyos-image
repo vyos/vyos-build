@@ -428,7 +428,7 @@ if __name__ == "__main__":
             --bootloader {{bootloaders}} \
             --binary-images iso-hybrid \
             --checksums 'sha256 md5' \
-            --chroot-squashfs-compression-type {{chroot-squashfs-compression-type}} \
+            --chroot-squashfs-compression-type {{squashfs_compression_type}} \
             --debian-installer none \
             --distribution {{debian_distribution}} \
             --iso-application "VyOS" \
