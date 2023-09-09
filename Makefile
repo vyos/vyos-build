@@ -32,12 +32,12 @@ checkiso:
 .PHONY: test
 .ONESHELL:
 test: checkiso
-	scripts/check-qemu-install --debug --uefi build/live-image-amd64.hybrid.iso
+	scripts/check-qemu-install --debug --match="$(MATCH)" --uefi build/live-image-amd64.hybrid.iso
 
 .PHONY: test-no-interfaces
 .ONESHELL:
 test-no-interfaces: checkiso
-	scripts/check-qemu-install --debug --no-interfaces build/live-image-amd64.hybrid.iso
+	scripts/check-qemu-install --debug --match="$(MATCH)" --no-interfaces build/live-image-amd64.hybrid.iso
 
 .PHONY: testd
 .ONESHELL:
