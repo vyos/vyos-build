@@ -1,0 +1,6 @@
+
+architectures = ["amd64", "arm64"]
+packageName = "aws-gwlbtun"
+scmUrl = "https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler"
+scmCommit = "f78058a"
+version = "1-f78058a"
