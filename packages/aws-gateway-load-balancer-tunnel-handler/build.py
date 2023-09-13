@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
+from pathlib import Path
 from subprocess import run
+
+
+def prepare_package() -> None:
+    """Prepare a package for Noned
+    """
+    install_file = Path('./debian/install')
+    install_data = 'obj-x86_64-linux-gnu/gwlbtun usr/sbin'
+    install_file.write_text(install_data)
 
 
 def build_package(package_name: str, package_ver: str) -> bool:
@@ -38,6 +47,8 @@ if __name__ == '__main__':
                             required=True,
                             help='Version for the package')
     args = arg_parser.parse_args()
+
+    prepare_package()
 
     if not build_package(args.package, args.version):
         exit(1)
