@@ -19,14 +19,14 @@
 // @Library annotation is not an import statement!
 @Library('vyos-build@current')_
 
+def timestamp = new Date().format('yyyyMMddhhmmss')
+def commit_id = 'f78058a'
+
 def pkgList = [
-    [
-        'name': 'aws-gateway-load-balancer-tunnel-handler',
-        'scmCommit': 'f78058a',
-        'scmUrl': 'https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler',
-        'buildCmd': "cd ..; ./build.py",
-        'architecture': ['amd64', 'arm64'],
-    ],
+    ['name': "aws-gwlbtun-${timestamp}-${commit_id}",
+     'scmCommit': commit_id,
+     'scmUrl': 'https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler',
+     'buildCmd': "../build.py --package aws-gwlbtun --version ${timestamp}-${commit_id}"],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
