@@ -4,7 +4,7 @@ on: [issue_comment]
 
 jobs:
   mergifyio_backport:
-    if: github.repository == 'vyos/vyos-1x'
+    if: github.repository == 'vyos/vyos-build'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
