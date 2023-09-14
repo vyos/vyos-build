@@ -1,1 +1,14 @@
-/var/cache/apt/*
+# Exclude various unused files and directories in order to free some space and shrink imagesize.
+#
+# For information on how to use wildcards properly (Anchored and Non-anchored excludes):
+#
+# https://github.com/plougher/squashfs-tools/blob/master/RELEASE-READMEs/README-3.3
+#
+# Note:
+#
+# - root starts without leading '/'.
+#
+
+# We do not need any caches on the system (will be recreated when needed).
+var/cache/*
+
