@@ -63,6 +63,7 @@ parser.add_argument('--silent', help='Do not show output on stdout unless an err
 parser.add_argument('--debug', help='Send all debug output to stdout',
                                action='store_true', default=False)
 parser.add_argument('--logfile', help='Log to file')
+parser.add_argument('--match', help='Smoketests to run')
 parser.add_argument('--uefi', help='Boot using UEFI', action='store_true', default=False)
 parser.add_argument('--raid', help='Perform a RAID-1 install', action='store_true', default=False)
 parser.add_argument('--no-kvm', help='Disable use of kvm', action='store_true', default=False)
@@ -486,6 +487,11 @@ try:
 
     elif not args.configtest:
         # run default smoketest suite
+        if args.match:
+            # Remove tests that we don't want to run
+            match_str = '-o '.join([f'-name "test_*{name}*.py" ' for name in args.match.split("|")]).strip()
+            c.sendline(f'sudo find /usr/libexec/vyos/tests/smoke/cli/test_* -type f ! \( {match_str} \) -delete')
+            c.expect(op_mode_prompt)
         if args.no_interfaces:
             # remove interface tests as they consume a lot of time
             c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_interfaces_*')
