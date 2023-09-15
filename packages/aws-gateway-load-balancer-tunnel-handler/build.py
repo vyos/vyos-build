@@ -6,7 +6,7 @@ from subprocess import run
 
 
 def prepare_package() -> None:
-    """Prepare a package for Noned
+    """Prepare a package
     """
     install_file = Path('./debian/install')
     install_data = 'obj-x86_64-linux-gnu/gwlbtun usr/sbin'
@@ -31,6 +31,8 @@ def build_package(package_name: str, package_ver: str) -> bool:
     ]
     run(debmake_cmd)
 
+    prepare_package()
+
     # build a package
     run('debuild')
 
@@ -48,8 +50,6 @@ if __name__ == '__main__':
                             required=True,
                             help='Version for the package')
     args = arg_parser.parse_args()
-
-    prepare_package()
 
     if not build_package(args.package, args.version):
         exit(1)
