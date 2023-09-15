@@ -10,6 +10,7 @@ def prepare_package() -> None:
     """
     install_file = Path('./debian/install')
     install_data = 'obj-x86_64-linux-gnu/gwlbtun usr/sbin'
+    install_file.touch()
     install_file.write_text(install_data)
 
 
