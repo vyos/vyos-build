@@ -53,9 +53,6 @@ pipeline {
             reuseNode true
         }
     }
-    triggers {
-        cron('H 3 * * *')
-    }
     parameters {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
         string(name: 'BUILD_VERSION', defaultValue: env.BASE_VERSION + 'ISO8601-TIMESTAMP', description: 'Version number (release builds only)')
