@@ -1,8 +1,0 @@
-#!/bin/sh
-
-# Made obsolete by T5511, use rootfs/excludes instead.
-#
-#if [ -f /etc/cron.d/atop ]; then
-#  rm -f /etc/cron.d/atop
-#fi
-

@@ -1,8 +1,0 @@
-#!/bin/sh
-
-# Made obsolete by T5511, use rootfs/excludes instead.
-#
-#if [ -f /etc/update-motd.d/10-uname ]; then
-#    rm -f /etc/update-motd.d/10-uname
-#fi
-
