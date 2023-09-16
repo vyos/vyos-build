@@ -1,42 +1,44 @@
 #!/bin/bash
 
-# Delete various unused files and directories in order free some space and shrink imagesize.
-
-# We do not need any documentation on the system.
-# Copyright/licenses files are ignored for deletion.
-shopt -s extglob
-rm -rf /usr/share/doc/*/!(copyright*|README*) /usr/share/doc-base
-
-# We do not need any manpages on the system since man-binary is missing.
-rm -rf /usr/local/man
-rm -rf /usr/local/share/man
-rm -rf /usr/share/man
-
-# We do not need any games on the system.
-rm -rf /usr/games
-rm -rf /usr/local/games
-
-# We do not need any caches on the system (will be recreated when needed).
-rm -rf /var/cache/*
-
-# We do not need any log-files on the system (will be recreated when needed).
-rm -rf /var/log/alternatives.log
-rm -rf /var/log/bootstrap.log
-rm -rf /var/log/dpkg.log
-rm -rf /var/log/apt/history.log
-rm -rf /var/log/apt/term.log
-rm -rf /var/log/nginx/access.log
-rm -rf /var/log/nginx/error.log
-rm -rf /var/log/squidguard/squidGuard.log
-rm -rf /var/log/stunnel4/stunnel.log
-
-# We do not need any backup-files on the system.
-rm -rf /etc/sudoers.bak
-rm -rf /etc/xml/catalog.old
-rm -rf /etc/xml/polkitd.xml.old
-rm -rf /etc/xml/xml-core.xml.old
-rm -rf /root/.gnupg/pubring.kbx~
-rm -rf /var/lib/dpkg/diversions-old
-rm -rf /var/lib/dpkg/status-old
-rm -rf /var/lib/sgml-base/supercatalog.old
+# Made obsolete by T5511, use rootfs/excludes instead.
+#
+## Delete various unused files and directories in order free some space and shrink imagesize.
+#
+## We do not need any documentation on the system.
+## Copyright/licenses files are ignored for deletion.
+#shopt -s extglob
+#rm -rf /usr/share/doc/*/!(copyright*|README*) /usr/share/doc-base
+#
+## We do not need any manpages on the system since man-binary is missing.
+#rm -rf /usr/local/man
+#rm -rf /usr/local/share/man
+#rm -rf /usr/share/man
+#
+## We do not need any games on the system.
+#rm -rf /usr/games
+#rm -rf /usr/local/games
+#
+## We do not need any caches on the system (will be recreated when needed).
+#rm -rf /var/cache/*
+#
+## We do not need any log-files on the system (will be recreated when needed).
+#rm -f /var/log/alternatives.log
+#rm -f /var/log/bootstrap.log
+#rm -f /var/log/dpkg.log
+#rm -f /var/log/apt/history.log
+#rm -f /var/log/apt/term.log
+#rm -f /var/log/nginx/access.log
+#rm -f /var/log/nginx/error.log
+#rm -f /var/log/squidguard/squidGuard.log
+#rm -f /var/log/stunnel4/stunnel.log
+#
+## We do not need any backup-files on the system.
+#rm -f /etc/sudoers.bak
+#rm -f /etc/xml/catalog.old
+#rm -f /etc/xml/polkitd.xml.old
+#rm -f /etc/xml/xml-core.xml.old
+#rm -f /root/.gnupg/pubring.kbx~
+#rm -f /var/lib/dpkg/diversions-old
+#rm -f /var/lib/dpkg/status-old
+#rm -f /var/lib/sgml-base/supercatalog.old
 
