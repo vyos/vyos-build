@@ -452,12 +452,12 @@ try:
         c.expect(op_mode_prompt)
 
         log.info('Re-format new RAID member')
-        c.sendline('format disk sda like sdb')
+        c.sendline('format by-id disk drive-hd1 like drive-hd2')
         c.sendline('yes')
         c.expect(op_mode_prompt)
 
         log.info('Add member to RAID1 (md0)')
-        c.sendline('add raid md0 member sda1')
+        c.sendline('add raid md0 by-id member drive-hd1-part1')
         c.expect(op_mode_prompt)
 
         log.info('Now we need to wait for re-sync to complete')
