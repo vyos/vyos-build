@@ -31,11 +31,11 @@ RUN grep "VERSION_ID" /etc/os-release || (echo 'VERSION_ID="12"' >> /etc/os-rele
 #     arm32v7/
 #     arm64v8/
 # Example bo byukd natively:
-#     docker build -t vyos-build:current .
+#     docker build -t vyos-build:sagitta .
 # Example to build on armhf:
-#     docker build -t vyos-build:current-armhf --build-arg ARCH=arm32v7/ .
+#     docker build -t vyos-build:sagitta-armhf --build-arg ARCH=arm32v7/ .
 # Example to build on arm64:
-#     docker build -t vyos-build:current-arm64 --build-arg ARCH=arm64v8/ .
+#     docker build -t vyos-build:sagitta-arm64 --build-arg ARCH=arm64v8/ .
 
 # On some versions of docker the emulation framework is not installed by default and
 # you need to install qemu, qemu-user-static and register qemu inside docker manually using:

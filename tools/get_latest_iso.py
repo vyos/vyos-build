@@ -7,7 +7,7 @@ from urllib.parse import unquote
 import requests
 
 BASE_URL = 'https://downloads.vyos.io/'
-PAGE_URL = BASE_URL+'?dir=rolling/current/amd64'
+PAGE_URL = BASE_URL+'?dir=rolling/sagitta/amd64'
 
 
 def download():

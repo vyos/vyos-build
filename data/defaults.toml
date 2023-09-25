@@ -9,10 +9,10 @@ debian_security_mirror = "http://deb.debian.org/debian-security"
 
 debian_archive_areas = "main contrib non-free"
 
-vyos_mirror = "https://rolling-packages.vyos.net/current"
+vyos_mirror = "http://dev.packages.vyos.net/repositories/sagitta"
 
-vyos_branch = "current"
-release_train = "current"
+vyos_branch = "sagitta"
+release_train = "sagitta"
 
 kernel_version = "6.1.54"
 bootloaders = "syslinux,grub-efi"
