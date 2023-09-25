@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-// Copyright (C) 2020-2021 VyOS maintainers and contributors
+// Copyright (C) 2020-2023 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -56,7 +56,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                         if (isPullRequest())
                             branchName = env.CHANGE_TARGET.toLowerCase()
                         if (branchName.equals('master'))
-                            branchName = 'current'
+                            branchName = 'sagitta'
 
                         env.DOCKER_IMAGE = 'vyos/vyos-build:' + branchName
 
@@ -170,7 +170,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                         // every option over and over again!
                         def RELEASE = getGitBranchName()
                         if (getGitBranchName() == "master")
-                            RELEASE = 'current'
+                            RELEASE = 'sagitta'
 
                         def VYOS_REPO_PATH = '/home/sentrium/web/dev.packages.vyos.net/public_html/repositories/' + RELEASE
                         if (getGitBranchName() == "crux")

@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-// Copyright (C) 2019-2021 VyOS maintainers and contributors
+// Copyright (C) 2019-2023 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -15,10 +15,10 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 @NonCPS
 
-// Using a version specifier library, use 'current' branch. The underscore (_)
+// Using a version specifier library, use 'sagitta' branch. The underscore (_)
 // is not a typo! You need this underscore if the line immediately after the
 // @Library annotation is not an import statement!
-@Library('vyos-build@current')_
+@Library('vyos-build@sagitta')_
 setDescription()
 
 node('Docker') {
@@ -30,11 +30,11 @@ node('Docker') {
             if (isPullRequest())
                 branchName = env.CHANGE_TARGET.toLowerCase()
             if (branchName.equals('master'))
-                branchName = 'current'
+                branchName = 'sagitta'
 
             env.DOCKER_IMAGE = 'vyos/vyos-build:' + branchName
 
-            // Get the current UID and GID from the jenkins agent to allow use of the same UID inside Docker
+            // Get the sagitta UID and GID from the jenkins agent to allow use of the same UID inside Docker
             env.USR_ID = sh(returnStdout: true, script: 'id -u').toString().trim()
             env.GRP_ID = sh(returnStdout: true, script: 'id -g').toString().trim()
             env.DOCKER_ARGS = '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
