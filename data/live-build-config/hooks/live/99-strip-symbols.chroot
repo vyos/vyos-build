@@ -20,6 +20,8 @@ STRIPDIR_DEBUG="
 STRIPDIR_UNNEEDED="
 /etc/hsflowd/modules
 /usr/bin
+/usr/lib/openvpn
+/usr/lib/x86_64-linux-gnu
 /usr/lib32
 /usr/lib64
 /usr/libx32
