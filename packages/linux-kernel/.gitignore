@@ -4,6 +4,8 @@
 /accel-ppp
 /intel-qat
 /linux-firmware
+/vyos-drivers-intel*
+/vyos-drivers-realtek*
 /ovpn-dco
 /jool*
 /qat*
@@ -19,3 +21,4 @@ ixgbevf-*/
 vyos-intel-*/
 vyos-linux-firmware*/
 kernel-vars
+r8152-*.tar.bz2
