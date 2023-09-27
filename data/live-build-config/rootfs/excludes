@@ -57,3 +57,6 @@ var/log/*/*.log.xz
 ... *.kbx~
 var/lib/dpkg/*-old
 
+# T5593: Linux kernel exists in /live-path of the ISO and is copied during install.
+boot/!(initrd.img|vmlinuz)
+

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+#
+# Copy Linux-kernel files from chroot/boot to binary/live.
+#
+
+# Set variables.
+CHROOTDIR="../chroot/boot/"
+LIVEDIR="./live/"
+
+# Perform stuff.
+echo "Copying kernel-files..."
+
+cp -a ${CHROOTDIR}/config-* ${LIVEDIR}
+cp -a ${CHROOTDIR}/initrd.img ${LIVEDIR}
+cp -a ${CHROOTDIR}/initrd.img-* ${LIVEDIR}
+cp -a ${CHROOTDIR}/System.map-* ${LIVEDIR}
+cp -a ${CHROOTDIR}/vmlinuz ${LIVEDIR}
+cp -a ${CHROOTDIR}/vmlinuz-* ${LIVEDIR}
+
