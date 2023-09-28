@@ -1,0 +1,49 @@
+From 58900c9d0f98f224577c28dc2323061d33823f39 Mon Sep 17 00:00:00 2001
+From: Paolo Lucente <pl+github@pmacct.net>
+Date: Fri, 4 Mar 2022 22:07:29 +0000
+Subject: [PATCH] * fix, pmacctd: SEGV when ICMP/ICMPv6 traffic was processed
+ and 'flows' primitive was enabled. To address Issue #586
+
+---
+ src/nl.c | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+diff --git a/src/nl.c b/src/nl.c
+index c42689ed..6a3da94b 100644
+--- a/src/nl.c
++++ b/src/nl.c
+@@ -1,6 +1,6 @@
+ /*
+     pmacct (Promiscuous mode IP Accounting package)
+-    pmacct is Copyright (C) 2003-2021 by Paolo Lucente
++    pmacct is Copyright (C) 2003-2022 by Paolo Lucente
+ */
+ 
+ /*
+@@ -293,10 +293,7 @@ int ip_handler(register struct packet_ptrs *pptrs)
+       }
+     }
+     else {
+-      if (pptrs->l4_proto != IPPROTO_ICMP) {
+-        pptrs->tlh_ptr = dummy_tlhdr;
+-      }
+-
++      pptrs->tlh_ptr = dummy_tlhdr;
+       if (off < caplen) pptrs->payload_ptr = ptr;
+     }
+ 
+@@ -479,10 +476,7 @@ int ip6_handler(register struct packet_ptrs *pptrs)
+       }
+     }
+     else {
+-      if (pptrs->l4_proto != IPPROTO_ICMPV6) {
+-        pptrs->tlh_ptr = dummy_tlhdr;
+-      }
+-
++      pptrs->tlh_ptr = dummy_tlhdr;
+       if (off < caplen) pptrs->payload_ptr = ptr;
+     }
+ 
+-- 
+2.34.1
+
