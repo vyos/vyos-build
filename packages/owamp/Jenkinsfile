@@ -23,7 +23,7 @@
 // and not via a DEB package
 def pkgList = [
     ['name': 'owamp',
-     'scmCommit': 'master',
+     'scmCommit': 'v4.4.6',
      'scmUrl': 'https://github.com/perfsonar/owamp',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
