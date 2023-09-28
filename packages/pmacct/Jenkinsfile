@@ -26,7 +26,7 @@ def pkgList = [
     ['name': "${package_name}",
      'scmCommit': 'debian/1.7.7-1',
      'scmUrl': 'https://salsa.debian.org/debian/pmacct.git',
-     'buildCmd': "../build.py"],
+     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; ../build.py'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
