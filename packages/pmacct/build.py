@@ -34,7 +34,7 @@ def build_package() -> bool:
     build_cmd: list[str] = ['dpkg-buildpackage', '-uc', '-us', '-tc', '-b']
     build_status: int = run(build_cmd).returncode
 
-    if not build_status:
+    if build_status:
         return False
     return True
 
