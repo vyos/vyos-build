@@ -6,7 +6,10 @@
 
 # Set variables.
 CHROOTDIR="../chroot/boot/"
+ISOLINUXDIR="./isolinux/"
 LIVEDIR="./live/"
+BOOT_KERNEL="$(basename ${CHROOTDIR}/vmlinuz-*)"
+BOOT_INITRD="$(basename ${CHROOTDIR}/initrd.img-*)"
 
 # Perform stuff.
 echo "Copying kernel-files..."
@@ -17,4 +20,9 @@ cp -a ${CHROOTDIR}/initrd.img-* ${LIVEDIR}
 cp -a ${CHROOTDIR}/System.map-* ${LIVEDIR}
 cp -a ${CHROOTDIR}/vmlinuz ${LIVEDIR}
 cp -a ${CHROOTDIR}/vmlinuz-* ${LIVEDIR}
+
+echo "Updating isolinux/live.cfg..."
+
+sed -i "s/vmlinuz/${BOOT_KERNEL}/g" ${ISOLINUXDIR}/live.cfg
+sed -i "s/initrd.img/${BOOT_INITRD}/g" ${ISOLINUXDIR}/live.cfg
 
