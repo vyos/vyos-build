@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# The /etc/debian_version file contains the Debian release version number.
+#Since VyOS uses image-based upgrade, that file serves no useful purpose for us.
+#
+# However, security scanners love to jump to conclusions
+# and declare an "old Debian version" vulnerable
+# without checking if there may not be any packages from that version at all.
+# Removing that file is an easy way to get fewer false positives.
+
+echo "I: Deleting the Debian version file"
+
+rm -f /etc/debian_version
