@@ -57,3 +57,6 @@ var/log/*/*.log.xz
 ... *.kbx~
 var/lib/dpkg/*-old
 
+# T5624: Remove the Debian version file to avoid false positives from security scanners.
+etc/debian_version
+
