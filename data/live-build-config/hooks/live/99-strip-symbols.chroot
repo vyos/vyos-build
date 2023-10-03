@@ -1,0 +1,63 @@
+#!/bin/sh
+
+#
+# Discard symbols and other data from object files.
+#
+# Reference:
+# https://www.linuxfromscratch.org/lfs/view/systemd/chapter08/stripping.html
+# https://www.debian.org/doc/debian-policy/ch-files.html
+#
+
+# Set variables.
+STRIPCMD_REGULAR="strip --remove-section=.comment --remove-section=.note --preserve-dates"
+STRIPCMD_DEBUG="strip --strip-debug --remove-section=.comment --remove-section=.note --preserve-dates"
+STRIPCMD_UNNEEDED="strip --strip-unneeded --remove-section=.comment --remove-section=.note --preserve-dates"
+STRIPDIR_REGULAR="
+"
+STRIPDIR_DEBUG="
+/usr/lib/modules
+"
+STRIPDIR_UNNEEDED="
+/etc/hsflowd/modules
+/usr/bin
+/usr/lib/openvpn
+/usr/lib/x86_64-linux-gnu
+/usr/lib32
+/usr/lib64
+/usr/libx32
+/usr/sbin
+"
+
+# Perform stuff.
+echo "Stripping symbols..."
+
+# CMD: strip
+for DIR in ${STRIPDIR_REGULAR}; do
+  echo "Parse dir (strip): ${DIR}"
+  find ${DIR} -type f -exec file {} \; | grep 'not stripped' | cut -d ":" -f 1 | while read FILE; do
+    echo "Strip file (strip): ${FILE}"
+    ${STRIPCMD_REGULAR} ${FILE}
+  done
+done
+
+# CMD: strip --strip-debug
+for DIR in ${STRIPDIR_DEBUG}; do
+  echo "Parse dir (strip-debug): ${DIR}"
+  find ${DIR} -type f -exec file {} \; | grep 'not stripped' | cut -d ":" -f 1 | while read FILE; do
+    echo "Strip file (strip-debug): ${FILE}"
+    ${STRIPCMD_DEBUG} ${FILE}
+  done
+done
+
+# CMD: strip --strip-unneeded
+for DIR in ${STRIPDIR_UNNEEDED}; do
+  echo "Parse dir (strip-unneeded: ${DIR}"
+  find ${DIR} -type f -exec file {} \; | grep 'not stripped' | cut -d ":" -f 1 | while read FILE; do
+    echo "Strip file (strip-unneeded): ${FILE}"
+    ${STRIPCMD_UNNEEDED} ${FILE}
+  done
+done
+
+# Remove binutils package.
+apt-get -y purge --autoremove binutils
+
