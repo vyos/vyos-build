@@ -27,16 +27,23 @@ STRIPDIR_UNNEEDED="
 /usr/libx32
 /usr/sbin
 "
+STRIP_EXCLUDE=`dpkg-query -L libbinutils | grep '.so'`
 
 # Perform stuff.
 echo "Stripping symbols..."
+
+# List excluded files.
+echo "Exclude files: ${STRIP_EXCLUDE}"
 
 # CMD: strip
 for DIR in ${STRIPDIR_REGULAR}; do
   echo "Parse dir (strip): ${DIR}"
   find ${DIR} -type f -exec file {} \; | grep 'not stripped' | cut -d ":" -f 1 | while read FILE; do
-    echo "Strip file (strip): ${FILE}"
-    ${STRIPCMD_REGULAR} ${FILE}
+    echo "${STRIP_EXCLUDE}" | grep -F -q -w "${FILE}"
+    if [ $? -ne 0 ]; then
+      echo "Strip file (strip): ${FILE}"
+      ${STRIPCMD_REGULAR} ${FILE}
+    fi
   done
 done
 
@@ -44,8 +51,11 @@ done
 for DIR in ${STRIPDIR_DEBUG}; do
   echo "Parse dir (strip-debug): ${DIR}"
   find ${DIR} -type f -exec file {} \; | grep 'not stripped' | cut -d ":" -f 1 | while read FILE; do
-    echo "Strip file (strip-debug): ${FILE}"
-    ${STRIPCMD_DEBUG} ${FILE}
+    echo "${STRIP_EXCLUDE}" | grep -F -q -w "${FILE}"
+    if [ $? -ne 0 ]; then
+      echo "Strip file (strip-debug): ${FILE}"
+      ${STRIPCMD_DEBUG} ${FILE}
+    fi
   done
 done
 
@@ -53,8 +63,11 @@ done
 for DIR in ${STRIPDIR_UNNEEDED}; do
   echo "Parse dir (strip-unneeded: ${DIR}"
   find ${DIR} -type f -exec file {} \; | grep 'not stripped' | cut -d ":" -f 1 | while read FILE; do
-    echo "Strip file (strip-unneeded): ${FILE}"
-    ${STRIPCMD_UNNEEDED} ${FILE}
+    echo "${STRIP_EXCLUDE}" | grep -F -q -w "${FILE}"
+    if [ $? -ne 0 ]; then
+      echo "Strip file (strip-unneeded): ${FILE}"
+      ${STRIPCMD_UNNEEDED} ${FILE}
+    fi
   done
 done
 
