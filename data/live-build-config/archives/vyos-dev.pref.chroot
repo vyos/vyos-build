@@ -1,3 +1,8 @@
+Package: live-boot*
+Pin: release n=bookworm
+Pin-Priority: 1000
+
 Package: *
 Pin: release n=current
 Pin-Priority: 999
+

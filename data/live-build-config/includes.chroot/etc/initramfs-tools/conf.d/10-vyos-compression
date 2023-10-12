@@ -1,0 +1,24 @@
+#
+# https://vyos.dev/T5498
+#
+
+#
+# COMPRESS: [ gzip | bzip2 | lz4 | lzma | lzop | xz | zstd ]
+#
+
+COMPRESS=zstd
+
+#
+# COMPRESSLEVEL: ...
+#
+# Set a compression level for the compressor.
+# Defaults vary by compressor.
+#
+# Valid values are:
+# 1 -  9 for gzip|bzip2|lzma|lzop
+# 0 -  9 for  lz4|xz
+# 0 - 19 for zstd
+#
+
+COMPRESSLEVEL=19
+
