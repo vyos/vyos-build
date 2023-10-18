@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 VyOS maintainers and contributors
+// Copyright (C) 2020-2024 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -53,8 +53,11 @@ def pkgList = [
      'scmUrl': 'https://github.com/accel-ppp/accel-ppp.git',
      'buildCmd': 'cd ..; pwd; ls -al; ./build-accel-ppp.sh'],
 
-    // Intel-QAT
+    // Intel QAT
     ['name': 'qat', 'buildCmd': 'cd ..; ./build-intel-qat.sh'],
+
+    // Intel IXGBE
+    ['name': 'ixgbe', 'buildCmd': 'cd ..; ./build-intel-ixgbe.sh'],
 
     // Jool
     ['name': 'jool', 'buildCmd': 'cd ..; ./build-jool.py'],
