@@ -21,12 +21,12 @@
 @Library('vyos-build@current')_
 
 def package_name = 'pmacct'
-
+// "sudo apt-get remove git -y" is necessary for solving this issue https://vyos.dev/T5663
 def pkgList = [
     ['name': "${package_name}",
      'scmCommit': 'debian/1.7.7-1',
      'scmUrl': 'https://salsa.debian.org/debian/pmacct.git',
-     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; ../build.py'],
+     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; sudo apt-get remove git -y; ../build.py'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
