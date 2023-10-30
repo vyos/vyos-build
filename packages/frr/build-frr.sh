@@ -29,8 +29,12 @@ if [ -d $PATCH_DIR ]; then
     done
 fi
 
+echo "I: Ensure Debian build dependencies are met"
+sudo apt-get -y install chrpath gawk install-info libcap-dev libjson-c-dev
+sudo apt-get -y install libpam-dev libprotobuf-c-dev libpython3-dev:native libsnmp-dev protobuf-c-compiler python3-dev:native texinfo lua5.3
+
 # Build Debian FRR package
 echo "I: Build Debian FRR Package"
 # extract "real" git commit for FRR version identifier
 dch -v "$(git describe | cut -c5-)" "VyOS build - FRR"
-dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib
+dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib,pkg.frr.lua
