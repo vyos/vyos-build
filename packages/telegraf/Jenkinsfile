@@ -23,7 +23,7 @@
 // and not via a DEB package
 def pkgList = [
     ['name': 'telegraf',
-     'scmCommit': 'v1.23.1',
+     'scmCommit': 'v1.28.3',
      'scmUrl': 'https://github.com/influxdata/telegraf.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
