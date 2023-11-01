@@ -21,4 +21,7 @@ cp ${PLUGIN_DIR}/outputs/all/all.go ${SRC}/plugins/outputs/all/all.go
 echo "I: Build Debian ${BUILD_ARCH} package"
 cd ${SRC}
 export PATH=/opt/go/bin:$PATH
+
+# Generate default telegraf config
+go run ./cmd/telegraf config > etc/telegraf.conf
 LDFLAGS=-w make "${BUILD_ARCH}.deb"
