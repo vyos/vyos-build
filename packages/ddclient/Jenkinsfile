@@ -20,10 +20,14 @@
 @Library('vyos-build@sagitta')_
 
 def pkgList = [
-    ['name': 'ddclient',
+    ['name': 'ddclient-debian',
      'scmCommit': 'debian/3.10.0-3',
      'scmUrl': 'https://salsa.debian.org/debian/ddclient',
-     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build.sh'],
+     'buildCmd': '/bin/true'],
+    ['name': 'ddclient-github',
+     'scmCommit': 'v3.11.1',
+     'scmUrl': 'https://github.com/ddclient/ddclient',
+     'buildCmd': 'cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
