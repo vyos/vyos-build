@@ -348,6 +348,7 @@ BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
 DOCUMENTATION_URL="{build_config['documentation_url']}"
     """
 
+<<<<<<< HEAD
     # Switch to the build directory, this is crucial for the live-build work
     # because the efective build config files etc. are there.
     #
@@ -356,9 +357,15 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
     os.chdir(defaults.BUILD_DIR)
 
     chroot_includes_dir = defaults.CHROOT_INCLUDES_DIR
+=======
+    chroot_includes_dir = os.path.join(defaults.BUILD_DIR, defaults.CHROOT_INCLUDES_DIR)
+    binary_includes_dir = os.path.join(defaults.BUILD_DIR, defaults.BINARY_INCLUDES_DIR)
+>>>>>>> f31701f1 (build script: T5711: copy version.json to the ISO image)
     vyos_data_dir = os.path.join(chroot_includes_dir, "usr/share/vyos")
     os.makedirs(vyos_data_dir, exist_ok=True)
     with open(os.path.join(vyos_data_dir, 'version.json'), 'w') as f:
+        json.dump(version_data, f)
+    with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
         json.dump(version_data, f)
 
     # For backwards compatibility with 'add system image' script from older versions

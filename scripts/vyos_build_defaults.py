@@ -37,6 +37,7 @@ PBUILDER_DIR = 'pbuilder'
 LB_CONFIG_DIR = 'config'
 
 CHROOT_INCLUDES_DIR = 'config/includes.chroot'
+BINARY_INCLUDES_DIR = 'config/includes.binary'
 ARCHIVES_DIR = 'config/archives/'
 
 VYOS_REPO_FILE = 'config/archives/vyos.list.chroot'
