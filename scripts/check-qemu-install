@@ -305,42 +305,29 @@ try:
     #################################################
     log.info('Starting installer')
     c.sendline('install image')
-    c.expect('\nWould you like to continue?.*:')
-    c.sendline('yes')
+    c.expect('\nWould you like to continue?.*')
+    c.sendline('y')
+    c.expect('\nWhat would you like to name this image?.*')
+    c.sendline('')
+    c.expect(f'\nPlease enter a password for the "{default_user}" user.*')
+    c.sendline('')
+    c.expect('\nWhat console should be used by default?.*')
+    c.sendline('S')
 
     if args.raid:
-        c.expect('\nWould you like to configure RAID-1 mirroring on them?.*:')
-        c.sendline('yes')
-        # Erase all data on disks
-        c.expect('\nAre you sure you want to do this?.*:')
-        c.sendline('yes')
+        c.expect('\nWould you like to configure RAID-1 mirroring??.*')
+        c.sendline('y')
+        c.expect('\nWould you like to configure RAID-1 mirroring on them?.*')
+        c.sendline('y')
+        c.expect('\nInstallation will delete all data on both drives. Continue?.*')
+        c.sendline('y')
     else:
-        log.info('Partitioning disk')
-        c.expect('\nPartition.*:')
+        c.expect('\nWhich one should be used for installation?.*')
         c.sendline('')
-        c.expect('\nInstall the image on.*:')
-        c.sendline('')
-        c.expect(r'\nContinue\?.*:')
-        c.sendline('Yes')
-        c.expect('\nHow big of a root partition should I create?.*:')
-        c.sendline('')
-
-    log.info('Disk(s) partitioned, installing...')
-    c.expect('\nWhat would you like to name this image?.*:', timeout=600)
-    c.sendline('')
-    log.info('Copying files')
-    c.expect('\nWhich one should I copy to.*:', timeout=600)
-    c.sendline('')
-    log.info('Files Copied!')
-    c.expect('\nEnter password for user.*:')
-    c.sendline(default_user)
-    c.expect('\nRetype password for user.*:')
-    c.sendline(default_password)
-
-    if not args.raid:
-        c.expect('\nWhich drive should GRUB modify the boot partition on.*:')
-        c.sendline('')
-        c.expect(op_mode_prompt)
+        c.expect('\nInstallation will delete all data on the drive. Continue?.*')
+        c.sendline('y')
+        c.expect('\nWould you like to use all the free space on the drive?.*')
+        c.sendline('y')
 
     log.info('system installed, shutting down')
 
@@ -457,7 +444,7 @@ try:
         c.expect(op_mode_prompt)
 
         log.info('Add member to RAID1 (md0)')
-        c.sendline('add raid md0 by-id member drive-hd1-part1')
+        c.sendline('add raid md0 by-id member drive-hd1-part3')
         c.expect(op_mode_prompt)
 
         log.info('Now we need to wait for re-sync to complete')
