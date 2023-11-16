@@ -95,7 +95,7 @@ index 2fed1f10f..fa0d21a0c 100755
  		--enable-addrblock \
  		--enable-agent \
 @@ -88,7 +97,7 @@ ifeq ($(DEB_HOST_ARCH_OS),kfreebsd)
- endif
+ deb_systemdsystemunitdir = $(shell pkg-config --variable=systemdsystemunitdir systemd | sed s,^/,,)
  
  override_dh_auto_configure:
 -	dh_auto_configure -- $(CONFIGUREARGS)
