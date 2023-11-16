@@ -21,7 +21,7 @@ fi
 cd ${SRC}
 
 echo "I: bump version"
-dch -v "5.9.8-5+vyos0" "Patchset for DMVPN support" -b
+dch -v "5.9.11-2+vyos0" "Patchset for DMVPN support" -b
 
 echo "I: Build Debian Package"
 dpkg-buildpackage -uc -us -tc -b
