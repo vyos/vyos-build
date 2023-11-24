@@ -1,6 +1,6 @@
-From 4bdc6cb93ef35b1d1ff394e7d74ae9c0f366fbfd Mon Sep 17 00:00:00 2001
+From 58559e68b5a93bebf630c5ac99981ec054612583 Mon Sep 17 00:00:00 2001
 From: Christian Breunig <christian@breunig.cc>
-Date: Thu, 18 May 2023 20:53:54 +0000
+Date: Fri, 24 Nov 2023 09:28:56 +0100
 Subject: [PATCH] Revert "net/sched: Retire tcindex classifier"
 
 This reverts commit 7a6fb69bbcb21e9ce13bdf18c008c268874f0480.
@@ -12,7 +12,7 @@ This reverts commit 7a6fb69bbcb21e9ce13bdf18c008c268874f0480.
  create mode 100644 net/sched/cls_tcindex.c
 
 diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 2e4604cdaf23..2985509147a2 100644
+index 46f2847a071e..131e653e9945 100644
 --- a/net/sched/Kconfig
 +++ b/net/sched/Kconfig
 @@ -469,6 +469,17 @@ config NET_CLS_BASIC
@@ -34,17 +34,17 @@ index 2e4604cdaf23..2985509147a2 100644
  	tristate "Routing decision (ROUTE)"
  	depends on INET
 diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 9e1f904d0c18..415d1e1f237e 100644
+index fb2b90648a20..b2dcc40d92da 100644
 --- a/net/sched/Makefile
 +++ b/net/sched/Makefile
-@@ -66,6 +66,7 @@ obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
+@@ -65,6 +65,7 @@ obj-$(CONFIG_NET_SCH_TAPRIO)	+= sch_taprio.o
+ obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
  obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
  obj-$(CONFIG_NET_CLS_FW)	+= cls_fw.o
- obj-$(CONFIG_NET_CLS_RSVP)	+= cls_rsvp.o
 +obj-$(CONFIG_NET_CLS_TCINDEX)	+= cls_tcindex.o
- obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
  obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
  obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
+ obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
 diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
 new file mode 100644
 index 000000000000..768cf7cf65b4
@@ -782,5 +782,5 @@ index 000000000000..768cf7cf65b4
 +module_exit(exit_tcindex)
 +MODULE_LICENSE("GPL");
 -- 
-2.30.2
+2.39.2
 
