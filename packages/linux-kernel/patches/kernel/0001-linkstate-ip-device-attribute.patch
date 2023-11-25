@@ -19,7 +19,7 @@ Backport of earlier Vyatta patch.
  8 files changed, 39 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 8af3771a3ebf..93408cc52991 100644
+index 5cf601c94e35..12457ee20f22 100644
 --- a/Documentation/networking/ip-sysctl.txt
 +++ b/Documentation/networking/ip-sysctl.txt
 @@ -1245,6 +1245,19 @@ rp_filter - INTEGER
@@ -43,7 +43,7 @@ index 8af3771a3ebf..93408cc52991 100644
  	1 - Allows you to have multiple network interfaces on the same
  	subnet, and have the ARPs for each interface be answered
 diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index 3515ca64e638..dcae58193580 100644
+index b68fca08be27..9cdfccdbb9fb 100644
 --- a/include/linux/inetdevice.h
 +++ b/include/linux/inetdevice.h
 @@ -133,6 +133,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
@@ -55,7 +55,7 @@ index 3515ca64e638..dcae58193580 100644
  struct in_ifaddr {
  	struct hlist_node	hash;
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index ea7c7906591e..57f656ea2783 100644
+index d5c507311efb..066ad20f2b39 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
 @@ -76,6 +76,7 @@ struct ipv6_devconf {
@@ -91,7 +91,7 @@ index 9c0f4a92bcff..619edd130cfd 100644
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index a27d034c85cc..b62b62abe907 100644
+index 4c013f8800f0..409050b2bc44 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
 @@ -2550,6 +2550,8 @@ static struct devinet_sysctl_table {
@@ -104,10 +104,10 @@ index a27d034c85cc..b62b62abe907 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 635b2482fa20..ce1405ecf6f6 100644
+index c523236d934e..1bd2b92a017f 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5477,6 +5477,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+@@ -5507,6 +5507,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
  	array[DEVCONF_ADDR_GEN_MODE] = cnf->addr_gen_mode;
  	array[DEVCONF_DISABLE_POLICY] = cnf->disable_policy;
  	array[DEVCONF_NDISC_TCLASS] = cnf->ndisc_tclass;
@@ -115,7 +115,7 @@ index 635b2482fa20..ce1405ecf6f6 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -6849,6 +6850,14 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -6879,6 +6880,14 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.mode           = 0644,
  		.proc_handler   = addrconf_sysctl_disable_policy,
  	},
@@ -131,10 +131,10 @@ index 635b2482fa20..ce1405ecf6f6 100644
  		.procname	= "ndisc_tclass",
  		.data		= &ipv6_devconf.ndisc_tclass,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 46df6345bb99..2b930a2c4fdb 100644
+index 209d52ebbd19..edf7b5e9466a 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -686,6 +686,15 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
+@@ -687,6 +687,15 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
  }
  #endif
  
@@ -150,7 +150,7 @@ index 46df6345bb99..2b930a2c4fdb 100644
  /*
   * Default Router Selection (RFC 2461 6.3.6)
   */
-@@ -727,6 +736,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
+@@ -728,6 +737,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
  
  	if (!m && (strict & RT6_LOOKUP_F_IFACE))
  		return RT6_NUD_FAIL_HARD;
@@ -160,5 +160,5 @@ index 46df6345bb99..2b930a2c4fdb 100644
  	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(fib6_flags)) << 2;
  #endif
 -- 
-2.20.1
+2.39.2
 

@@ -44,7 +44,7 @@ index 6736e47d94d8..84d9b31300c0 100644
 +
 +	  If unsure, say N.
 diff --git a/fs/notify/inotify/inotify_user.c b/fs/notify/inotify/inotify_user.c
-index 81ffc8629fc4..cacedffa6534 100644
+index b949b2c02f4b..5bbb53db64a4 100644
 --- a/fs/notify/inotify/inotify_user.c
 +++ b/fs/notify/inotify/inotify_user.c
 @@ -15,6 +15,7 @@
@@ -186,7 +186,7 @@ index 81ffc8629fc4..cacedffa6534 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index d6b724beb304..380ac598f2e4 100644
+index f5cf0938f298..c3bb42c9d291 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -15,6 +15,7 @@
@@ -197,7 +197,7 @@ index d6b724beb304..380ac598f2e4 100644
  #include "overlayfs.h"
  
  MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
-@@ -1758,6 +1759,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -1767,6 +1768,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -216,7 +216,7 @@ index d6b724beb304..380ac598f2e4 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1772,13 +1785,21 @@ static int __init ovl_init(void)
+@@ -1781,13 +1794,21 @@ static int __init ovl_init(void)
  
  	err = register_filesystem(&ovl_fs_type);
  	if (err)
@@ -239,7 +239,7 @@ index d6b724beb304..380ac598f2e4 100644
  	unregister_filesystem(&ovl_fs_type);
  
  	/*
-@@ -1787,7 +1808,6 @@ static void __exit ovl_exit(void)
+@@ -1796,7 +1817,6 @@ static void __exit ovl_exit(void)
  	 */
  	rcu_barrier();
  	kmem_cache_destroy(ovl_inode_cachep);
@@ -292,5 +292,5 @@ index 6a24905f6e1e..4484f0760588 100644
 +
  #endif	/* _LINUX_INOTIFY_H */
 -- 
-2.20.1
+2.39.2
 
