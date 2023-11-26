@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1
 
-# Copyright (C) 2020 VyOS maintainers and contributors
+# Copyright (C) 2020-2023 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -17,10 +17,9 @@
 # Define arguments for VyOS image
 ARG VYOS_VERSION
 ARG BUILD_DATE
-ARG DEBIAN_VERSION
 
 # Use Debian as base layer
-FROM debian:${DEBIAN_VERSION}-slim
+FROM debian:bookworm-slim
 # Copy installer script and default build settings
 COPY [ "data/defaults.json", "data/live-build-config/archives/*", "docker-vyos/vyos_install_common.sh", "docker-vyos/vyos_install_stage_01.sh", "/tmp/" ]
 COPY [ "data/live-build-config/hooks/live/*", "/tmp/hooks/" ]
