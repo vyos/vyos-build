@@ -59,6 +59,11 @@ testraid: checkiso
 qemu-live: checkiso
 	scripts/check-qemu-install --qemu-cmd build/live-image-amd64.hybrid.iso
 
+.PHONE: oci
+.ONESHELL:
+oci: checkiso
+	scripts/iso-to-oci build/live-image-amd64.hybrid.iso
+
 .PHONY: clean
 .ONESHELL:
 clean:
