@@ -20,10 +20,29 @@ ARG BUILD_DATE
 
 # Use Debian as base layer
 FROM debian:bookworm-slim
-# Copy installer script and default build settings
-COPY [ "data/defaults.json", "data/live-build-config/archives/*", "docker-vyos/vyos_install_common.sh", "docker-vyos/vyos_install_stage_01.sh", "/tmp/" ]
-COPY [ "data/live-build-config/hooks/live/*", "/tmp/hooks/" ]
 
+LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
+
+# Base packaged needed to build packages and their package dependencies
+RUN apt-get update && apt-get install -y \
+      ca-certificates \
+      gnupg \
+      curl \
+      fuse-overlayfs \
+      jq \
+      yq
+
+# Copy installer script and default build settings
+COPY [ "data/defaults.toml", \
+       "data/architectures/amd64.toml", \
+       "data/live-build-config/archives/*", \
+       "docker-vyos/vyos_install_common.sh", \
+       "docker-vyos/vyos_install_stage_01.sh", \
+       "/tmp/"]
+COPY [ "data/live-build-config/hooks/live/*", "/tmp/hooks/" ]
 
 # Install VyOS dependencies
 WORKDIR /tmp
@@ -31,14 +50,15 @@ RUN bash /tmp/vyos_install_stage_01.sh
 
 
 # Install VyOS specific software
-COPY [ "data/defaults.json", "docker-vyos/vyos_install_common.sh", "docker-vyos/vyos_install_stage_02.sh", "/tmp/" ]
+COPY [ "data/defaults.toml", \
+       "data/architectures/amd64.toml", \
+       "docker-vyos/vyos_install_common.sh", \
+       "docker-vyos/vyos_install_stage_02.sh", "/tmp/" ]
 RUN bash /tmp/vyos_install_stage_02.sh
 
 
 # Tune system for VyOS
 COPY [ "docker-vyos/vyos_install_common.sh", "docker-vyos/vyos_install_stage_03.sh", "/tmp/" ]
-# Copy skel for bash profile
-COPY data/live-build-config/includes.chroot/etc/skel/.bashrc /etc/skel/.bashrc
 # Copy default config
 COPY data/live-build-config/includes.chroot/opt/vyatta/etc/config.boot.default /opt/vyatta/etc/
 

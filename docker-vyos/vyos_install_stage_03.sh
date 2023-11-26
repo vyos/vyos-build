@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2020 VyOS maintainers and contributors
+# Copyright (C) 2020-2023 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -20,6 +20,7 @@
 . vyos_install_common.sh
 
 # Add config partition marker
+mkdir -p /opt/vyatta/etc/config
 touch /opt/vyatta/etc/config/.vyatta_config
 
 # create folder for configuration mounting
@@ -54,10 +55,9 @@ for hook in ${hooks_list[@]}; do
 done
 
 # Delete needless options from CLI
-# CLI_DELETION=(
-#     "/opt/vyatta/share/vyatta-cfg/templates/system/host-name/"
-#     )
-# rm -rf ${CLI_DELETION[@]}
-
+ CLI_DELETION=(
+     "/opt/vyatta/share/vyatta-cfg/templates/container/"
+     )
+ rm -rf ${CLI_DELETION[@]}
 
 exit 0
