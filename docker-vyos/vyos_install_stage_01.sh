@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2020 VyOS maintainers and contributors
+# Copyright (C) 2020-2023 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -58,6 +58,7 @@ ignore_list=(
     "cluster-glue"
     "resource-agents"
     "heartbeat"
+    "podman"
     )
 
 # Get list of packages from VYOS repository

@@ -1,0 +1,63 @@
+#!/bin/bash
+
+function cleanup() {
+    if [[ -d $ROOTFS ]]; then
+        rm -rf $ROOTFS
+    fi
+    if [[ -d $UNSQUASHFS ]]; then
+        rm -rf $UNSQUASHFS
+    fi
+}
+
+if [[ $(/usr/bin/id -u) -ne 0 ]]; then
+    echo "Not running as root"
+    exit
+fi
+
+if [ "$#" -ne 1 ]; then
+    echo "Illegal number of parameters"
+fi
+
+ISO=$1
+ROOTFS=rootfs
+UNSQUASHFS=unsquashfs
+
+# ensure clean working directory
+cleanup
+
+mkdir $ROOTFS $UNSQUASHFS
+echo "I: mount ISO $ISO"
+mount -t iso9660 -o loop $ISO $ROOTFS/ >/dev/null 2>&1
+
+# create directory, unpack squashfs filesystem, get ISO version
+# and unmount ISO
+echo "I: extracting squashfs content"
+unsquashfs -follow -dest $UNSQUASHFS/ $ROOTFS/live/filesystem.squashfs >/dev/null 2>&1
+VERSION=$(jq --raw-output .version $ROOTFS/version.json)
+umount $ROOTFS/
+
+# fix locales for correct system configuration loading
+sed -i 's/^LANG=.*$/LANG=C.UTF-8/' $UNSQUASHFS/etc/default/locale
+
+# optional step: Decrease docker image size by deleting not necessary files for container
+rm -rf $UNSQUASHFS/boot/*.img
+rm -rf $UNSQUASHFS/boot/*vyos*
+rm -rf $UNSQUASHFS/boot/vmlinuz
+rm -rf $UNSQUASHFS/lib/firmware/
+rm -rf $UNSQUASHFS/usr/lib/x86_64-linux-gnu/libwireshark.so*
+rm -rf $UNSQUASHFS/lib/modules/*amd64-vyos
+rm -rf $UNSQUASHFS/root/.gnupg
+
+# create a symbolic link to the configuration
+ln -s /opt/vyatta/etc/config $UNSQUASHFS/config
+
+# create docker image
+echo "I: generate OCI container image vyos-$VERSION.tar"
+tar -C unsquashfs -c . -f vyos-$VERSION.tar
+
+echo "I: to import the previously generated OCI image to your local images run:"
+echo ""
+echo "   docker import vyos-$VERSION.tar vyos:$VERSION --change 'CMD ["/sbin/init"]'"
+echo ""
+
+cleanup
