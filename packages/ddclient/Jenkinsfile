@@ -25,7 +25,7 @@ def pkgList = [
      'scmUrl': 'https://salsa.debian.org/debian/ddclient',
      'buildCmd': '/bin/true'],
     ['name': 'ddclient-github',
-     'scmCommit': 'v3.11.1',
+     'scmCommit': 'v3.11.2',
      'scmUrl': 'https://github.com/ddclient/ddclient',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
