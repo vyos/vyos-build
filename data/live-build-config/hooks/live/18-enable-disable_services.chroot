@@ -1,6 +1,7 @@
 #!/bin/sh
 
 echo I: Disabling services
+systemctl disable arpwatch.service
 systemctl disable smartd.service
 systemctl disable isc-dhcp-server.service
 systemctl disable isc-dhcp-relay.service
