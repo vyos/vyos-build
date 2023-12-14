@@ -1,0 +1,2480 @@
+From patchwork Tue Nov 29 14:12:10 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058609
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 7C006C46467
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:13:42 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S234652AbiK2ONj (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:13:39 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47132 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S233074AbiK2ONU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:20 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2045.outbound.protection.outlook.com [40.107.14.45])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 0C7B4B7D4;
+        Tue, 29 Nov 2022 06:12:36 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=EYdB41zQR2myBGpsh7Va00EzzEfNBtx2T7vX4Ncsc/bPrmTBs9ILMHBoetTzjC2jFWJo7a131aumR6jC8vw/3y3QSxbDmYiRDHixRyxbTXzmhfjtwQn4wmqtGwvtg/TQIzBrJHhR8teb/aaua83ebquZrrIyM+rfOviubZKNKUXqPf0ZMfG4hXiLH7b7warGMh6JE2YZJs9iGzrOp86rXchXs4LTb59jm7VkbSkLNBxsENnKQ5ZujcQp3oUmMLhSrqYBTGQaKyl4rJ9a3IW37AslzeN35D5yv0twNBArOKkI/osxTPAqlLtfiLlomw84IwAgFEEu93VLPkg3a3UHZA==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=JWyHTdZFx50lrOJ8mm45qoA7mpswzw+G3u2nOR+johU=;
+ b=TtClcarQlLWrHi4oSPOSqKBI4VjOasBtu5VkhThz0oI5Y09Ir+BEpA8IAnJViaRtkI9MC8bLfj9Ytab9wcZ7ezc5BGHKmyBOtoo1Dk5SI1oqClSU45t4D2GGvzpMhlCdYKVrNASMbbYJ66Ce1c4W3K7n1xRV4kib+SJtcFtG3aZRkL7s9O/Et138iLO9GFQijRqrBNpxBbt3sYya7GIZDX+ksyL6eJmF7IMm/N634jYraCBFZPtIEip4OFAvPzMnDEVG62rSSJILRNnLI+yQP3b9ibnZ2J/P2Aq8zCNRI1vYdmoJD4P7SOl84PWdqOKlugatWrMkUjMAKTLjyd+Q6Q==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=JWyHTdZFx50lrOJ8mm45qoA7mpswzw+G3u2nOR+johU=;
+ b=sn8J2Aw6LuWflWXnM2aZA1HIGwHI/bjqui7VhRZhL8NVD0TF6GzYsvj/Kll4St5XPK/x8rArO2FIU7KRY9DO/ZPNAOwMlYsVMlEo1wDTxAJhA00nHMrQTvP+pJ3oxpnTdqyINYJtN+c4chieBYV9SHD296mw6pVxw2H78/vLEEw=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:34 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:34 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 01/12] net: dpaa2-eth: don't use -ENOTSUPP error code
+Date: Tue, 29 Nov 2022 16:12:10 +0200
+Message-Id: <20221129141221.872653-2-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 6f8a25b9-98bf-4543-d380-08dad213c2fe
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ z95SJpfO7cZMmYF0sgvEcpoOKIqW+LY+5scqQKriovrCwmVEkj6GgyMaqJj3GrZ5/pm8S6GAwIAKHgE7QaHBmglsTZee0YkJJ8CwmyoOHf7oaMWa81Dp82FlovICjqWCDrC4W3hn2G/c9ecwMKkxtHruARE+igsA/fkza2fHr6HJgXnYH54P4ITMsOafza4CJhuHXJbdTxKEBgoYape27we0frn9LRBO/b8w/HN9gOW0D1C2GqVQOD8jP3mHcKRPoBL8YZYwIp2yiWH5NWKuP3d74/gs416F4shSfRxTwTsmgJei4LVdAxBUUBMp0myCzfdRf5Eh7PwT8FpktBx8O+mShYcW1uyUBlMXi5Kn3+z57ZxH4ncCC4KKcvqIfk563t1iWmA7s3dCTgmWcIe0vOYUzxRRO0TeApZABrgFVwcIBJC0dmpE/g3r4hnufVcFVaZe3EHMu5OFWyseum0K8jX3CD+Go8NJFZtjZ2PLH7urVfAL3j/oul1vx9tXcSPNlKbSgcd0jlHTFlvcWau3mx1t+zLIQ2fIPNvyXbF8ssDhSuScfEZH+2KjEZYr46j9SU1U5t/GwLRg3F+ZSEhexQ2opgK3acCSqZVN+Ww6M8qgCqWbLsD1/PK2wbTtTFptOFHM5ca6d09yTRW4kDbWgTbXB/FPUxN/Zvz5EVrp8BM3ZOCaeLm6v/EwyouI7OfaJNksRWuR6cryMYmUtrKgzw==
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ WLvmr+KWWIwKSh8RpvasyZ7Yllu3fWQsv/ajVMKimxMjEQQMwlEJp7CaHG4wXGTzSJN2yKnlh5qN9fZJ5z1p8jl5lTw4Emobdd7SB5CByKTM2ay5Wm6BCSnvKVoAu0BPzVqv31mT1pGdKZAgcDOWdLPXA2BFFLOI20pZYzLisDtBczfxhyl+v2+cRoYX5tpB51aqm0kqFV2uNnVDtxTotUMcIxRFvDevspYEVTz5TnjyViqW+qVJIgR8Bh5yLk0cwu9BR5sJD280s99KIG5hnb3L2FGxvyZtdeSTqqrg3nsBoSr/rATo7GdHh9r6Xrlw811Op8L3EF8AXG4QNLwcRM0pXatWx51Lrgqp6/BhprZFodyfme+OMx8AwjA6nHE1UyRNKD7OOkaQ5VWg6wElh+mug2Ttg+fK4crcCmSrsSJEkGbu4mFB7L9uDOO3x5jxfJIeVpTPtEWTXmM8p+ayH4ECrwpw7WUfeUDvaiZRQ10gZVPPlJDQB0JuXATGCgqzf2LfAxdYUzzoHr/UlDOfwkmpP67qH53+/vYRKEwztHE6L8s0a9EItka99IWaGnHwnF1feM+u5OsaH0RLnizozbPAxD6mVRQaswLM1sukNsoEC+ZDKYQOag4Lj9+SrX06jAWX/p93XttZ23yg1SXse+iEqfQ0oR+XQ4jMZZnpk5NmfzwhgJ9DqqKtJiWz42HDHfYPrG0Wn2+Lni7qVjW35c7JHJJadmm4eKllRZoshDGdbgdbkIv+r+D/7RjqxiTYghdUE6CB7/mHd7T/rEumScxKAhZo+S+meSOr6dzTMIfKCP1t0BX2I3pJXRfAtyHDfSfzVwYu5uGLg/wL+qyqSK9oC67lhqXoNwcPU8S+ewyJw/ddx6XHQ1F/mINGPrlI8WWMsd6Q4wY+urS1B6K93gnOln551CrCrWA/Z7zK0bISV1jZ6AVbdejef40qSWxYeziQEDov/Rf2lEYDnVej3Nkf6RXTZbp+JmwmKE0py/1o2lP9tuJM8T3MtfULFxUBCOKbzhAYmRDNg9aER8CiyLqLR45QTy16nfJ4y2Fb3YkkglkaYyEIhnQU05djxvKrba6qPOIrsdjEd2LQoeSYy3CiGSp/v6PG3RnVZdoQpoOm9A/3+bRf3JTYLlbWJH/eZ+swuZfJnaZo4z1dIBBao55YUzT42CNWFZQcjdG7BYlZQn/WVpOC0qly3vAZMtewwSpacjRe7GH+77o2pKgaIpMf20Z9eJpPPgBuwMho6xCYxgUoFQVlq3kAgKsPb8BqskvIUQkpV8W0NgiFAp6Eg/6sl+9HfJhG7EvumTFFO8lISHrwbQPWmCsEmLAxfG7yrYTvGU+0S/rnUOwoWoJVdrOUe4cJK8h4q4dWfagpKa7frjEL91bFXbFqnweKvofbB+MmNm5baEGROmD5eurygEehJ38gzzR+8I2GJUvdvpWehpr7i9NKuSHOYriOJPhE9G1W94WtnDXtiic9+ZauNUXicKtDbpe2m78Cp6wWep8leZvqlruOnMXtkxebGgHuNbGpsRU3T5LxfqKxbMr4p70nCkGx+KQWTbg7/0HJs0juj6vGhLN8SsqmU3ygK0i5bmPy5I+Ve1R2iuvrGPsiMg==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 6f8a25b9-98bf-4543-d380-08dad213c2fe
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:34.5913
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ dgnSa1BQKHJh6rcjqaxzF/ReMBKhtCbzxBGN3HL9z4kjXK0wRNWmaetvFrD5hT2X7244AzfCJurmFKB4D6ZD6w==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+dpaa2_eth_setup_dpni() is called from the probe path and
+dpaa2_eth_set_link_ksettings() is propagated to user space.
+
+include/linux/errno.h says that ENOTSUPP is "Defined for the NFSv3
+protocol". Conventional wisdom has it to not use it in networking
+drivers. Replace it with -EOPNOTSUPP.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c     | 2 +-
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+index 97e1856641b4..515fcd18ed72 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+@@ -3791,7 +3791,7 @@ static int dpaa2_eth_setup_dpni(struct fsl_mc_device *ls_dev)
+ 		dev_err(dev, "DPNI version %u.%u not supported, need >= %u.%u\n",
+ 			priv->dpni_ver_major, priv->dpni_ver_minor,
+ 			DPNI_VER_MAJOR, DPNI_VER_MINOR);
+-		err = -ENOTSUPP;
++		err = -EOPNOTSUPP;
+ 		goto close;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
+index 32a38a03db57..ac3a7f2897be 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
+@@ -117,7 +117,7 @@ dpaa2_eth_set_link_ksettings(struct net_device *net_dev,
+ 	struct dpaa2_eth_priv *priv = netdev_priv(net_dev);
+ 
+ 	if (!dpaa2_eth_is_type_phy(priv))
+-		return -ENOTSUPP;
++		return -EOPNOTSUPP;
+ 
+ 	return phylink_ethtool_ksettings_set(priv->mac->phylink, link_settings);
+ }
+
+From patchwork Tue Nov 29 14:12:11 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058612
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 6A1FFC4321E
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:03 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S229768AbiK2OOB (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:01 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:49170 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235327AbiK2ONb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:31 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on060d.outbound.protection.outlook.com
+ [IPv6:2a01:111:f400:fe1f::60d])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9911D3FBAE;
+        Tue, 29 Nov 2022 06:12:48 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=iaBdXw2zVmnYg8OK8h/nmYHuurjZ58eA+V1WHDF02KuGSrozp6fCLuNxZWrJ32ur7uA5eichVOGz4wb8G6nNjj27ujuzCY0yfmotDBBC9/8hJ+eZHqpYoSYH/Xtq39o+xUPOr2VYFCoWLnEYOQJ/eG5ZzDhvyjk2DBiGqUL7eZ90D4AZ248tYQRw63do80TejWhxwcgBRKnnq01Fgd5yIlXSC0WQM2mQ3SIKEG8OYsBuni0S4lXGSk9/ASW+4+IbVOxUVsfhnaq4JIw0WG6bacyQCI/L7wCOnMXFfUIuCPfu3HgTkH8XLYtT12PQ/UvppmMR8qygUV1f3HSBmE9d9g==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=e+NjQJ0EKVqLVx7VXfqbReaRqke6H97MkKptkAm4XOY=;
+ b=AdjI6jQYXKR9KH5l4r3xKa7N2Ht/1pCVvn/mSZChai22go9dLe5PtN8/GCDVBoVQI84NfigONXiCKEFvVYBlJMOV8cp5oByd66I45ozZnGHjF5ROPXtHO57TavYxUbX0HAHJprIt31ikgrbc35gYyDUt3x+SB6VVgEkM7cEUYzvUhL9Bmg5LdJ8t6WXjaW/AflB/Gbbw88Kd89kXxnFkk9Q2GFfUx0r0nvtQYv1gyMYvc0pGRqqx8t7DBOaxRcj/4X7zsD1+FX1fHxbfzpW+owRDzQvQDyJx6qevjos2qidtEZexU5FY7Vy/eGYe5+tBxDaNiGN9BnKWkAWlEAIpPw==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=e+NjQJ0EKVqLVx7VXfqbReaRqke6H97MkKptkAm4XOY=;
+ b=VMMq2SeHzcxHai008rlgcsGpgJw16mr1P3RNVR9WEnPWxZyjHraNSilY95WgC/kYjaEAld50lVLM1ykqTJsqx+n+pOHx2NmlilJuiebD/+bGeCJC/owwPHHVSnPb+gL3Q4vVR9fT2eF0irjRHkLHGho5LgDLRS165UwgEnBJF3s=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:35 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:35 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 02/12] net: dpaa2: replace dpaa2_mac_is_type_fixed()
+ with dpaa2_mac_is_type_phy()
+Date: Tue, 29 Nov 2022 16:12:11 +0200
+Message-Id: <20221129141221.872653-3-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 04543228-fe6e-4633-1b57-08dad213c36a
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ 1M1YSCrkhFlxjqjNhF2UuzdTquTota3ic2p99B2p2t8UfXSPPTC3orvo3C6Y9RFRoeOBUMlzgY2SZX15hSLggMiY+KiiEWiQGRGcO+pADCm2PXG/JLAI8ckLLlxh9Zt7hdtoy16xWpCdlfKReErngR3BtL6GGlrHIUN3wJN2di8GYbI/ji7kqmBcTD81FtuL02Wqbv3TXgQp3Zm+5GjEeqdBA2Ojbq9Wx2Cz9cUziSa1gyvZGaS2Fl5sVrSxVYtdtjypTstnI+n/eeWi2ZVXfTsVLVbyprVaxEEpDjwsQn0g8YttougEhWaqjs+F6QsPJgQoj847x11VdThyGwknUSkVT5j37yY4VP6p9x+dlfy1Z/Rebhi5f1+eIyYo3F9l5CjtGknUEG1fi4LZm2bavIf7SEA+HBMTYCyThOiwdmA+hH1RiqMMHIVdVb3QQFztJUTHEquIRdLZWqRmj/5EZY2o/XxwXUeY9hAw59Zwtev0PsX6PXBMS+SlnAH4TrfpAxZJOyi2GDnJD6ryvGhCm4Wi+BlxKs3C9ciKu+hgiOxuBtRd53mthocvds1HloAAlxGf8qQeV+HVDal4iQuwyfMTt4q1MoTmFoaGnwa91CA6UCOWY6B6ci2E6q6/mQf3eZXajFGo+pQ2nu9QB3+nedaB2lJ6ZkVSY+TwPlMaf13Nk4YRGUlayLnzBBVXqXZy
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ KWPpcKAGllGRr4Bq8/Tpa3rfov+pBsL11oQLTHCzbS2yJKSDkbFF9rvwTp34QYtPN26nh+LGnSBRyNOGxmw/8k08jsBOUK0nsnjIEBsSeXy7YTlBdukIGD7Q4lzoL/Ps5y6ZEa6aCMjQ/T8DF7dzxVTdTtUuujgiNvLjwE4S+9GsfNNaEpaIJ7m+R36SIyjoqCf5tx1z54EKRhq+PGKX0rexfoU4x6sOeNRjr0k/5yVOvWOhUbIr40tszDQtbDOfYY0U0EEE5olcuMR3FYAtGeAEO43ww0E+fz/VNJvUZVa/65IVXZRSIgl8+21eEVZ81S9vRVEYpz8nA0pCquYLR+JSJevCEu6HktQTuiJuY7nEhZyB/NWIe9LLEJg41uC57/M4eU1i+854SI0XLfbdyWQXaAYXPxa4Pn0YjAoGeQ1EyymL1N2c+0BRpAidP4RIzXBCzKyGbEJ+qPfyTpA0463djeNaHeGrS5/R/6U4dWrGN/MyYB7fdddeNwZlGr7LBk+ctoul4lXrHVbyX9r3/M6b69ZqwvTuP3NcfwvB6KoBA0aOHdLBvf44UCvrtX1+5esJWgeAmdC9lbvFa3twSceJxVDwfIDLxDG62LPM67jHcQvAqlNt78TpsQyCpfT5Ew8CxJ0Bmx69QrDI9ORfvfnLOmhfD5RInb5BJM8Oh4oGRbkjnckU54cujtyv0eiEXEiNguzPqPD2tVYGwdvA3mUgD19Mm3FmBPgCP959CpO45W4aShT0egSsCmvQNp4bRJYizJEOrRCJcvRX50VDcYCn0ZgjnnADHCqTvu4q5ZdRlulK1Anmwp2gLoYfJq0ZG5VX2iAw7AIAsbVjRomYJJnph8V2ImUxWoFa1n829Z2/2D+m7bqY7bNPDz8IKmZa1ZOGneSz1xuwMcC8hF3wNX8ZRvjZO1/9a2BdiZQYI0nt0rFaejLfTPXYIw0W3ek3EM7h46VOqRW2MofdL6c7gQyQSvt2Ydg76LGIBYv380q17O0nKBnEHSYaZ7XSLQZGVH7gAUSBY9KHoP7E08sj5qw4bRVhrMjMZ30oJ1FSSaazoIbSvqm3Wc91O/5lqxmDtk0ES67WpFFFj2os3rq/eUDFbmurMu8Xeh4GBtc5XCDmX7BlokeIu/dFpfsYMj4MpACuG0Zs19zYL/Pex/P5+ca2IjjOqqaXjdU3CMC9lvn9AjeIxevLmtHORK3MhSoF1ziH0S5BJOpkPVK6R1zXyf42qlIb4qzkdU2oYwhDry8aMEXnsw+WeL5/4uY7FMr49r6+NITNy5kVXNqOB84SsxHZxva/WuwmPx+QWOehtUI2thUwkEdOxUQLYiLIAhlznAeGV9QAh2n6ywlmT44ITUwwVHGApKWM4edqcpQaaml09Oglh5hj6NmLKjdbYo8WAqRIuxlEAsWpKqxDN2tzOIILAk8LDY1+6gQEA2aj2U5GKG4RTIdc7L3FMvIjXhBPwSGgFr2mSGePMVWKka8I5LH+b4ePfenr6Y8PBGr/o/kEeSS5SItaQcY8MaAlAO8CWrJ8D4GtmxanmnXitgvfIipeK9cvFeT4DSO+2hP3TIDUz7WM/DgmPoZvYZ2ghxWZRqySz1q+ZcMT5QhO/nTbzA==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 04543228-fe6e-4633-1b57-08dad213c36a
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:35.2943
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ DveAA9Y5CJPyyJ6usU4PBlxEWYyDfu4DGpWee3zW35rl1MNamdz//84ZQp32USQszQgplBkASKflSn9FyIjriw==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+dpaa2_mac_is_type_fixed() is a header with no implementation and no
+callers, which is referenced from the documentation though. It can be
+deleted.
+
+On the other hand, it would be useful to reuse the code between
+dpaa2_eth_is_type_phy() and dpaa2_switch_port_is_type_phy(). That common
+code should be called dpaa2_mac_is_type_phy(), so let's create that.
+
+The removal and the addition are merged into the same patch because,
+in fact, is_type_phy() is the logical opposite of is_type_fixed().
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ .../ethernet/freescale/dpaa2/mac-phy-support.rst       |  9 ++++++---
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h       |  7 +------
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.h       | 10 ++++++++--
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h    |  7 +------
+ 4 files changed, 16 insertions(+), 17 deletions(-)
+
+diff --git a/Documentation/networking/device_drivers/ethernet/freescale/dpaa2/mac-phy-support.rst b/Documentation/networking/device_drivers/ethernet/freescale/dpaa2/mac-phy-support.rst
+index 51e6624fb774..1d2f55feca24 100644
+--- a/Documentation/networking/device_drivers/ethernet/freescale/dpaa2/mac-phy-support.rst
++++ b/Documentation/networking/device_drivers/ethernet/freescale/dpaa2/mac-phy-support.rst
+@@ -181,10 +181,13 @@ when necessary using the below listed API::
+  - int dpaa2_mac_connect(struct dpaa2_mac *mac);
+  - void dpaa2_mac_disconnect(struct dpaa2_mac *mac);
+ 
+-A phylink integration is necessary only when the partner DPMAC is not of TYPE_FIXED.
+-One can check for this condition using the below API::
++A phylink integration is necessary only when the partner DPMAC is not of
++``TYPE_FIXED``. This means it is either of ``TYPE_PHY``, or of
++``TYPE_BACKPLANE`` (the difference being the two that in the ``TYPE_BACKPLANE``
++mode, the MC firmware does not access the PCS registers). One can check for
++this condition using the following helper::
+ 
+- - bool dpaa2_mac_is_type_fixed(struct fsl_mc_device *dpmac_dev,struct fsl_mc_io *mc_io);
++ - static inline bool dpaa2_mac_is_type_phy(struct dpaa2_mac *mac);
+ 
+ Before connection to a MAC, the caller must allocate and populate the
+ dpaa2_mac structure with the associated net_device, a pointer to the MC portal
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h
+index 5d0fc432e5b2..04270ae44d84 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h
+@@ -768,12 +768,7 @@ static inline unsigned int dpaa2_eth_rx_head_room(struct dpaa2_eth_priv *priv)
+ 
+ static inline bool dpaa2_eth_is_type_phy(struct dpaa2_eth_priv *priv)
+ {
+-	if (priv->mac &&
+-	    (priv->mac->attr.link_type == DPMAC_LINK_TYPE_PHY ||
+-	     priv->mac->attr.link_type == DPMAC_LINK_TYPE_BACKPLANE))
+-		return true;
+-
+-	return false;
++	return dpaa2_mac_is_type_phy(priv->mac);
+ }
+ 
+ static inline bool dpaa2_eth_has_mac(struct dpaa2_eth_priv *priv)
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.h b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.h
+index a58cab188a99..c1ec9efd413a 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.h
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.h
+@@ -30,8 +30,14 @@ struct dpaa2_mac {
+ 	struct phy *serdes_phy;
+ };
+ 
+-bool dpaa2_mac_is_type_fixed(struct fsl_mc_device *dpmac_dev,
+-			     struct fsl_mc_io *mc_io);
++static inline bool dpaa2_mac_is_type_phy(struct dpaa2_mac *mac)
++{
++	if (!mac)
++		return false;
++
++	return mac->attr.link_type == DPMAC_LINK_TYPE_PHY ||
++	       mac->attr.link_type == DPMAC_LINK_TYPE_BACKPLANE;
++}
+ 
+ int dpaa2_mac_open(struct dpaa2_mac *mac);
+ 
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h
+index 0002dca4d417..9898073abe01 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h
+@@ -230,12 +230,7 @@ static inline bool dpaa2_switch_supports_cpu_traffic(struct ethsw_core *ethsw)
+ static inline bool
+ dpaa2_switch_port_is_type_phy(struct ethsw_port_priv *port_priv)
+ {
+-	if (port_priv->mac &&
+-	    (port_priv->mac->attr.link_type == DPMAC_LINK_TYPE_PHY ||
+-	     port_priv->mac->attr.link_type == DPMAC_LINK_TYPE_BACKPLANE))
+-		return true;
+-
+-	return false;
++	return dpaa2_mac_is_type_phy(port_priv->mac);
+ }
+ 
+ static inline bool dpaa2_switch_port_has_mac(struct ethsw_port_priv *port_priv)
+
+From patchwork Tue Nov 29 14:12:12 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058611
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 45C98C4167B
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:00 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235393AbiK2ON6 (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:13:58 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:46606 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235123AbiK2ONb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:31 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2051.outbound.protection.outlook.com [40.107.14.51])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A782B5C0FE;
+        Tue, 29 Nov 2022 06:12:51 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=JIeb8S/cDdkcPW2K/rN4o3KyEJUR721f+mQlbEmvDrtJmGF7mtx16KueiqPG5J1rRAwDdeCZ3Gm5I2Rbrn8skDB8c8hwIbTEOQAWsjFnsLXz3uCabHKgHu1ZZt+wWd9uSgXjBUxwCAvBMdsGygCurTSBx7l67CsocD9Jlgud37rXIQEsqCx1vMYbgP8prIfO8bVFNA1eTWcp1vjNvCh20ddmhcLtDzsaA/CPABm+lwF+4iivAzl1YC144y7BfaGDa85k3ARFWeJY42Yog7GG8mRJlZTCe/5Gg2Y4qx9CUoCsLiF5og7PWCHiPNZUfRPyNrbXcnARN6Ngr1GlNxdYbQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=Kmb7RQ/LWSZJc7y18pps7W1QLlJmq1dDUh8yEoLxUJo=;
+ b=FSGEUQUsHk+u5/SNRjDbnXsV4NW5GgcxB0gZRFYf2Kw/VFUb5At22z4nD9L6U4zO7VeYCDfzMv4aKRjgrZCdukve5HNntWgpDWe9x4ST7kH9no1sj9SVI+XvireMqvJMfEzaKt7k5LaTOSaLeQZ0fRuJR0uVgZsGkAxY1DB/Sc+Hqz33jcf5v1ePk+u2IWpbSn38IOylOlitZwoL27T9DpD/X5AitHJ7AXi15SfjitorrQ1FxC4B9YvVcuoUUfDi0l2LRd/INvSEDJcAWn2A6DGMcLthEjmi0I6jsOtCwmj/abtSmVLrzh0tjV7pg0drGaqYzXyFHa0QUqfoKmHDkw==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=Kmb7RQ/LWSZJc7y18pps7W1QLlJmq1dDUh8yEoLxUJo=;
+ b=BClsoqKAp0FiBbS4S9X/61VX71A+Ih4TJVibdlctIEgTWU/92OGm+GdPHO8yBZfEdS77PXDJUNo876r/1QokbEbxbZnLLNujtcXIjOnq10NuJNk8Sq5NUzCPrVk0U663Mn1HgSqH2jdJecW7S9umwYbm63xaEQ0WYvVDB63CnEI=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:36 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:36 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 03/12] net: dpaa2-mac: absorb phylink_start() call
+ into dpaa2_mac_start()
+Date: Tue, 29 Nov 2022 16:12:12 +0200
+Message-Id: <20221129141221.872653-4-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: cc866a38-c243-44d2-6336-08dad213c3d5
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ iuggWXcZJXEOSErb1ZZzjBuqfC/gGe7YeeiwwG0DfVVEQCCXXdBcgjMyJthGRkzpBMKk6ezHaxJPnqimhJPD1A+ncV1kje+1d61V1ZJZBIs5zTRueJnyj3FRb69GR8LzAmKY7Jnkufwhf6mqwHOFT7PcIQFpVnwwgxjnUbNCFAy9KO9BgrPhXpnZwMc0T2rLqeSKEBZVBV6Sq2djSXybZQXu0/4mXzrGFF0Z0s85PFTza3aPXG6FOgljV3FrD13RncP9DXvj9KYLDjzNu4ZDHpoPaITQmTgUxhC7KMXrVLkQ1+W4WZoB6zJlo6btxYx0hBJoyDMOR8KnDN0lcRRYkDqWELfvmS+FT+w+QGKi4GpAhMF3ODd8A7Ngmk3s+3FvsISu+T0v+NcFOImGhgHTU/BGDUuf8dIz67oYyCC7fc0SN4/gC0LWZI+E7DvoCB0LYNc/CNk42gpoObO5ms8QT6qoizSpejYddujHhbPjh0b5F4AwiVP3ho8NKc9AMouMnvDUQAD9nkuWKbUjBVVNxzfj5fJAmoUCbQpZ45j1WH9YhUCLOD+k9DB4SFtW1SWikvDCFJG8j7AHkCeNlN/1QptJyDvtWiCBa0cdy/j2TaDvDb+zPwGf09zQKneb/wdWWHMxRCEURsSDTwDvxp/6HxCMbpTCG3q7Ep8sXDE9UhZKtgZKUL1z2c/m9EG0S/s8G8VC1mt61nz2gXd28QZUnw==
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ 0FILjFMFlzFRlclFbt3/MDB75yWTheE8IX5WMzdzRUf0oCfDkM4v/TYdrgayBwPSCTQBlJtWc3CY9ecob9O4JlXM+osklEXmd+CDFgbXaujlgI+Ymq0tfE4oDBJj4byM3CKSNL3HPjC9PLIl/5bBC7XTbTyuvimRTTFCO6CF+nFVWKLX315+pvFAAH6wqhVGfIxhjqUtQTUOIv0yzHgGGvzT0rDMXJ5SkRkVWRslpLMtu9yEjqoqq/m1fxPp7BMkHRmtlRgHMYOvHeH0l2PRLRs8oXL62T7AlwDPFK7Ojr4KpfnfmyL6abAfVPsqqTOG60+p5Mm/9yq/4rmQjgJWz2bQtgvuk7meG1HUHxjG5dDPzH56zctE95uU2RWSLFe6Ex1Y0OZxsQJGxO9wggd8ipyyEHZ/yF3AnQSjWWZLIJ0yqVtxXRIf7r2SW4oJSCL1P0XASFBTxvxWfR2ICyvO68jhMiFcH121ExnznxUlg8SNMvamP1F56uMWirYTEguceZR0V43EQ94b+taVkn0SV5A/tqJ1et/itQmf9G3pKFGjelnQzIdTg/hdCQWDyilfjGMh8YkseBEbd4jcelg2goG0/QK/TcBnJIWDhjAQzZEGHJRq+aUDb8elrwYXemfnJXdOxsKsAkUtuQ79dhB7B48cjCmpej8kOnsxVtzPmCFE3ZStZDyAmNNXJjBIJQalRbYTph4fiPXlcLPh3SqwghLSwnX34S7XGltIp1x3q2ImQj1JPpK/7JoLWUETNIgBlBoKJfYD2CFTtPcEfAgXqjqPBzvm0tmD9nvaCG/aRGlBkmciTT/7MGXXFfVdBn2D8P/vPcudDkiF6USNDOaCFwMAPuqnXaX+k61vKKvulIutRSEbe7aBVtkho5FhnKXRc2H23yCsb834bdBDVTic9s6TjaDfz0t0j/guqv1Njsa65kMkhNvlBGpFdQvpAgOW/H8m5EW9Bz2ypjpEhVczd1h2yIVaPE2FMYfvsPbal6s4UnyUPaiuaJ4ROBt4s0RYq7nE0+ObjBdt01YnpiH/3rCawcqfWfwd+ggjTbJo8Fiw3QpYT45JcMeDZqxlQ5WRQqtLGyHEGtg4hFLcCaVGVUpG4bFTRX/T9MD4ykcrtyI1OS+pabuSQ2VklyOIQD6ai4bjF1IisZoijk5sDgNo6h+TQzoX28SS2C+G3rEAXAaefm6avW9X3DfV+oJbitojPxX6RzauhnlX2wBpx114kTydCRNCg3DdVYgecxhCFWDgx8zf4SrKvh86SgGeIp+/C0H7kDu44NC9kc8t0XL/Ik+zkVqQg9FTsoE3zZGmV83H2cP4y90LJw92m1ECCu9gLYKED6mjBGO/DX8tYMggBkKCXrQzFxpjbQAnlrAYG1WSpjKWM3853YByq+2FJfqNlmMNQePvZ2kHANG3A9Mrd/9ZeUuTBEGHt/m1lsUWmo7lHd7sWGo62iewjzaycMQmH9JYLdF4OmGV/3r7ZIHPbbu2no3pbkKnLa6aHzQOctPpEzvYcIXDzWcIVusNpUUFKLY87Kc+idD3wpWUhR4lT9jvXLStmnthk/6yjvdTk3SdFq/AVwcX+B8zkJZEh22c09uzM3crfLcHo6lbo/UnaA==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ cc866a38-c243-44d2-6336-08dad213c3d5
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:35.9662
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ NObDfl2NP+hYJHk1l/VmJ8q4FZy3GaSOeWMUzOnvRuqZMuYIveoe0e4WmIT+sGrnURqiGu2zkm+Czs7u/kdGbA==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+The phylink handling is intended to be hidden inside the dpaa2_mac
+object. Move the phylink_start() call into dpaa2_mac_start(), and
+phylink_stop() into dpaa2_mac_stop().
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c    | 5 +----
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c    | 8 ++++++++
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c | 5 +----
+ 3 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+index 515fcd18ed72..8896a3198bd2 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+@@ -2201,10 +2201,8 @@ static int dpaa2_eth_open(struct net_device *net_dev)
+ 		goto enable_err;
+ 	}
+ 
+-	if (dpaa2_eth_is_type_phy(priv)) {
++	if (dpaa2_eth_is_type_phy(priv))
+ 		dpaa2_mac_start(priv->mac);
+-		phylink_start(priv->mac->phylink);
+-	}
+ 
+ 	return 0;
+ 
+@@ -2278,7 +2276,6 @@ static int dpaa2_eth_stop(struct net_device *net_dev)
+ 	int retries = 10;
+ 
+ 	if (dpaa2_eth_is_type_phy(priv)) {
+-		phylink_stop(priv->mac->phylink);
+ 		dpaa2_mac_stop(priv->mac);
+ 	} else {
+ 		netif_tx_stop_all_queues(net_dev);
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
+index 61d31ffb5d97..c22ce1c871f3 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
+@@ -338,12 +338,20 @@ static void dpaa2_mac_set_supported_interfaces(struct dpaa2_mac *mac)
+ 
+ void dpaa2_mac_start(struct dpaa2_mac *mac)
+ {
++	ASSERT_RTNL();
++
+ 	if (mac->serdes_phy)
+ 		phy_power_on(mac->serdes_phy);
++
++	phylink_start(mac->phylink);
+ }
+ 
+ void dpaa2_mac_stop(struct dpaa2_mac *mac)
+ {
++	ASSERT_RTNL();
++
++	phylink_stop(mac->phylink);
++
+ 	if (mac->serdes_phy)
+ 		phy_power_off(mac->serdes_phy);
+ }
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+index 14f739e04a3c..42d3290ccd8b 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+@@ -702,10 +702,8 @@ static int dpaa2_switch_port_open(struct net_device *netdev)
+ 
+ 	dpaa2_switch_enable_ctrl_if_napi(ethsw);
+ 
+-	if (dpaa2_switch_port_is_type_phy(port_priv)) {
++	if (dpaa2_switch_port_is_type_phy(port_priv))
+ 		dpaa2_mac_start(port_priv->mac);
+-		phylink_start(port_priv->mac->phylink);
+-	}
+ 
+ 	return 0;
+ }
+@@ -717,7 +715,6 @@ static int dpaa2_switch_port_stop(struct net_device *netdev)
+ 	int err;
+ 
+ 	if (dpaa2_switch_port_is_type_phy(port_priv)) {
+-		phylink_stop(port_priv->mac->phylink);
+ 		dpaa2_mac_stop(port_priv->mac);
+ 	} else {
+ 		netif_tx_stop_all_queues(netdev);
+
+From patchwork Tue Nov 29 14:12:13 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058610
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 5A37BC4708B
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:01 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235392AbiK2ON7 (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:13:59 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:49166 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235340AbiK2ONb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:31 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2045.outbound.protection.outlook.com [40.107.14.45])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id BA8DE59857;
+        Tue, 29 Nov 2022 06:12:53 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=bvaytg86KEmfw2iqDWXhG1pkdUzRqivJ/b9/qHc7OVolaU7PjCzuemyzJQK20zn2v6cyh3UYaBbqBIawZ0wZ9+5cGQMjpzp9uZXVtEoHcSrqicDLEgOlA3qyY9z72d6OpM8W7nSzrXjoP4l/g8sDCzkN3rVNNjOcF125xprU5GgVAaoRDaBhJjeQIO5GeWJw+cLX5MQx13KrIjclHda9M9y4DAP8hPRcxTru2D9QUF+PD49mDskbvp6qlyV9w2XJ/s1ujpNZv8UCb4c27MON8pDcaqm9dvQqJcexCmThjy4htZ1hP9QekBHwowa/2aKvU5bDJCXLiJy/X8K6MB11Bw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=cfHpGI86KpnGpe6EaQDZo0YxeBHYEAjuAWqJ4/TUNAE=;
+ b=TyZwwrAxFWqJly45NF/22iYvgbo34hKlz+ON13cmf2/MdBFEoTi75jIPd9EidTpZIiNka7MhX2bSPyiWcS2h2p8Xpz5l1nMcwwPhDRha2ZTVTBTJOiA8/8acqSqFwPOMRPFbJxltYYUF8DkWerpdKehAO1fKETGj38fdOq5Nm+6mRjMGsnXyl2zEmNhFhOwd05zKlzLlOA+NJwJZOv7JRNLU3uPnQQQBpVQ3gwt9uSAblTx+WzmqdTQZ/KiJkiSnzxyFPNRLsWiPtmYQMXpChauaVrM1sOXAO0ea8HEVOaY8mf2xV21x5FF3OlKpfZWL9FkDrRFb2QxDcVs3Upqm7w==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=cfHpGI86KpnGpe6EaQDZo0YxeBHYEAjuAWqJ4/TUNAE=;
+ b=kdQeDgU22rhnIfm9V35N3T3m4WM0Zm9L7+95bRRjNTSm1qTVUNkFOH8xNM0ZE1BuuCj6t5E1UgW9MeJmpiGpm5JbD6h45S0Hyc35mmet3v7s+FcQL5CczM5RvbMQoXWOeEDdXfVhx30yM4+vcH9r1HtBneTI2SrP2ZaTk2hvd0Y=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:36 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:36 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 04/12] net: dpaa2-mac: remove defensive check in
+ dpaa2_mac_disconnect()
+Date: Tue, 29 Nov 2022 16:12:13 +0200
+Message-Id: <20221129141221.872653-5-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: ec5e3543-45f5-437d-48cb-08dad213c43e
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ 5jMzcbbBWFWt7MDnSWaXHWtS3XEufFjBQL/zFk689+GvFh46RSDQwu1b5taST4a9zXnvRdgS+Ai4HTtWf50y6bPC9aE5+OtOzXgLAurdRgyYUTYdPnW7xsz2VJmo+walm+DknNnEy0+l7RDOYNHLe0ckJXxXSnzOxpfIqpNEAJBTPB5JA9tv5vF/eZpgbimsBv7MnEVDtVw2s1OLbUQJKJU1cO5tiRQ8sDr3x7fwbtLwynEcHNA97IYrA0CcuZux4GhKxrejQW/wze1z9esnqAjFx6t0S9v0FWUCHN1XOGDXp5tlsl4I9fMS2XHK02N/VSKKojvkCcb80LTGOQ3o9743JG7ZOO6TZNzZMFH4vmX9jn5c8KN/o27p0LhXXx90xhao7oiiaogAIcM92K6rEcbG9xF+9SBUAs6kC7/u5U+q2JSkc9PwDvFUQf0w973guX+xZcYXo10RRwO0WfTnWTqOsDge5N+7sZeQOzDzHE8NuoeyReIM62srncSPUj92ZiSqxmi3CdvQeT+Y733jxYRFuN43ci1peY7ZASlc0MFfzJFUIXs54JIudiyDvb0O3MSVnsMbVVvvyEY3uM/B9NPZaQhxOLL3YW/70KvubUT46DygzSnsTwW/aOqzR9DAGGPCu8of7hcm7eu1EbIpSM9pE6+B6i7yhPzYC+zDzgrnMELeDjWO9dHVQlg0BozP
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ DV8jF1ip69Iv5OiNcwTThbaXKFb74rAvI5a7Z1mGL897CC0c+AgyM5Q6pibyNQD9ppxg2CsM/jIWAJJXd+AlT7GuzQpxhMcgSvcUlT2uZw2ZF5iNSUgSPh0EJgBRg1te70B6GcZXCtHv+KLz5bWngugAodxNxle74vi+7lU9nGLTvwd5Vwp+3Gz3Q+nNHt3VoPphcaidl3/NrXyF+TTxaaKQ53/K3gaS1n4eKS1hvFOAiwkk5aUhtiMNrVwaB3JorpkMWDPTkzFthG9kR81mRf0MCe4kxCd3wtdD0hOiZkF76o5vKv83GmJtYCkZ9xSbnmffY4ssRrI3tc+/n4QRw74ZlOz4CUdjz5Sg0auYT28T3mTttO1aAyF4y5mrwAyA20pUaOWkONCGIprHAYcauwTgkIP/IHaRJY7eAt3EGwUgUZlDaAqH/3fgkMc8G1E0pG8kpDGx0EQujiOuP1Uo0oiojGedx8mBQR1q6HPpJn+jsmqLs+/zEpmjJsT2y+7sKP2G2eMy7rLnejNrQWUZvuFdAe8q5z6kNxfEQa1KaOMGg5gob6+eQ2uNQ1lOVXO5llJrYPLkJ/9ii8q5AuWozg/j7/mlAPIuy2JOgNk9oO+2D9TOHQ6seM+DMSWDlxSFiiM2aw3oLXmc/TKtzKOe+hhKa48QTFTNoDFMQl4/QRXq/ClfcSsuju9NG45L2OBZS5Wfhc4bLxAsNSF1va5k3dbpWYQgPmJeLEjRjifgR9RADsr10DZhJ5rgBDKcfvVh9k8xzuDFhupzMti+/Zbo5K1DjixrfFj4vowzQKtPDEQwbxDTzizcE4n8T9NftIqXGTmoIawFKXnitkfOGW1X5CFfM9C3CUHshIN2ufNpOblD4W3rYZBsOaVvOmj2Ronmqp69Bb1LNxJQHqOli69ubKT/xn144QSmVW8N7DLEUZhEhAL7bwz4OQHXpfqnf9IMjrQJ79WR4etB3H/z9HVpVqueyo5AOCR1A3scmKkVKitXqT1V4g+7xZ3C/S/W5Hj2nijmwzFuZwp0OYjoPY/H7CmdCvSFckq/lf7Sao1999boqjz9GCpahZLFmzum9ZEZOfaoRb8xOMCl/1UxRTAr8TWBzoQ49PxU7sSY7dgzu/rAGASqxdWHBqsMZxgMPei9Zx2ju3O63ZmdwWkYgGQIc4Xmprff/UajwmbcJSUQFQkl73Klk5cJFvpxvjF9HgtJi5n7Nw3zZ2oKJJnIvfNpqf/qxN7TZkaJ/Zc8Pl0/hOARVbb83U7U7QoOvSkpGFIw52sqE9+hAQBwLZEmXZTf2ot7hAopGdC/eKh2mLz+GvQ4dC7m8fxkuMF6HxPF/PmkZHcMcGaPd1DYmjln4ZU1uKWoE8uayKXNMdMFlyxhxi0Frzr2Go406F+2ySEtLWH5JioImK7ZuuJhbzqXuGu/KOairpZtS9I3Vm4Eg5083AdDFRBn55IdNDbip05fpIx8KJNDP51AAtyGs3bSe+zYR9iioc0FLdKSen3IHaU7lSdFhpsz+r9BdIlXZFtDuLOT2qmX07tm6Cp6zpBv2xu7m2U+tGh6ROwf2FDR6ZTfPbb6FW2st1iZ/7dy6N4WErBDjjLrue+m/gE8Mv/q8p7/eQ==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ ec5e3543-45f5-437d-48cb-08dad213c43e
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:36.6849
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ q9HN/QajR0yfJkAZLeUoAPTgh/mgQxUeN6PlsuvfRMLbwG2KnF5EyOT8qq+nEWPv4RDJzBXzPj5/LESp7hKvGQ==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+dpaa2_mac_disconnect() will only be called with a NULL mac->phylink if
+dpaa2_mac_connect() failed, or was never called.
+
+The callers are these:
+
+dpaa2_eth_disconnect_mac():
+
+	if (dpaa2_eth_is_type_phy(priv))
+		dpaa2_mac_disconnect(priv->mac);
+
+dpaa2_switch_port_disconnect_mac():
+
+	if (dpaa2_switch_port_is_type_phy(port_priv))
+		dpaa2_mac_disconnect(port_priv->mac);
+
+priv->mac can be NULL, but in that case, dpaa2_eth_is_type_phy() returns
+false, and dpaa2_mac_disconnect() is never called. Similar for
+dpaa2-switch.
+
+When priv->mac is non-NULL, it means that dpaa2_mac_connect() returned
+zero (success), and therefore, priv->mac->phylink is also a valid
+pointer.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
+index c22ce1c871f3..9d1e7026eaef 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
+@@ -449,9 +449,6 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
+ 
+ void dpaa2_mac_disconnect(struct dpaa2_mac *mac)
+ {
+-	if (!mac->phylink)
+-		return;
+-
+ 	phylink_disconnect_phy(mac->phylink);
+ 	phylink_destroy(mac->phylink);
+ 	dpaa2_pcs_destroy(mac);
+
+From patchwork Tue Nov 29 14:12:14 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058613
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 85B8FC4321E
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:06 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S233961AbiK2OOD (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:03 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:46712 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S231625AbiK2ONg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:36 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on060d.outbound.protection.outlook.com
+ [IPv6:2a01:111:f400:fe1f::60d])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 154BF62057;
+        Tue, 29 Nov 2022 06:13:06 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=bDATt6u9kPXerY8IC4eAS6hR+MPICxQY6p3uNaa6XjrmifuMwiYppn0MhWo93MGmaHahNSPuj8ktR/OrvtamDezfnroC4X0wkJut3Jf9kVsY0vLpfJVKNjUlp5xxNv5KSN47NIZeSC1r71WMbOPUwOKLmRGHk4s5hIqdSch+YiVTkx8wmFy6QtN7iNvJqzvILznb6OlAnRZ1RnS12VRYsVNmE304d9gAImi/hqDUBR8FQU9lNVzhjxP5bE0hho4mZDR/5o/D1YgmCfGJ3DzBvfugPQAl+l9MrBSXo2RvSFgCQo5QgtgOVpqlfI1fjcLK2gIkTmu3OprFawvUUm9uWg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=OL7cN229WgYN1n34DlcBKSHuHNhmJvQ06ZayZTOX02s=;
+ b=XJrlF98BNq6FBPsXe2Mv9CB5UWAAIU/oS0wFR542pj6H3XhOu0C3OQ7SLtZJRTVl2UvPxmzWb9Ls9WxBbc8dMLKHmbtIfX4vfidGh+7uo9RYpL5mnhgbVsTMI5FlO+34m3Y6RIDMRb0XCpbBeUHsGgRwThBIZYJy9DU9B7s/f9EMJyYOdmWX0XKsSbar+pGA+Bik6WUqoHWlYFIrlxmviNquVxbPHhnv4PR68VY4B0qpObs1O9cMjcqhRr2roNSLQ21ncD0Ntef4vSLV09YeGVh0hYh9Fv9E/a6uLGK04GWZF7/lmcN5Xm4s1aF+iaFEe+WyiKARLPbj/mxHC+t6Aw==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=OL7cN229WgYN1n34DlcBKSHuHNhmJvQ06ZayZTOX02s=;
+ b=qr9n3JUGT4vbI1JpF/4ybjkDxFUrrVZZOSMAHxqa9mZ8F/6dar02HEX7cvez/alN6FVE0WzcFJpfb2VzyfiRN4Xf57gEsJFpL1yTI7E56y24sXBzLBnBMGHAtsAPfkqu0lE1rN1/JKqen2HxdMfq3Vapa6L1nNZDA49MkM1wEZg=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:39 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:38 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 05/12] net: dpaa2-eth: assign priv->mac after
+ dpaa2_mac_connect() call
+Date: Tue, 29 Nov 2022 16:12:14 +0200
+Message-Id: <20221129141221.872653-6-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: e33fb400-03e8-46ee-f2f8-08dad213c4ab
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ 8i9sQ7H3YS7AXnt7D/WVNoZvNh9d00iZ9oLddJ6M34aWv94vyy25FY70nya3MJr4dr63T874VquRdV9Cy+PAmUENd/xur/u8xS2I7hXtciPdlRAjrOO35dVbah4ZOSlETH2r/PhowYHixDq+wWEnRGA0mUqpW2lWqgK0P6TSx6eSisrEx9dhY9dOQiQfV9w7Enz8sTVTZawH0OyVF+mpcPD4CDqQPXS3cstj2n3/YQ8579AflzNrqvsIdB3yBoUxDcQGIS9oEEOwO6T3cKOcSOJKh+NNoYkXGNNXXEWkzydrJ51nDu+AaZTyD2uEAQc9IAQGqZ8LexodRztSovRl7QLB4gQpVrhfDZO3+u6lzixTx8ItYrIhAZiYA850KsIDoQm7e06XSmp1qtj90OMSQKD/5uuWQjjjsVq7zvua1iDS7frY/ogrWJ/MfnrWS18sY1QODwo/8QA2zDqMcDSRiEFmMNvloaRZsn2XHPGb9/6zpkWOAdQU2Ou+Az2sAf25S63bSgtTN8cPfBfTVInE2QfJJr7Mykq/Q59Euc2lEOBGhkICiDDfBvBcyJ/uJGSdM+aghxF/9WccLPwh/t676gQyS6jo7zMoFQ1rCp4Cdroia+0/o9Fjg9aRupk4LNiybW38AODvALNl/9PyXkFDfRoUR5bj2r7VW+kRvYlPts6UXag/IpsTEy4ARxHM+NYNE3LXjzI3gFtObW/AQK0jAg==
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ 1gWZjMvs84Wa+j6FRH8T9HdAi16VotA6emdxrf3i9VPeA4eCHhCeQ7TS/m3bretMkzsy9CYvWvwqpeufs+UYkrpOFoaYACb8/HwZea+dngqFYGobupHFZSYkA23yecDDBExpH7PMfb/l0od7R4OaZKPvVNwiyy2IGXNlGgtieRUjL6DkkV/IJukGnW7rUDcuzcIRsu9xXrGFPaplubHCwcW4EZiU2Fjo/I421lC69jRTVseQup9agKL/UsRazN8LshfZJP4Nd1nZ3Jrx+uM9J20UdxhOMvy7GFczyt4KtI4jVy8vNMbSjvARhFSdYzVReES7zXSzCPocvGe5YlAmG8JrgBuD4hryeWgFQzLLz39/XIBYoNpzgoNVJY+SX/1sZzVW6a3mCzvYc/3V4s3UkeKkMbO51haVWnO9SZMCKJdGW6Co7RSmMtdjof3lTkXwHKn001slk7vg0aB4y8xjMfrNw0LmGGPaRtLdSUkQ4KeUJQznnMz2cidakbPemG+QXC8FWCgL7Tx+FCmI+/SHg583L6VnC9J3pBXQQLAJYFtZRxNvHO0tP4tK2/nOrJlQx43TJpQSh0JA7T403iC+zM96XXWY4fsZM0FKe/Z2Vc+bTvClvhGATrDLjm1x2PbOPuys9Db0s58ufU3amnT3Y2rHpKGJcJICz1xOnLFISYXZDRT8MX47bzK7dbihZ3iJ2HLccrsdcpEc5PlR0DyntRgINqgWMAVnZgilx9akNwj7sJR/Bg1Qa3ffDzHZrylCpdip7UeH1R1xPf7TFhbbRx1DAhvjsZpnd1pbJ2dhPRtR8WcCyrmWQHbCXAjIeAJFXPt5FDtAbqiOhEQVLOA9FkwsUqjI7UKcr+j68cUMTZyOH37fK83iqSdyg9jwdGTG0j6/YSqX6+bERa25mh9o2a/eu4n8b7BD6kOj+uJ2RpD+XSpcyLJ88BXav/kb4jj4qZh+mhSWnO+LsAhcsemnPWKHFwoIPjXjWvQ5yQK1McY/202DRrVHW4A196Uisw9nO91YTOiWHe1N8Ak6X5sB+f3eILXK0t24YqT8GgVaX2tBh5lygsrHQQhhdcyatSaUnMeMjvZzpu8zgjYEdyKTHr0ew2Amcz82iAOlcFXLwxTvS2X1pnPqbi+DwoMhStGQ8jcxqqb7wF/WSQmdFgVTtOkMmdebWbOUhyNxZBtpOpmjiZ+DGBxE+ZDP/g2PENzWCrDc7u39NRVBT+Gvl+PmUn4KcghPJUCCyVtEegH4nsnq36kT6EBroOPH1PhbIdTtfckxqohWonTEPzK09JFpxK9+djJnvi8B6fFRhH5vwu4iBt5aR/YkzZZIuhEbl4jv4mqxLke+SH9dORypCl75/PHcS+F4UdzKsx478G3FbMsK0gUfTlSc9H1eP9dVx6uOAQol9TtzvD0rf59d79HerHr27e16XoFDzYSa8MSv4Q21y1sNSFAM0yaI9gcBafa5wK7fURWooAjGwPLQRARjU7emQ93pRFlTqmpYROn5AavazExLtUfLr0CD2tyFAnCt8NheImnuzvFSSekdqqd3/gIUVjinPU3VWwhD+8GuKDSvfOg+YSbi+7xU0nNnSxjWaGtYCLYc9lSQTMy/vsNmTQ==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ e33fb400-03e8-46ee-f2f8-08dad213c4ab
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:37.3567
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ WaId8kosgqSVZsHplNVGHWSAfD2CtN6u5xGuFjjfjLu9S38wlTgxdKbBXC0FDwppIFkYl9S1ItJcKtry1lt51w==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+There are 2 requirements for correct code:
+
+- Any time the driver accesses the priv->mac pointer at runtime, it
+  either holds NULL to indicate a DPNI-DPNI connection (or unconnected
+  DPNI), or a struct dpaa2_mac whose phylink instance was fully
+  initialized (created and connected to the PHY). No changes are made to
+  priv->mac while it is being used. Currently, rtnl_lock() watches over
+  the call to dpaa2_eth_connect_mac(), so it serves the purpose of
+  serializing this with all readers of priv->mac.
+
+- dpaa2_mac_connect() should run unlocked, because inside it are 2
+  phylink calls with incompatible locking requirements: phylink_create()
+  requires that the rtnl_mutex isn't held, and phylink_fwnode_phy_connect()
+  requires that the rtnl_mutex is held. The only way to solve those
+  contradictory requirements is to let dpaa2_mac_connect() take
+  rtnl_lock() when it needs to.
+
+To solve both requirements, we need to identify the writer side of the
+priv->mac pointer, which can be wrapped in a mutex private to the driver
+in a future patch. The dpaa2_mac_connect() cannot be part of the writer
+side critical section, because of an AB/BA deadlock with rtnl_lock().
+
+So the strategy needs to be that where we prepare the DPMAC by calling
+dpaa2_mac_connect(), and only make priv->mac point to it once it's fully
+prepared. This ensures that the writer side critical section has the
+absolute minimum surface it can.
+
+The reverse strategy is adopted in the dpaa2_eth_disconnect_mac() code
+path. This makes sure that priv->mac is NULL when we start tearing down
+the DPMAC that we disconnected from, and concurrent code will simply not
+see it.
+
+No locking changes in this patch (concurrent code is still blocked by
+the rtnl_mutex).
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+---
+ .../net/ethernet/freescale/dpaa2/dpaa2-eth.c  | 21 +++++++++++--------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+index 8896a3198bd2..4dbf8a1651cd 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+@@ -4624,9 +4624,8 @@ static int dpaa2_eth_connect_mac(struct dpaa2_eth_priv *priv)
+ 	err = dpaa2_mac_open(mac);
+ 	if (err)
+ 		goto err_free_mac;
+-	priv->mac = mac;
+ 
+-	if (dpaa2_eth_is_type_phy(priv)) {
++	if (dpaa2_mac_is_type_phy(mac)) {
+ 		err = dpaa2_mac_connect(mac);
+ 		if (err) {
+ 			if (err == -EPROBE_DEFER)
+@@ -4640,11 +4639,12 @@ static int dpaa2_eth_connect_mac(struct dpaa2_eth_priv *priv)
+ 		}
+ 	}
+ 
++	priv->mac = mac;
++
+ 	return 0;
+ 
+ err_close_mac:
+ 	dpaa2_mac_close(mac);
+-	priv->mac = NULL;
+ err_free_mac:
+ 	kfree(mac);
+ 	return err;
+@@ -4652,15 +4652,18 @@ static int dpaa2_eth_connect_mac(struct dpaa2_eth_priv *priv)
+ 
+ static void dpaa2_eth_disconnect_mac(struct dpaa2_eth_priv *priv)
+ {
+-	if (dpaa2_eth_is_type_phy(priv))
+-		dpaa2_mac_disconnect(priv->mac);
++	struct dpaa2_mac *mac = priv->mac;
+ 
+-	if (!dpaa2_eth_has_mac(priv))
++	priv->mac = NULL;
++
++	if (!mac)
+ 		return;
+ 
+-	dpaa2_mac_close(priv->mac);
+-	kfree(priv->mac);
+-	priv->mac = NULL;
++	if (dpaa2_mac_is_type_phy(mac))
++		dpaa2_mac_disconnect(mac);
++
++	dpaa2_mac_close(mac);
++	kfree(mac);
+ }
+ 
+ static irqreturn_t dpni_irq0_handler_thread(int irq_num, void *arg)
+
+From patchwork Tue Nov 29 14:12:15 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058617
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 92CA5C4708A
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:17 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235500AbiK2OOP (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:15 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47052 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S232415AbiK2ONg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:36 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2051.outbound.protection.outlook.com [40.107.14.51])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 654FC627F3;
+        Tue, 29 Nov 2022 06:13:07 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=Lajb0r5KHNEvluYY8Y6R+KLTE1ggxm20O8IUH7HYiRLejd0uDwEOPhc2WUOL4FL3C8rSrUvHcX+ROprRRPvCGWT0EaTcM6Ec3aJiSdCD/0KfPOEKBc6YZQ8jFjzAn4jOFdIEcO4m+Ka476ruqdfZhd3Sb7cBQ/m4/3FPtJ3CT0u4JaY9ssqy9jq5yVEQebgMtFuRLKMz1xyN+D+7woO/vezsUru5808/PzZ38TC545ABwWE0cZueSMWyVQJYWO/8/i+fWW1y+7wNcurt/9azcEWqmBAUTzD1LJ+D64C7DOxWDXOB+Y1PCpqWLEOxSIOE19ou9/Tg9Zui8wWZCqiVZw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=XyvZDwYSBi44mXcGWwr/hmUpK086XnRrOkzo/iUvqF0=;
+ b=Rsmke3boBk7z5ZeUk+Ro19ULLCMlTpizSOSyLnwB4mFYbbenEVZ6o1SxPRhnNOfrTGo5LxUWJPpkCcNd39lNBbHdmCtOuolLGx0wtJNhHfrOhZfQ6yhqIoYvqrxY42rbeD4vmqRl3fEQAO8ji/K5Q0U4oOHCxSWjOskwe5mNXYfqt+Swdb5Wtld2RzMHSIbLzrCYfqbZPhwwhsKuQvDT+xJX+sffo1YS80lORWAQ+Jqcfe2b0EvFaSstnb7+qv7lz20YKXqlqoYOy5qa8X/4Gb8BLbPe1GRjaisVYamIFEZFSaSBm1sqLpxxSlG3hmaKxK1oQQmsuKpGKHq9kk+CDQ==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=XyvZDwYSBi44mXcGWwr/hmUpK086XnRrOkzo/iUvqF0=;
+ b=daULig0ZDowAUsYWU2XLfjWOaDO6QRrImjqwhjDlbKkd9aA899Iwl6sy7HUgjyvUcX/qxXPczqn7ELBXQ1Tqged/C+RoypUuNpq/D80BG7vBBlTwXeaHMipj38Ept8vVQO30jccZ5++5VQXQDubXb6CquxQOWAhD50a1OWii9yQ=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:39 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:39 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 06/12] net: dpaa2-switch: assign port_priv->mac after
+ dpaa2_mac_connect() call
+Date: Tue, 29 Nov 2022 16:12:15 +0200
+Message-Id: <20221129141221.872653-7-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: fdecfd36-03b2-4412-763a-08dad213c512
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ m4kWf/IjJYXSygQq2CxKMafeZc0ypVIyP6ON+6SoeQH1uHy1UkRlyAJH3cUPhQfFbAXx/Dn2g2uCdaQ6w7a/QgXlkA+EkDulN7cSCjAiBqrTIEndGVGr7au/4nyyvZ/jujgjSekIrsWcwb7LhdOS2AD93g8REXAFU8ijbLEhJo/wtKEHWFKpCheX6C5sASUIk/mSQaVxUsxVaGSyNIN3fbFUhfZ7xIMEilsoXCSgmkh0hrR89SFyL1zJJW2nq3rCjCx2JBjWxTByKPCvivyrIf5SA15KM4q2J8v6xtqZiLLFn83VP1IHNtE3EHCIZYOBGO/l+M8MrDWSwo4etVixAJIiTj4h+EX6ubOxpCl/tdsV9YxSKxDuFQ4enKfrMPhibTboMZo7Ik3Y+zwgrAT17VZmzskNIlVCvdOJxuxu/uoEkDz4+AOo94HycnJmg0O0ULPcbfo+hiZ/XBqJ4ukDSzif+mi5vcPgTlKombJrFpka2nQUpiPz5XXxtybGdBoL/DxFv6pUAjBEZmerkS/9Xk2mb8Ct0JjmUvgIcxAoThdyeIXrE3EYtrfBCK3cjybDWGzNqVPV1jyRvTJ7fPnQyZPfzbG0STM/Wo1C/aad8V5IYV7uPFqBOVQ3OHq+XW54izepYiQlXtC7eH7iI/uwQGAsSBNT/64AB7MBsW4ORRV5xhRbTR1bnYi07C5z2sVxXXi06SskohQ3Ph7ZPU83Nw==
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ Twgu0C16xMJVlx4xyt39DxVVq9LcXu7ZGl+gk1pdwqSQgPcWQsZKZkYab3SjkUJWZZ4PxIo/9kFS1Jtfzxwin10D6eliRwyHZaZcD5Q0TIaR5Wv03RSyB5UXkmiTnk6rr4y600bFRV1otfoWZVBOnd9Iu1nKBoE7QuWwWUVaiURpxtIrYlpxHTfp3TjhvSIXmY0jc4EaMnrToAlZr/5AD8ck+Irap82Ji5QnSpQpcGwJk67lDl7ecxnl4u6JmEU5Gsde+t1clCTDnyZlYB6Un1D7433zKg1M2sKa9NRZQjAmSnPE3hp1pt0t9CpmS+8oYoZ6gC8B9i+p8Jf0/Sn1qnIWRhJQM+Z2fceDAjFm7yAPcjDoDb+JXqwTdzZPaP0AkFVRDf5a4tCouATZs6iHglZrPguvxKokmqsplABROAKhETYwMSlHt9Mez9n3EvUpKTii2fIATprMHd09jJldXIx6BPavYmGC4/3+X3g6R0zxOe4+xd+jC+gbrDzKUaguWrX0xNDqUXY92V7ZWMPYMR9vuOJEbUbnUR2Rj1CPSmuh+OxanHQRCxcwc3xpKjgHL/Vbjfqu/eKvBG5DhJCLeFmMIWC3ja3N5Qvje2ZildKMbVleXHTdO3aepyD2yLTo88Gar7a7lPgXrBbzpICM65d5Oii9F5uAKAPRKJ6libWOtVdFO5LYg8MlbqSZuFuKTZx60SRjW3YWh5RaobsZAKdoZpMtUgW9dAOGNw+SFAd2Qmv7mwOYRylrrG3qtha58w5N3vcKwnoVUwMboI2iTzvKxIcDLVsiPa8T8e6BxILsvzD9hoGanvDEsFMsBOzQKD0Q1lPNvBB0ULKiQ3PV0QrlufKNuYLgvvtEQ9xDpyZuoM/UeJQWvOCGUQ8NHt0KxRCNr4hLrd3Ndmo2QfZvAUlzlAH++/K4aLADsfq30XaXxJs3BFIP+jwfZAgc7NJThL+ovYjmsiCwb1my4I6rgtybfqmNYTdYI2ErSIU4CmTRFKgJkrA+qSjCu34LZ7VLHLLmV7Mty/CZgJXlWUMN+VGAivOyI63cf0e5rjJSSH0YU5we6fotx3kGA3a6WBGiK2cxAXkhwHejYfHw4VkDFbTu8KZUQnVwYqmfe4YcJV8719/hzbYVD501QJHWPskuV67Nh7RhYo5e0pOEOa/KwAXkINwNYVvuAXzPIp+nwX8z7HHH5iyXMoyXsdWubAlT/cpTPAkrVQWqB1wgs7YuwVchB6/2vhh4Sg1e9lUTzhC2PFI7ZxH2aTINwasc3VVJmoqzN6Fn0yPIaxzcX8vUuLZv4ojYsQhNQr1imCYLk+YlE9i/QANUwOxSJWRbEXhdP3HmiW04sZJZ9jo7kLT+D5RyQQ/KUv8/W+GOqRhd6R3Pskd1tW0eoTSlNUsJeIDXkKWTSXZ9DNdllWkuGEb7n5Ky1ERTzJt1KpZZuoX9HEInAgPjeLkAUqIexQjxsWm1wBO6UJ2mzzykSH7iacoFm0t2nUUcMkIihKpFC/G4uO4G0RuA9PcEBZjnM8ZCtFcd24JmIH6DpITDvT8w4JZVeg8z2/noa6Zj6BnHsvYwD4Ki7msoPiFMJa6llOGiHHKK/V9/99H/dve4PtpZCXRt1A==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ fdecfd36-03b2-4412-763a-08dad213c512
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:38.0441
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ TbMh+H0PbgH4pjbkmHnXuIl4H1Hdvd/9CkfBnpln9wpIN/HRxyGt8/PdIaB1zOf2SyuoWmmdxghr6ITqcnCxcA==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+The dpaa2-switch has the exact same locking requirements when connected
+to a DPMAC, so it needs port_priv->mac to always point either to NULL,
+or to a DPMAC with a fully initialized phylink instance.
+
+Make the same preparatory change in the dpaa2-switch driver as in the
+dpaa2-eth one.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+---
+ .../ethernet/freescale/dpaa2/dpaa2-switch.c   | 21 +++++++++++--------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+index 42d3290ccd8b..3b0963d95f67 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+@@ -1449,9 +1449,8 @@ static int dpaa2_switch_port_connect_mac(struct ethsw_port_priv *port_priv)
+ 	err = dpaa2_mac_open(mac);
+ 	if (err)
+ 		goto err_free_mac;
+-	port_priv->mac = mac;
+ 
+-	if (dpaa2_switch_port_is_type_phy(port_priv)) {
++	if (dpaa2_mac_is_type_phy(mac)) {
+ 		err = dpaa2_mac_connect(mac);
+ 		if (err) {
+ 			netdev_err(port_priv->netdev,
+@@ -1461,11 +1460,12 @@ static int dpaa2_switch_port_connect_mac(struct ethsw_port_priv *port_priv)
+ 		}
+ 	}
+ 
++	port_priv->mac = mac;
++
+ 	return 0;
+ 
+ err_close_mac:
+ 	dpaa2_mac_close(mac);
+-	port_priv->mac = NULL;
+ err_free_mac:
+ 	kfree(mac);
+ 	return err;
+@@ -1473,15 +1473,18 @@ static int dpaa2_switch_port_connect_mac(struct ethsw_port_priv *port_priv)
+ 
+ static void dpaa2_switch_port_disconnect_mac(struct ethsw_port_priv *port_priv)
+ {
+-	if (dpaa2_switch_port_is_type_phy(port_priv))
+-		dpaa2_mac_disconnect(port_priv->mac);
++	struct dpaa2_mac *mac = port_priv->mac;
+ 
+-	if (!dpaa2_switch_port_has_mac(port_priv))
++	port_priv->mac = NULL;
++
++	if (!mac)
+ 		return;
+ 
+-	dpaa2_mac_close(port_priv->mac);
+-	kfree(port_priv->mac);
+-	port_priv->mac = NULL;
++	if (dpaa2_mac_is_type_phy(mac))
++		dpaa2_mac_disconnect(mac);
++
++	dpaa2_mac_close(mac);
++	kfree(mac);
+ }
+ 
+ static irqreturn_t dpaa2_switch_irq0_handler_thread(int irq_num, void *arg)
+
+From patchwork Tue Nov 29 14:12:16 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058614
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id F0292C47089
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:09 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235123AbiK2OOG (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:06 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47088 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235173AbiK2ONg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:36 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2045.outbound.protection.outlook.com [40.107.14.45])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id BB0D362E90;
+        Tue, 29 Nov 2022 06:13:07 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=lQfCg052Fpy1gQmSyjWQW6JTI/ncWQQCKtizF+LTqQBUc5XE9Evmn//b1nxfDKOrPHXvRqyv5UqMGyxpkAKVl6PNHBm/RyQ4x4bjtofKxUvc7vMhm70rXotdRLQ8j6sKi2jg0HiTfoHMvYy6IznRDblbSDtf7Ln0weqvlRp9+wEIPpNlxWfb+iCTDfgM5kRmer6CUcwuStZY2TtSilv3AAblOrOp9rsg4O7ah9pPVU5RyuAuEUCkd9mDU5VSrvd7C2sKdc0SOP86pp2ips0HsW+I4V2d0+yHKcFuyiABURWCXfwTMae9dQnNXoyrTBfbrkxEjjmUQcCKqtpNzPKbVQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=fgBNFRD0uInGu3S7+UlK0n5Nx04PgX4ka+VdUIF0XgA=;
+ b=jPvjZRUXjIDLUyo+Z/ijURhhULbEbmeMqCW8IL2jyalP4Qf6DZZzjyEFbPdkun3iRt8ZbywDF3mQh3aaS7YlR0WB6VSNoepcFW9K/xFxoLYwWOh+XyAKa/Jwd6Iu6N2XXub02BZqdD3hcQx8yMXAOOFL8hrwGuPUv9IlkRZvTXknL1GzwQ7yXQyiP9AFBArkWslbevUl+gfJwClVu+aAwSkOVE9vD2AAd3gXaIpNIIefcb3v3lEhwbNOsEju0ejylRSXh5wTr478RZq7XTb838SW9dDgPfdbQfUtBHOl1shok49DYM3W+bepuA+7WxoDdnFL9yHDQ5huTdt22wwsIg==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=fgBNFRD0uInGu3S7+UlK0n5Nx04PgX4ka+VdUIF0XgA=;
+ b=sZn4IicyjFGqix72QeKaIlxbvxAp0JVoo8k+zW/o8VXCLILVTk8f5hBz4PhEKnSujt990jyHc+mQ8dz2JGfDkCfnwo9Tw1JUKm4DBQk+pd54r/9MpFiSDyw0DpO5PBZOV9CsdP/DvxHEtKVOJGIhCPVIxGl4sFMOhWPcYvltRyA=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:40 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:40 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 07/12] net: dpaa2: publish MAC stringset to ethtool
+ -S even if MAC is missing
+Date: Tue, 29 Nov 2022 16:12:16 +0200
+Message-Id: <20221129141221.872653-8-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 95de62ab-bdf7-41ac-f97e-08dad213c578
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ TI/PN2v5j/+g1tu6wlnMkETuFUwNPnyB8hX4FMjtiyfLGIR5YRhKfa96fkB9Xxqn77PsweXlHmyN+2tfO/zCCvGOwTRJ/YG9kKskFAEr17YHauJ5UWJcoADnGC9qxRbih54pCb8OdSiiOAK/TKCtxe/M6k3aiCx3EFMcHoKp6qFKkD6vVJEcapIUxJErt6RVqF5tGMf1ycXutDBEuEHhKLfXWGYx9vkh+jsV6X6u6MHtTxrBjQXY24hCe+s9V1kycxDYafCqs4lFEasqHNwofIysVm7wPosPP24eoXgrfnz1ZZ/kbSLzwkAjX9mhYl9r3q1EmLa8e3HLw231KSk3eqNJt1/X3gz4OSNVUzkgclCQk//JxSjUk2qbA0qF1n9g7Y5F5/aXVWK0Lm8Gx8IyeJgdLe5LkN2wrWbXTuoXLq9FV8yNUL3GnA730QKb+X7oYw6BzU8RWyfoghpA9U7DnqegDC8RxftXBfQjmSzcSgYeJCYVZby87HwUJUHUtCmSWjnQCbEj3RYroe8te1PxY80MF1sTDLvUD3CHs5sowM0jKq7X6wdmtx/Ag+JhmDu7RFc37gO19fVenWii+JlSswUE2hFl6IDCBflx27kWyDZBnTwmX0wH39rjXXPCtIGS9qYBlpnHp7TPzZ5CYO1yIvxJHJwt746YRM4UjsjlcwmIunFg768GElafCCC7Awlv
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ OXFvv0FKD3fZAwa5gWYVwKbzkgohl2PDdsbaJuZOv3lkpFi+WfCxcIYIW+aPaI+Dr9bthNYyZIAPSvm6o9P+lpg9LmeytlmjdxCFyEbCJMl+uZ3TpN6Dz8N7XYEWJKebNyAbHIbqosah8KNdFNNLd6ZTAdP6Ew0rZtR/OvjpLSB16LdACIp3BeyKD8cb7f4ER0Y7T2+xTjcZtxRCWFPvQot2AlZ9Wo9kRGGI3aC8/SgFs1vWz47jqbctsu30Sz1aCytsmJnHGgIRaRPRO7OAY0a5xugS1zFyPa2IZAT1M67UV78Q1BgiL4l0LHjxHdq0caiIkciDXaGSLqoNCvexv4TdCBelKY7BbfVntXAxhigitHdw6VZ4Lfi/CDGVCMxmu/wxBaZ6asG6ZCWKsXMz13yHbWuYxNjscq0v2yXn+bOl8HtkgS2smMdycW9Pt4UbGXFlgtD/67sQtOquEqrLk/9AFzzXyioYNAVdNpEwkqm7+JZp+CfvSU+B77ouqgYifdGtsz+ixxusIjjSv2V1wGyCdBz8X5rp2f1zJqmRTAr7oxHe5Au85aPx1xLnJ8gqWz3ioSYp5CY/DMi+LOXJwLc5DhE9Zso0PoM1fHgufalSCw7OntcA+E9paN8n9M/TpIhJOvtlaQIfLJXDLItAjX8imCyvaRTJBQbmkRWqO3pMMls4UOrfBehkOnz0tcldeui7k+1lm2HBuStHFuKb32Q7+HXUGvfQbiQ0jESqZMBIcNsUtGdapKmmc96RCdj/sLFFN2so3o9tyR+L/3rvWWQWGqtsigjXjFXjgKcHtqDaWV7txcPOa7xzB2BDqLCScbCKorbK0h/ObPM0PskkbF+JQo2rNaT87YBQJl4bOL8fb7KHQ6DcphZS4p7MI1ZBEKLxuFVaBhmRzFCB6XdtfYQ5L+DefDf1AbKNKeiicpfRKm2HgS+Ab9H6cKfOeH5cVRLekG3P/inFfySkzbNfartZZ0E9kCO1Dxi0F4wB+n2k0V3ftnUAD1f236Ictiq/c9gxN9VKW07O3uwaO/I5E6EnDpQxtg0QjAuE4Ng1QKLB7GwDRU528cYe00W6U6Q2UqO7dZPvnGefPyghiWcHsFitKLt2HfeDQ0vghtP5Du44WCUN3drJOi1Iqn1vlrD1rTZjdrv4j45W+6zBEky3RoIxwlzx/FhS0M2KBP4Q8mCare4dqaY+ds754pSv/w1NGh3G9y8rMRM5YgVaLhLEoxAgdCIlsMdnuTtug0afgQVYDCzVgTmAhU4E96cBRV61fUwLbsaxTURcqF59fY1SqXhd2iauUKTYEL6ZGibTJIXKQf8n88y9567K+fbFE2bkjn2EqINtxqFZLWFQQbytlz2WFFj3xdvuTNKglPYd7XI/mCiR+wQwxqeQuSh4yRQl7XLn5UzIaqVvloNjZYkCfnYHfF8YyQUyPTPTfbLdDUpsnE/YFOoNbW2Z2eTImwWEllAhgB2U+k/YuHltSnqRv+f9eL/8oG2VT5iO1C9DO2bFs8SdJwR7r6/mIsKtHd3WnDwLt7btafeAJd3Z/suL82lMUFaNGQKJ0t5jlpp+yxtw7B76INKBQ1jqklfxlmuLlkF4X29MvsTrA40NAyStnA==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 95de62ab-bdf7-41ac-f97e-08dad213c578
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:38.7628
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ kAems8mHZ7/uxL61ckyvlgE+D7pzIouzLPoFVWR4Z+y7lVQFNSpRhCgjeeFfVfB26VhSFh05JfeQrOEvPAPqsg==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+DPNIs and DPSW objects can connect and disconnect at runtime from DPMAC
+objects on the same fsl-mc bus. The DPMAC object also holds "ethtool -S"
+unstructured counters. Those counters are only shown for the entity
+owning the netdev (DPNI, DPSW) if it's connected to a DPMAC.
+
+The ethtool stringset code path is split into multiple callbacks, but
+currently, connecting and disconnecting the DPMAC takes the rtnl_lock().
+This blocks the entire ethtool code path from running, see
+ethnl_default_doit() -> rtnl_lock() -> ops->prepare_data() ->
+strset_prepare_data().
+
+This is going to be a problem if we are going to no longer require
+rtnl_lock() when connecting/disconnecting the DPMAC, because the DPMAC
+could appear between ops->get_sset_count() and ops->get_strings().
+If it appears out of the blue, we will provide a stringset into an array
+that was dimensioned thinking the DPMAC wouldn't be there => array
+accessed out of bounds.
+
+There isn't really a good way to work around that, and I don't want to
+put too much pressure on the ethtool framework by playing locking games.
+Just make the DPMAC counters be always available. They'll be zeroes if
+the DPNI or DPSW isn't connected to a DPMAC.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c | 12 +++---------
+ .../ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c  | 11 ++---------
+ 2 files changed, 5 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
+index ac3a7f2897be..bd87aa9ef686 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
+@@ -185,7 +185,6 @@ static int dpaa2_eth_set_pauseparam(struct net_device *net_dev,
+ static void dpaa2_eth_get_strings(struct net_device *netdev, u32 stringset,
+ 				  u8 *data)
+ {
+-	struct dpaa2_eth_priv *priv = netdev_priv(netdev);
+ 	u8 *p = data;
+ 	int i;
+ 
+@@ -199,22 +198,17 @@ static void dpaa2_eth_get_strings(struct net_device *netdev, u32 stringset,
+ 			strscpy(p, dpaa2_ethtool_extras[i], ETH_GSTRING_LEN);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+-		if (dpaa2_eth_has_mac(priv))
+-			dpaa2_mac_get_strings(p);
++		dpaa2_mac_get_strings(p);
+ 		break;
+ 	}
+ }
+ 
+ static int dpaa2_eth_get_sset_count(struct net_device *net_dev, int sset)
+ {
+-	int num_ss_stats = DPAA2_ETH_NUM_STATS + DPAA2_ETH_NUM_EXTRA_STATS;
+-	struct dpaa2_eth_priv *priv = netdev_priv(net_dev);
+-
+ 	switch (sset) {
+ 	case ETH_SS_STATS: /* ethtool_get_stats(), ethtool_get_drvinfo() */
+-		if (dpaa2_eth_has_mac(priv))
+-			num_ss_stats += dpaa2_mac_get_sset_count();
+-		return num_ss_stats;
++		return DPAA2_ETH_NUM_STATS + DPAA2_ETH_NUM_EXTRA_STATS +
++		       dpaa2_mac_get_sset_count();
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
+index 720c9230cab5..40ee57ef55be 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
+@@ -145,14 +145,9 @@ dpaa2_switch_set_link_ksettings(struct net_device *netdev,
+ static int
+ dpaa2_switch_ethtool_get_sset_count(struct net_device *netdev, int sset)
+ {
+-	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
+-	int num_ss_stats = DPAA2_SWITCH_NUM_COUNTERS;
+-
+ 	switch (sset) {
+ 	case ETH_SS_STATS:
+-		if (port_priv->mac)
+-			num_ss_stats += dpaa2_mac_get_sset_count();
+-		return num_ss_stats;
++		return DPAA2_SWITCH_NUM_COUNTERS + dpaa2_mac_get_sset_count();
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -161,7 +156,6 @@ dpaa2_switch_ethtool_get_sset_count(struct net_device *netdev, int sset)
+ static void dpaa2_switch_ethtool_get_strings(struct net_device *netdev,
+ 					     u32 stringset, u8 *data)
+ {
+-	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
+ 	u8 *p = data;
+ 	int i;
+ 
+@@ -172,8 +166,7 @@ static void dpaa2_switch_ethtool_get_strings(struct net_device *netdev,
+ 			       ETH_GSTRING_LEN);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+-		if (port_priv->mac)
+-			dpaa2_mac_get_strings(p);
++		dpaa2_mac_get_strings(p);
+ 		break;
+ 	}
+ }
+
+From patchwork Tue Nov 29 14:12:17 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058615
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 9BB42C4167B
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:13 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235444AbiK2OOJ (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:09 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47130 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235356AbiK2ONg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:36 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on060d.outbound.protection.outlook.com
+ [IPv6:2a01:111:f400:fe1f::60d])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 8D36761515;
+        Tue, 29 Nov 2022 06:13:09 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=ocNBFibuPqQ7Becsg2eHRGRlAVOmd8tewV4nakibqZqwr9a3DC6pc2+MHj+oPGjmRtFMx37QF4RebyHLiBHKCzHgA8H5T7euXZx8j1tWIGXdxyqtnC1VGfOFIq2vhHXqSbkgqPZkALAoVyQcTOfYfYg1z5RJH7z9YNJ1zKV7jvLVF82TpxPk/48qq4+FdEVyWlgFAqA7gmxlzvPHF/e/ZccSXi6ozfmvyKXSfnc0WfS3wv3r9A7jCcTTfMPVNkim2g3K+YJruhecEsIbuQ6KgI6WmNRktEjD/zkCIvcv8dm8cge1K37IU6fdD/mJxLvqgrUspniQcS6V/B5T11BrhQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=ezo51H+43DPp5KVZCqsH636wQ5JiPwfxPsHF2yGFLV4=;
+ b=nFQpNJCqXT7nVc0NE/HgoNsUZ/d7nsR0NkxZbArLJ6w1SSzLzBQ6xOUFhY1tr28c69Tka+l1C0QeaMHwFZVKa/qLpsd59GLZQCdr80kASFktSrOABhxSIBTiqofg6Fo6OH6m9nus7ExHIxigEpEGLjNQ4CMKoH1BHz2kUQdbRneOq9WD7oVX/OA4xx83pyW4JyRMiGEw/Ow7L4Zh/hKNDDz8r6aWVuC2nJ4zoO29guwYpM+HXfgP77ILWFFPmuaKK/EcTD8AVuXr5xnkatquHzcbPPUBtj38UXiSO6vJn34JT5bqG44uLB/89sBKIcT0dL1lidDIzn/wMlwy5ugKhw==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=ezo51H+43DPp5KVZCqsH636wQ5JiPwfxPsHF2yGFLV4=;
+ b=MsFZtCr3zqL8E+3nWv24/CkrzjNBVH1fs6ZLwIej5PYK4aCWucK8YxD7JFfNFBk3q9DM9jtxizZGSc4HM2qDqIY9ajlCp5h0fK/qeY5CzZJd5KK6B5BQzDCCcqMzwB0dQD/Vv10OqsMg4uPl2tIM2XNYEaQlymc4xtEZ2R4MXlg=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:40 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:40 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 08/12] net: dpaa2-switch replace direct MAC access
+ with dpaa2_switch_port_has_mac()
+Date: Tue, 29 Nov 2022 16:12:17 +0200
+Message-Id: <20221129141221.872653-9-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 39d3d619-4334-4802-05fa-08dad213c5e9
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ c409kLmaYJs4VG0tkaBPTF8Yv+8YFMqCbrVkyh5jus7m0h0zudVu4+5RYS26mHQZiXBHWnde/cV8g0EALbYoKcOn3nMvO9sX74IRO/Y3AOf6UBhM0c6yrdOeO9NDApEo3nsZWJGrx9XLAz5UpRGNmh9KTzs6OcZVL7QAL+elhoIRHcTyYEZ6PEsClJQ/sRJGGezzWCDgQICFUTwc7P8Y2GycY9M4ORJz/1+0BaHhlS5Du8PY8TEBsGGM+B40d0sBHRYJL+LYUcycYc5oR7PfZQLuC7s48ntPi5YjHe5wFm9j0uS+cL1TwcTe1yvE9ajVKYRsc7XJzzQ+l2hJS0f/4I6E2gzaC/ucU2RuCigyjxBHf7zAQ9giBEVc3m2JLL+QAQnrSRnC/dFHQCAIDRYJ29f66ZZMSHXdr9iSC8Y7LJHopIxKZqcAsYJo/YlaWGGsxytcyRe1QIor5EWHk8y9baWv2J0gbG3ciwXFIitVd4TnHaEL+pDMx1bcR5B9mZHsmZn0Wzj8w/P/qVBHFMul4v84/0SAfo2kuzFniugrd6OfYoO4oJpS8BlSCpcGx6aXMLq5aPfMqdsoW4XLAy1FI2JNlx66LEHbOLRYMwQVhOXtOBJcSlxuzj3QlmtMFcZGvssDbzUr3wZiGsY74kcIEyFaSa1hGRq2W0K/liWhipIErAO3AeyNoHwUdSS3g5e8Y9VVf7fgvITV/nQz/pGNTA==
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(4744005)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ lYtgopuQn7z3Ghx8IgyblV2MfJJWahx80eehdqjGPqPLXYNq8xOyRVyO+ZDYo+S3W4XHE7DINSkaZ+ztFdXoeju/YsjW2/UGcwD9BqRo14/Fmc6P7uOYxXmwsd3diICHbm/m60qs2emgCI+xmAUWgPd5OQTA3byP4qtTtXFuvvWPoQf4/4lNS/z5jOozajbN6hfzr4dxMdX5Zbze9+EQYAIvwWlG709CgUTUY1T2Kb7IJDitMyA77QSgDhNyAKg6u5c8gJQjTDl86hIUTC/f69qCXCxY7MkYCWXoghHf8SGeSVVxqfCgYRGSYj0PNpZ7EFFM+ucVSx/l/6uhJCfisS3SWuumNn1kBiy+ThfOfbSxSXTLzBv10BksbySVzhWM35aaCLeLUnwnC6u0uh0kOqK22A2XFf29JW3frkh3Y5SXSWw+POQ3sXuGunUtriUxBFVuyvXmwtPZV39NKF1M7IHntceJaY77lv0pOJHdzLQIOSEX5uajjTcVfTAKtAfmjZY/cJuFu3frz0Q8Difix4GVuE3DUeDdTroPEypFYswi4Jc5F8b15HR2V5ZoRP6lCKMuHgcIy8iYh7IrHTBD52QE4Sj4jJDBFBiUNVSqTeIymz7NFStaBAxDgJygHfarJwh+gy+mlUdnYoDfY3ftKabQ94kHXmuxUDcOvNVNb88jcl0KJ/ILhytJjko77tPkH6XEtiN1O0RoDPCYM/7P1w+Hj1HvlqXMk7m6AZEFEkZxxZ5jqI2o5ZjqfvkQOQ+nm926X+c0I0u3vF7Yg6KW/lq+mflKdHuuE6OmV8EqbKzYQv33rzp7+LDFANDbHzEWvfXrUylOcC0J0tIY8hBEbrmd2qGmPlcCMUih3kYCs00qt4l7XFrnZxqc3nsk5X3EsPQc1YwAShNIU147P3H12Z+C9fJTNLnAzQ3k6L2fjIGlD2wG/m9u1ppLY3T1Pp/NcamDNtacpMjPz4We8vhlJ49hPdHWfBNHJDn07A9NZMBGkrkb4GHWysXYtKQ8b2NwmFj567sO+gjdOCH2wv4iai3kw0e5r74hH9nSnXEX6T5ecCBEQGU3byXtbQhnzg8FgZkyzULK0KTpou6Nc/X2TLT64/RBzhaK25quui3UT5r6vUcEIWRVDpeuduE+nal+XbDlR+kFyv29baVEsdhVwiepyATyGzblVJTNBGe1qxvsJg6C6GDBIZa/YHQ86Bvwb8doBN9gWWqtUpQFw7nL2UKJJOSS99uRaA8LYIFqTD8BEMkfpBbqkQK/Zf7Csi4/Mu82bMCEotrW3zuEKMVa+HJ8XTYLbKtfPGPGQVCGc793i8vvG1E+q5gEqwaP1wabIN9yDCpPL2RXwBBkgFe5YQXdB5sc9m7TQGO8qgWa3twLFVf6RBv6pPROXp30Ve+hXPJjCVNuvlesIgR/oObn/D6y1LVBK0WgOnKbmGm6GzVuW13B61pmGmkSMXdgPgZ0OKzQfUdbXxLGZjQh0+UFnA+P+N+6DBCFFTJlP6ggMkaiRwHFKiWO3FueC94mxHOTw249bli90LGtQ5b603PFQZYTnUN8//hOIJwqJORyepz2Tqu7WiOfOh4hMpb6v+cPFf6NVcRUwXHVucuVbeHnIQ==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 39d3d619-4334-4802-05fa-08dad213c5e9
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:39.4972
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ XeEUHtdCE8AKZylsWn25gKNcn7HsNCXb0IwvmfWQ+trx6wI+qwZl7UPfnwzK67dtkENH3P0H9OQTcgLFUIByvg==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+The helper function will gain a lockdep annotation in a future patch.
+Make sure to benefit from it.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+---
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
+index 40ee57ef55be..76a4b09e2854 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
+@@ -189,7 +189,7 @@ static void dpaa2_switch_ethtool_get_stats(struct net_device *netdev,
+ 				   dpaa2_switch_ethtool_counters[i].name, err);
+ 	}
+ 
+-	if (port_priv->mac)
++	if (dpaa2_switch_port_has_mac(port_priv))
+ 		dpaa2_mac_get_ethtool_stats(port_priv->mac, data + i);
+ }
+ 
+
+From patchwork Tue Nov 29 14:12:18 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058616
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 938D3C4167B
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:16 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235489AbiK2OON (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:13 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47076 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235362AbiK2ONg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:36 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2051.outbound.protection.outlook.com [40.107.14.51])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 23BB960345;
+        Tue, 29 Nov 2022 06:13:10 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=LoER3DLXPCV+jQLKEUPyDlxyla7WNYNbgnIYrNkyCydoZMPGXNAJ4JcttAkpfEtEHZsqOA+gO4yZ9JYmRAv8QsPEsUxbMV4LvuQ4ggLkZF3nXrAM+Bop3L73k5aCKzbeHMRJbLCf6/ccFqdZmbr3AVHgPZIHOPpakRwr1SEDp/Dwhgywx6AAzB4IUMF0qPjX9JpC2xnMI80MZpT/fxSbkyiBOWHEwLvG7yP3Pw8QQmmX7bMbXh4o17JSn9LjjuLlPQ1PUhequdUs44zXzO1Jdlob19GKXNmBI2lJSo5coOslUukUEAa4O8aqQhEG38fUryFOG8R9/QNlGye4easvnQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=zlYyeYNjtccvTJFdx+DJV5OG7RVmdD6O6Q2XlD8jUPs=;
+ b=Argxuk2msq6A1mCn+mg8JuC8oTubAwgfHnGE6k9xy8/oHgvOvwUJ5dc2HiD65SxR5/aY6wrSAO1HL9H52MmHP53XDTe859NVrTSz62xTinlxLDnZobY2I+yCfp2ckSacnK88T8mlKG9ptZiKdJoZvhq0RvUV/LxMeo7CoChDQTXB4LdqV76BxQs+gjS6O3cE/hwkGwfrX2/1pPf9TQP7catR7rOwNxt5kA5Gc8hxdgUTC/RC81b3Sy+wg7u019xMGGw3FRqzmJeMpEREw/Z1aQpJd+HUcwRU9okR1HZCzwZ++ewO1/Y+pR9xpGjSPdGiSLiQCm7VA8fKWVk5IYYDHg==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=zlYyeYNjtccvTJFdx+DJV5OG7RVmdD6O6Q2XlD8jUPs=;
+ b=hho3a1/3nb78Xow9hfrQJwcFLtPdlr0p02561H1ytXo7tQtAsdvmH5ZBaBgaXduvoVacKWnfVlif381FKlfFipNiALfMv1WNFmrBKywb5cwS65DGtgyyFUTpnrYKM3L6g7PwCFDkB8XecuAV/aZMEZTzJnUE/GOC5OemTztTPVU=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:41 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:41 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 09/12] net: dpaa2-eth: connect to MAC before
+ requesting the "endpoint changed" IRQ
+Date: Tue, 29 Nov 2022 16:12:18 +0200
+Message-Id: <20221129141221.872653-10-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 27bf02e3-a215-486d-127e-08dad213c659
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ io75qtPVp3fnTG28qVkRoPQkYCPOzWUyf7OmmUabEFNZzPyF5JMNK7Ey6A090WjIBDDqfbGJFQfO9hk1uWiYl7wGP7aJ+5BstSBvEfXgolWxQpxw1nkS1MI+sZ5kaoVNNhWJfgdzt750Un8kLrcuxn04cS6e2sY7i1VOLfZz+TdaVRT0PKI2xeZCFMJ8+BMxHtXgviti0N+32+Ebw8t5fhqNPU4Pmv9Va38D/AOVxIzwhOclsGVkU5alzdMur1ACf1+MFdUvjBy/b/4v4gaUyZfvf+qldH1OAB6S9iOU5K2pIhC8cWg+IH2XzGMTWjFX5IwLjrZKVWe1nq4Ak1Ojz02p8jloSQH/kzP4yyYZM/q0YetFD7IJMZfE1oj3ysx3xFq1HWt/w/+1IJ49qm/XXjwn/JYETMdJVKyBJY1Gr8rU2UoB1xVzkeHtF88z3QnR0bfFlHVBpyL7KD0NiBt9RZyCAeLbgI3rn2Vw4oTZg9SGBk9Q/NQvuUT03Iaidy2lJ7Y2OKIIxKRZeBwuEMDlDtaPFocsk+n1LbQd+lTQ+mVEKgQH8/tRcWw7AMz/68/LjS0Gu/qvEUOohl47I2tM1Hv+ctBio/H39MLD4zknD8mh3BvHPvau1JA+OKkHIZIneLmPKzyF/YNpOyVOGzZUPtrS8cHjYowzHwMme9FXSNmxFPPB3EqM2GLYzItUTHKK
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ 5QJgABLLJJi/9qoB1XxQgXwH9VwSHTBD7jiRl0NewprGbX8w1AHtcKw8ZTGNS3ElR6lgKwwGa/VE32FiiP7Rokf46FpzRx40EPIWTz4JRZwudZd9XEtpnr+ksWOIWi592DgFDQhxZc4L6eNiBpuGLITR5WUKT/4SAfEY8klLzn/b597CiUWg9ZQt0eQB5T4b9njhu44bK1yLnTDns0FDeevGJRwz7XzkSd2gRTrWfySqr8vwHFZ1yveY+uo50h4bdYeHUPmDEDCgK57pqxVsADOCs3DhTKuxRwx1YtP5KlRZ/4UaLqm1ExY10WeGeHlgEzLuyepC6YCYUJDGVSEaM0glSEJGOT7SKG1Lda7Hv5qr5aP8iZLo+bvc8K+CFeyjibBq2jVwZhvvVLHKnOzeAqpf9lHnZM1q5bbgo79da+vMQDG67BTKF6XmAVaMXTdyn5xXBR7qRlkEuPy+jxpKb8qAdCXEfGQHgjwS9ZqAZbVKldTD/Eqh6QMQMQArRKEyRI4RnzCQSlimhYMuK3V3uBwljLUNVqJBEWgurE8RKm8hUTjCxXW+FlsqMHFk7K6NQooIgdgaLnSjkNUhu3QJ7xBzCFtVqP9wtU/JOWzAfQobYTM2TKZNkbkMBuHVhlQgJN6JP4wnqm/Lq60V20Q7u1xrnORrGZG7fBZkyRKqSKEaVbNtf3Gf8o3F0j14/X2J4+dMUG8yRBLvnIFIigpUSZbEm+pjrzuNIo+GbELRa7BVGO9a9DTBj5neLEVbbfrW3f1r7DztHEv6HZ90xRVpC3aqDeOF9YiM7gQsAjuAzjEOuuY5vfs6RfNgjTlTvoEYbpFdpbLUOMhmI6ysdaUD2y0X4hRPaBhcVOwhe19+giPv42/cZh4Ha43H79bpQmwOh3uoQ6SzDINpB0fF+UMZxRxbK1OtOERwaXucQJqxV8J33OrnCrmZQa2C49TUnKmUNHv8oJTbA+J3FPAbY8+8eLyk923DitrgqFbZFvfLI7kClE/3Sfl8uHmSPV68mz6VA7Ixj44tPi4OMb1Fn2PUTc6Qrs909nfhNvkbyH0vHL8YLzsTdaXUKkPKUaOsCmDLZciSJPnkKYZ099rGy9wRO2Q0qSqpHdjUmQGHDFXbu1TVXVa8gBfaYXnn6QjelGBI+ESP4vaI6WFEfsUi6SyY2QMCFFjarnFktjTecpqR0qeDpHK2QWPM+7JEiQwjUJs4qdy5EMEJ5UYZgoC3/aFNaVXDYenPEFlRgG6XMYl3A+NKyux8dN5pMzF1M1j/+ArAF9fl43kXpXafULBz2gHvOLJZh2SnO2hAdIg5XWmYhZwYTtoB53bfS1f0N1wWSE9sEcSsvLdNIKJiQeYowQlodwOZlVWxn6KeybjdXtxvJhEo/pH1o4X+TuUroE6ejXUY14fDqJFPnsUWi3tXdyawOolorAm10IWb1NcByoxIW1csl75WWGCoR5Y68XndbyXcnmSc9iFRpkaTl3RfVFmjaRWECIpL/VHASplLkarZYQnKOLVkpKYKtqRMADHvXC8GqDJdNOguG043/9nOtFH5rpUV/88pm78+mcFBDLWpBDwobeAVDV9xHMEc35AcTapkWfDYfI8+qt8TwPLuqTsNhA==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 27bf02e3-a215-486d-127e-08dad213c659
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:40.2002
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ v3EY1uERHrXdZVhlPdeTUx99NtZDhZJDwXmpPXiswbJD/qcI7ojMumT104hDkZvqQI4aR3cy3l22dt7y7wdM/Q==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+dpaa2_eth_connect_mac() is called both from dpaa2_eth_probe() and from
+dpni_irq0_handler_thread().
+
+It could happen that the DPNI gets connected to a DPMAC on the fsl-mc
+bus exactly during probe, as soon as the "endpoint change" interrupt is
+requested in dpaa2_eth_setup_irqs(). This will cause the
+dpni_irq0_handler_thread() to register a phylink instance for that DPMAC.
+
+Then, the probing function will also try to register a phylink instance
+for the same DPMAC, operation which should fail (and this will fail the
+probing of the driver).
+
+Reorder dpaa2_eth_setup_irqs() and dpaa2_eth_connect_mac(), such that
+dpni_irq0_handler_thread() never races with the DPMAC-related portion of
+the probing path.
+
+Also reorder dpaa2_eth_disconnect_mac() to be in the mirror position of
+dpaa2_eth_connect_mac() in the teardown path.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+---
+ .../net/ethernet/freescale/dpaa2/dpaa2-eth.c   | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+index 4dbf8a1651cd..b77d292cd960 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+@@ -4899,6 +4899,10 @@ static int dpaa2_eth_probe(struct fsl_mc_device *dpni_dev)
+ 	}
+ #endif
+ 
++	err = dpaa2_eth_connect_mac(priv);
++	if (err)
++		goto err_connect_mac;
++
+ 	err = dpaa2_eth_setup_irqs(dpni_dev);
+ 	if (err) {
+ 		netdev_warn(net_dev, "Failed to set link interrupt, fall back to polling\n");
+@@ -4911,10 +4915,6 @@ static int dpaa2_eth_probe(struct fsl_mc_device *dpni_dev)
+ 		priv->do_link_poll = true;
+ 	}
+ 
+-	err = dpaa2_eth_connect_mac(priv);
+-	if (err)
+-		goto err_connect_mac;
+-
+ 	err = dpaa2_eth_dl_alloc(priv);
+ 	if (err)
+ 		goto err_dl_register;
+@@ -4948,13 +4948,13 @@ static int dpaa2_eth_probe(struct fsl_mc_device *dpni_dev)
+ err_dl_trap_register:
+ 	dpaa2_eth_dl_free(priv);
+ err_dl_register:
+-	dpaa2_eth_disconnect_mac(priv);
+-err_connect_mac:
+ 	if (priv->do_link_poll)
+ 		kthread_stop(priv->poll_thread);
+ 	else
+ 		fsl_mc_free_irqs(dpni_dev);
+ err_poll_thread:
++	dpaa2_eth_disconnect_mac(priv);
++err_connect_mac:
+ 	dpaa2_eth_free_rings(priv);
+ err_alloc_rings:
+ err_csum:
+@@ -5002,9 +5002,6 @@ static int dpaa2_eth_remove(struct fsl_mc_device *ls_dev)
+ #endif
+ 
+ 	unregister_netdev(net_dev);
+-	rtnl_lock();
+-	dpaa2_eth_disconnect_mac(priv);
+-	rtnl_unlock();
+ 
+ 	dpaa2_eth_dl_port_del(priv);
+ 	dpaa2_eth_dl_traps_unregister(priv);
+@@ -5015,6 +5012,9 @@ static int dpaa2_eth_remove(struct fsl_mc_device *ls_dev)
+ 	else
+ 		fsl_mc_free_irqs(ls_dev);
+ 
++	rtnl_lock();
++	dpaa2_eth_disconnect_mac(priv);
++	rtnl_unlock();
+ 	dpaa2_eth_free_rings(priv);
+ 	free_percpu(priv->fd);
+ 	free_percpu(priv->sgt_cache);
+
+From patchwork Tue Nov 29 14:12:19 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058618
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 5714CC4321E
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:20 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235514AbiK2OOR (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:17 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47170 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235366AbiK2ONh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:37 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2045.outbound.protection.outlook.com [40.107.14.45])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 5DEB059FF3;
+        Tue, 29 Nov 2022 06:13:10 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=YOUwolairIQOh4CMSTCtb/oFKFpJeZMqtpVchdm1bheVB09ud/FGTlBCfoRwJ/C086kSnSeUKlfKzAslUM2c0cDtb2WXp9aOqY7iy8ZvbezBSBfzf0d/xEiSWktjLG9XmOBsTEWvKlfWiNlbnZlHpwkFHYcpnZcsnw3N5aEvYTY8RCM/xRkbZWz6i41gykUdWUSu0Tl/vqBYkO23ib1HsPAocSEePfxpnuyKlmtlK3i05D8RlRgU3llE5yImbfnxId9T7WU3JdOZrgp1b7LncUB02uutPdSk+fcByIZezHZBPg5qZiSBJWG6Jt0Wnse2NXxcXTEOObhueIebojyEqQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=pRVZHG6LZC//yPukE+GrIF/6r139Ks9S++FsZwOF6ro=;
+ b=No+LMriJMb9l07eRpAB4ZlWg61ju8GqFC63IOxmESfSc5moKvoagXSXAIBvv4XT0c5EzC9ZZBeJulRsK7s4GcKsjVe2wfgHYgbRaQD0+nPqXPayn3A3Huu87gLpe1XLuLv8H2rn2OImFWFtSaMUdBT43S9Gqs8gFXuCTQAfuSHspKvH5g8VmU1IdElHrVrUb8HTv0A9X7pEMFZEpZvAms8ew4yZKyEBCo8F0m55mLkTsWTD8VUluVcTC/iuclhVw0maKKkxz4qYjaQS7nOEdcdydMPUtNo6niHOb1oGaxo4e7CAuQfAsoPq2moNKSzeBusUkJvfZFWCbVciSQOI8RQ==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=pRVZHG6LZC//yPukE+GrIF/6r139Ks9S++FsZwOF6ro=;
+ b=GeDpJ4LcDOoayD2/0EAIq2q0qS/ujmg7t4BShgDH7SM3qNZAQ/jES0FjcV0ip2rAmSzGMcxzzVQh5pBNgC+XRE/fBOzr+JNuw43hh6YGttbhtKmw8sHHLJznqpSOwrf0bwuhLur4VAhdzUpE+wAOEvW+XobIeqDYarljlx64S2A=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:41 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:41 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 10/12] net: dpaa2-eth: serialize changes to priv->mac
+ with a mutex
+Date: Tue, 29 Nov 2022 16:12:19 +0200
+Message-Id: <20221129141221.872653-11-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 339ee98c-b4a4-4b71-1efe-08dad213c6c9
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ oNfmsdiB5eQ5xlm9DpBjFAW/WD5btZMfkg9kYdA+2zurfLAy2ne41KbYPV5XQI6lizy5HG6gj1KZ9fwKHV51i7vNQSNFTlbz5KtrKIF3YcfzQumzvn37IGkJKBLJICap2UNmOnLA6bzUbX/KCxHNYYSaN7rERb7P7W5nmrgDN6yieyeLgjC9tRvGnrVqKP39RdFaJ+2SSBGqMkoN0lOXQ4Mhgao+2N8NLybfH5bWXIp5+IspGRreuygfZAJbrujw9D7zjZ2zKyptqQ5rL5C16NROY9ns2Vfp8yvyz2H5XcVLSvNLKlQwXhZ7VwcPYGiuRenu6F4M4TeIkagxZiIWD0h20Q0xQ8LaHoI5K/Fe8S8VRLMsnwvmNQBbloPjFP4ZvpF2pfmGdPBUkXv2A5UqF4kb13iCtbpTk19uqD2RxmjAQVcVc8sWziYp8M7CjmD+hzsYIvj8NSgXsn8e2zYzjF3b/6dzvNbwc4wevZcJkuSviiuFpC7/DvK9og/70qBu3KD48U+T6JJnruSTc5jFBvohz6RvI3qpRfZTWVdZGpmoeUDDB3IKYz6eqolKZZqtnGAYFQeu07mXtzxkZ1Ti6f9mH6KisgPJRMmShcUcA7wMWoMaZq+bJqL7yh1MweNCQsYd+vljzSLI2ehiyel2VryDBTZUlOG9ooX62nWFRxRw94gsaNRHxTGtQdUysw68UKWRFpNMSjbOxVKsrNuN8SCsRZQchBYwS6UE/cyIEOs=
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(30864003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002)(309714004);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ qnC6lWnrEM/8Yp6VrdVh7oJ9y9JcwH5y/CQ+3aQWBnIDxzIpmgg2DjV4TdYjvaK1XZ81lsGuZZJxmS74pFCctyU8lZ1N7Sl48Jvmg+B4QXYQlN9WEDYzuaCvqZJBlGtO40UlasSiXE46w4KBJZk528TPHFsvciR4KNRnkiFBlQKH70n+EoLQW6nOClvwHMHCus+JNxD2SePLlTG11KPmX/Lm6EaomrrGFYGObUYOzZuIFBBj0pXkdyFp0a2Q5mWhopMxy6Hdo1a3JgeGIbjMmPDfQoNBCUHLS+CsZqV1VD+3++ETt6Dmf4W/DdQqniKmAVLHay8IWHHWvX1SBVtbcz6GCQ9tYfQUOQW2RzbT7xMa6v9uWfKgw/JINJFIe15SQE2b5jSHXXBbDv/He2pQ4i3E1zGzsJUwI2tqEr5r/xNTYyyRrlMYVgLH5vGjcKPkAAecXPFGKjKQMx7fbeITyKxtmZ36oi7nxqaeQP4W25h4PuHfMywW38s76LsCAzcebzjIU81enS0OyXXMsDNLobfkx6f73DpYW0/wtEAbhHF5mWDshf53hEIPZa/OBBAv3juxAuuw9Z0GFOZc7G/NsKZk4FEqrtV9E4zjwglhqwwtBQDxoAEuki2YtgWNSl5mqqn1B0zeBvj4VoeQjBbD8n+aa+YujfwNTPjxdlsCTXp6EXPiP3cqQdFme/6botzX9Kk3C/NRy3HM5IGA6xTVYxWvag5VfXsgxVS3LdmgQbokjV4m8vlI2+9F6xEvViRvHVbzoQ/gLXWjJjH3I5GYk92ToGMvxesNEUB3k0RHw48THZA6Vg0nn13SjxRAqss7xQu3bLu2OwClvoTPtouvybcMcMUX9x3uOw1KiX/EXWvQVui4vwguG3VO1JeNaCtQ0xfJN4lOWh/+nNymueudw3ZKm777QG/NxZDOxHoZ+Cl4XHiVe8ODdOvaCEU/yrtiAz4eJg2fAZT1I0tfzyQOYxruimyjPR4TxFdZ5BEH17tUirJ62cWwNC8IG0k7SnjHU1eLFz3thFmMZdbW8yK5KjvZT86w5CVGYyyKC2fHA/XCEwRlf2qZyI8iuMTNcbmt17cDO0RR8HQQ2p/FseSU76THjhuUPq0qS5Qlo7WV03RfSHiDJPJNmTwyO4Um3oAsMK/YwnAlX2lhwyUMwpHtEOVGh/qJqvons+Piz72wqoI8GKmCD7txyMSkJdR/RIDvR/+XJwjRitmKs/8Zr0Kb+auCSKYcwta9WcZ8ieNqlJB8JBjUgnx6FWB7v7QGtU812Ka8CsUuy2x4eEKt/OPHifinTuv7lxKlzkRDDNhG0SeFvL6mfvQ87oN9bMxAI2Qd6N/URPtsDZh2FFC7jPnHQ+diX3YaebnECxsIW4kwh/Hoy9hT2Eh1nImw2eWRh5nYHLjv+0yblotsc7CDPzSy0qxt7aW58+6dZ1rJFDxvfOR03gG8hZnf9NH4I/vdzdbj0mLtar5gxT97X9DkNMdJS3w7slyt3Q+bndeZtvABCuBfWMgOKHC3HhmdKB3UBLFCBHCWLFDX6hlxNGrCe7bROxYIN5ICb76wdX6u2j1Q2+ENcQBmB30GrVF58zteEl893XhcmEvX06SpnkusF4XLiQ==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 339ee98c-b4a4-4b71-1efe-08dad213c6c9
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:40.9189
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ wYlnXBnwTMPRBzHmr24M/BbbNM3121iiFSW/CEul+YP2OYyOgzBY6YWp4fXQiA8+rycdSjKj3CWHJNqYELK5MQ==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+The dpaa2 architecture permits dynamic connections between objects on
+the fsl-mc bus, specifically between a DPNI object (represented by a
+struct net_device) and a DPMAC object (represented by a struct phylink).
+
+The DPNI driver is notified when those connections are created/broken
+through the dpni_irq0_handler_thread() method. To ensure that ethtool
+operations, as well as netdev up/down operations serialize with the
+connection/disconnection of the DPNI with a DPMAC,
+dpni_irq0_handler_thread() takes the rtnl_lock() to block those other
+operations from taking place.
+
+There is code called by dpaa2_mac_connect() which wants to acquire the
+rtnl_mutex once again, see phylink_create() -> phylink_register_sfp() ->
+sfp_bus_add_upstream() -> rtnl_lock(). So the strategy doesn't quite
+work out, even though it's fairly simple.
+
+Create a different strategy, where all code paths in the dpaa2-eth
+driver access priv->mac only while they are holding priv->mac_lock.
+The phylink instance is not created or connected to the PHY under the
+priv->mac_lock, but only assigned to priv->mac then. This will eliminate
+the reliance on the rtnl_mutex.
+
+Add lockdep annotations and put comments where holding the lock is not
+necessary, and priv->mac can be dereferenced freely.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+---
+ .../net/ethernet/freescale/dpaa2/dpaa2-eth.c  | 43 ++++++++++++--
+ .../net/ethernet/freescale/dpaa2/dpaa2-eth.h  |  6 ++
+ .../ethernet/freescale/dpaa2/dpaa2-ethtool.c  | 58 +++++++++++++++----
+ 3 files changed, 91 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+index b77d292cd960..3ed54c147e98 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+@@ -2147,8 +2147,11 @@ static int dpaa2_eth_link_state_update(struct dpaa2_eth_priv *priv)
+ 
+ 	/* When we manage the MAC/PHY using phylink there is no need
+ 	 * to manually update the netif_carrier.
++	 * We can avoid locking because we are called from the "link changed"
++	 * IRQ handler, which is the same as the "endpoint changed" IRQ handler
++	 * (the writer to priv->mac), so we cannot race with it.
+ 	 */
+-	if (dpaa2_eth_is_type_phy(priv))
++	if (dpaa2_mac_is_type_phy(priv->mac))
+ 		goto out;
+ 
+ 	/* Chech link state; speed / duplex changes are not treated yet */
+@@ -2179,6 +2182,8 @@ static int dpaa2_eth_open(struct net_device *net_dev)
+ 
+ 	dpaa2_eth_seed_pools(priv);
+ 
++	mutex_lock(&priv->mac_lock);
++
+ 	if (!dpaa2_eth_is_type_phy(priv)) {
+ 		/* We'll only start the txqs when the link is actually ready;
+ 		 * make sure we don't race against the link up notification,
+@@ -2197,6 +2202,7 @@ static int dpaa2_eth_open(struct net_device *net_dev)
+ 
+ 	err = dpni_enable(priv->mc_io, 0, priv->mc_token);
+ 	if (err < 0) {
++		mutex_unlock(&priv->mac_lock);
+ 		netdev_err(net_dev, "dpni_enable() failed\n");
+ 		goto enable_err;
+ 	}
+@@ -2204,6 +2210,8 @@ static int dpaa2_eth_open(struct net_device *net_dev)
+ 	if (dpaa2_eth_is_type_phy(priv))
+ 		dpaa2_mac_start(priv->mac);
+ 
++	mutex_unlock(&priv->mac_lock);
++
+ 	return 0;
+ 
+ enable_err:
+@@ -2275,6 +2283,8 @@ static int dpaa2_eth_stop(struct net_device *net_dev)
+ 	int dpni_enabled = 0;
+ 	int retries = 10;
+ 
++	mutex_lock(&priv->mac_lock);
++
+ 	if (dpaa2_eth_is_type_phy(priv)) {
+ 		dpaa2_mac_stop(priv->mac);
+ 	} else {
+@@ -2282,6 +2292,8 @@ static int dpaa2_eth_stop(struct net_device *net_dev)
+ 		netif_carrier_off(net_dev);
+ 	}
+ 
++	mutex_unlock(&priv->mac_lock);
++
+ 	/* On dpni_disable(), the MC firmware will:
+ 	 * - stop MAC Rx and wait for all Rx frames to be enqueued to software
+ 	 * - cut off WRIOP dequeues from egress FQs and wait until transmission
+@@ -2607,12 +2619,20 @@ static int dpaa2_eth_ts_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ static int dpaa2_eth_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct dpaa2_eth_priv *priv = netdev_priv(dev);
++	int err;
+ 
+ 	if (cmd == SIOCSHWTSTAMP)
+ 		return dpaa2_eth_ts_ioctl(dev, rq, cmd);
+ 
+-	if (dpaa2_eth_is_type_phy(priv))
+-		return phylink_mii_ioctl(priv->mac->phylink, rq, cmd);
++	mutex_lock(&priv->mac_lock);
++
++	if (dpaa2_eth_is_type_phy(priv)) {
++		err = phylink_mii_ioctl(priv->mac->phylink, rq, cmd);
++		mutex_unlock(&priv->mac_lock);
++		return err;
++	}
++
++	mutex_unlock(&priv->mac_lock);
+ 
+ 	return -EOPNOTSUPP;
+ }
+@@ -4639,7 +4659,9 @@ static int dpaa2_eth_connect_mac(struct dpaa2_eth_priv *priv)
+ 		}
+ 	}
+ 
++	mutex_lock(&priv->mac_lock);
+ 	priv->mac = mac;
++	mutex_unlock(&priv->mac_lock);
+ 
+ 	return 0;
+ 
+@@ -4652,9 +4674,12 @@ static int dpaa2_eth_connect_mac(struct dpaa2_eth_priv *priv)
+ 
+ static void dpaa2_eth_disconnect_mac(struct dpaa2_eth_priv *priv)
+ {
+-	struct dpaa2_mac *mac = priv->mac;
++	struct dpaa2_mac *mac;
+ 
++	mutex_lock(&priv->mac_lock);
++	mac = priv->mac;
+ 	priv->mac = NULL;
++	mutex_unlock(&priv->mac_lock);
+ 
+ 	if (!mac)
+ 		return;
+@@ -4673,6 +4698,7 @@ static irqreturn_t dpni_irq0_handler_thread(int irq_num, void *arg)
+ 	struct fsl_mc_device *dpni_dev = to_fsl_mc_device(dev);
+ 	struct net_device *net_dev = dev_get_drvdata(dev);
+ 	struct dpaa2_eth_priv *priv = netdev_priv(net_dev);
++	bool had_mac;
+ 	int err;
+ 
+ 	err = dpni_get_irq_status(dpni_dev->mc_io, 0, dpni_dev->mc_handle,
+@@ -4690,7 +4716,12 @@ static irqreturn_t dpni_irq0_handler_thread(int irq_num, void *arg)
+ 		dpaa2_eth_update_tx_fqids(priv);
+ 
+ 		rtnl_lock();
+-		if (dpaa2_eth_has_mac(priv))
++		/* We can avoid locking because the "endpoint changed" IRQ
++		 * handler is the only one who changes priv->mac at runtime,
++		 * so we are not racing with anyone.
++		 */
++		had_mac = !!priv->mac;
++		if (had_mac)
+ 			dpaa2_eth_disconnect_mac(priv);
+ 		else
+ 			dpaa2_eth_connect_mac(priv);
+@@ -4792,6 +4823,8 @@ static int dpaa2_eth_probe(struct fsl_mc_device *dpni_dev)
+ 	priv->net_dev = net_dev;
+ 	SET_NETDEV_DEVLINK_PORT(net_dev, &priv->devlink_port);
+ 
++	mutex_init(&priv->mac_lock);
++
+ 	priv->iommu_domain = iommu_get_domain_for_dev(dev);
+ 
+ 	priv->tx_tstamp_type = HWTSTAMP_TX_OFF;
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h
+index 04270ae44d84..d56d7a13262e 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.h
+@@ -615,6 +615,8 @@ struct dpaa2_eth_priv {
+ #endif
+ 
+ 	struct dpaa2_mac *mac;
++	/* Serializes changes to priv->mac */
++	struct mutex		mac_lock;
+ 	struct workqueue_struct	*dpaa2_ptp_wq;
+ 	struct work_struct	tx_onestep_tstamp;
+ 	struct sk_buff_head	tx_skbs;
+@@ -768,11 +770,15 @@ static inline unsigned int dpaa2_eth_rx_head_room(struct dpaa2_eth_priv *priv)
+ 
+ static inline bool dpaa2_eth_is_type_phy(struct dpaa2_eth_priv *priv)
+ {
++	lockdep_assert_held(&priv->mac_lock);
++
+ 	return dpaa2_mac_is_type_phy(priv->mac);
+ }
+ 
+ static inline bool dpaa2_eth_has_mac(struct dpaa2_eth_priv *priv)
+ {
++	lockdep_assert_held(&priv->mac_lock);
++
+ 	return priv->mac ? true : false;
+ }
+ 
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
+index bd87aa9ef686..e80e9388c71f 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-ethtool.c
+@@ -85,11 +85,16 @@ static void dpaa2_eth_get_drvinfo(struct net_device *net_dev,
+ static int dpaa2_eth_nway_reset(struct net_device *net_dev)
+ {
+ 	struct dpaa2_eth_priv *priv = netdev_priv(net_dev);
++	int err = -EOPNOTSUPP;
++
++	mutex_lock(&priv->mac_lock);
+ 
+ 	if (dpaa2_eth_is_type_phy(priv))
+-		return phylink_ethtool_nway_reset(priv->mac->phylink);
++		err = phylink_ethtool_nway_reset(priv->mac->phylink);
++
++	mutex_unlock(&priv->mac_lock);
+ 
+-	return -EOPNOTSUPP;
++	return err;
+ }
+ 
+ static int
+@@ -97,10 +102,18 @@ dpaa2_eth_get_link_ksettings(struct net_device *net_dev,
+ 			     struct ethtool_link_ksettings *link_settings)
+ {
+ 	struct dpaa2_eth_priv *priv = netdev_priv(net_dev);
++	int err;
+ 
+-	if (dpaa2_eth_is_type_phy(priv))
+-		return phylink_ethtool_ksettings_get(priv->mac->phylink,
+-						     link_settings);
++	mutex_lock(&priv->mac_lock);
++
++	if (dpaa2_eth_is_type_phy(priv)) {
++		err = phylink_ethtool_ksettings_get(priv->mac->phylink,
++						    link_settings);
++		mutex_unlock(&priv->mac_lock);
++		return err;
++	}
++
++	mutex_unlock(&priv->mac_lock);
+ 
+ 	link_settings->base.autoneg = AUTONEG_DISABLE;
+ 	if (!(priv->link_state.options & DPNI_LINK_OPT_HALF_DUPLEX))
+@@ -115,11 +128,17 @@ dpaa2_eth_set_link_ksettings(struct net_device *net_dev,
+ 			     const struct ethtool_link_ksettings *link_settings)
+ {
+ 	struct dpaa2_eth_priv *priv = netdev_priv(net_dev);
++	int err = -EOPNOTSUPP;
+ 
+-	if (!dpaa2_eth_is_type_phy(priv))
+-		return -EOPNOTSUPP;
++	mutex_lock(&priv->mac_lock);
++
++	if (dpaa2_eth_is_type_phy(priv))
++		err = phylink_ethtool_ksettings_set(priv->mac->phylink,
++						    link_settings);
+ 
+-	return phylink_ethtool_ksettings_set(priv->mac->phylink, link_settings);
++	mutex_unlock(&priv->mac_lock);
++
++	return err;
+ }
+ 
+ static void dpaa2_eth_get_pauseparam(struct net_device *net_dev,
+@@ -128,11 +147,16 @@ static void dpaa2_eth_get_pauseparam(struct net_device *net_dev,
+ 	struct dpaa2_eth_priv *priv = netdev_priv(net_dev);
+ 	u64 link_options = priv->link_state.options;
+ 
++	mutex_lock(&priv->mac_lock);
++
+ 	if (dpaa2_eth_is_type_phy(priv)) {
+ 		phylink_ethtool_get_pauseparam(priv->mac->phylink, pause);
++		mutex_unlock(&priv->mac_lock);
+ 		return;
+ 	}
+ 
++	mutex_unlock(&priv->mac_lock);
++
+ 	pause->rx_pause = dpaa2_eth_rx_pause_enabled(link_options);
+ 	pause->tx_pause = dpaa2_eth_tx_pause_enabled(link_options);
+ 	pause->autoneg = AUTONEG_DISABLE;
+@@ -151,9 +175,17 @@ static int dpaa2_eth_set_pauseparam(struct net_device *net_dev,
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	if (dpaa2_eth_is_type_phy(priv))
+-		return phylink_ethtool_set_pauseparam(priv->mac->phylink,
+-						      pause);
++	mutex_lock(&priv->mac_lock);
++
++	if (dpaa2_eth_is_type_phy(priv)) {
++		err = phylink_ethtool_set_pauseparam(priv->mac->phylink,
++						     pause);
++		mutex_unlock(&priv->mac_lock);
++		return err;
++	}
++
++	mutex_unlock(&priv->mac_lock);
++
+ 	if (pause->autoneg)
+ 		return -EOPNOTSUPP;
+ 
+@@ -309,8 +341,12 @@ static void dpaa2_eth_get_ethtool_stats(struct net_device *net_dev,
+ 	}
+ 	*(data + i++) = buf_cnt_total;
+ 
++	mutex_lock(&priv->mac_lock);
++
+ 	if (dpaa2_eth_has_mac(priv))
+ 		dpaa2_mac_get_ethtool_stats(priv->mac, data + i);
++
++	mutex_unlock(&priv->mac_lock);
+ }
+ 
+ static int dpaa2_eth_prep_eth_rule(struct ethhdr *eth_value, struct ethhdr *eth_mask,
+
+From patchwork Tue Nov 29 14:12:20 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058620
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 95919C4321E
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:44 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235589AbiK2OOm (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:42 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47232 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235178AbiK2ONh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:37 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on060d.outbound.protection.outlook.com
+ [IPv6:2a01:111:f400:fe1f::60d])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id CDBA56204D;
+        Tue, 29 Nov 2022 06:13:10 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=CZPevIPJcUFUmzb6YIuOrgeGxBxKvpZQqOXXCKvaCa0XtZUMWj3eCSp3KNxAjZG1RG3T9Ezhj3oowBxoAHLb8lMlmlQr4IyvnsmG1zDfCFedtwYIo42MtKzq72BHzFkT18bwzXNbGtxh+Kge8xjlUroxluAhwCVDqCvu2uLDLdFNjAudAKfZ5Sjnx/V8iH8e5ly5MpcSMIWK/dNYOAXiHU08QB7YO32UpkqNYJLk14WTpWXSKz4QPG+u45hzcKtQXTXvVsQWh/7qjYqBT8BTgmVO5+5ySib38Rb6/V8xgKAFBFwxhhX9WuGtcCV5Vn1nHApBF5T0GBkTCW53nlQRHA==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=JJ/jt7Mm97BZYBWJAmBVw0WtcNQ5mi3mBhavRRfv6PA=;
+ b=Ti5YKVL4vMXx/gsqmHX0A/Ii2CsSEDbwJOzCGNYZ4c4zEWxipUfNEbZ+MkFL6Jf0/7d4QNbakWb6YBP4zYDFyRBhBtCSu8uQYY+KDJFfedZHCi6x8Ckg7Fg0ca99Mjt5v3AKPhMsgBjnF0MSO5YfaTw27z65QlmvHG0MHXn2bzrsfO07HtWP38hDxbiktnF6iZpiopNTkvMcUkrQ+6NB+AWCLtml7PfyCCc8UPVjzCjhcyvOp50RrL47c9yvWQKxLEZ9gMr4IvNHKbs94BkSNdNzww4SzXC5RqXHrfKsLNFEWFSYb/hVK8xHQDqnX3aXYtD+fjLMCq+Qkb1W5Oh3zA==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=JJ/jt7Mm97BZYBWJAmBVw0WtcNQ5mi3mBhavRRfv6PA=;
+ b=MyIHNM9Hkez9XBygxWbmbnhMDcrwwEZ3wy/mOyt3BLVeUe38jTrVJmVbCChO+Wn70Tc7bf2WRq+lQiNCfmIO87OIj9xLn/iZLHql24MpkQ7kYIqkNMUNO99vd7IAs09f7hJIKQR/5r2AVCYRSTYe10DzdacZhm/fLIAiCOqntfA=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:41 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:41 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 11/12] net: dpaa2-switch: serialize changes to
+ priv->mac with a mutex
+Date: Tue, 29 Nov 2022 16:12:20 +0200
+Message-Id: <20221129141221.872653-12-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 85db525f-a338-454e-c933-08dad213c736
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ xPouyqnKQkCqtKQvEc7AaC/7w7lF4yMV5TMZKlBFokH/9skmJTnkj7JaFuc/vQo2yFMqaZa7U1RtoyIkqtLw3JpUuPnS04EjYB2V6rrPWy7RVx1YZK4X2FjxpqRTds7dPYmFJNoNzPjZi/7fJPQfUpaNbc2kZRO5xe1GhirX+C9QbrDEYuadJJsaxzab6Dls/TPgC6gK9/DDWO3gngyMlS2/mmxS1YGxpPNn66TqfrQUIPO8JtRadnTjSR6n/IlqnnP3pxZe+HYmjQUA1wKS8ZbTdhCFvcb/uroLq6SqtAPzknB+wBBvxD3p/B65IZ6X03Jti6XUzeLtPdyaXJr1iRyjgNXrufy+Oqe7yTZWff71UOlU/81ljOuhywNlMk+TyAMYVw00lNXXz6KZ+y54IXtaPBWnuTM+KljDpi7lAqX/Ui7jTHz1a7TkvfQcncUnT3KaJebO1HrcW9Nk0/LrHrUX4iCi/DXYEEvSscbKbzdieeDyVryDtpEHXle+wf+gSJ3EuDUXx9MmEaHQQr2V97YOust7sFactEIMgZOxPWuEGkmIsyTcYG9ulNH/W8qxxrbA2VxqmbjASIPNw67q3oq1StMYD+Bbedu2kI3F7ueMZRGRbsx1kWEejq19hjApcVqDmBk20KwFwiORfHd7dqHgyGeMBE5AbciOKgmQH9ycR71R1p2CnBR6FWM2/bnK7CHFtrowoNk4U4nP8G3VdWZH63doCxa9baJ4fTkpTz0=
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002)(309714004);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ r04gQeWFTjJhbHEJPUYPoLmEcNp1Ch8kB5SdFGev9sRbrHPAjhuN6Gfa4fVvO603KHLwUyyGy2v4Y0Ck+CQSImATqP7cW7dNGuy7Pv1IRcoGgj6L+0kH+Tzfz350DJHaktChIMKPsyJ7h8fSJtVuRJQ1sP5+PfCLt9Bgp81hi4qlhrN2YQIWztKgYB21/rrr0OLf5djYBBbvymeO5jTUlBDBtQMlbnc6XA1jdb52t/tUJMck7cfsi0x2HK7PSPu6WiOltqP6zrP4raPlJSiH2Z524K5wBgq6wu1PdCPxjp226vOQf5tC98D3hnScZU10VJ6Gdp+BHG5mEv3rtQHOLijf3i8yXv6wN2sbIHM5nOsxebSRp/nM2KpVnsMnojHYAku6fOhdlGEDl9t9EfOTR3AaEg5yDCKt2/RbgA5Neb9ZghvK4cphEWZW9I6jP2EalMibBOXXftLzc6ovdgmclohVve3/+1O36MCWPMC/uARer0tJXnJTvkaAgeohgqX4d1vWx/DcOq8i1MndfGPKJFE0Kv7ZEsQYUTpOEtMIGp2v2M6QdbhO16hY7uwBTV0smuwZ59mQBrFIfY9exyKgXmq83JcH3CfDsZs6gmaAD8n1EHKAaSNqFAFwH8xSMRcnimWRjG1ZSpkneBXkV8NaNVmu4+yDdIg+xogRLmRvEvgg0kXlboOFkWzwM0u77b7tkcGOUwi8+09OLJuySa5r5EWG0i4UZ2rhQ/DfxI5vKwkdJmmCL0WVo7D9hOV78MtITx5XnPpPCl99cNM6x+sIacOAk2EYhY97SF7+dOc8FpQH9YChKWm3KXW/7R62TIF9YYzYl5qS6HYYzld0R3UA5eZ9y0ONwGQL9/9//eJhBGvcLwMCDMINVf2hiPOgwbn4Ikqsbhhb9KyzAbWErQVs3lvIHEWaGYs78W68TgVpQB3yhapBIxW//tM1V3UAhOlOrcWjQjH5l8Mj+jVG5Dl5LJmFEyGVytQrBIIx7vIvQiEB67ykRdInZsT/oCahwHhlUofc5pB3DIrZzJ8XFNaKjnJn7cmcxT+oU2LXZdOjb8AgD68QBsmw/oPH6FMuvZHGigPz/ruddXEX4RpSsPVAZmpLxk1kiF4Ml5zYAGXx/fhrhMDDV5Vk/IHzSAWv9yyYlgMRcXZMxmtxTel5lJeO/BN4H6b7IeOr16RY7DKywXT1TJkMcMxrEjoAB+FWlROYM8f61K0FVFSuaFz4uwmsaMb5DtfkII2MIZzD5KVrJlMyXp/kevRX6O2qHXEMm5DpFVJFRb/379EoR2CBefOltNniu1bXhcDgtbcOkafp13/f7P1s4jUp4AaeVMzDH62f1PAkp+KWhdMkmMS9zXdQgTkrAaAXlmubo6Jh6t5gqALPSTQtMSQ++V5YY9kgRNYjpE4wOh3fvxlflkUAjcgGwLFNvxSmhl+CkVVwH26LOTYnMOXKl3OIrRiHgc2go6VbpGYAz4QkOADhDIx800pb8DTtbgO8ga1+6kfazr8oGPlOLurVuABJIl3mwNOw/N9z2BZgdWg5/YwFQ7Qx3C7u3kwDS0+huACs/gdAFL0EBOFKM6vaCDhe7XI8yUtAgAwIMFtMxRX6XYhpZldDdqWLyQ==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 85db525f-a338-454e-c933-08dad213c736
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:41.7001
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ qGWDX1pXTflaRFji6oCsldaunp7sEFWcIp9cQXz63NcfjUuqNQI9GLPxne+weFV9AX6fo8KbjXQlfe/cePAx9Q==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+The dpaa2-switch driver uses a DPMAC in the same way as the dpaa2-eth
+driver, so we need to duplicate the locking solution established by the
+previous change to the switch driver as well.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+---
+ .../freescale/dpaa2/dpaa2-switch-ethtool.c    | 32 +++++++++++++++----
+ .../ethernet/freescale/dpaa2/dpaa2-switch.c   | 31 ++++++++++++++++--
+ .../ethernet/freescale/dpaa2/dpaa2-switch.h   |  2 ++
+ 3 files changed, 55 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
+index 76a4b09e2854..6bc1988be311 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch-ethtool.c
+@@ -60,11 +60,18 @@ dpaa2_switch_get_link_ksettings(struct net_device *netdev,
+ {
+ 	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
+ 	struct dpsw_link_state state = {0};
+-	int err = 0;
++	int err;
++
++	mutex_lock(&port_priv->mac_lock);
+ 
+-	if (dpaa2_switch_port_is_type_phy(port_priv))
+-		return phylink_ethtool_ksettings_get(port_priv->mac->phylink,
+-						     link_ksettings);
++	if (dpaa2_switch_port_is_type_phy(port_priv)) {
++		err = phylink_ethtool_ksettings_get(port_priv->mac->phylink,
++						    link_ksettings);
++		mutex_unlock(&port_priv->mac_lock);
++		return err;
++	}
++
++	mutex_unlock(&port_priv->mac_lock);
+ 
+ 	err = dpsw_if_get_link_state(port_priv->ethsw_data->mc_io, 0,
+ 				     port_priv->ethsw_data->dpsw_handle,
+@@ -99,9 +106,16 @@ dpaa2_switch_set_link_ksettings(struct net_device *netdev,
+ 	bool if_running;
+ 	int err = 0, ret;
+ 
+-	if (dpaa2_switch_port_is_type_phy(port_priv))
+-		return phylink_ethtool_ksettings_set(port_priv->mac->phylink,
+-						     link_ksettings);
++	mutex_lock(&port_priv->mac_lock);
++
++	if (dpaa2_switch_port_is_type_phy(port_priv)) {
++		err = phylink_ethtool_ksettings_set(port_priv->mac->phylink,
++						    link_ksettings);
++		mutex_unlock(&port_priv->mac_lock);
++		return err;
++	}
++
++	mutex_unlock(&port_priv->mac_lock);
+ 
+ 	/* Interface needs to be down to change link settings */
+ 	if_running = netif_running(netdev);
+@@ -189,8 +203,12 @@ static void dpaa2_switch_ethtool_get_stats(struct net_device *netdev,
+ 				   dpaa2_switch_ethtool_counters[i].name, err);
+ 	}
+ 
++	mutex_lock(&port_priv->mac_lock);
++
+ 	if (dpaa2_switch_port_has_mac(port_priv))
+ 		dpaa2_mac_get_ethtool_stats(port_priv->mac, data + i);
++
++	mutex_unlock(&port_priv->mac_lock);
+ }
+ 
+ const struct ethtool_ops dpaa2_switch_port_ethtool_ops = {
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+index 3b0963d95f67..0472e24191ad 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+@@ -602,8 +602,11 @@ static int dpaa2_switch_port_link_state_update(struct net_device *netdev)
+ 
+ 	/* When we manage the MAC/PHY using phylink there is no need
+ 	 * to manually update the netif_carrier.
++	 * We can avoid locking because we are called from the "link changed"
++	 * IRQ handler, which is the same as the "endpoint changed" IRQ handler
++	 * (the writer to port_priv->mac), so we cannot race with it.
+ 	 */
+-	if (dpaa2_switch_port_is_type_phy(port_priv))
++	if (dpaa2_mac_is_type_phy(port_priv->mac))
+ 		return 0;
+ 
+ 	/* Interrupts are received even though no one issued an 'ifconfig up'
+@@ -683,6 +686,8 @@ static int dpaa2_switch_port_open(struct net_device *netdev)
+ 	struct ethsw_core *ethsw = port_priv->ethsw_data;
+ 	int err;
+ 
++	mutex_lock(&port_priv->mac_lock);
++
+ 	if (!dpaa2_switch_port_is_type_phy(port_priv)) {
+ 		/* Explicitly set carrier off, otherwise
+ 		 * netif_carrier_ok() will return true and cause 'ip link show'
+@@ -696,6 +701,7 @@ static int dpaa2_switch_port_open(struct net_device *netdev)
+ 			     port_priv->ethsw_data->dpsw_handle,
+ 			     port_priv->idx);
+ 	if (err) {
++		mutex_unlock(&port_priv->mac_lock);
+ 		netdev_err(netdev, "dpsw_if_enable err %d\n", err);
+ 		return err;
+ 	}
+@@ -705,6 +711,8 @@ static int dpaa2_switch_port_open(struct net_device *netdev)
+ 	if (dpaa2_switch_port_is_type_phy(port_priv))
+ 		dpaa2_mac_start(port_priv->mac);
+ 
++	mutex_unlock(&port_priv->mac_lock);
++
+ 	return 0;
+ }
+ 
+@@ -714,6 +722,8 @@ static int dpaa2_switch_port_stop(struct net_device *netdev)
+ 	struct ethsw_core *ethsw = port_priv->ethsw_data;
+ 	int err;
+ 
++	mutex_lock(&port_priv->mac_lock);
++
+ 	if (dpaa2_switch_port_is_type_phy(port_priv)) {
+ 		dpaa2_mac_stop(port_priv->mac);
+ 	} else {
+@@ -721,6 +731,8 @@ static int dpaa2_switch_port_stop(struct net_device *netdev)
+ 		netif_carrier_off(netdev);
+ 	}
+ 
++	mutex_unlock(&port_priv->mac_lock);
++
+ 	err = dpsw_if_disable(port_priv->ethsw_data->mc_io, 0,
+ 			      port_priv->ethsw_data->dpsw_handle,
+ 			      port_priv->idx);
+@@ -1460,7 +1472,9 @@ static int dpaa2_switch_port_connect_mac(struct ethsw_port_priv *port_priv)
+ 		}
+ 	}
+ 
++	mutex_lock(&port_priv->mac_lock);
+ 	port_priv->mac = mac;
++	mutex_unlock(&port_priv->mac_lock);
+ 
+ 	return 0;
+ 
+@@ -1473,9 +1487,12 @@ static int dpaa2_switch_port_connect_mac(struct ethsw_port_priv *port_priv)
+ 
+ static void dpaa2_switch_port_disconnect_mac(struct ethsw_port_priv *port_priv)
+ {
+-	struct dpaa2_mac *mac = port_priv->mac;
++	struct dpaa2_mac *mac;
+ 
++	mutex_lock(&port_priv->mac_lock);
++	mac = port_priv->mac;
+ 	port_priv->mac = NULL;
++	mutex_unlock(&port_priv->mac_lock);
+ 
+ 	if (!mac)
+ 		return;
+@@ -1494,6 +1511,7 @@ static irqreturn_t dpaa2_switch_irq0_handler_thread(int irq_num, void *arg)
+ 	struct ethsw_port_priv *port_priv;
+ 	u32 status = ~0;
+ 	int err, if_id;
++	bool had_mac;
+ 
+ 	err = dpsw_get_irq_status(ethsw->mc_io, 0, ethsw->dpsw_handle,
+ 				  DPSW_IRQ_INDEX_IF, &status);
+@@ -1512,7 +1530,12 @@ static irqreturn_t dpaa2_switch_irq0_handler_thread(int irq_num, void *arg)
+ 
+ 	if (status & DPSW_IRQ_EVENT_ENDPOINT_CHANGED) {
+ 		rtnl_lock();
+-		if (dpaa2_switch_port_has_mac(port_priv))
++		/* We can avoid locking because the "endpoint changed" IRQ
++		 * handler is the only one who changes priv->mac at runtime,
++		 * so we are not racing with anyone.
++		 */
++		had_mac = !!port_priv->mac;
++		if (had_mac)
+ 			dpaa2_switch_port_disconnect_mac(port_priv);
+ 		else
+ 			dpaa2_switch_port_connect_mac(port_priv);
+@@ -3255,6 +3278,8 @@ static int dpaa2_switch_probe_port(struct ethsw_core *ethsw,
+ 	port_priv->netdev = port_netdev;
+ 	port_priv->ethsw_data = ethsw;
+ 
++	mutex_init(&port_priv->mac_lock);
++
+ 	port_priv->idx = port_idx;
+ 	port_priv->stp_state = BR_STATE_FORWARDING;
+ 
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h
+index 9898073abe01..42b3ca73f55d 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.h
+@@ -161,6 +161,8 @@ struct ethsw_port_priv {
+ 
+ 	struct dpaa2_switch_filter_block *filter_block;
+ 	struct dpaa2_mac	*mac;
++	/* Protects against changes to port_priv->mac */
++	struct mutex		mac_lock;
+ };
+ 
+ /* Switch data */
+
+From patchwork Tue Nov 29 14:12:21 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Vladimir Oltean <vladimir.oltean@nxp.com>
+X-Patchwork-Id: 13058619
+X-Patchwork-Delegate: kuba@kernel.org
+Return-Path: <netdev-owner@kernel.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
+	by smtp.lore.kernel.org (Postfix) with ESMTP id BAE98C47089
+	for <netdev@archiver.kernel.org>; Tue, 29 Nov 2022 14:14:42 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+        id S235575AbiK2OOl (ORCPT <rfc822;netdev@archiver.kernel.org>);
+        Tue, 29 Nov 2022 09:14:41 -0500
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47274 "EHLO
+        lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S235367AbiK2ONh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2022 09:13:37 -0500
+Received: from EUR01-VE1-obe.outbound.protection.outlook.com
+ (mail-ve1eur01on2051.outbound.protection.outlook.com [40.107.14.51])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 0673863166;
+        Tue, 29 Nov 2022 06:13:11 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=aNeE1lDN+ujcBuTwjnX8uV9ouOmoXSK1yMcKeSUYQ5U40f7MhcAr5sXvYyRIFtEAxhrB92EWZ6WiBaHe+4T142NJuFn5I9DyYnsKW8Ogig6/iEFk26PCV51FAq+uZkqwucpniozuLTT/DM1etGGIvD0q80KF0qB7+js5taAr01+3Fo0BvsdgBA9JGOCjnyinlvSP5jFnhfuvfgFTzksQX7Azvp8Vin6HlGrj5dwRkJLet5sz+a7HpTRYXUWVpGOO0+HJ6mGZ1uZSemxjQDAi6o1QjERe8IViTZqVwY6DOKM1wjVK5OyvCoE2bWoOnDTgJCIeHJIKo0mOufLn5JZ1vw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=6QAtaRV0C+Z3+aEriBMS7k9n4LGnA0VNWc3a8OR/BNo=;
+ b=RleKIcGveG+woq4EaXTNFleOfBai11YSEEsJtjWuxMPLchVak/hD22kd7YV/pk/oNLmzX8pbzT8ym549OrKnSnrz1QaZwMtHUiDn/+SuvRTIPj2wxbj2L3p4RoF/JbfaZX0gZDSiWw7jGCFMV5kOiT5fyndpGfjqCPHSwR08ISLdMz29Ssm9Xr8GcVl5hRr31T0oGT+8Q2bDCWNV44Cw8yPdvCKE8sqDXie/1ZJq9uFyNXQsyo6JmDeMu2Lvgap9N+WJx08ewLDWjmjSXpaRNq+DUdk4JPqSBYNBbdQ5B/RzYfPVW1aN7Jk7ImySVjahsce2tgL7pRmrCsn9fC+p6A==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=nxp.com; dmarc=pass action=none header.from=nxp.com; dkim=pass
+ header.d=nxp.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=nxp.com; s=selector2;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=6QAtaRV0C+Z3+aEriBMS7k9n4LGnA0VNWc3a8OR/BNo=;
+ b=m1SX1UhxhxwYGgW4CutXkW6KHHHEBotpsMwCvx9PLPE59BITmbp1uBaOeFI8NRgBB5muXvap0EpS6F2nmzpz8EBUj154ZSDzFBUe3gsHgDwVgLMjbir+Q8IRa2TLzkMAdNaj4DxyWckuOBcQryaQiQyWq+NhfaM2r88O01b25qM=
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=nxp.com;
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com (2603:10a6:803:55::19)
+ by AS8PR04MB8724.eurprd04.prod.outlook.com (2603:10a6:20b:42b::6) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.5857.19; Tue, 29 Nov
+ 2022 14:12:43 +0000
+Received: from VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b]) by VI1PR04MB5136.eurprd04.prod.outlook.com
+ ([fe80::9317:77dc:9be2:63b%7]) with mapi id 15.20.5857.023; Tue, 29 Nov 2022
+ 14:12:42 +0000
+From: Vladimir Oltean <vladimir.oltean@nxp.com>
+To: netdev@vger.kernel.org
+Cc: Ioana Ciornei <ioana.ciornei@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jakub Kicinski <kuba@kernel.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH net-next 12/12] net: dpaa2-mac: move rtnl_lock() only around
+ phylink_{,dis}connect_phy()
+Date: Tue, 29 Nov 2022 16:12:21 +0200
+Message-Id: <20221129141221.872653-13-vladimir.oltean@nxp.com>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+References: <20221129141221.872653-1-vladimir.oltean@nxp.com>
+X-ClientProxiedBy: VI1PR0701CA0029.eurprd07.prod.outlook.com
+ (2603:10a6:800:90::15) To VI1PR04MB5136.eurprd04.prod.outlook.com
+ (2603:10a6:803:55::19)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: VI1PR04MB5136:EE_|AS8PR04MB8724:EE_
+X-MS-Office365-Filtering-Correlation-Id: 3762d2f0-176a-47b2-85de-08dad213c7b7
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: 
+ nXh4mIFOEXeoU+ygXlicYdRPM07iVowEf4r13pJu2GVKCirvgRqJDbJZ+ePKmpojXDm8zOZcNyMNicF0RMSMksEloziAsgRa2dSIYfUK5+Jjl2IVRRGyaTZ+LUvpMVdQBiuL0cp9u7pYuoZ5bJdLFy7l1V6FAq8mqJFCJoXR3EUdWYlz1rsyDWMyYW/J4jOl+SwGJYojMrUGr5sSpy8V3aMWTQqM/SZtO6VE34pKYnjFpiczDgmr8o6wQ1vGw5j73PBS4oAVH5rNZ9hWZHSAbAyddbTzZ6cgOx8aoUnTl3SbfjGhppO6mpJIKHX1uLtH4CitmK12qCpCSdhLzaFNzQe/zRLH3wbZtPp7lMjFiGZ7rL9oma1OPoMUJPIDoAU5KCtTp+UcgE20jAMUAQ8dUPyNhPLxcLboz4D/p5YLUuv/vGJ25ZGcTidnyZyRdPhoVzn0/+0iApx+m9Id0xyI8uCajjshtYtOBjUx+v9DbHTwO0BWyCwqnjMC31LyIhsFTcYdq2Ey7IEIhcQmFY6ydEhqRz9VpZ6Qp+imOpCuedX7yUjD+nTKYCbpymqLfCkVeYTr5+qowfiUhOAE3A09Cg/rdlXnKMt2deHyBsIdk7RalvCg34VaPVkI1ZEEYkbwpgPWLhzPaIifjBolqJTfPgLD6Vn118oPI20MnkZ/q85vyFh/BX1XhHTduoMxJwSo
+X-Forefront-Antispam-Report: 
+ CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:VI1PR04MB5136.eurprd04.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230022)(4636009)(376002)(136003)(39860400002)(396003)(366004)(346002)(451199015)(6666004)(6506007)(6486002)(478600001)(66476007)(1076003)(36756003)(186003)(66556008)(2616005)(66946007)(8676002)(4326008)(6512007)(52116002)(5660300002)(26005)(316002)(54906003)(6916009)(86362001)(2906002)(83380400001)(41300700001)(44832011)(38350700002)(8936002)(38100700002);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: 
+ vbxhVYULV77L4r60XjkbGh3rCpI6QA1awIehrYYHy2gtbHboH0z1p1jO38KEZ0J45dI6BhOi25Jn9PUvK0l4koJqVoc433QQR4eoEqGkT0tAQg9QTGvIKThW0yjidHM6NYlW7LW0dLrbGVXn43spOQRaKHv0fgP+yUPrUX3TxlgEzWXfszZrHwL2NFrTm80FfaOFRhmgy49YNnwa/Q9cXJk+BwAUiRVS/krmyGNvM/+fR6NYwwo6IcWGc5nohDz3mHS8uTYzjcxSC0IZpiTjNhh4SiOhxjjNCgPe+Laka8LG8Alo8Vveeq8sPI//7sBeX31Jmq/+M/PUd1JMtcNqatYa7OsA7St3Q9akrwBJ4rqxObTztjk90HZkSHabp8Bhx7sEMglfVA2El0rcDEZR9WRpo3dJAOj0nqB68n55O8c6EEphtVEMDcM4G8eYaut32zm45qD7WmMnPnv/8EfYxdHfnSmc/awgYvwP97jb/ssi48FBUEJRQU4upO1rgP7hsBaO9jD+xbPDUSW1rGns9y69obFzewdfkpD2PhXp1TH30kGdFjzQeNxz3YFx8C+s5azs/OnYIMl+XPq2BHXbeyW71EAfaEdIJoE+HjV0aK8vZuBsrl4YZp5SWuL5ntt9XyEIhRCtjeQSGmPbVuxMtwxXujOvkkO5+541ynPl2RU17qiE656ku5NppalYGxTbD6i1YI8+REqmkg2Bj5p5LNYjojv07lKjO1dlpLLyDThuwsY4Jx5g7KK2zwBH2qIHGT1rZKagCQlhDP040q2/31A7CsfcsA6k0s1c3Yrw8ONqIf6/8zHSSX2N+Qc22ug5M+7z8Q1o3sdUPr4Ajfdx7aVo60XB9wGguwRZsUdcKBDx2RArcPTNhnjfnTVoFR1UVZWyLlTDj//oowdqIYJrvBS/d42jidQBbtZ0aSxy7SFw5+VeqJBC/8fedYkFhC2WVzH5XrUWjSP1fDTvVQuPc98pLpiSyMVbG1KYjbIkShNz6jejCQZrzHNMqaAimBHDy5ayPhgD+POPjQ1hggxnC5EvVBXiF8OsWfDzbLyC/e230nTfawoeDtpL1e2A2g/wXHQiByela+iVSc8fXP1hzDtTuC9WbGyxDmM3WzpuTXRTTFlaTtDJnX38Xvm6HCCe9EOh43tJGtVX37vvqHyzMMyuSGVPch92nLZE1eYhSdsg24JeDgg5MYEQMyeB1PXz15241gTGFuaVWZLKpOE1JCWkjhX4aeOBAy2OfB1qiMAbYNyIZGOY69Kw0AEAQRRiiQ0DUu+egwURBzO3ViHsXGaacBZwgmCrK+oG9f9F8Jckfto8s4w3qL3V31t7pOMsuyJVGs9t/UTJcBJtFk8K3fpRJf+Vbn4KCe2BLx/o3mYU36QzJ78F8dS05nqo4w20b8zEA8nknv0zc+nKeBcxpwU81JBmIKPsu1t4khLrcY/Tt9iIai7yhLN2tUpuLtySoNUwrfvkrznJ3xR6UmMLmoUjiIjgW0Ux23cHho3og2kDAm5FcVZg7DqY4Jo285JIpfdiXzKBESi8Te7S7uayrUSnTAhX8O0XTUDi73qDpOX6WwvNwuBonrZTlAiIaRimthtBxqLE5fd70iM9NWww6g==
+X-OriginatorOrg: nxp.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 
+ 3762d2f0-176a-47b2-85de-08dad213c7b7
+X-MS-Exchange-CrossTenant-AuthSource: VI1PR04MB5136.eurprd04.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 29 Nov 2022 14:12:42.9344
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 686ea1d3-bc2b-4c6f-a92c-d99c5c301635
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: 
+ nPPblA+dXjlJyljNaBEpk7Qjg85Vtp+PwvaW6s+Hpxj2ZpctQZijTRW1mzxQGpALlu8rtsCGRSAbgXXE5P1KZg==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AS8PR04MB8724
+Precedence: bulk
+List-ID: <netdev.vger.kernel.org>
+X-Mailing-List: netdev@vger.kernel.org
+X-Patchwork-Delegate: kuba@kernel.org
+
+After the introduction of a private mac_lock that serializes access to
+priv->mac (and port_priv->mac in the switch), the only remaining purpose
+of rtnl_lock() is to satisfy the locking requirements of
+phylink_fwnode_phy_connect() and phylink_disconnect_phy().
+
+But the functions these live in, dpaa2_mac_connect() and
+dpaa2_mac_disconnect(), have contradictory locking requirements.
+While phylink_fwnode_phy_connect() wants rtnl_lock() to be held,
+phylink_create() wants it to not be held.
+
+Move the rtnl_lock() from top-level (in the dpaa2-eth and dpaa2-switch
+drivers) to only surround the phylink calls that require it, in the
+dpaa2-mac library code.
+
+This is possible because dpaa2_mac_connect() and dpaa2_mac_disconnect()
+run unlocked, and there isn't any danger of an AB/BA deadlock between
+the rtnl_mutex and other private locks.
+
+Signed-off-by: Vladimir Oltean <vladimir.oltean@nxp.com>
+---
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c    | 4 ----
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c    | 5 +++++
+ drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c | 4 ----
+ 3 files changed, 5 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+index 3ed54c147e98..0c35abb7d065 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+@@ -4715,7 +4715,6 @@ static irqreturn_t dpni_irq0_handler_thread(int irq_num, void *arg)
+ 		dpaa2_eth_set_mac_addr(netdev_priv(net_dev));
+ 		dpaa2_eth_update_tx_fqids(priv);
+ 
+-		rtnl_lock();
+ 		/* We can avoid locking because the "endpoint changed" IRQ
+ 		 * handler is the only one who changes priv->mac at runtime,
+ 		 * so we are not racing with anyone.
+@@ -4725,7 +4724,6 @@ static irqreturn_t dpni_irq0_handler_thread(int irq_num, void *arg)
+ 			dpaa2_eth_disconnect_mac(priv);
+ 		else
+ 			dpaa2_eth_connect_mac(priv);
+-		rtnl_unlock();
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -5045,9 +5043,7 @@ static int dpaa2_eth_remove(struct fsl_mc_device *ls_dev)
+ 	else
+ 		fsl_mc_free_irqs(ls_dev);
+ 
+-	rtnl_lock();
+ 	dpaa2_eth_disconnect_mac(priv);
+-	rtnl_unlock();
+ 	dpaa2_eth_free_rings(priv);
+ 	free_percpu(priv->fd);
+ 	free_percpu(priv->sgt_cache);
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
+index 9d1e7026eaef..8ba4ea4adeb3 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
+@@ -431,7 +431,9 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
+ 	}
+ 	mac->phylink = phylink;
+ 
++	rtnl_lock();
+ 	err = phylink_fwnode_phy_connect(mac->phylink, dpmac_node, 0);
++	rtnl_unlock();
+ 	if (err) {
+ 		netdev_err(net_dev, "phylink_fwnode_phy_connect() = %d\n", err);
+ 		goto err_phylink_destroy;
+@@ -449,7 +451,10 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
+ 
+ void dpaa2_mac_disconnect(struct dpaa2_mac *mac)
+ {
++	rtnl_lock();
+ 	phylink_disconnect_phy(mac->phylink);
++	rtnl_unlock();
++
+ 	phylink_destroy(mac->phylink);
+ 	dpaa2_pcs_destroy(mac);
+ 	of_phy_put(mac->serdes_phy);
+diff --git a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+index 0472e24191ad..f4ae4289c41a 100644
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-switch.c
+@@ -1529,7 +1529,6 @@ static irqreturn_t dpaa2_switch_irq0_handler_thread(int irq_num, void *arg)
+ 	}
+ 
+ 	if (status & DPSW_IRQ_EVENT_ENDPOINT_CHANGED) {
+-		rtnl_lock();
+ 		/* We can avoid locking because the "endpoint changed" IRQ
+ 		 * handler is the only one who changes priv->mac at runtime,
+ 		 * so we are not racing with anyone.
+@@ -1539,7 +1538,6 @@ static irqreturn_t dpaa2_switch_irq0_handler_thread(int irq_num, void *arg)
+ 			dpaa2_switch_port_disconnect_mac(port_priv);
+ 		else
+ 			dpaa2_switch_port_connect_mac(port_priv);
+-		rtnl_unlock();
+ 	}
+ 
+ out:
+@@ -2957,9 +2955,7 @@ static void dpaa2_switch_remove_port(struct ethsw_core *ethsw,
+ {
+ 	struct ethsw_port_priv *port_priv = ethsw->ports[port_idx];
+ 
+-	rtnl_lock();
+ 	dpaa2_switch_port_disconnect_mac(port_priv);
+-	rtnl_unlock();
+ 	free_netdev(port_priv->netdev);
+ 	ethsw->ports[port_idx] = NULL;
+ }
