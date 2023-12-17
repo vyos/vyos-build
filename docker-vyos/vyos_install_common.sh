@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2020 VyOS maintainers and contributors
+# Copyright (C) 2020-2023 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 # Set environment variables
 export DEBIAN_FRONTEND="noninteractive"
 
@@ -23,21 +22,21 @@ function prepare_apt() {
     # Update packages list
     apt-get update
 
-    # Install jq (required to easily extract variables from defaults.json)
-    apt-get install -y --no-install-recommends jq gnupg
-
     # Add VyOS repository to the system
-    local APT_VYOS_MIRROR=`jq --raw-output .vyos_mirror /tmp/defaults.json`
-    local APT_VYOS_BRANCH=`jq --raw-output .vyos_branch /tmp/defaults.json`
-    local APT_ADDITIONAL_REPOS=`jq --raw-output .additional_repositories[] /tmp/defaults.json`
-    local RELEASE_TRAIN=`jq --raw-output .release_train /tmp/defaults.json`
+    local APT_VYOS_MIRROR=$(tomlq --raw-output .vyos_mirror /tmp/defaults.toml)
+    local APT_VYOS_BRANCH=$(tomlq --raw-output .vyos_branch /tmp/defaults.toml)
+    local APT_ADDITIONAL_REPOS=$(tomlq --raw-output .additional_repositories[] /tmp/amd64.toml)
+    local RELEASE_TRAIN=$(tomlq --raw-output .release_train /tmp/defaults.toml)
 
-    if [[ "${RELEASE_TRAIN}" == "crux" ]]; then
-        echo -e "deb ${APT_VYOS_MIRROR}/vyos ${APT_VYOS_BRANCH} main\ndeb ${APT_VYOS_MIRROR}/debian ${APT_VYOS_BRANCH} main\n${APT_ADDITIONAL_REPOS}" > /etc/apt/sources.list.d/vyos.list
-    fi
+    echo "APT_VYOS_MIRROR      : $APT_VYOS_MIRROR"
+    echo "APT_VYOS_BRANCH      : $APT_VYOS_BRANCH"
+    echo "APT_ADDITIONAL_REPOS : $APT_ADDITIONAL_REPOS"
+    echo "RELEASE_TRAIN        : $RELEASE_TRAIN"
 
-    if [[ "${RELEASE_TRAIN}" == "equuleus" || "${RELEASE_TRAIN}" == "sagitta" ]]; then
-        echo -e "deb ${APT_VYOS_MIRROR} ${APT_VYOS_BRANCH} main\n${APT_ADDITIONAL_REPOS}" > /etc/apt/sources.list.d/vyos.list
+    echo -e "deb ${APT_VYOS_MIRROR} ${APT_VYOS_BRANCH} main\n${APT_ADDITIONAL_REPOS}" > /etc/apt/sources.list.d/vyos.list
+    cat /etc/apt/sources.list.d/vyos.list
+
+    if [ ${RELEASE_TRAIN} == "equuleus" ]; then
         # Add backports repository
         echo -e "deb http://deb.debian.org/debian buster-backports main\ndeb http://deb.debian.org/debian buster-backports non-free" >> /etc/apt/sources.list.d/vyos.list
     fi
@@ -65,8 +64,6 @@ function prepare_apt() {
 
 # Cleanup APT after finish
 function cleanup_apt() {
-    # delete jq tool
-    dpkg -P jq
     # Clear APT cache
     apt-get clean
     rm -rf /var/lib/apt/lists/*

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2020 VyOS maintainers and contributors
+# Copyright (C) 2020-2023 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -35,6 +35,8 @@ vyos_packages_filtered=("$(filter_list vyos_packages[@] vyos_packages_filter[@])
 vyos_packages_filtered+=(
     "uuid"
     "jq"
+    "yq"
+    "systemd"
     )
 
 echo "Packages for installing: ${vyos_packages_filtered[@]}"
@@ -43,12 +45,12 @@ echo "Installing VyOS packages"
 apt-get install -y --no-install-recommends ${vyos_packages_filtered[@]}
 
 # Create VyOS version file
-RELEASAE_TRAIN=`jq --raw-output .release_train /tmp/defaults.json`
+RELEASAE_TRAIN=$(tomlq --raw-output .release_train /tmp/defaults.toml)
 apt-cache show vyos-1x | awk -v release_train=${RELEASAE_TRAIN} '{ if ($1 == "Version:") version = $2 } END { build_git = "unknown" ; built_by = "Sentrium S.L." ; built_on = strftime("%F %T UTC", systime(), utc) ; "uuid -v 4" | getline build_uuid ; printf("{\"version\": \"%s\", \"build_git\": \"%s\", \"built_on\": \"%s\", \"built_by\": \"%s\", \"build_uuid\": \"%s\", \"release_train\": \"%s\"}", version, build_git, built_on, built_by, build_uuid, release_train) }' | json_pp > /usr/share/vyos/version.json
 
 # Delete what we do not need inside Docker image (this step makes packages database inconsistent)
 echo "Deleting what is needless in containers"
-dpkg -P --force-depends dosfstools efibootmgr jq gdisk grub-common grub-efi-amd64-bin initscripts installation-report laptop-detect libossp-uuid16 libparted2 libwireshark-data libwireshark5 mdadm parted tshark uuid vyos-qat-kernel-modules wireguard-modules
+dpkg -P --force-depends dosfstools efibootmgr yq jq gdisk grub-common grub-efi-amd64-bin initscripts installation-report laptop-detect libossp-uuid16 libparted2 libwireshark-data libwireshark5 mdadm parted tshark uuid
 dpkg -l | awk '/linux-image-/ { system("dpkg -P --force-depends " $2) }'
 
 # Delete documentation
