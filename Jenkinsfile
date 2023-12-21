@@ -92,7 +92,7 @@ pipeline {
                     if (params.TEST_SMOKETESTS)
                         CUSTOM_PACKAGES = '--custom-package vyos-1x-smoketest'
 
-                    def VYOS_VERSION = params.BUILD_BY
+                    def VYOS_VERSION = params.BUILD_VERSION
                     if (params.BUILD_VERSION == env.BASE_VERSION + 'ISO8601-TIMESTAMP')
                         VYOS_VERSION = env.BASE_VERSION + sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
 
