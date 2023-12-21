@@ -74,7 +74,6 @@ systemctl disable dpkg-db-backup.service
 systemctl disable zabbix-agent2.service
 
 echo I: Enabling services
-systemctl enable ssh-session-cleanup.service
 systemctl enable vyos-hostsd.service
 systemctl enable acpid.service
 systemctl enable vyos-router.service
