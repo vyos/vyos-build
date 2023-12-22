@@ -2,6 +2,8 @@
 CWD=$(pwd)
 KERNEL_SRC=linux
 
+set -e
+
 if [ ! -d ${KERNEL_SRC} ]; then
     echo "Linux Kernel source directory does not exists, please 'git clone'"
     exit 1
