@@ -1,0 +1,2 @@
+deb http://deb.debian.org/debian/ trixie main non-free
+deb http://deb.debian.org/debian/ trixie-updates main non-free
