@@ -1,0 +1,11 @@
+Package: podman
+Pin: release n=trixie
+Pin-Priority: 600
+
+Package: netavark
+Pin: release n=trixie
+Pin-Priority: 600
+
+Package: *
+Pin: release n=trixie
+Pin-Priority: -10
