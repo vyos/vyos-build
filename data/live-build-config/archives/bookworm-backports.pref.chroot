@@ -1,0 +1,7 @@
+Package: iproute2
+Pin: release n=bookworm-backports
+Pin-Priority: 600
+
+Package: *
+Pin: release n=bookworm-backports
+Pin-Priority: -100

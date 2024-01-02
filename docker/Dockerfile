@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2022 VyOS maintainers and contributors
+# Copyright (C) 2018-2024 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # in order to easy exprort images built to "external" world
@@ -191,7 +191,9 @@ RUN apt-get update && apt-get install -y \
       kmod \
       cpio \
       python-is-python3 \
-      dwarves
+      dwarves \
+      nasm \
+      rdfind
 
 # Packages needed for Intel QAT out-of-tree drivers
 # FPM is used when generation Debian pckages for e.g. Intel QAT drivers
