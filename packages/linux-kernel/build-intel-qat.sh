@@ -14,14 +14,15 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-url="https://rolling-packages.vyos.net/source-mirror/QAT1.7.L.4.20.0-00001.tar.gz"
+url="https://dev.packages.vyos.net/source-mirror/QAT.L.4.24.0-00005.tar.gz"
 
 cd ${CWD}
 
 DRIVER_FILE=$(basename ${url} | sed -e s/tar_0/tar/)
 DRIVER_DIR="${DRIVER_FILE%.tar.gz}"
 DRIVER_NAME="QAT"
-DRIVER_VERSION=$(echo ${DRIVER_DIR} | awk -F${DRIVER_NAME} '{print $2}')
+DRIVER_NAME_EXTRA="L."
+DRIVER_VERSION=$(echo ${DRIVER_DIR} | awk -F${DRIVER_NAME} '{print $2}' | awk -F${DRIVER_NAME_EXTRA} '{print $2}')
 DRIVER_VERSION_EXTRA="-0"
 
 # Build up Debian related variables required for packaging
