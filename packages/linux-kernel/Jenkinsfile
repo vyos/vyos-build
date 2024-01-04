@@ -44,12 +44,12 @@ def pkgList = [
      '''],
 
     // Firmware
-    ['name': 'linux-firmware', 'scmCommit': '20230625',
+    ['name': 'linux-firmware', 'scmCommit': '20231211',
      'scmUrl': 'https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
      'buildCmd': 'cd ..; ./build-linux-firmware.sh'],
 
     // Accel-PPP
-    ['name': 'accel-ppp', 'scmCommit': '9669bcb99adc',
+    ['name': 'accel-ppp', 'scmCommit': '19c36e593d9b',
      'scmUrl': 'https://github.com/accel-ppp/accel-ppp.git',
      'buildCmd': 'cd ..; pwd; ls -al; ./build-accel-ppp.sh'],
 
@@ -60,7 +60,7 @@ def pkgList = [
     ['name': 'jool', 'buildCmd': 'cd ..; ./build-jool.py'],
 
     // OpenVPN DCO
-    ['name': 'ovpn-dco','scmCommit': 'v0.2.20230426',
+    ['name': 'ovpn-dco','scmCommit': 'v0.2.20231117',
      'scmUrl': 'https://github.com/OpenVPN/ovpn-dco',
      'buildCmd': 'cd ..; ./build-openvpn-dco.sh'],
 ]
