@@ -100,7 +100,7 @@ index ca0ff15dc8fa..67a55fec5b29 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 0b6ee962c84e..070f2285f9eb 100644
+index b007d098ffe2..865d7be4fd29 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -5639,6 +5639,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
@@ -111,7 +111,7 @@ index 0b6ee962c84e..070f2285f9eb 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7071,6 +7072,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7067,6 +7068,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
@@ -126,7 +126,7 @@ index 0b6ee962c84e..070f2285f9eb 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 9c687b357e6a..0be7ebe30a2d 100644
+index 56525b5b95a2..e3af0e704291 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -676,6 +676,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
