@@ -255,6 +255,18 @@ deb http://security.debian.org/debian-security buster/updates main non-free
 """
             fp.write(re.sub('(deb|security).debian.org', build_config['debian_mirror_server'], buster_repo))
 
+        debian_code_names = ["trixie"]
+
+        for code_name in debian_code_names:
+            # overwrite data/live-build-config/archives/{{CODE_NAME}}.list.chroot
+            if os.path.exists(f'data/live-build-config/archives/{code_name}.list.chroot'):
+                with open(f'data/live-build-config/archives/{code_name}.list.chroot', 'w+') as fp:
+                    debian_repo = f"""
+deb http://deb.debian.org/debian/ {code_name} main non-free
+deb http://deb.debian.org/debian/ {code_name}-updates main non-free
+deb http://security.debian.org/debian-security {code_name}-security main non-free
+"""
+                    fp.write(re.sub('(deb|security).debian.org', build_config['debian_mirror_server'], debian_repo))
 
     ## Dump the complete config if the user enabled debug mode
     if debug:
