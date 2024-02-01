@@ -17,4 +17,4 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/labeler@v5.0.0-alpha.1
+      - uses: actions/labeler@v5.0.0
