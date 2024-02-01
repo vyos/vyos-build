@@ -11,6 +11,7 @@ packages = [
   "vyos-linux-firmware",
   "vyos-intel-qat",
   "vyos-intel-ixgbe",
+  "vyos-intel-ixgbevf",
   "openvpn-dco",
   "telegraf"
 ]
