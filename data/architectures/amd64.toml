@@ -10,6 +10,7 @@ packages = [
   "grub-pc",
   "vyos-linux-firmware",
   "vyos-intel-qat",
+  "vyos-intel-ixgbe",
   "openvpn-dco",
   "telegraf"
 ]
