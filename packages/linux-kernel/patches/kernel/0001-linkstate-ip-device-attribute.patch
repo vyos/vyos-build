@@ -6,7 +6,6 @@ Subject: [PATCH] VyOS: Add linkstate IP device attribute
 Backport of earlier Vyatta patch.
 
 (cherry picked from commit 7c5a851086686be14ae937c80d6cee34814dbefc)
-
 ---
  Documentation/networking/ip-sysctl.txt | 13 +++++++++++++
  include/linux/inetdevice.h             |  1 +
@@ -104,7 +103,7 @@ index 4c013f8800f0..409050b2bc44 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index c523236d934e..1bd2b92a017f 100644
+index 4bec4c061741..3762e74d0f10 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -5507,6 +5507,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
@@ -115,7 +114,7 @@ index c523236d934e..1bd2b92a017f 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -6879,6 +6880,14 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -6875,6 +6876,14 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.mode           = 0644,
  		.proc_handler   = addrconf_sysctl_disable_policy,
  	},
@@ -131,7 +130,7 @@ index c523236d934e..1bd2b92a017f 100644
  		.procname	= "ndisc_tclass",
  		.data		= &ipv6_devconf.ndisc_tclass,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 209d52ebbd19..edf7b5e9466a 100644
+index c26e832fddb7..1ae8b6f76cbb 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -687,6 +687,15 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
@@ -160,5 +159,5 @@ index 209d52ebbd19..edf7b5e9466a 100644
  	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(fib6_flags)) << 2;
  #endif
 -- 
-2.39.2
+2.20.1
 

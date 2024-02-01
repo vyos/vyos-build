@@ -8,7 +8,9 @@
 *.deb
 *.changes
 *.buildinfo
+*.build
 *.tar.xz
+*.tar.bz2
 /*.postinst
 
 # Intel Driver source
@@ -18,5 +20,6 @@ igb-*/
 ixgbe-*/
 ixgbevf-*/
 vyos-intel-*/
+vyos-drivers-realtek-*/
 vyos-linux-firmware*/
 kernel-vars
