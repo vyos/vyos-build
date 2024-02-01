@@ -59,6 +59,9 @@ def pkgList = [
     // Intel IXGBE
     ['name': 'ixgbe', 'buildCmd': 'cd ..; ./build-intel-ixgbe.sh'],
 
+    // Intel IXGBEVF
+    ['name': 'ixgbevf', 'buildCmd': 'cd ..; ./build-intel-ixgbevf.sh'],
+
     // Jool
     ['name': 'jool', 'buildCmd': 'cd ..; ./build-jool.py'],
 
