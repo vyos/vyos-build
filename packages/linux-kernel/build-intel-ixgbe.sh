@@ -14,7 +14,7 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-url="https://sourceforge.net/projects/e1000/files/ixgbe%20stable/5.19.6/ixgbe-5.19.6.tar.gz"
+url="https://sourceforge.net/projects/e1000/files/ixgbe%20stable/5.19.9/ixgbe-5.19.9.tar.gz"
 
 cd ${CWD}
 
@@ -52,8 +52,13 @@ if [ -z $KERNEL_DIR ]; then
     exit 1
 fi
 
+# See https://lore.kernel.org/lkml/f90837d0-810e-5772-7841-28d47c44d260@intel.com/
+echo "I: remove pci_enable_pcie_error_reporting() code no longer present in Kernel"
+sed -i '/.*pci_disable_pcie_error_reporting(pdev);/d' ixgbe_main.c
+sed -i '/.*pci_enable_pcie_error_reporting(pdev);/d' ixgbe_main.c
+
 echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
-make INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} -j $(getconf _NPROCESSORS_ONLN) install
+make KSRC=${KERNEL_DIR} INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} -j $(getconf _NPROCESSORS_ONLN) install
 
 if [ "x$?" != "x0" ]; then
     exit 1
