@@ -24,7 +24,7 @@ def package_name = 'keepalived'
 
 def pkgList = [
     ['name': "${package_name}",
-     'scmCommit': 'debian/1%2.2.7-1',
+     'scmCommit': 'debian/1%2.2.8-1',
      'scmUrl': 'https://salsa.debian.org/debian/pkg-keepalived.git',
      'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; ../build.py'],
 ]
