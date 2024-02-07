@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 6.6.15 Kernel Configuration
+# Linux/x86 6.6.16 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="gcc (Debian 12.2.0-14) 12.2.0"
 CONFIG_CC_IS_GCC=y
@@ -2425,7 +2425,7 @@ CONFIG_TAP=m
 CONFIG_VETH=m
 CONFIG_VIRTIO_NET=m
 CONFIG_NLMON=m
-CONFIG_NET_VRF=m
+CONFIG_NET_VRF=y
 # CONFIG_VSOCKMON is not set
 # CONFIG_ARCNET is not set
 CONFIG_ETHERNET=y
@@ -4101,7 +4101,6 @@ CONFIG_MFD_VIPERBOARD=m
 # CONFIG_MFD_SM501 is not set
 # CONFIG_MFD_SKY81452 is not set
 CONFIG_MFD_SYSCON=y
-# CONFIG_MFD_TI_AM335X_TSCADC is not set
 # CONFIG_MFD_LP3943 is not set
 # CONFIG_MFD_LP8788 is not set
 # CONFIG_MFD_TI_LMU is not set
