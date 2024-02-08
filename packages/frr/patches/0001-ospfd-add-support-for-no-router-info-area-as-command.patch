@@ -1,0 +1,42 @@
+From c86cf962743f3db90c027967ba5c92eaed28dd77 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Thu, 8 Feb 2024 22:39:04 +0100
+Subject: [PATCH] ospfd: add support for "no router-info [<area|as>] command"
+
+frr-reload.py will walk through all config contexts and prepend no to the CLI
+command. This requires that the vtysh shell code accepts a full command.
+
+To Reproduce
+
+vtysh -c "conf t" -c "router ospf" -c "router-info area"
+vtysh -c "conf t" -c "router ospf" -c "no router-info area"
+% Unknown command: no router-info area
+vtysh -c "conf t" -c "router ospf" -c "no router-info"
+
+Signed-off-by: Christian Breunig <christian@breunig.cc>
+(cherry picked from commit e744db5098dcdca1bce32169aaa0703a21ab6b0c)
+---
+ ospfd/ospf_ri.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/ospfd/ospf_ri.c b/ospfd/ospf_ri.c
+index 725443f49..80e7f5931 100644
+--- a/ospfd/ospf_ri.c
++++ b/ospfd/ospf_ri.c
+@@ -1722,9 +1722,11 @@ DEFUN (router_info,
+ 
+ DEFUN (no_router_info,
+        no_router_info_cmd,
+-       "no router-info",
++       "no router-info [<area|as>]",
+        NO_STR
+-       "Disable the Router Information functionality\n")
++       "Disable the Router Information functionality\n"
++       "Disable the Router Information functionality with AS flooding scope\n"
++       "Disable the Router Information functionality with Area flooding scope\n")
+ {
+ 
+ 	if (!OspfRI.enabled)
+-- 
+2.39.2
+
