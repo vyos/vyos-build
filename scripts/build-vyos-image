@@ -57,7 +57,7 @@ def get_validator(optdict, name):
     except KeyError:
         return None
 
-def merge_dicts(source, destination):
+def merge_dicts(source, destination, skip_none=False):
     """ Merge two dictionaries and return a new dict which has the merged key/value pairs.
     Merging logic is as follows:
       Sub-dicts are merged.
@@ -74,7 +74,7 @@ def merge_dicts(source, destination):
             tmp[key] = merge_dicts(source[key], tmp[key])
         elif isinstance(source[key], list):
             tmp[key] = source[key] + tmp[key]
-        else:
+        elif not skip_none or source[key] is not None:
             tmp[key] = source[key]
 
     return tmp
@@ -137,14 +137,13 @@ if __name__ == "__main__":
     # Options dict format:
     # '$option_name_without_leading_dashes': { ('$help_string', $default_value_generator_thunk, $value_checker_thunk) }
     options = {
-       'architecture': ('Image target architecture (amd64 or arm64)',
-          lambda: build_defaults['architecture'], lambda x: x in ['amd64', 'arm64']),
+       'architecture': ('Image target architecture (amd64 or arm64)', None, lambda x: x in ['amd64', 'arm64', None]),
        'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None),
-       'debian-mirror': ('Debian repository mirror', lambda: build_defaults['debian_mirror'], None),
-       'debian-security-mirror': ('Debian security updates mirror', lambda: build_defaults['debian_security_mirror'], None),
-       'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', lambda: build_defaults['debian_mirror'], None),
-       'vyos-mirror': ('VyOS package mirror', lambda: build_defaults["vyos_mirror"], None),
-       'build-type': ('Build type, release or development', lambda: 'development', lambda x: x in ['release', 'development']),
+       'debian-mirror': ('Debian repository mirror', None, None),
+       'debian-security-mirror': ('Debian security updates mirror', None, None),
+       'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', None, None),
+       'vyos-mirror': ('VyOS package mirror', None, None),
+       'build-type': ('Build type, release or development', None, lambda x: x in ['release', 'development']),
        'version': ('Version number (release builds only)', None, None),
        'build-comment': ('Optional build comment', lambda: '', None)
     }
@@ -191,16 +190,30 @@ if __name__ == "__main__":
         print("\n".join(build_flavors))
         sys.exit(1)
 
+    ## Try to get correct architecture and build type from build flavor and CLI arguments
+    pre_build_config = merge_dicts({}, build_defaults)
+
+    flavor_config = {}
+    with open(make_toml_path(defaults.BUILD_FLAVORS_DIR, args["build_flavor"]), 'r') as f:
+        flavor_config = toml.load(f)
+        pre_build_config = merge_dicts(flavor_config, pre_build_config)
+
+    ## Combine configs args > flavor > defaults
+    pre_build_config = merge_dicts(args, pre_build_config, skip_none=True)
+
     # Some fixup for mirror settings.
     # The idea is: if --debian-mirror is specified but --pbuilder-debian-mirror is not,
     # use the --debian-mirror value for both lb and pbuilder bootstrap
-    if (args['debian_mirror'] != build_defaults["debian_mirror"]) and \
-       (args['pbuilder_debian_mirror'] == build_defaults["debian_mirror"]):
-        args['pbuilder_debian_mirror'] = args['debian_mirror']
+    if pre_build_config['debian_mirror'] is None or pre_build_config['debian_security_mirror'] is None:
+        print("debian_mirror and debian_security_mirror cannot be empty")
+        sys.exit(1)
+
+    if pre_build_config['pbuilder_debian_mirror'] is None:
+        args['pbuilder_debian_mirror'] = pre_build_config['pbuilder_debian_mirror'] = pre_build_config['debian_mirror']
 
     # Version can only be set for release builds,
     # for dev builds it hardly makes any sense
-    if args['build_type'] == 'development':
+    if pre_build_config['build_type'] == 'development':
         if args['version'] is not None:
             print("Version can only be set for release builds")
             print("Use --build-type=release option if you want to set version number")
@@ -211,20 +224,20 @@ if __name__ == "__main__":
     args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
 
     ## Combine the arguments with non-configurable defaults
-    build_config = merge_dicts(args, build_defaults)
+    build_config = merge_dicts({}, build_defaults)
 
-    ## Load the flavor file and mix-ins
-    with open(make_toml_path(defaults.BUILD_TYPES_DIR, build_config["build_type"]), 'r') as f:
+    ## Load correct mix-ins
+    with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'r') as f:
         build_type_config = toml.load(f)
         build_config = merge_dicts(build_type_config, build_config)
 
-    with open(make_toml_path(defaults.BUILD_ARCHES_DIR, build_config["architecture"]), 'r') as f:
+    with open(make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"]), 'r') as f:
         build_arch_config = toml.load(f)
         build_config = merge_dicts(build_arch_config, build_config)
 
-    with open(make_toml_path(defaults.BUILD_FLAVORS_DIR, build_config["build_flavor"]), 'r') as f:
-        flavor_config = toml.load(f)
-        build_config = merge_dicts(flavor_config, build_config)
+    ## Override with flavor and then CLI arguments
+    build_config = merge_dicts(flavor_config, build_config)
+    build_config = merge_dicts(args, build_config, skip_none=True)
 
     ## Rename and merge some fields for simplicity
     ## E.g. --custom-packages is for the user, but internally
@@ -499,3 +512,4 @@ Pin-Priority: 600
     # Copy the image
     shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]),
       "vyos-{0}-{1}.iso".format(version_data["version"], build_config["architecture"]))
+
