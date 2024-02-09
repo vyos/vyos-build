@@ -30,7 +30,7 @@ def pkgList = [
      'scmUrl': 'https://github.com/rtrlib/rtrlib.git',
      'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; dpkg-buildpackage -uc -us -tc -b'],
     ['name': 'frr',
-     'scmCommit': 'stable/9.0',
+     'scmCommit': 'stable/9.1',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
      'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build-frr.sh'],
 ]
