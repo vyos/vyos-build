@@ -22,17 +22,17 @@
 def pkgList = [
     // libnftnl
     ['name': 'pkg-libnftnl',
-     'scmCommit': 'debian/1.2.6-1',
+     'scmCommit': 'debian/1.2.6-2',
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-libnftnl.git',
      'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; dpkg-buildpackage -uc -us -tc -b'],
 
     // nftables
     ['name': 'pkg-nftables',
-     'scmCommit': 'debian/1.0.8-1',
+     'scmCommit': 'debian/1.0.9-1',
      'scmUrl': 'https://salsa.debian.org/pkg-netfilter-team/pkg-nftables.git',
      'buildCmd': '''sudo dpkg -i ../libnftnl*.deb;
                     sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends";
-                    dpkg-buildpackage -uc -us -tc -b'''],
+                    ../build.py'''],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
