@@ -13,6 +13,16 @@ if [ ! -f ${KERNEL_VAR_FILE} ]; then
     exit 1
 fi
 
+PATCH_DIR=${CWD}/patches/accel-ppp
+if [ -d $PATCH_DIR ]; then
+    cd ${ACCEL_SRC}
+    for patch in $(ls ${PATCH_DIR})
+    do
+        echo "I: Apply patch: ${PATCH_DIR}/${patch}"
+        patch -p1 < ${PATCH_DIR}/${patch}
+    done
+fi
+
 . ${KERNEL_VAR_FILE}
 mkdir -p ${ACCEL_SRC}/build
 cd ${ACCEL_SRC}/build
@@ -22,10 +32,9 @@ cmake -DBUILD_IPOE_DRIVER=TRUE \
     -DBUILD_VLAN_MON_DRIVER=TRUE \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DKDIR=${KERNEL_DIR} \
-    -DLUA=TRUE \
     -DLUA=5.3 \
     -DMODULES_KDIR=${KERNEL_VERSION}${KERNEL_SUFFIX} \
-    -DCPACK_TYPE=Debian11 ..
+    -DCPACK_TYPE=Debian12 ..
 make
 cpack -G DEB
 

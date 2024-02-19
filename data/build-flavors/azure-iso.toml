@@ -1,0 +1,5 @@
+image_format = "iso"
+
+packages = ["waagent"]
+
+

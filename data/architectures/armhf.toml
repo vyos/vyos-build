@@ -1,0 +1,2 @@
+# Packages included in armhf images by default
+packages = ["grub-efi-arm"]

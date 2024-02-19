@@ -1,0 +1,62 @@
+# Exclude various unused files and directories in order to free some space and shrink imagesize.
+#
+# For information on how to use wildcards properly (Anchored and Non-anchored excludes):
+#
+# https://github.com/plougher/squashfs-tools/blob/master/RELEASE-READMEs/README-3.3
+#
+# Note:
+#
+# - root starts without leading '/'.
+#
+
+# Txxx: Drop isc-dhcp helper files from /etc/default.
+# We use systemd to control ISC daemons from within vyos-1x.
+etc/default/isc-dhcp-server
+etc/default/isc-dhcp-relay
+
+# T2185: Clean leftover files (ddclient) from base package.
+etc/dhcp/dhclient-exit-hooks.d/ddclient
+etc/ddclient.conf
+
+# T3242: Add hook to prevent link_config redundancy call in systemd-udev.
+# 99-default.link rule always calls link_config thats trying to set autonegotiation and duplex even for PPP interfaces.
+# Need to delete this rule to prevent overhead on interface creation stage.
+lib/systemd/network/99-default.link
+
+# T3774: Disabled atop services.
+etc/cron.d/atop
+
+# T3912: Remove superfluous motd.d kernel version shell script.
+etc/update-motd.d/10-uname
+
+# T4415: We do not need any documentation on the system.
+# Copyright/licenses files are ignored for deletion.
+usr/share/doc/*/!(copyright*|README*)
+usr/share/doc-base
+
+# T5468: We do not need any manpages on the system since man-binary is missing.
+usr/local/man/*
+usr/local/share/man/*
+usr/share/man/*
+
+# T5511: We do not need any games on the system.
+usr/games/*
+usr/local/games/*
+
+# T5511: We do not need any caches on the system (will be recreated when needed).
+var/cache/*
+
+# T5511: We do not need any log-files on the system (will be recreated when needed).
+var/log/*.log
+var/log/*/*.log
+var/log/*/*.log.xz
+
+# T5511: We do not need any backup-files on the system (will be recreated when needed).
+... *.bak
+... *.old
+... *.kbx~
+var/lib/dpkg/*-old
+
+# T5624: Remove the Debian version file to avoid false positives from security scanners.
+etc/debian_version
+

@@ -56,6 +56,13 @@ def call(description, architecture, pkgList, buildCmd) {
         } else if (buildCmd) {
             sh buildCmd
         } else {
+            // build dependency package and install it
+            sh """
+                if [ -f debian/control ]; then
+                    sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"
+                    sudo dpkg -i *build-deps*.deb
+                fi
+            """
             try {
                 sh 'dpkg-buildpackage -uc -us -tc -F'
             } catch (e) {

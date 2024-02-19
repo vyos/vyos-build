@@ -1,6 +1,0 @@
-#!/bin/sh
-
-if [ -f /etc/cron.d/atop ]; then
-  rm -f /etc/cron.d/atop
-fi
-

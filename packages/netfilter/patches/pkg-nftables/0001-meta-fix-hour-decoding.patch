@@ -1,0 +1,118 @@
+From d392ddf243dcbf8a34726c777d2c669b1e8bfa85 Mon Sep 17 00:00:00 2001
+From: Florian Westphal <fw@strlen.de>
+Date: Thu, 2 Nov 2023 15:34:13 +0100
+Subject: meta: fix hour decoding when timezone offset is negative
+
+Brian Davidson says:
+
+ meta hour rules don't display properly after being created when the
+ hour is on or after 00:00 UTC. The netlink debug looks correct for
+ seconds past midnight UTC, but displaying the rules looks like an
+ overflow or a byte order problem. I am in UTC-0400, so today, 20:00
+ and later exhibits the problem, while 19:00 and earlier hours are
+ fine.
+
+meta.c only ever worked when the delta to UTC is positive.
+We need to add in case the second counter turns negative after
+offset adjustment.
+
+Also add a test case for this.
+
+Fixes: f8f32deda31d ("meta: Introduce new conditions 'time', 'day' and 'hour'")
+Reported-by: Brian Davidson <davidson.brian@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ src/meta.c                                         | 11 ++++-
+ .../shell/testcases/listing/dumps/meta_time.nodump |  0
+ tests/shell/testcases/listing/meta_time            | 52 ++++++++++++++++++++++
+ 3 files changed, 61 insertions(+), 2 deletions(-)
+ create mode 100644 tests/shell/testcases/listing/dumps/meta_time.nodump
+ create mode 100755 tests/shell/testcases/listing/meta_time
+
+diff --git a/src/meta.c b/src/meta.c
+index b578d5e2..7846aefe 100644
+--- a/src/meta.c
++++ b/src/meta.c
+@@ -495,9 +495,16 @@ static void hour_type_print(const struct expr *expr, struct output_ctx *octx)
+
+ 	/* Obtain current tm, so that we can add tm_gmtoff */
+ 	ts = time(NULL);
+-	if (ts != ((time_t) -1) && localtime_r(&ts, &cur_tm))
+-		seconds = (seconds + cur_tm.tm_gmtoff) % SECONDS_PER_DAY;
++	if (ts != ((time_t) -1) && localtime_r(&ts, &cur_tm)) {
++		int32_t adj = seconds + cur_tm.tm_gmtoff;
+
++		if (adj < 0)
++			adj += SECONDS_PER_DAY;
++		else if (adj >= SECONDS_PER_DAY)
++			adj -= SECONDS_PER_DAY;
++
++		seconds = adj;
++	}
+ 	minutes = seconds / 60;
+ 	seconds %= 60;
+ 	hours = minutes / 60;
+diff --git a/tests/shell/testcases/listing/dumps/meta_time.nodump b/tests/shell/testcases/listing/dumps/meta_time.nodump
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/tests/shell/testcases/listing/meta_time b/tests/shell/testcases/listing/meta_time
+new file mode 100755
+index 00000000..a9761998
+--- /dev/null
++++ b/tests/shell/testcases/listing/meta_time
+@@ -0,0 +1,52 @@
++#!/bin/bash
++
++set -e
++
++TMP1=$(mktemp)
++TMP2=$(mktemp)
++
++cleanup()
++{
++	rm -f "$TMP1"
++	rm -f "$TMP2"
++}
++
++check_decode()
++{
++	TZ=$1 $NFT list chain t c | grep meta > "$TMP2"
++	diff -u "$TMP1" "$TMP2"
++}
++
++trap cleanup EXIT
++
++$NFT -f - <<EOF
++table t {
++	chain c {
++	}
++}
++EOF
++
++for i in $(seq -w 0 23); do
++	TZ=UTC $NFT add rule t c meta hour "$i:00"-"$i:59"
++done
++
++# Check decoding in UTC, this mirrors 1:1 what should have been added.
++for i in $(seq 0 23); do
++	printf "\t\tmeta hour \"%02d:%02d\"-\"%02d:%02d\"\n" $i 0 $i 59 >> "$TMP1"
++done
++
++check_decode UTC
++
++printf "\t\tmeta hour \"%02d:%02d\"-\"%02d:%02d\"\n" 23 0 23 59 > "$TMP1"
++for i in $(seq 0 22); do
++	printf "\t\tmeta hour \"%02d:%02d\"-\"%02d:%02d\"\n" $i 0 $i 59 >> "$TMP1"
++done
++check_decode UTC+1
++
++printf "\t\tmeta hour \"%02d:%02d\"-\"%02d:%02d\"\n" 1 0 1 59 > "$TMP1"
++for i in $(seq 2 23); do
++	printf "\t\tmeta hour \"%02d:%02d\"-\"%02d:%02d\"\n" $i 0 $i 59 >> "$TMP1"
++done
++printf "\t\tmeta hour \"%02d:%02d\"-\"%02d:%02d\"\n" 0 0 0 59 >> "$TMP1"
++
++check_decode UTC-1
+-- 
+cgit v1.2.3
+

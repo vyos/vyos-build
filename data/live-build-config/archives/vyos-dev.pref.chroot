@@ -1,0 +1,3 @@
+Package: *
+Pin: release n=current
+Pin-Priority: 999

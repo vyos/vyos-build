@@ -7,34 +7,11 @@ all:
 	@echo "Make what specifically?"
 	@echo "The most common target is 'iso'"
 
-.PHONY: check_build_config
-check_build_config:
-	@scripts/check-config
-
-.PHONY: prepare
-prepare:
-	@set -e
-	@echo "Starting VyOS ISO image build"
-
-	rm -rf build/config/*
-	mkdir -p build/config
-	cp -r data/live-build-config/* build/config/
-	@scripts/live-build-config
-	@scripts/import-local-packages
-
-	@scripts/make-version-file
-
-	@scripts/build-flavour
-
 .PHONY: iso
 .ONESHELL:
-iso: check_build_config clean prepare
-	@echo "It's not like I'm building this specially for you or anything!"
-	cd $(build_dir)
+iso: clean
 	set -o pipefail
-	lb build 2>&1 | tee build.log; if [ $$? -ne 0 ]; then exit 1; fi
-	cd ..
-	@scripts/copy-image
+	@./build-vyos-image iso
 	exit 0
 
 .PHONY: prepare-package-env
@@ -43,50 +20,6 @@ prepare-package-env:
 	@set -e
 	@scripts/pbuilder-config
 	@scripts/pbuilder-setup
-
-.PHONY: AWS
-.ONESHELL:
-AWS: clean prepare
-	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/etc/cloud/cloud.cfg.d
-	cp tools/cloud-init/AWS/90_dpkg.cfg build/config/includes.chroot/etc/cloud/cloud.cfg.d/
-	cp tools/cloud-init/AWS/cloud-init.list.chroot build/config/package-lists/
-	cp -f tools/cloud-init/AWS/config.boot.default build/config/includes.chroot/opt/vyatta/etc/
-	cd $(build_dir)
-	lb build 2>&1 | tee build.log
-	cd ..
-	@scripts/copy-image
-
-.PHONY: vep4600
-.ONESHELL:
-vep4600: check_build_config clean prepare
-	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/etc/systemd/network
-	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
-	cp tools/dell/90-vep.chroot build/config/hooks/live/
-	cp tools/dell/vep4600/*.link build/config/includes.chroot/etc/systemd/network/
-	cp tools/dell/vep-hook build/config/includes.chroot/usr/share/initramfs-tools/hooks/
-	cd $(build_dir)
-	lb build 2>&1 | tee build.log
-	cd ..
-	@scripts/copy-image
-
-.PHONY: vep1400
-.ONESHELL:
-vep1400: check_build_config clean prepare
-	@set -e
-	@echo "It's not like I'm building this specially for you or anything!"
-	mkdir -p build/config/includes.chroot/etc/systemd/network
-	mkdir -p build/config/includes.chroot/usr/share/initramfs-tools/hooks
-	cp tools/dell/90-vep.chroot build/config/hooks/live/
-	cp tools/dell/vep1400/*.link build/config/includes.chroot/etc/systemd/network/
-	cp tools/dell/vep-hook build/config/includes.chroot/usr/share/initramfs-tools/hooks/
-	cd $(build_dir)
-	lb build 2>&1 | tee build.log
-	cd ..
-	@scripts/copy-image
 
 .PHONY: checkiso
 .ONESHELL:
@@ -99,12 +32,12 @@ checkiso:
 .PHONY: test
 .ONESHELL:
 test: checkiso
-	scripts/check-qemu-install --debug --uefi build/live-image-amd64.hybrid.iso
+	scripts/check-qemu-install --debug --match="$(MATCH)" --uefi build/live-image-amd64.hybrid.iso
 
 .PHONY: test-no-interfaces
 .ONESHELL:
 test-no-interfaces: checkiso
-	scripts/check-qemu-install --debug --no-interfaces build/live-image-amd64.hybrid.iso
+	scripts/check-qemu-install --debug --match="$(MATCH)" --no-interfaces build/live-image-amd64.hybrid.iso
 
 .PHONY: testd
 .ONESHELL:
@@ -121,10 +54,21 @@ testc: checkiso
 testraid: checkiso
 	scripts/check-qemu-install --debug --configd --raid --configtest build/live-image-amd64.hybrid.iso
 
+.PHONY: qemu-live
+.ONESHELL:
+qemu-live: checkiso
+	scripts/check-qemu-install --qemu-cmd build/live-image-amd64.hybrid.iso
+
+.PHONE: oci
+.ONESHELL:
+oci: checkiso
+	scripts/iso-to-oci build/live-image-amd64.hybrid.iso
+
 .PHONY: clean
 .ONESHELL:
 clean:
 	@set -e
+	mkdir -p $(build_dir)
 	cd $(build_dir)
 	lb clean
 

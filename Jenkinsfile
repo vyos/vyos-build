@@ -38,7 +38,7 @@ node('Docker') {
             env.USR_ID = sh(returnStdout: true, script: 'id -u').toString().trim()
             env.GRP_ID = sh(returnStdout: true, script: 'id -g').toString().trim()
             env.DOCKER_ARGS = '--privileged --sysctl net.ipv6.conf.lo.disable_ipv6=0 -e GOSU_UID=' + env.USR_ID + ' -e GOSU_GID=' + env.GRP_ID
-            env.BASE_VERSION = '1.4-rolling-'
+            env.BASE_VERSION = '1.5-rolling-'
         }
     }
 }
@@ -53,15 +53,13 @@ pipeline {
             reuseNode true
         }
     }
-    triggers {
-        cron('H 3 * * *')
-    }
     parameters {
         string(name: 'BUILD_BY', defaultValue: 'autobuild@vyos.net', description: 'Builder identifier (e.g. jrandomhacker@example.net)')
         string(name: 'BUILD_VERSION', defaultValue: env.BASE_VERSION + 'ISO8601-TIMESTAMP', description: 'Version number (release builds only)')
-        booleanParam(name: 'BUILD_PUBLISH', defaultValue: true, description: 'Publish this build to downloads.vyos.io and AWS S3')
-        booleanParam(name: 'BUILD_SMOKETESTS', defaultValue: true, description: 'Include Smoketests in ISO image')
+        booleanParam(name: 'BUILD_PUBLISH', defaultValue: false, description: 'Publish this build AWS S3')
         booleanParam(name: 'BUILD_SNAPSHOT', defaultValue: false, description: 'Upload image to AWS S3 snapshot bucket')
+        booleanParam(name: 'TEST_SMOKETESTS', defaultValue: true, description: 'Run Smoketests after ISO build')
+        booleanParam(name: 'TEST_RAID1', defaultValue: true, description: 'Perform RAID1 installation tests')
     }
     options {
         disableConcurrentBuilds()
@@ -81,6 +79,9 @@ pipeline {
                     triggeredBy cause: "UserIdCause"
                 }
             }
+            environment {
+                PYTHONDONTWRITEBYTECODE = 1
+            }
             steps {
                 script {
                     // Display Git commit Id used with the Jenkinsfile on the Job "Build History" pane
@@ -88,20 +89,19 @@ pipeline {
                     currentBuild.description = sprintf('Git SHA1: %s', commitId[-11..-1])
 
                     def CUSTOM_PACKAGES = ''
-                    if (params.BUILD_SMOKETESTS)
+                    if (params.TEST_SMOKETESTS)
                         CUSTOM_PACKAGES = '--custom-package vyos-1x-smoketest'
 
-                    def VYOS_VERSION = params.BUILD_BY
+                    def VYOS_VERSION = params.BUILD_VERSION
                     if (params.BUILD_VERSION == env.BASE_VERSION + 'ISO8601-TIMESTAMP')
                         VYOS_VERSION = env.BASE_VERSION + sh(returnStdout: true, script: 'date -u +%Y%m%d%H%M').toString().trim()
 
                     sh """
-                        ./configure \
+                        sudo --preserve-env ./build-vyos-image \
                             --build-by "${params.BUILD_BY}" \
                             --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
-                            --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES}
-                        sudo make iso
+                            --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES} iso
                     """
 
                     if (fileExists('build/live-image-amd64.hybrid.iso') == false) {
@@ -110,12 +110,21 @@ pipeline {
                 }
             }
         }
-        stage('Test') {
+        stage('Smoketests for RAID-1 system installation') {
             when {
-                expression { return params.BUILD_SMOKETESTS }
+                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+                expression { return params.TEST_RAID1 }
+            }
+            steps {
+                sh "sudo make testraid"
+            }
+        }
+        stage('Smoketests') {
+            when {
+                expression { return params.TEST_SMOKETESTS }
             }
             parallel {
-                stage('Smoketests') {
+                stage('CLI validation') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
@@ -123,20 +132,12 @@ pipeline {
                         sh "sudo make test"
                     }
                 }
-                stage('Smoketests with vyos-configd and arbitrary config loader') {
+                stage('vyos-configd and arbitrary config loader') {
                     when {
                         expression { fileExists 'build/live-image-amd64.hybrid.iso' }
                     }
                     steps {
                         sh "sudo make testc"
-                    }
-                }
-                stage('Smoketests for RAID-1 system installation') {
-                    when {
-                        expression { fileExists 'build/live-image-amd64.hybrid.iso' }
-                    }
-                    steps {
-                        sh "sudo make testraid"
                     }
                 }
             }
@@ -149,8 +150,12 @@ pipeline {
                 if (isCustomBuild())
                     return
 
+                // always store local artifacts
+                archiveArtifacts artifacts: '**/build/vyos-*.iso, **/build/vyos-*.qcow2',
+                    allowEmptyArchive: true
+
                 // only deploy ISO if requested via parameter
-                if (! params.BUILD_PUBLISH)
+                if (!params.BUILD_PUBLISH)
                     return
 
                 files = findFiles(glob: 'build/vyos*.iso')
@@ -159,7 +164,8 @@ pipeline {
                     // Publish ISO image to snapshot bucket
                     if (files && params.BUILD_SNAPSHOT) {
                         withAWS(region: 'us-east-1', credentials: 's3-vyos-downloads-rolling-rw') {
-                            s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/' + params.BUILD_VERSION + '/', workingDir: 'build', includePathPattern: 'vyos*.iso')
+                            s3Upload(bucket: 's3-us.vyos.io', path: 'snapshot/' + params.BUILD_VERSION + '/', workingDir: 'build', includePathPattern: 'vyos*.iso',
+                            cacheControl: "public, max-age=2592000")
                         }
                     } else {
                         // Publish build result to AWS S3 rolling bucket
@@ -173,7 +179,7 @@ pipeline {
 
                     // Trigger GitHub action which will re-build the static community website which
                     // also holds the AWS download links to the generated ISO images
-                    withCredentials([string(credentialsId: 'GitHub-API-Token', variable: 'TOKEN')]) {
+                    withCredentials([string(credentialsId: 'vyos.net-build-trigger-token', variable: 'TOKEN')]) {
                         sh '''
                             curl -X POST --header "Accept: application/vnd.github.v3+json" \
                             --header "authorization: Bearer $TOKEN" --data '{"ref": "production"}' \

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesPattern="**") {
+def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesPattern="**", buildLabel="ec2_amd64") {
     // - description: Arbitrary text to print on Jenkins Job Description
     //   instead of package name
     // - pkgList: Multiple packages can be build at once in a single Pipeline run
@@ -23,6 +23,9 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
     // - buildArm: package will also be build for the arm64 platform
     // - changesPattern: package will only be build if a change file matching this
     //   pattern is found
+    // - buildLabel: used to describe where the job should run. amd64 inside the
+    //   string will be replaced with arm64 when those builds are enabled.
+    //   Example: ec2_amd64 -> ec2_arm64 or foo_amd64 -> foo_arm64
 
     setDescription(description)
 
@@ -30,19 +33,18 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
         agent none
         options {
             disableConcurrentBuilds()
-            timeout(time: 180, unit: 'MINUTES')
+            timeout(time: 240, unit: 'MINUTES')
             timestamps()
             buildDiscarder(logRotator(numToKeepStr: '10'))
         }
         stages {
             stage('Define Agent') {
                 agent {
-                    label "ec2_amd64"
+                    label "${buildLabel}"
                 }
                 when {
                     anyOf {
                         changeset "${changesPattern}"
-                        changeset "**/data/defaults.json"
                         triggeredBy cause: "UserIdCause"
                     }
                 }
@@ -76,7 +78,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                     stage('amd64') {
                         agent {
                             docker {
-                                label "ec2_amd64"
+                                label "${buildLabel}"
                                 args "${env.DOCKER_ARGS}"
                                 image "${env.DOCKER_IMAGE}"
                                 alwaysPull true
@@ -101,13 +103,11 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                                 deleteDir()
                             }
                         }
-
-
                     }
                     stage('arm64') {
                         agent {
                             docker {
-                                label "ec2_arm64"
+                                label "${buildLabel.replace('amd64', 'arm64')}"
                                 args "${env.DOCKER_ARGS}"
                                 image "${env.DOCKER_IMAGE}-arm64"
                                 alwaysPull true
@@ -139,7 +139,7 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                     }
                 }
                 agent {
-                    label "ec2_amd64"
+                    label "${buildLabel}"
                 }
                 steps {
                     script {

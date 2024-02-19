@@ -108,11 +108,11 @@ PRETTY_NAME="VyOS {version} ({build_config['release_train']})"
 NAME="VyOS"
 VERSION_ID="{version}"
 VERSION="{version} ({build_config['release_train']})"
-VERSION_CODENAME=bullseye
+VERSION_CODENAME=bookworm
 ID=vyos
 HOME_URL="https://vyos.io"
 SUPPORT_URL="https://support.vyos.io"
-BUG_REPORT_URL="https://phabricator.vyos.net"
+BUG_REPORT_URL="https://vyos.dev"
 """
 
 os.makedirs(os.path.join(defaults.CHROOT_INCLUDES_DIR, 'usr/share/vyos'), exist_ok=True)

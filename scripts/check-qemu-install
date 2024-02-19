@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2021, VyOS maintainers and contributors
+# Copyright (C) 2019-2023, VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -42,7 +42,7 @@ import random
 import traceback
 import logging
 import re
-import json
+import toml
 
 from io import BytesIO
 from io import StringIO
@@ -63,6 +63,7 @@ parser.add_argument('--silent', help='Do not show output on stdout unless an err
 parser.add_argument('--debug', help='Send all debug output to stdout',
                                action='store_true', default=False)
 parser.add_argument('--logfile', help='Log to file')
+parser.add_argument('--match', help='Smoketests to run')
 parser.add_argument('--uefi', help='Boot using UEFI', action='store_true', default=False)
 parser.add_argument('--raid', help='Perform a RAID-1 install', action='store_true', default=False)
 parser.add_argument('--no-kvm', help='Disable use of kvm', action='store_true', default=False)
@@ -78,8 +79,8 @@ parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
 
 args = parser.parse_args()
 
-with open('data/defaults.json') as f:
-    vyos_defaults = json.load(f)
+with open('data/defaults.toml') as f:
+    vyos_defaults = toml.load(f)
 
 class StreamToLogger(object):
     """
@@ -143,10 +144,10 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
     macbase = '52:54:00:00:00'
     cmd = f'qemu-system-x86_64 \
         -name "{name}" \
-        -smp sockets=1,cpus={cpucount},cores=1 \
+        -smp {cpucount},sockets=1,cores={cpucount},threads=1 \
         -cpu host \
         {uefi} \
-        -m 2G \
+        -m 3G \
         -vga none \
         -nographic \
         -machine accel=kvm \
@@ -185,6 +186,10 @@ def shutdownVM(c, log, message=''):
     log.info('Shutting down virtual machine')
     for i in range(30):
         log.info('Waiting for shutdown...')
+        # Shutdown in qemu doesnt work first time
+        # Use this workaround
+        # https://vyos.dev/T5024
+        c.sendline('poweroff now')
         if not c.isalive():
             log.info('VM is shut down!')
             break
@@ -267,7 +272,7 @@ gen_disk(args.disk)
 
 if args.qemu_cmd:
     tmp = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, args.iso)
-    print(tmp)
+    os.system(tmp)
     exit(0)
 
 test_timeout = 3 *3600 # 3 hours (in seconds)
@@ -301,42 +306,29 @@ try:
     #################################################
     log.info('Starting installer')
     c.sendline('install image')
-    c.expect('\nWould you like to continue?.*:')
-    c.sendline('yes')
+    c.expect('\nWould you like to continue?.*')
+    c.sendline('y')
+    c.expect('\nWhat would you like to name this image?.*')
+    c.sendline('')
+    c.expect(f'\nPlease enter a password for the "{default_user}" user.*')
+    c.sendline('')
+    c.expect('\nWhat console should be used by default?.*')
+    c.sendline('S')
 
     if args.raid:
-        c.expect('\nWould you like to configure RAID-1 mirroring on them?.*:')
-        c.sendline('yes')
-        # Erase all data on disks
-        c.expect('\nAre you sure you want to do this?.*:')
-        c.sendline('yes')
+        c.expect('\nWould you like to configure RAID-1 mirroring??.*')
+        c.sendline('y')
+        c.expect('\nWould you like to configure RAID-1 mirroring on them?.*')
+        c.sendline('y')
+        c.expect('\nInstallation will delete all data on both drives. Continue?.*')
+        c.sendline('y')
     else:
-        log.info('Partitioning disk')
-        c.expect('\nPartition.*:')
+        c.expect('\nWhich one should be used for installation?.*')
         c.sendline('')
-        c.expect('\nInstall the image on.*:')
-        c.sendline('')
-        c.expect(r'\nContinue\?.*:')
-        c.sendline('Yes')
-        c.expect('\nHow big of a root partition should I create?.*:')
-        c.sendline('')
-
-    log.info('Disk(s) partitioned, installing...')
-    c.expect('\nWhat would you like to name this image?.*:', timeout=600)
-    c.sendline('')
-    log.info('Copying files')
-    c.expect('\nWhich one should I copy to.*:', timeout=600)
-    c.sendline('')
-    log.info('Files Copied!')
-    c.expect('\nEnter password for user.*:')
-    c.sendline(default_user)
-    c.expect('\nRetype password for user.*:')
-    c.sendline(default_password)
-
-    if not args.raid:
-        c.expect('\nWhich drive should GRUB modify the boot partition on.*:')
-        c.sendline('')
-        c.expect(op_mode_prompt)
+        c.expect('\nInstallation will delete all data on the drive. Continue?.*')
+        c.sendline('y')
+        c.expect('\nWould you like to use all the free space on the drive?.*')
+        c.sendline('y')
 
     log.info('system installed, shutting down')
 
@@ -391,7 +383,7 @@ try:
     c.sendline('show version')
     c.expect(op_mode_prompt)
     c.sendline('show version kernel')
-    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["kernel_flavor"]}')
+    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["architecture"]}-vyos')
     c.expect(op_mode_prompt)
     c.sendline('show version frr')
     c.expect(op_mode_prompt)
@@ -448,12 +440,12 @@ try:
         c.expect(op_mode_prompt)
 
         log.info('Re-format new RAID member')
-        c.sendline('format disk sda like sdb')
+        c.sendline('format by-id disk drive-hd1 like drive-hd2')
         c.sendline('yes')
         c.expect(op_mode_prompt)
 
         log.info('Add member to RAID1 (md0)')
-        c.sendline('add raid md0 member sda1')
+        c.sendline('add raid md0 by-id member drive-hd1-part3')
         c.expect(op_mode_prompt)
 
         log.info('Now we need to wait for re-sync to complete')
@@ -482,6 +474,11 @@ try:
 
     elif not args.configtest:
         # run default smoketest suite
+        if args.match:
+            # Remove tests that we don't want to run
+            match_str = '-o '.join([f'-name "test_*{name}*.py" ' for name in args.match.split("|")]).strip()
+            c.sendline(f'sudo find /usr/libexec/vyos/tests/smoke/cli/test_* -type f ! \( {match_str} \) -delete')
+            c.expect(op_mode_prompt)
         if args.no_interfaces:
             # remove interface tests as they consume a lot of time
             c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_interfaces_*')
@@ -520,35 +517,13 @@ try:
         c.sendline('echo "x39C77eavJNpvYbNzPSG3n1D68rHYei6q3AEBEyL1z8=" | sudo tee /config/auth/wireguard/default/public.key')
         c.expect(op_mode_prompt)
 
-        log.info('Generating some OpenVPN keys')
-        subject = '/C=DE/ST=BY/O=VyOS/localityName=Cloud/commonName=vyos/' \
-                  'organizationalUnitName=VyOS/emailAddress=maintainers@vyos.io/'
-        ca_cert  = '/config/auth/ovpn_test_ca.pem'
-        ssl_cert = '/config/auth/ovpn_test_server.pem'
-        ssl_key  = '/config/auth/ovpn_test_server.key'
-        dh_pem   = '/config/auth/ovpn_test_dh.pem'
-        s2s_key  = '/config/auth/ovpn_test_site2site.key'
-        auth_key = '/config/auth/ovpn_test_tls_auth.key'
-
-        c.sendline(f'openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 '\
-                   f'-keyout {ssl_key} -out {ssl_cert} -subj {subject}')
-        c.expect(op_mode_prompt, timeout=600)
-        c.sendline(f'openssl req -new -x509 -key {ssl_key} -out {ca_cert} -subj {subject}')
-        c.expect(op_mode_prompt, timeout=600)
-        c.sendline(f'openssl dhparam -out {dh_pem} 2048')
-        c.expect(op_mode_prompt, timeout=600)
-        c.sendline(f'openvpn --genkey secret {s2s_key}')
-        c.expect(op_mode_prompt)
-        c.sendline(f'openvpn --genkey secret {auth_key}')
-        c.expect(op_mode_prompt)
+        log.info('Generating PKI objects')
+        c.sendline(f'/usr/bin/vyos-configtest-pki')
+        c.expect(op_mode_prompt, timeout=900)
 
         script_file = '/config/scripts/vyos-foo-update.script'
         c.sendline(f'echo "#!/bin/sh" > {script_file}; chmod 775 {script_file}')
         c.expect(op_mode_prompt)
-
-        for file in [ca_cert, ssl_cert, ssl_key, dh_pem, s2s_key, auth_key]:
-            c.sendline(f'sudo chown openvpn:openvpn {file}')
-            c.expect(op_mode_prompt)
 
         log.info('Executing load config tests')
         c.sendline('/usr/bin/vyos-configtest')

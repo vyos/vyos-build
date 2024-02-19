@@ -38,18 +38,57 @@ if [ -d ${VYOS_FIRMWARE_DIR} ]; then
 fi
 mkdir -p ${VYOS_FIRMWARE_DIR}
 
-# Copy firmware file from linux firmware repository into
+# Install firmware files to build directory
+LINUX_FIRMWARE_BUILD_DIR="${LINUX_FIRMWARE}_${GIT_COMMIT}"
+
+if [ -d ${LINUX_FIRMWARE_BUILD_DIR} ]; then
+    rm -rf "${LINUX_FIRMWARE_BUILD_DIR}"
+fi
+
+mkdir -p "${LINUX_FIRMWARE_BUILD_DIR}"
+
+(
+    cd ${LINUX_FIRMWARE}
+    ./copy-firmware.sh "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}"
+)
+
+# Copy firmware file from linux firmware build directory into
 # assembly folder for the vyos-firmware package
 SED_REPLACE="s@${CWD}/${LINUX_FIRMWARE}/@@"
-for FILE in ${FW_FILES}; do
-    if [ -f ${LINUX_FIRMWARE}/${FILE} ]; then
-        FW_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname ${FILE})"
-        mkdir -p ${FW_DIR}
-        echo "I: install firmware: ${FILE}"
-        cp ${CWD}/${LINUX_FIRMWARE}/${FILE} ${FW_DIR}
-    else
-        echo "I: firmware file not found: ${FILE}"
-    fi
+for FILE_PATTERN in ${FW_FILES}; do
+    find "${LINUX_FIRMWARE_BUILD_DIR}" -path "*/${FILE_PATTERN}" -print0 | while IFS= read -r -d $'\0' FILE; do
+        TARGET="$(echo "${FILE}" | sed "s/${LINUX_FIRMWARE_BUILD_DIR}\///g")"
+        TARGET_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname "${TARGET}")"
+        # If file is a symlink install the symlink target as well
+        if [ -h "${FILE}" ]; then
+            if [ ! -f "${TARGET_DIR}/$(basename "${TARGET}")" ]; then
+                if [ -f "${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" ]; then
+                    mkdir -p "${TARGET_DIR}"
+
+                    echo "I: install firmware: ${TARGET}"
+                    cp "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" "${TARGET_DIR}"
+		    # If file links to other folder which this script not cover. Create folder and copy together.
+                    if [ -L "${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" ]; then
+                        REALPATH_TARGET=$(realpath --relative-to="${CWD}/${LINUX_FIRMWARE_BUILD_DIR}" "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}")
+                        REALPATH_TARGET_DIR="${VYOS_FIRMWARE_DIR}/lib/firmware/$(dirname "${REALPATH_TARGET}")"
+                        mkdir -p "${REALPATH_TARGET_DIR}"
+                        echo "I: install firmware: ${REALPATH_TARGET}"
+                        cp "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${REALPATH_TARGET}" "${REALPATH_TARGET_DIR}"
+                    fi
+                 else
+                    echo "I: firmware file not found: ${TARGET}"
+                fi
+            fi
+        fi
+
+        if [ -f "${FILE}" ]; then
+            mkdir -p "${TARGET_DIR}"
+            echo "I: install firmware: ${TARGET}"
+            cp -P "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}/${TARGET}" "${TARGET_DIR}"
+        else
+            echo "I: firmware file not found: ${TARGET}"
+        fi
+    done
 done
 
 echo "I: Create linux-firmware package"
@@ -59,4 +98,5 @@ fpm --input-type dir --output-type deb --name ${VYOS_FIRMWARE_NAME} \
     --description "Binary firmware for various drivers in the Linux kernel" \
     --architecture all --version ${GIT_COMMIT} --deb-compression gz -C ${VYOS_FIRMWARE_DIR}
 
+rm -rf "${LINUX_FIRMWARE_BUILD_DIR}"
 rm -rf ${VYOS_FIRMWARE_DIR}

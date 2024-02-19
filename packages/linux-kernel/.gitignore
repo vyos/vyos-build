@@ -4,15 +4,16 @@
 /accel-ppp
 /intel-qat
 /linux-firmware
+/vyos-drivers-intel*
+/vyos-drivers-realtek*
+/ovpn-dco
+/jool*
 /qat*
-*.deb
-*.changes
-*.buildinfo
+/QAT*
 *.tar.xz
 /*.postinst
 
 # Intel Driver source
-*.tar.gz
 i40e-*/
 igb-*/
 ixgbe-*/
@@ -20,3 +21,4 @@ ixgbevf-*/
 vyos-intel-*/
 vyos-linux-firmware*/
 kernel-vars
+r8152-*.tar.bz2

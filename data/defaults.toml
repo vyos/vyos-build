@@ -1,0 +1,24 @@
+build_type = "development"
+
+architecture = "amd64"
+
+debian_distribution = "bookworm"
+
+debian_mirror = "http://deb.debian.org/debian"
+debian_security_mirror = "http://deb.debian.org/debian-security"
+
+debian_archive_areas = "main contrib non-free non-free-firmware"
+
+vyos_mirror = "https://rolling-packages.vyos.net/current"
+
+vyos_branch = "current"
+release_train = "current"
+
+kernel_version = "6.6.17"
+bootloaders = "syslinux,grub-efi"
+
+squashfs_compression_type = "xz -Xbcj x86 -b 256k -always-use-fragments -no-recovery"
+
+website_url = "https://vyos.io"
+support_url = "https://support.vyos.io"
+bugtracker_url = "https://vyos.dev"

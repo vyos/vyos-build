@@ -6,3 +6,5 @@ key/*
 packages/*
 !packages/*/
 testinstall*.img
+*.qcow2
+*.tar

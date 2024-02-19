@@ -1,4 +1,0 @@
-#!/bin/sh
-if [ -f /etc/update-motd.d/10-uname ]; then
-    rm -f /etc/update-motd.d/10-uname
-fi

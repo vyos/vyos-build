@@ -1,7 +1,0 @@
-#!/bin/sh
-
-# 99-default.link rule always calls link_config that trying to set
-# autonegotiation and duplex even for PPP interfaces.
-# Need to delete this rule to prevent overhead on interface creation stage
-
-rm /lib/systemd/network/99-default.link

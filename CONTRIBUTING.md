@@ -32,7 +32,7 @@ The information is used in three ways:
 * Help future maintainers of VyOS (it could be you!) to find out why certain
   things have been changed in the codebase or why certain features have been
   added
-  
+
 To make this approach work, every change must be associated with a task number
 (prefixed with **T**) and a component. If there is no bug report/feature
 request for the changes you are going to make, you have to create a Phabricator
@@ -42,7 +42,7 @@ in your commit message, as shown below:
 * `ddclient: T1030: auto create runtime directories`
 * `Jenkins: add current Git commit ID to build description`
 
-If there is no [Phabricator](https://phabricator.vyos.net) reference in the
+If there is no [Phabricator](https://vyos.dev) reference in the
 commits of your pull request, we have to ask you to amend the commit message.
 Otherwise we will have to reject it.
 
@@ -126,7 +126,7 @@ also contain information that is helpful for the development team.
 ### Reporting
 
 In order to open up a bug-report/feature request you need to create yourself
-an account on [Phabricator](https://phabricator.vyos.net). On the left
+an account on [Phabricator](https://vyos.dev). On the left
 side of the specific project (VyOS 1.2 or VyOS 1.3) you will find quick-links
 for opening a bug-report/feature request.
 
@@ -141,7 +141,7 @@ for opening a bug-report/feature request.
 
 You have an idea of how to make VyOS better or you are in need of a specific
 feature which all users of VyOS would benefit from? To send a feature request
-please search [Phabricator](https://phabricator.vyos.net) if there is already a
+please search [Phabricator](https://vyos.dev) if there is already a
 request pending. You can enhance it or if you don't find one, create a new one
 by use the quick link in the left side under the specific project.
 
