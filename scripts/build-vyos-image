@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2022 VyOS maintainers and contributors
+# Copyright (C) 2022-2024 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -344,8 +344,15 @@ if __name__ == "__main__":
     BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
     """
 
-    chroot_includes_dir = os.path.join(defaults.BUILD_DIR, defaults.CHROOT_INCLUDES_DIR)
-    binary_includes_dir = os.path.join(defaults.BUILD_DIR, defaults.BINARY_INCLUDES_DIR)
+    # Switch to the build directory, this is crucial for the live-build work
+    # because the efective build config files etc. are there.
+    #
+    # All directory paths from this point must be relative to BUILD_DIR,
+    # not to the vyos-build repository root.
+    os.chdir(defaults.BUILD_DIR)
+
+    chroot_includes_dir = defaults.CHROOT_INCLUDES_DIR
+    binary_includes_dir = defaults.BINARY_INCLUDES_DIR
     vyos_data_dir = os.path.join(chroot_includes_dir, "usr/share/vyos")
     os.makedirs(vyos_data_dir, exist_ok=True)
     with open(os.path.join(vyos_data_dir, 'version.json'), 'w') as f:
@@ -365,11 +372,6 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(chroot_includes_dir, 'usr/lib/'), exist_ok=True)
     with open(os.path.join(chroot_includes_dir, 'usr/lib//os-release'), 'w') as f:
         print(os_release, file=f)
-
-
-    ## Switch to the build directory, this is crucial for the live-build work work
-    ## because the efective build config files etc. are there
-    os.chdir(defaults.BUILD_DIR)
 
     ## Clean up earlier build state and artifacts
     print("I: Cleaning the build workspace")
@@ -428,10 +430,11 @@ if __name__ == "__main__":
     if has_nonempty_key(build_config, "includes_chroot"):
         for i in build_config["includes_chroot"]:
             file_path = os.path.join(chroot_includes_dir, i["path"])
+            if debug:
+                print(f"D: Creating chroot include file: {file_path}")
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, 'w') as f:
                 f.write(i["data"])
-
 
     ## Configure live-build
     lb_config_tmpl = jinja2.Template("""
