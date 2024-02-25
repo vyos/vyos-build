@@ -277,10 +277,9 @@ if __name__ == "__main__":
         # Retrieve git branch name
         git_branch = repo.active_branch.name
     except Exception as e:
-      print("Could not retrieve information from git: {0}".format(str(e)))
+      exit(f'Could not retrieve information from git: {e}')
       build_git = ""
       git_branch = ""
-      git_commit = ""
 
     # Create the build version string
     if build_config['build_type'] == 'development':
