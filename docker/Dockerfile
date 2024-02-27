@@ -40,7 +40,16 @@ RUN grep "VERSION_ID" /etc/os-release || (echo 'VERSION_ID="12"' >> /etc/os-rele
 # On some versions of docker the emulation framework is not installed by default and
 # you need to install qemu, qemu-user-static and register qemu inside docker manually using:
 # `docker run --rm --privileged multiarch/qemu-user-static:register --reset`
-LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
+LABEL authors="VyOS Maintainers <maintainers@vyos.io>" \
+      org.opencontainers.image.authors="VyOS Maintainers <maintainers@vyos.io>" \
+      org.opencontainers.image.url="https://github.com/vyos/vyos-build" \
+      org.opencontainers.image.documentation="https://docs.vyos.io/en/latest/contributing/build-vyos.html" \
+      org.opencontainers.image.source="https://github.com/vyos/vyos-build" \
+      org.opencontainers.image.vendor="Sentrium S.L." \
+      org.opencontainers.image.licenses="GNU" \
+      org.opencontainers.image.title="vyos-build" \
+      org.opencontainers.image.description="Container to build VyOS ISO" \
+      org.opencontainers.image.base.name="docker.io/debian/debian:bookworm"
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
