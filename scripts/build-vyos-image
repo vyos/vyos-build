@@ -327,7 +327,10 @@ if __name__ == "__main__":
         'build_branch': git_branch,
         'release_train': build_config['release_train'],
         'lts_build': lts_build,
-        'build_comment': build_config['build_comment']
+        'build_comment': build_config['build_comment'],
+        'bugtracker_url': build_config['bugtracker_url'],
+        'documentation_url': build_config['documentation_url'],
+        'project_news_url': build_config['project_news_url'],
     }
 
     # Multi line strings needs to be un-indented to not have leading
@@ -343,6 +346,7 @@ BUILD_ID="{build_git}"
 HOME_URL="{build_defaults['website_url']}"
 SUPPORT_URL="{build_defaults['support_url']}"
 BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
+DOCUMENTATION_URL="{build_config['documentation_url']}"
     """
 
     # Switch to the build directory, this is crucial for the live-build work
