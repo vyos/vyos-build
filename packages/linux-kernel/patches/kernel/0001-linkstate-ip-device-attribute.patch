@@ -88,10 +88,10 @@ index cf592d7b630f..e8915701aa73 100644
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index ca0ff15dc8fa..67a55fec5b29 100644
+index bc74f131fe4d..9cdd5b50f9b2 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -2582,6 +2582,7 @@ static struct devinet_sysctl_table {
+@@ -2595,6 +2595,7 @@ static struct devinet_sysctl_table {
  					      "route_localnet"),
  		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
  					      "drop_unicast_in_l2_multicast"),
@@ -100,10 +100,10 @@ index ca0ff15dc8fa..67a55fec5b29 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index b007d098ffe2..865d7be4fd29 100644
+index 7881446a46c4..f3c7a2e0902d 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5639,6 +5639,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+@@ -5654,6 +5654,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
  	array[DEVCONF_NDISC_EVICT_NOCARRIER] = cnf->ndisc_evict_nocarrier;
  	array[DEVCONF_ACCEPT_UNTRACKED_NA] = cnf->accept_untracked_na;
  	array[DEVCONF_ACCEPT_RA_MIN_LFT] = cnf->accept_ra_min_lft;
@@ -111,7 +111,7 @@ index b007d098ffe2..865d7be4fd29 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7067,6 +7068,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7082,6 +7083,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
