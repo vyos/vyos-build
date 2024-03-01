@@ -22,3 +22,5 @@ squashfs_compression_type = "xz -Xbcj x86 -b 256k -always-use-fragments -no-reco
 website_url = "https://vyos.io"
 support_url = "https://support.vyos.io"
 bugtracker_url = "https://vyos.dev"
+documentation_url = "https://docs.vyos.io/en/sagitta"
+project_news_url = "https://blog.vyos.io"
