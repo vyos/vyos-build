@@ -31,13 +31,12 @@ import functools
 
 import json
 
-
 try:
     import toml
     import jinja2
     import git
 except ModuleNotFoundError as e:
-    print("Cannot load a required library: {}".format(e))
+    print(f"Cannot load a required library: {e}")
     print("Please make sure the following Python3 modules are installed: toml jinja2 git")
 
 import vyos_build_utils as utils
@@ -328,19 +327,26 @@ if __name__ == "__main__":
         'build_branch': git_branch,
         'release_train': build_config['release_train'],
         'lts_build': lts_build,
-        'build_comment': build_config['build_comment']
+        'build_comment': build_config['build_comment'],
+        'bugtracker_url': build_config['bugtracker_url'],
+        'documentation_url': build_config['documentation_url'],
+        'project_news_url': build_config['project_news_url'],
     }
 
+    # Multi line strings needs to be un-indented to not have leading
+    # whitespaces in the resulting file
     os_release = f"""
-    PRETTY_NAME="VyOS {version} ({build_config['release_train']})"
-    NAME="VyOS"
-    VERSION_ID="{version}"
-    VERSION="{version} ({build_config['release_train']})"
-    VERSION_CODENAME={build_defaults['debian_distribution']}
-    ID=vyos
-    HOME_URL="{build_defaults['website_url']}"
-    SUPPORT_URL="{build_defaults['support_url']}"
-    BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
+PRETTY_NAME="VyOS {version} ({build_config['release_train']})"
+NAME="VyOS"
+VERSION_ID="{version}"
+VERSION="{version} ({build_config['release_train']})"
+VERSION_CODENAME={build_defaults['debian_distribution']}
+ID=vyos
+BUILD_ID="{build_git}"
+HOME_URL="{build_defaults['website_url']}"
+SUPPORT_URL="{build_defaults['support_url']}"
+BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
+DOCUMENTATION_URL="{build_config['documentation_url']}"
     """
 
     # Switch to the build directory, this is crucial for the live-build work
@@ -369,7 +375,7 @@ if __name__ == "__main__":
 
     # Define variables that influence to welcome message on boot
     os.makedirs(os.path.join(chroot_includes_dir, 'usr/lib/'), exist_ok=True)
-    with open(os.path.join(chroot_includes_dir, 'usr/lib//os-release'), 'w') as f:
+    with open(os.path.join(chroot_includes_dir, 'usr/lib/os-release'), 'w') as f:
         print(os_release, file=f)
 
     ## Clean up earlier build state and artifacts
@@ -386,12 +392,12 @@ if __name__ == "__main__":
 
     # Add the additional repositories to package lists
     print("I: Setting up additional APT entries")
-    vyos_repo_entry = "deb {0} {1} main\n".format(build_config['vyos_mirror'], build_config['vyos_branch'])
+    vyos_repo_entry = "deb {vyos_mirror} {vyos_branch} main\n".format(**build_config)
 
     apt_file = defaults.VYOS_REPO_FILE
 
     if debug:
-        print("D: Adding these entries to {0}:".format(apt_file))
+        print(f"D: Adding these entries to {apt_file}:")
         print("\t", vyos_repo_entry)
 
     with open(apt_file, 'w') as f:
@@ -514,4 +520,3 @@ Pin-Priority: 600
     # Copy the image
     shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]),
       "vyos-{0}-{1}.iso".format(version_data["version"], build_config["architecture"]))
-
