@@ -119,6 +119,14 @@ pipeline {
                 sh "sudo make testraid"
             }
         }
+        stage('Smoketests for TPM config encryption') {
+            when {
+                expression { fileExists 'build/live-image-amd64.hybrid.iso' }
+            }
+            steps {
+                sh "sudo make testtpm"
+            }
+        }
         stage('Smoketests') {
             when {
                 expression { return params.TEST_SMOKETESTS }
