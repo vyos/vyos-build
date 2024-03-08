@@ -300,6 +300,7 @@ if args.qemu_cmd:
     exit(0)
 
 test_timeout = 3 *3600 # 3 hours (in seconds)
+tpm_process = None
 try:
     #################################################
     # Installing image to disk
