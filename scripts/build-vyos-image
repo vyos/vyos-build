@@ -273,8 +273,12 @@ if __name__ == "__main__":
         if repo.is_dirty():
             build_git += "-dirty"
 
-        # Retrieve git branch name
-        git_branch = repo.active_branch.name
+        # Retrieve git branch name or current tag
+        # Building a tagged release might leave us checking out a git tag that is not the tip of a named branch (detached HEAD)
+        # Check if the current HEAD is associated with a tag and use its name instead of an unavailable branch name.
+        git_branch = next((tag.name for tag in repo.tags if tag.commit == repo.head.commit), None)
+        if git_branch is None:
+            git_branch = repo.active_branch.name
     except Exception as e:
       exit(f'Could not retrieve information from git: {e}')
       build_git = ""
