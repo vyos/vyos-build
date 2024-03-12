@@ -32,12 +32,12 @@ import functools
 import json
 
 try:
-    import toml
+    import tomli
     import jinja2
     import git
 except ModuleNotFoundError as e:
     print(f"Cannot load a required library: {e}")
-    print("Please make sure the following Python3 modules are installed: toml jinja2 git")
+    print("Please make sure the following Python3 modules are installed: tomli jinja2 git")
 
 import vyos_build_utils as utils
 import vyos_build_defaults as defaults
@@ -120,8 +120,8 @@ if __name__ == "__main__":
 
     ## Load the file with default build configuration options
     try:
-        with open(defaults.DEFAULTS_FILE, 'r') as f:
-            build_defaults = toml.load(f)
+        with open(defaults.DEFAULTS_FILE, 'rb') as f:
+            build_defaults = tomli.load(f)
     except Exception as e:
         print("Failed to open the defaults file {0}: {1}".format(defaults.DEFAULTS_FILE, e))
         sys.exit(1)
@@ -193,8 +193,8 @@ if __name__ == "__main__":
     pre_build_config = merge_dicts({}, build_defaults)
 
     flavor_config = {}
-    with open(make_toml_path(defaults.BUILD_FLAVORS_DIR, args["build_flavor"]), 'r') as f:
-        flavor_config = toml.load(f)
+    with open(make_toml_path(defaults.BUILD_FLAVORS_DIR, args["build_flavor"]), 'rb') as f:
+        flavor_config = tomli.load(f)
         pre_build_config = merge_dicts(flavor_config, pre_build_config)
 
     ## Combine configs args > flavor > defaults
@@ -226,12 +226,12 @@ if __name__ == "__main__":
     build_config = merge_dicts({}, build_defaults)
 
     ## Load correct mix-ins
-    with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'r') as f:
-        build_type_config = toml.load(f)
+    with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'rb') as f:
+        build_type_config = tomli.load(f)
         build_config = merge_dicts(build_type_config, build_config)
 
-    with open(make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"]), 'r') as f:
-        build_arch_config = toml.load(f)
+    with open(make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"]), 'rb') as f:
+        build_arch_config = tomli.load(f)
         build_config = merge_dicts(build_arch_config, build_config)
 
     ## Override with flavor and then CLI arguments

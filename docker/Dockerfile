@@ -101,6 +101,7 @@ RUN apt-get update && apt-get install -y \
       python3-pip \
       python3-flake8 \
       python3-autopep8 \
+      python3-tomli \
       yq \
       debootstrap \
       live-build
