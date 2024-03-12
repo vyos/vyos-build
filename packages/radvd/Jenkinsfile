@@ -23,7 +23,7 @@ def pkgList = [
     ['name': 'radvd',
      'scmCommit': 'f2de4764559',
      'scmUrl': 'https://github.com/radvd-project/radvd',
-     'buildCmd': 'cd...; ./build.sh'],
+     'buildCmd': 'cd ..; ./build.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
