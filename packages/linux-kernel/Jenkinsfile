@@ -69,6 +69,11 @@ def pkgList = [
     ['name': 'ovpn-dco','scmCommit': 'v0.2.20231117',
      'scmUrl': 'https://github.com/OpenVPN/ovpn-dco',
      'buildCmd': 'cd ..; ./build-openvpn-dco.sh'],
+
+    // RTSP netfilter helper
+    ['name': 'nat-rtsp', 'scmCommit': '475af0a',
+     'scmUrl': 'https://github.com/maru-sama/rtsp-linux.git',
+     'buildCmd': 'cd ..; ./build-nat-rtsp.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
