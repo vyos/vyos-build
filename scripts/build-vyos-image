@@ -428,6 +428,14 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
             with open(file_path, 'w') as f:
                 f.write(i["data"])
 
+    ## Create the default config
+    ## Technically it's just another includes.chroot entry,
+    ## but it's special enough to warrant making it easier for flavor writers
+    if has_nonempty_key(build_config, "default_config"):
+        file_path = os.path.join(chroot_includes_dir, "opt/vyatta/etc/config.boot.default")
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'w') as f:
+            f.write(build_config["default_config"])
 
     ## Configure live-build
     lb_config_tmpl = jinja2.Template("""
