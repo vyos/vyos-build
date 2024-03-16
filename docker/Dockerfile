@@ -648,6 +648,7 @@ RUN apt-get update && apt-get install -y \
       rubygems \
       build-essential
 RUN gem install public_suffix -v 4.0.7
+RUN gem install --no-document dotenv -v 2.8.1
 RUN gem install --no-document fpm
 
 # debmake: a native Debian tool for preparing sources for packaging
