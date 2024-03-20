@@ -1,7 +1,0 @@
-#!/bin/bash
-# Execute this script from the vyos-build top directory
-# Will generate a list of architectures in each repository
-for a in $(echo vyos-build; ./scripts/build-packages -l | egrep -e '^ \* ' | sed 's/^ \* //'); do
-    n=$(curl https://raw.githubusercontent.com/vyos/${a}/current/debian/control 2>/dev/null | grep "Architecture" | tr  '\n' ',')
-    printf "%-24s %s \n" "${a}" "${n}"
-done
