@@ -14,13 +14,6 @@ iso: clean
 	@./build-vyos-image iso
 	exit 0
 
-.PHONY: prepare-package-env
-.ONESHELL:
-prepare-package-env:
-	@set -e
-	@scripts/pbuilder-config
-	@scripts/pbuilder-setup
-
 .PHONY: checkiso
 .ONESHELL:
 checkiso:
