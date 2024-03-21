@@ -191,6 +191,25 @@ if __name__ == "__main__":
         print("\n".join(build_flavors))
         sys.exit(1)
 
+    ## Try to get correct architecture and build type from build flavor and CLI arguments
+    pre_build_config = merge_dicts({}, build_defaults)
+
+    flavor_config = {}
+    build_flavor = args["build_flavor"]
+    try:
+        with open(make_toml_path(defaults.BUILD_FLAVORS_DIR, args["build_flavor"]), 'rb') as f:
+            flavor_config = tomli.load(f)
+            pre_build_config = merge_dicts(flavor_config, pre_build_config)
+    except FileNotFoundError:
+        print(f"E: Flavor '{build_flavor}' does not exist")
+        sys.exit(1)
+    except tomli.TOMLDecodeError as e:
+        print(f"E: Failed to parse TOML file for flavor '{build_flavor}': {e}")
+        sys.exit(1)
+
+    ## Combine configs args > flavor > defaults
+    pre_build_config = merge_dicts(args, pre_build_config, skip_none=True)
+
     # Some fixup for mirror settings.
     # The idea is: if --debian-mirror is specified but --pbuilder-debian-mirror is not,
     # use the --debian-mirror value for both lb and pbuilder bootstrap
