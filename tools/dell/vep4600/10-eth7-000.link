@@ -1,6 +1,0 @@
-[Match]
-Path=pci-0000:65:00.0
-Driver=i40e
-
-[Link]
-Name=eth7
