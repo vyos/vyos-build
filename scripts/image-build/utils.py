@@ -1,4 +1,4 @@
-# Copyright (C) 2015 VyOS maintainers and contributors
+# Copyright (C) 2024 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -21,7 +21,8 @@ import sys
 import os
 from distutils.spawn import find_executable
 
-import vyos_build_defaults as defaults
+# Local modules
+import defaults
 
 def check_build_config():
     if not os.path.exists(defaults.BUILD_CONFIG):

@@ -40,8 +40,9 @@ except ModuleNotFoundError as e:
     print(f"Cannot load a required library: {e}")
     print("Please make sure the following Python3 modules are installed: tomli jinja2 git")
 
-import vyos_build_utils as utils
-import vyos_build_defaults as defaults
+# Local modules
+import utils
+import defaults
 
 # argparse converts hyphens to underscores,
 # so for lookups in the original options hash we have to convert them back
