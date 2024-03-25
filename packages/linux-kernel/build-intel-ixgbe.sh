@@ -61,6 +61,10 @@ sed -i '/.*pci_enable_pcie_error_reporting(pdev);/d' ixgbe_main.c
 echo "I: always enable allow_unsupported_sfp for all NICs by default"
 patch -l -p1 < ../../patches/ixgbe/allow_unsupported_sfp.patch
 
+# See https://vyos.dev/T6162
+echo "I: add 1000BASE-BX support"
+patch -l -p1 < ../../patches/ixgbe/add_1000base-bx_support.patch
+
 echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
 make KSRC=${KERNEL_DIR} INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} -j $(getconf _NPROCESSORS_ONLN) install
 
