@@ -18,8 +18,8 @@ the box, please use [x]
 - [ ] Other (please describe):
 
 ## Related Task(s)
-<!-- All submitted PRs must be linked to a Task on Phabricator. -->
-* https://vyos.dev/Txxxx
+<!-- optional: Link to related other tasks on Phabricator. -->
+<!-- * https://vyos.dev/Txxxx -->
 
 ## Component(s) name
 <!-- A rather incomplete list of components: ethernet, wireguard, bgp, mpls, ldp, l2tp, dhcp ... -->
