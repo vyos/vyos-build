@@ -530,7 +530,6 @@ Pin-Priority: 600
     if local_packages:
         for f in local_packages:
             shutil.copy(f, os.path.join(defaults.LOCAL_PACKAGES_PATH, os.path.basename(f)))
-
     ## Build the image
     print("I: Starting image build")
     if debug:
@@ -539,6 +538,11 @@ Pin-Priority: 600
     if res > 0:
         sys.exit(res)
 
+    # Replace "/" in --version string since that would cause the
+    # "Copy the image" step to throw errors
+    out_version = version_data["version"].replace("/", "_")
+    out_filename = "vyos-{0}-{1}.iso".format(out_version, build_config["architecture"])
+
     # Copy the image
     shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]),
-      "vyos-{0}-{1}.iso".format(version_data["version"], build_config["architecture"]))
+      out_filename)
