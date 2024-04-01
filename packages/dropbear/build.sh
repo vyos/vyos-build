@@ -19,5 +19,9 @@ if [ -d $PATCH_DIR ]; then
 fi
 
 cd ${SRC}
+
+echo "I: Installing build dependencies"
+sudo apt-get install -y libpam0g-dev
+
 echo "I: Build Debian Package"
 dpkg-buildpackage -uc -us -tc -b
