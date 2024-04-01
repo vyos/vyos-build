@@ -194,6 +194,13 @@ def call(description=null, pkgList=null, buildCmd=null, buildArm=false, changesP
                                     sh(script: "ssh ${SSH_OPTS} ${SSH_REMOTE} -t \"uncron-add 'reprepro -v -b ${VYOS_REPO_PATH} removesrc ${RELEASE} ${PACKAGE}'\"")
                                 }
                             }
+                            files = findFiles(glob: '**/*-build-deps_*.deb')
+                            if (files) {
+                                echo "Remove Debian build dependency files from the workspace..."
+                                files.each { FILE ->
+                                    sh(script: "rm -f ${FILE}")
+                                }
+                            }
 
                             files = findFiles(glob: '**/*.deb')
                             if (files) {
