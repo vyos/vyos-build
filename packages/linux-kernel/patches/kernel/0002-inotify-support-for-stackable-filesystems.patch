@@ -190,7 +190,7 @@ index 1c4bfdab008d..cf567cc33679 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 3fa2416264a4..38930c1e70d8 100644
+index 2c056d737c27..2cb1f0024e70 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -15,6 +15,7 @@
@@ -201,7 +201,7 @@ index 3fa2416264a4..38930c1e70d8 100644
  #include <linux/file.h>
  #include <linux/fs_context.h>
  #include <linux/fs_parser.h>
-@@ -1525,6 +1526,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -1528,6 +1529,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -220,7 +220,7 @@ index 3fa2416264a4..38930c1e70d8 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1540,18 +1553,24 @@ static int __init ovl_init(void)
+@@ -1543,18 +1556,24 @@ static int __init ovl_init(void)
  	err = ovl_aio_request_cache_init();
  	if (!err) {
  		err = register_filesystem(&ovl_fs_type);
