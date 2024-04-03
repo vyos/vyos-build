@@ -241,7 +241,6 @@ RUN pip install --break-system-packages \
       python3 \
       python3-setuptools \
       python3-inotify \
-      python3-sphinx \
       python3-xmltodict \
       python3-lxml \
       python3-nose \
