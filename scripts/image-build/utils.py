@@ -19,7 +19,7 @@
 
 import sys
 import os
-from distutils.spawn import find_executable
+import shutil
 
 # Local modules
 import defaults
@@ -52,7 +52,7 @@ class DependencyChecker(object):
     def _get_missing_binaries(self, binaries):
         missing_binaries = []
         for b in binaries:
-            if not find_executable(b):
+            if not shutil.which(b):
                 missing_binaries.append(b)
         return missing_binaries
 
