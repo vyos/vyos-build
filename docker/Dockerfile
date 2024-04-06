@@ -254,6 +254,7 @@ RUN pip install --break-system-packages \
       python3-stdeb \
       python3-all \
       python3-coverage \
+      pylint \
       quilt \
       whois
 
