@@ -18,6 +18,15 @@
 
 import os
 
+# Default boot settings
+boot_settings: dict[str, str] = {
+    'timeout': '5',
+    'console_type': 'tty',
+    'console_num': '0',
+    'console_speed': '115200',
+    'bootmode': 'normal'
+}
+
 # Relative to the repository directory
 
 BUILD_DIR = 'build'
