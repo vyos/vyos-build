@@ -347,6 +347,8 @@ try:
         c.sendline('y')
         c.expect('\nInstallation will delete all data on both drives. Continue?.*')
         c.sendline('y')
+        c.expect('\nWhich file would you like as boot config?.*')
+        c.sendline('')
     else:
         c.expect('\nWhich one should be used for installation?.*')
         c.sendline('')
@@ -354,6 +356,8 @@ try:
         c.sendline('y')
         c.expect('\nWould you like to use all the free space on the drive?.*')
         c.sendline('y')
+        c.expect('\nWhich file would you like as boot config?.*')
+        c.sendline('')
 
     log.info('system installed, shutting down')
 
