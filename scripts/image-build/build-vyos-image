@@ -368,7 +368,7 @@ if __name__ == "__main__":
                     raise ValueError("git branch could not be determined")
 
                 # Load the branch to version mapping file
-                with open('data/versions') as f:
+                with open('../data/versions') as f:
                     version_mapping = json.load(f)
 
                 branch_version = version_mapping[git_branch]
