@@ -28,6 +28,7 @@ import platform
 import argparse
 import datetime
 import functools
+import string
 
 import json
 
@@ -203,6 +204,13 @@ if __name__ == "__main__":
         if args['version'] is not None:
             print("Version can only be set for release builds")
             print("Use --build-type=release option if you want to set version number")
+            sys.exit(1)
+
+    # Validate characters in version name
+    if 'version' in args:
+        allowed = string.ascii_letters + string.digits + '.' + '-' + '+'
+        if not set(args['version']) <= set(allowed):
+            print(f'Version contained illegal character(s), allowed: {allowed}')
             sys.exit(1)
 
     ## Inject some useful hardcoded options
