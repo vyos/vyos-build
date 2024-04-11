@@ -70,7 +70,6 @@ systemctl disable podman-auto-update.timer
 systemctl disable podman-restart.service
 systemctl disable vyos-wan-load-balance.service
 systemctl disable nvmf-autoconnect.service
-systemctl disable vpp.service
 systemctl disable dpkg-db-backup.timer
 systemctl disable dpkg-db-backup.service
 systemctl disable zabbix-agent2.service
