@@ -19,6 +19,16 @@ system {
         }
     }
     ntp {
+        allow-client {
+            address 127.0.0.0/8
+            address 169.254.0.0/16
+            address 10.0.0.0/8
+            address 172.16.0.0/12
+            address 192.168.0.0/16
+            address ::1/128
+            address fe80::/10
+            address fc00::/7
+        }
         server "time1.vyos.net"
         server "time2.vyos.net"
         server "time3.vyos.net"
