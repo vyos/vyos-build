@@ -207,7 +207,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     # Validate characters in version name
-    if 'version' in args:
+    if 'version' in args and args['version'] != None:
         allowed = string.ascii_letters + string.digits + '.' + '-' + '+'
         if not set(args['version']) <= set(allowed):
             print(f'Version contained illegal character(s), allowed: {allowed}')
