@@ -150,7 +150,7 @@ if __name__ == "__main__":
         flavor_dir = defaults.BUILD_FLAVORS_DIR
 
     print(f"I: using build flavors directory {flavor_dir}")
-    build_flavors = list(map(lambda f: os.path.splitext(f)[0], os.listdir(flavor_dir)))
+    build_flavors = [f[0] for f in map(os.path.splitext, os.listdir(flavor_dir)) if (f[1] == ".toml")]
 
     ## Set up the option parser
     ## XXX: It uses values from the default configuration file for its option defaults,
@@ -346,9 +346,9 @@ if __name__ == "__main__":
             if git_branch is None:
                 git_branch = repo.active_branch.name
         except Exception as e:
-          exit(f'Could not retrieve information from git: {repr(e)}')
-          build_git = ""
-          git_branch = ""
+            print(f'W: Could not retrieve information from git: {repr(e)}')
+            build_git = ""
+            git_branch = ""
 
         # Create the build version string
         if build_config['build_type'] == 'development':
