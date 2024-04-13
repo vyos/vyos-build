@@ -287,11 +287,22 @@ if __name__ == "__main__":
             if has_nonempty_key(build_config["architectures"], "packages"):
                 build_config["packages"] += build_config["architectures"][arch]["packages"]
 
+    ## Check if image format is specified,
+    ## else we have no idea what we are actually supposed to build.
+    if not has_nonempty_key(build_config, "image_format"):
+        print("E: image format is not specified in the build flavor file")
+        sys.exit(1)
+
     ## Add default boot settings if needed
     if "boot_settings" not in build_config:
         build_config["boot_settings"] = defaults.boot_settings
     else:
         build_config["boot_settings"] = merge_dicts(defaults.default_consolede, build_config["boot_settings"])
+
+    ## Convert the image_format field to a single-item list if it's a scalar
+    ## (like `image_format = "iso"`)
+    if type(build_config["image_format"]) != list:
+        build_config["image_format"] = [ build_config["image_format"] ]
 
     ## Dump the complete config if the user enabled debug mode
     if debug:
