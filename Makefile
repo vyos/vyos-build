@@ -7,12 +7,10 @@ all:
 	@echo "Make what specifically?"
 	@echo "The most common target is 'iso'"
 
-.PHONY: iso
-.ONESHELL:
-iso: clean
-	set -o pipefail
-	@./build-vyos-image iso
-	exit 0
+%:
+	sudo \
+	VYOS_TEMPLATE_DIR=`pwd`/vyos-1x/data/templates/ \
+	./build-vyos-image --reuse-iso vyos-1.5-rolling-202404130016-amd64.iso $*
 
 .PHONY: checkiso
 .ONESHELL:
