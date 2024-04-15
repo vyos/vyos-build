@@ -104,7 +104,9 @@ RUN apt-get update && apt-get install -y \
       python3-tomli \
       yq \
       debootstrap \
-      live-build
+      live-build \
+      gdisk \
+      dosfstools
 
 # Syslinux and Grub2 is only supported on x86 and x64 systems
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
