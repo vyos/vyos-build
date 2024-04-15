@@ -104,7 +104,9 @@ RUN apt-get update && apt-get install -y \
       python3-tomli \
       yq \
       debootstrap \
-      live-build
+      live-build \
+      gdisk \
+      dosfstools
 
 # Packages for TPM test
 RUN apt-get update && apt-get install -y swtpm
