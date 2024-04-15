@@ -10,7 +10,7 @@ all:
 %:
 	sudo \
 	VYOS_TEMPLATE_DIR=`pwd`/vyos-1x/data/templates/ \
-	./build-vyos-image --reuse-iso vyos-1.5-rolling-202404130016-amd64.iso $*
+	./build-vyos-image $*
 
 .PHONY: checkiso
 .ONESHELL:
