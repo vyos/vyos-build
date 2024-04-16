@@ -20,7 +20,7 @@ def check_pr_title(title):
 
 def check_commit_message(title):
     if not re.match(commit_regex, title):
-        print("Commit title '{title}' does not match the required format!")
+        print(f"Commit title '{title}' does not match the required format!")
         print("Valid title example: T99999: make IPsec secure")
         sys.exit(1)
 
