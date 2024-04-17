@@ -310,7 +310,9 @@ try:
     c.expect('\nWhat would you like to name this image?.*')
     c.sendline('')
     c.expect(f'\nPlease enter a password for the "{default_user}" user.*')
-    c.sendline('')
+    c.sendline('vyos')
+    c.expect(f'\nPlease confirm password for the "{default_user}" user.*')
+    c.sendline('vyos')
     c.expect('\nWhat console should be used by default?.*')
     c.sendline('S')
 
