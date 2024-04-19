@@ -39,7 +39,7 @@ function prepare_apt() {
     if [[ "${RELEASE_TRAIN}" == "equuleus" || "${RELEASE_TRAIN}" == "sagitta" ]]; then
         echo -e "deb ${APT_VYOS_MIRROR} ${APT_VYOS_BRANCH} main\n${APT_ADDITIONAL_REPOS}" > /etc/apt/sources.list.d/vyos.list
         # Add backports repository
-        echo -e "deb http://deb.debian.org/debian buster-backports main\ndeb http://deb.debian.org/debian buster-backports non-free" >> /etc/apt/sources.list.d/vyos.list
+        echo -e "deb http://archive.debian.org/debian buster-backports main\ndeb http://archive.debian.org/debian buster-backports non-free" >> /etc/apt/sources.list.d/vyos.list
     fi
 
     # Copy additional repositories and preferences, if persented
