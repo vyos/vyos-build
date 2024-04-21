@@ -98,7 +98,6 @@ pipeline {
                     sh """
                         ./configure \
                             --build-by "${params.BUILD_BY}" \
-                            --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
                             --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES}
                         sudo make iso
