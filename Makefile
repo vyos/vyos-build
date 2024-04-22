@@ -8,7 +8,7 @@ all:
 	@echo "The most common target is 'iso'"
 
 %:
-	VYOS_TEMPLATE_DIR=`pwd`/vyos-1x/data/templates/ ./build-vyos-image $*
+	VYOS_TEMPLATE_DIR=`pwd`/packages/vyos-1x/data/templates/ ./build-vyos-image $*
 
 .PHONY: checkiso
 .ONESHELL:

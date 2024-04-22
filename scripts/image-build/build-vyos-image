@@ -66,9 +66,9 @@ except Exception as e:
 
 # Add the vyos-1x submodule directory to the Python path
 # so that we can import modules from it.
-VYOS1X_DIR = os.path.join(os.getcwd(), 'vyos-1x/python')
+VYOS1X_DIR = os.path.join(os.getcwd(), 'packages/vyos-1x/python')
 if not os.path.exists(VYOS1X_DIR):
-    print("E: vyos-1x subdirectory does not exist, did you initialize submodules?")
+    print("E: vyos-1x subdirectory does not exist, did git submodules fail to initialize?")
 else:
     sys.path.append(VYOS1X_DIR)
 
