@@ -1,3 +1,0 @@
-[submodule "vyos-1x"]
-	path = vyos-1x
-	url = https://github.com/vyos/vyos-1x
