@@ -30,14 +30,7 @@ import platform
 import argparse
 import datetime
 import functools
-
-# Add the vyos-1x submodule directory to the Python path
-# so that we can import modules from it.
-VYOS1X_DIR = os.path.join(os.getcwd(), 'vyos-1x/python')
-if not os.path.exists(VYOS1X_DIR):
-    print("E: vyos-1x subdirectory does not exist, did you initialize submodules?")
-else:
-    sys.path.append(VYOS1X_DIR)
+import string
 
 # Import third-party modules
 try:
@@ -48,6 +41,36 @@ try:
 except ModuleNotFoundError as e:
     print(f"E: Cannot load required library {e}")
     print("E: Please make sure the following Python3 modules are installed: tomli jinja2 git psutil")
+
+# Initialize Git object from our repository
+try:
+    repo = git.Repo('.', search_parent_directories=True)
+    repo.git.submodule('update', '--init')
+
+    # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
+    build_git = repo.head.object.hexsha[:14]
+    # If somone played around with the source tree and the build is "dirty", mark it
+    if repo.is_dirty():
+        build_git += "-dirty"
+
+    # Retrieve git branch name or current tag
+    # Building a tagged release might leave us checking out a git tag that is not the tip of a named branch (detached HEAD)
+    # Check if the current HEAD is associated with a tag and use its name instead of an unavailable branch name.
+    git_branch = next((tag.name for tag in repo.tags if tag.commit == repo.head.commit), None)
+    if git_branch is None:
+        git_branch = repo.active_branch.name
+except Exception as e:
+    print(f'W: Could not retrieve information from git: {repr(e)}')
+    build_git = ""
+    git_branch = ""
+
+# Add the vyos-1x submodule directory to the Python path
+# so that we can import modules from it.
+VYOS1X_DIR = os.path.join(os.getcwd(), 'packages/vyos-1x/python')
+if not os.path.exists(VYOS1X_DIR):
+    print("E: vyos-1x subdirectory does not exist, did git submodules fail to initialize?")
+else:
+    sys.path.append(VYOS1X_DIR)
 
 # Import local modules from scripts/image-build
 # They rely on modules from vyos-1x
@@ -253,6 +276,13 @@ if __name__ == "__main__":
             print("Use --build-type=release option if you want to set version number")
             sys.exit(1)
 
+    # Validate characters in version name
+    if 'version' in args and args['version'] != None:
+        allowed = string.ascii_letters + string.digits + '.' + '-' + '+'
+        if not set(args['version']) <= set(allowed):
+            print(f'Version contained illegal character(s), allowed: {allowed}')
+            sys.exit(1)
+
     ## Inject some useful hardcoded options
     args['build_dir'] = defaults.BUILD_DIR
     args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
@@ -339,27 +369,6 @@ if __name__ == "__main__":
 
         # Assign a (hopefully) unique identifier to the build (UUID)
         build_uuid = str(uuid.uuid4())
-
-        # Initialize Git object from our repository
-        try:
-            repo = git.Repo('.', search_parent_directories=True)
-
-            # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
-            build_git = repo.head.object.hexsha[:14]
-            # If somone played around with the source tree and the build is "dirty", mark it
-            if repo.is_dirty():
-                build_git += "-dirty"
-
-            # Retrieve git branch name or current tag
-            # Building a tagged release might leave us checking out a git tag that is not the tip of a named branch (detached HEAD)
-            # Check if the current HEAD is associated with a tag and use its name instead of an unavailable branch name.
-            git_branch = next((tag.name for tag in repo.tags if tag.commit == repo.head.commit), None)
-            if git_branch is None:
-                git_branch = repo.active_branch.name
-        except Exception as e:
-            print(f'W: Could not retrieve information from git: {repr(e)}')
-            build_git = ""
-            git_branch = ""
 
         # Create the build version string
         if build_config['build_type'] == 'development':
