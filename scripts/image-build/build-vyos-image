@@ -68,7 +68,7 @@ except Exception as e:
 # so that we can import modules from it.
 VYOS1X_DIR = os.path.join(os.getcwd(), 'packages/vyos-1x/python')
 if not os.path.exists(VYOS1X_DIR):
-    print("E: vyos-1x subdirectory does not exist, did git submodules fail to initialize?")
+    print("E: packages/vyos-1x subdirectory does not exist, did git submodules fail to initialize?")
 else:
     sys.path.append(VYOS1X_DIR)
 
@@ -77,6 +77,8 @@ else:
 import utils
 import defaults
 import raw_image
+
+from utils import cmd
 
 # argparse converts hyphens to underscores,
 # so for lookups in the original options hash we have to convert them back
@@ -327,7 +329,7 @@ if __name__ == "__main__":
     if "boot_settings" not in build_config:
         build_config["boot_settings"] = defaults.boot_settings
     else:
-        build_config["boot_settings"] = merge_dicts(defaults.default_consolede, build_config["boot_settings"])
+        build_config["boot_settings"] = merge_dicts(defaults.boot_settings, build_config["boot_settings"])
 
     ## Convert the image_format field to a single-item list if it's a scalar
     ## (like `image_format = "iso"`)
@@ -450,7 +452,7 @@ if __name__ == "__main__":
 
         ## Clean up earlier build state and artifacts
         print("I: Cleaning the build workspace")
-        os.system("lb clean")
+        cmd("lb clean")
         #iter(lambda p: shutil.rmtree(p, ignore_errors=True),
         #  ['config/binary', 'config/bootstrap', 'config/chroot', 'config/common', 'config/source'])
         artifacts = functools.reduce(
@@ -575,10 +577,7 @@ if __name__ == "__main__":
             print("D: live-build configuration command")
             print(lb_config_command)
 
-        result = os.system(lb_config_command)
-        if result > 0:
-            print("E: live-build config failed")
-            sys.exit(1)
+        cmd(lb_config_command)
 
         ## In dry-run mode, exit at this point
         if build_config["dry_run"]:
@@ -595,9 +594,7 @@ if __name__ == "__main__":
         print("I: Starting image build")
         if debug:
             print("D: It's not like I'm building this specially for you or anything!")
-        res = os.system("lb build 2>&1")
-        if res > 0:
-            sys.exit(res)
+        cmd("lb build 2>&1")
 
         # Copy the image
         shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]), iso_file)
@@ -607,15 +604,17 @@ if __name__ == "__main__":
     if build_config["image_format"] != ["iso"]:
         raw_image = raw_image.create_raw_image(build_config, iso_file, "tmp/")
 
-        other_formats = filter(lambda x: x not in ["iso", "raw"], build_config["image_format"])
-        for f in other_formats:
-            target = f"{os.path.splitext(raw_image)[0]}.{f}"
-            print(f"I: building {f} file {target}")
-            os.system(f"qemu-img convert -f raw -O {f} {raw_image} {target}")
-
-        # Some flavors require special procedures that aren't covered by qemu-img
-        # (most notable, the VMware OVA that requires a custom tool to make and sign the image).
-        # Such procedures are executed as post-build hooks.
         if has_nonempty_key(build_config, "post_build_hook"):
+            # Some flavors require special procedures that aren't covered by qemu-img
+            # (most notably, the VMware OVA that requires a custom tool to make and sign the image).
+            # For those cases, we support running a post-build hook on the raw image.
+            # The image_format field should be 'raw' if a post-build hook is used.
             hook_path = build_config["post_build_hook"]
-            os.system(f"{hook_path} {raw_image}")
+            cmd(f"{hook_path} {raw_image}")
+        else:
+            # Most other formats, thankfully, can be produced with just `qemu-img convert`
+            other_formats = filter(lambda x: x not in ["iso", "raw"], build_config["image_format"])
+            for f in other_formats:
+                target = f"{os.path.splitext(raw_image)[0]}.{f}"
+                print(f"I: Building {f} file {target}")
+                cmd(f"qemu-img convert -f raw -O {f} {raw_image} {target}")
