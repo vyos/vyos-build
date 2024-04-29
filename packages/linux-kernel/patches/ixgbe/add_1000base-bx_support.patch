@@ -1,0 +1,259 @@
+From 02491fc5cb9bfd0905cfa481d3a6156167fa1720 Mon Sep 17 00:00:00 2001
+From: Ernesto Castellotti <ernesto@castellotti.net>
+Date: Sat, 23 Mar 2024 12:57:56 +0100
+Subject: [BACKPORT linux v6.9] [PATCH] ixgbe: Add 1000BASE-BX support
+
+Added support for 1000BASE-BX, i.e. Gigabit Ethernet over single strand
+of single-mode fiber.
+The initialization of a 1000BASE-BX SFP is the same as 1000BASE-SX/LX
+with the only difference that the Bit Rate Nominal Value must be
+checked to make sure it is a Gigabit Ethernet transceiver, as described
+by the SFF-8472 specification.
+
+This was tested with the FS.com SFP-GE-BX 1310/1490nm 10km transceiver:
+$ ethtool -m eth4
+        Identifier                                : 0x03 (SFP)
+        Extended identifier                       : 0x04 (GBIC/SFP defined by 2-wire interface ID)
+        Connector                                 : 0x07 (LC)
+        Transceiver codes                         : 0x00 0x00 0x00 0x40 0x00 0x00 0x00 0x00 0x00
+        Transceiver type                          : Ethernet: BASE-BX10
+        Encoding                                  : 0x01 (8B/10B)
+        BR, Nominal                               : 1300MBd
+        Rate identifier                           : 0x00 (unspecified)
+        Length (SMF,km)                           : 10km
+        Length (SMF)                              : 10000m
+        Length (50um)                             : 0m
+        Length (62.5um)                           : 0m
+        Length (Copper)                           : 0m
+        Length (OM3)                              : 0m
+        Laser wavelength                          : 1310nm
+        Vendor name                               : FS
+        Vendor OUI                                : 64:9d:99
+        Vendor PN                                 : SFP-GE-BX
+        Vendor rev                                :
+        Option values                             : 0x20 0x0a
+        Option                                    : RX_LOS implemented
+        Option                                    : TX_FAULT implemented
+        Option                                    : Power level 3 requirement
+        BR margin, max                            : 0%
+        BR margin, min                            : 0%
+        Vendor SN                                 : S2202359108
+        Date code                                 : 220307
+        Optical diagnostics support               : Yes
+        Laser bias current                        : 17.650 mA
+        Laser output power                        : 0.2132 mW / -6.71 dBm
+        Receiver signal average optical power     : 0.2740 mW / -5.62 dBm
+        Module temperature                        : 47.30 degrees C / 117.13 degrees F
+        Module voltage                            : 3.2576 V
+        Alarm/warning flags implemented           : Yes
+        Laser bias current high alarm             : Off
+        Laser bias current low alarm              : Off
+        Laser bias current high warning           : Off
+        Laser bias current low warning            : Off
+        Laser output power high alarm             : Off
+        Laser output power low alarm              : Off
+        Laser output power high warning           : Off
+        Laser output power low warning            : Off
+        Module temperature high alarm             : Off
+        Module temperature low alarm              : Off
+        Module temperature high warning           : Off
+        Module temperature low warning            : Off
+        Module voltage high alarm                 : Off
+        Module voltage low alarm                  : Off
+        Module voltage high warning               : Off
+        Module voltage low warning                : Off
+        Laser rx power high alarm                 : Off
+        Laser rx power low alarm                  : Off
+        Laser rx power high warning               : Off
+        Laser rx power low warning                : Off
+        Laser bias current high alarm threshold   : 110.000 mA
+        Laser bias current low alarm threshold    : 1.000 mA
+        Laser bias current high warning threshold : 100.000 mA
+        Laser bias current low warning threshold  : 1.000 mA
+        Laser output power high alarm threshold   : 0.7079 mW / -1.50 dBm
+        Laser output power low alarm threshold    : 0.0891 mW / -10.50 dBm
+        Laser output power high warning threshold : 0.6310 mW / -2.00 dBm
+        Laser output power low warning threshold  : 0.1000 mW / -10.00 dBm
+        Module temperature high alarm threshold   : 90.00 degrees C / 194.00 degrees F
+        Module temperature low alarm threshold    : -45.00 degrees C / -49.00 degrees F
+        Module temperature high warning threshold : 85.00 degrees C / 185.00 degrees F
+        Module temperature low warning threshold  : -40.00 degrees C / -40.00 degrees F
+        Module voltage high alarm threshold       : 3.7950 V
+        Module voltage low alarm threshold        : 2.8050 V
+        Module voltage high warning threshold     : 3.4650 V
+        Module voltage low warning threshold      : 3.1350 V
+        Laser rx power high alarm threshold       : 0.7079 mW / -1.50 dBm
+        Laser rx power low alarm threshold        : 0.0028 mW / -25.53 dBm
+        Laser rx power high warning threshold     : 0.6310 mW / -2.00 dBm
+        Laser rx power low warning threshold      : 0.0032 mW / -24.95 dBm
+
+Signed-off-by: Ernesto Castellotti <ernesto@castellotti.net>
+Reviewed-by: Przemek Kitszel <przemyslaw.kitszel@intel.com>
+Tested-by: Sunitha Mekala <sunithax.d.mekala@intel.com> (A Contingent worker at Intel)
+Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+Link: https://lore.kernel.org/r/20240301184806.2634508-3-anthony.l.nguyen@intel.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+---
+ ixgbe_82599.c   |  4 +++-
+ ixgbe_ethtool.c |  4 ++++
+ ixgbe_phy.c     | 33 +++++++++++++++++++++++++++++----
+ ixgbe_phy.h     |  2 ++
+ ixgbe_type.h    |  2 ++
+ 5 files changed, 40 insertions(+), 5 deletions(-)
+
+diff --git a/ixgbe_82599.c b/ixgbe_82599.c
+index 75e368f..b0a10de 100644
+--- a/ixgbe_82599.c
++++ b/ixgbe_82599.c
+@@ -395,7 +395,9 @@ s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
+ 	    hw->phy.sfp_type == ixgbe_sfp_type_1g_lx_core0 ||
+ 	    hw->phy.sfp_type == ixgbe_sfp_type_1g_lx_core1 ||
+ 	    hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core0 ||
+-	    hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1) {
++	    hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1 ||
++	    hw->phy.sfp_type == ixgbe_sfp_type_1g_bx_core0 ||
++	    hw->phy.sfp_type == ixgbe_sfp_type_1g_bx_core1) {
+ 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
+ 		*autoneg = true;
+ 		goto out;
+diff --git a/ixgbe_ethtool.c b/ixgbe_ethtool.c
+index 7ada455..fb16f3c 100644
+--- a/ixgbe_ethtool.c
++++ b/ixgbe_ethtool.c
+@@ -412,6 +412,8 @@ static int ixgbe_get_link_ksettings(struct net_device *netdev,
+ 		case ixgbe_sfp_type_1g_sx_core1:
+ 		case ixgbe_sfp_type_1g_lx_core0:
+ 		case ixgbe_sfp_type_1g_lx_core1:
++		case ixgbe_sfp_type_1g_bx_core0:
++		case ixgbe_sfp_type_1g_bx_core1:
+ 			ethtool_link_ksettings_add_link_mode(cmd, supported,
+ 							     FIBRE);
+ 			ethtool_link_ksettings_add_link_mode(cmd, advertising,
+@@ -642,6 +644,8 @@ static int ixgbe_get_settings(struct net_device *netdev,
+ 		case ixgbe_sfp_type_1g_sx_core1:
+ 		case ixgbe_sfp_type_1g_lx_core0:
+ 		case ixgbe_sfp_type_1g_lx_core1:
++		case ixgbe_sfp_type_1g_bx_core0:
++		case ixgbe_sfp_type_1g_bx_core1:
+ 			ecmd->supported |= SUPPORTED_FIBRE;
+ 			ecmd->advertising |= ADVERTISED_FIBRE;
+ 			ecmd->port = PORT_FIBRE;
+diff --git a/ixgbe_phy.c b/ixgbe_phy.c
+index 647fdba..0f39fd8 100644
+--- a/ixgbe_phy.c
++++ b/ixgbe_phy.c
+@@ -1266,6 +1266,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 	u8 comp_codes_1g = 0;
+ 	u8 comp_codes_10g = 0;
+ 	u8 oui_bytes[3] = {0, 0, 0};
++	u8 bitrate_nominal = 0;
+ 	u8 cable_tech = 0;
+ 	u8 cable_spec = 0;
+ 	u16 enforce_sfp = 0;
+@@ -1309,6 +1310,12 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 						     IXGBE_SFF_CABLE_TECHNOLOGY,
+ 						     &cable_tech);
+ 
++		if (status != IXGBE_SUCCESS)
++			goto err_read_i2c_eeprom;
++
++		status = hw->phy.ops.read_i2c_eeprom(hw,
++ 						     IXGBE_SFF_BITRATE_NOMINAL,
++ 						     &bitrate_nominal);
+ 		if (status != IXGBE_SUCCESS)
+ 			goto err_read_i2c_eeprom;
+ 
+@@ -1391,6 +1398,18 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 				else
+ 					hw->phy.sfp_type =
+ 						ixgbe_sfp_type_1g_lx_core1;
++			/* Support only Ethernet 1000BASE-BX10, checking the Bit Rate
++			 * Nominal Value as per SFF-8472 by convention 1.25 Gb/s should
++			 * be rounded up to 0Dh (13 in units of 100 MBd) for 1000BASE-BX
++			 */
++			} else if ((comp_codes_1g & IXGBE_SFF_BASEBX10_CAPABLE) &&
++				(bitrate_nominal == 0xD)) {
++				if (hw->bus.lan_id == 0)
++					hw->phy.sfp_type =
++					ixgbe_sfp_type_1g_bx_core0;
++				else
++					hw->phy.sfp_type =
++					ixgbe_sfp_type_1g_bx_core1;
+ 			} else {
+ 				hw->phy.sfp_type = ixgbe_sfp_type_unknown;
+ 			}
+@@ -1481,7 +1500,9 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 		      hw->phy.sfp_type == ixgbe_sfp_type_1g_lx_core0 ||
+ 		      hw->phy.sfp_type == ixgbe_sfp_type_1g_lx_core1 ||
+ 		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core0 ||
+-		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1)) {
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1 ||
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_bx_core0 ||
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_bx_core1)) {
+ 			hw->phy.type = ixgbe_phy_sfp_unsupported;
+ 			status = IXGBE_ERR_SFP_NOT_SUPPORTED;
+ 			goto out;
+@@ -1500,7 +1521,9 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 		      hw->phy.sfp_type == ixgbe_sfp_type_1g_lx_core0 ||
+ 		      hw->phy.sfp_type == ixgbe_sfp_type_1g_lx_core1 ||
+ 		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core0 ||
+-		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1)) {
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1 ||
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_bx_core0 ||
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_bx_core1)) {
+ 			/* Make sure we're a supported PHY type */
+ 			if (hw->phy.type == ixgbe_phy_sfp_intel) {
+ 				status = IXGBE_SUCCESS;
+@@ -1819,12 +1842,14 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+ 	if (sfp_type == ixgbe_sfp_type_da_act_lmt_core0 ||
+ 	    sfp_type == ixgbe_sfp_type_1g_lx_core0 ||
+ 	    sfp_type == ixgbe_sfp_type_1g_cu_core0 ||
+-	    sfp_type == ixgbe_sfp_type_1g_sx_core0)
++	    sfp_type == ixgbe_sfp_type_1g_sx_core0 ||
++	    sfp_type == ixgbe_sfp_type_1g_bx_core0)
+ 		sfp_type = ixgbe_sfp_type_srlr_core0;
+ 	else if (sfp_type == ixgbe_sfp_type_da_act_lmt_core1 ||
+ 		 sfp_type == ixgbe_sfp_type_1g_lx_core1 ||
+ 		 sfp_type == ixgbe_sfp_type_1g_cu_core1 ||
+-		 sfp_type == ixgbe_sfp_type_1g_sx_core1)
++		 sfp_type == ixgbe_sfp_type_1g_sx_core1 ||
++		 sfp_type == ixgbe_sfp_type_1g_bx_core1)
+ 		sfp_type = ixgbe_sfp_type_srlr_core1;
+ 
+ 	/* Read offset to PHY init contents */
+diff --git a/ixgbe_phy.h b/ixgbe_phy.h
+index 3ece00f..60c7574 100644
+--- a/ixgbe_phy.h
++++ b/ixgbe_phy.h
+@@ -18,6 +18,7 @@
+ #define IXGBE_SFF_1GBE_COMP_CODES	0x6
+ #define IXGBE_SFF_10GBE_COMP_CODES	0x3
+ #define IXGBE_SFF_CABLE_TECHNOLOGY	0x8
++#define IXGBE_SFF_BITRATE_NOMINAL	0xC
+ #define IXGBE_SFF_CABLE_SPEC_COMP	0x3C
+ #define IXGBE_SFF_SFF_8472_SWAP		0x5C
+ #define IXGBE_SFF_SFF_8472_COMP		0x5E
+@@ -40,6 +41,7 @@
+ #define IXGBE_SFF_1GBASESX_CAPABLE	0x1
+ #define IXGBE_SFF_1GBASELX_CAPABLE	0x2
+ #define IXGBE_SFF_1GBASET_CAPABLE	0x8
++#define IXGBE_SFF_BASEBX10_CAPABLE	0x64
+ #define IXGBE_SFF_10GBASESR_CAPABLE	0x10
+ #define IXGBE_SFF_10GBASELR_CAPABLE	0x20
+ #define IXGBE_SFF_SOFT_RS_SELECT_MASK	0x8
+diff --git a/ixgbe_type.h b/ixgbe_type.h
+index d85bd9b..fbe2e66 100644
+--- a/ixgbe_type.h
++++ b/ixgbe_type.h
+@@ -3705,6 +3705,8 @@ enum ixgbe_sfp_type {
+ 	ixgbe_sfp_type_1g_sx_core1 = 12,
+ 	ixgbe_sfp_type_1g_lx_core0 = 13,
+ 	ixgbe_sfp_type_1g_lx_core1 = 14,
++	ixgbe_sfp_type_1g_bx_core0 = 15,
++	ixgbe_sfp_type_1g_bx_core1 = 16,
+ 	ixgbe_sfp_type_not_present = 0xFFFE,
+ 	ixgbe_sfp_type_unknown = 0xFFFF
+ };
+-- 
+2.44.0
+
