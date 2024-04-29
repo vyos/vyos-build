@@ -23,6 +23,7 @@ import shutil
 
 # Local modules
 import defaults
+import vyos
 
 def check_build_config():
     if not os.path.exists(defaults.BUILD_CONFIG):
@@ -76,3 +77,8 @@ def check_system_dependencies(deps):
         raise OSError(checker.format_missing_dependencies())
     else:
         pass
+
+def cmd(command):
+    res = vyos.utils.process.call(command, shell=True)
+    if res > 0:
+        raise OSError(f"Command '{command}' failed")

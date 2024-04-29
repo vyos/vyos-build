@@ -25,11 +25,7 @@ import vyos.utils.process
 SQUASHFS_FILE = 'live/filesystem.squashfs'
 VERSION_FILE = 'version.json'
 
-
-def cmd(command):
-    res = vyos.utils.process.call(command, shell=True)
-    if res > 0:
-        raise OSError(f"Command '{command}' failed")
+from utils import cmd
 
 def mkdir(path):
     os.makedirs(path, exist_ok=True)
