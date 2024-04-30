@@ -14,7 +14,7 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-url="https://sourceforge.net/projects/e1000/files/ixgbe%20stable/5.19.9/ixgbe-5.19.9.tar.gz"
+url="https://sourceforge.net/projects/e1000/files/ixgbe%20stable/5.20.3/ixgbe-5.20.3.tar.gz"
 
 cd ${CWD}
 
@@ -60,6 +60,10 @@ sed -i '/.*pci_enable_pcie_error_reporting(pdev);/d' ixgbe_main.c
 # See https://vyos.dev/T6155
 echo "I: always enable allow_unsupported_sfp for all NICs by default"
 patch -l -p1 < ../../patches/ixgbe/allow_unsupported_sfp.patch
+
+# See https://vyos.dev/T6162
+echo "I: add 1000BASE-BX support"
+patch -l -p1 < ../../patches/ixgbe/add_1000base-bx_support.patch
 
 echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
 make KSRC=${KERNEL_DIR} INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} -j $(getconf _NPROCESSORS_ONLN) install
