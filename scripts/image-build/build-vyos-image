@@ -32,6 +32,13 @@ import datetime
 import functools
 import string
 
+## Check if the script is running wirh root permissions
+## Since live-build requires privileged calls such as chroot(),
+## there's no real way around it.
+if os.getuid() != 0:
+    print("E: this script requires root privileges")
+    sys.exit(1)
+
 # Import third-party modules
 try:
     import tomli
@@ -41,44 +48,71 @@ try:
 except ModuleNotFoundError as e:
     print(f"E: Cannot load required library {e}")
     print("E: Please make sure the following Python3 modules are installed: tomli jinja2 git psutil")
+    sys.exit(1)
 
-# Initialize Git object from our repository
+# Import local defaults
+import defaults
+
+## Load the file with default build configuration options
 try:
-    repo = git.Repo('.', search_parent_directories=True)
-    repo.git.submodule('update', '--init')
-
-    # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
-    build_git = repo.head.object.hexsha[:14]
-    # If somone played around with the source tree and the build is "dirty", mark it
-    if repo.is_dirty():
-        build_git += "-dirty"
-
-    # Retrieve git branch name or current tag
-    # Building a tagged release might leave us checking out a git tag that is not the tip of a named branch (detached HEAD)
-    # Check if the current HEAD is associated with a tag and use its name instead of an unavailable branch name.
-    git_branch = next((tag.name for tag in repo.tags if tag.commit == repo.head.commit), None)
-    if git_branch is None:
-        git_branch = repo.active_branch.name
+    with open(defaults.DEFAULTS_FILE, 'rb') as f:
+        build_defaults = tomli.load(f)
 except Exception as e:
-    print(f'W: Could not retrieve information from git: {repr(e)}')
-    build_git = ""
-    git_branch = ""
+    print("E: Failed to open the defaults file {0}: {1}".format(defaults.DEFAULTS_FILE, e))
+    sys.exit(1)
 
-# Add the vyos-1x submodule directory to the Python path
-# so that we can import modules from it.
-VYOS1X_DIR = os.path.join(os.getcwd(), 'packages/vyos-1x/python')
+# Checkout vyos-1x under build directory
+try:
+    branch_name = build_defaults['vyos_branch']
+    url_vyos_1x = 'https://github.com/vyos/vyos-1x'
+    path_vyos_1x = os.path.join(defaults.BUILD_DIR, 'vyos-1x')
+    repo_vyos_1x = git.Repo.clone_from(url_vyos_1x, path_vyos_1x, no_checkout=True)
+    # alternatively, pass commit hash or tag as arg:
+    repo_vyos_1x.git.checkout(branch_name)
+except Exception as e:
+    print(f'E: Could not retrieve vyos-1x from branch {branch_name}: {repr(e)}')
+    sys.exit(1)
+
+# Add the vyos-1x directory to the Python path so that
+# we can import modules from it.
+VYOS1X_DIR = os.path.join(os.getcwd(), defaults.BUILD_DIR, 'vyos-1x/python')
 if not os.path.exists(VYOS1X_DIR):
-    print("E: packages/vyos-1x subdirectory does not exist, did git submodules fail to initialize?")
+    print("E: vyos-1x subdirectory does not exist, did git checkout fail?")
+    sys.exit(1)
 else:
     sys.path.append(VYOS1X_DIR)
 
 # Import local modules from scripts/image-build
 # They rely on modules from vyos-1x
 import utils
-import defaults
 import raw_image
 
 from utils import cmd
+
+## Check if there are missing build dependencies
+deps = {
+    'packages': [
+       'sudo',
+       'make',
+       'live-build',
+       'pbuilder',
+       'devscripts',
+       'python3-pystache',
+       'python3-git',
+       'qemu-utils',
+       'gdisk',
+       'kpartx',
+       'dosfstools'
+    ],
+   'binaries': []
+}
+
+print("I: Checking if packages required for VyOS image build are installed")
+try:
+    utils.check_system_dependencies(deps)
+except OSError as e:
+    print(f"E: {e}")
+    sys.exit(1)
 
 # argparse converts hyphens to underscores,
 # so for lookups in the original options hash we have to convert them back
@@ -127,46 +161,6 @@ def make_toml_path(dir, file_basename):
 
 
 if __name__ == "__main__":
-    ## Check if the script is running wirh root permissions
-    ## Since live-build requires privileged calls such as chroot(),
-    ## there's no real way around it.
-    if os.getuid() != 0:
-        print("E: this script requires root privileges")
-        sys.exit(1)
-
-    ## Check if there are missing build dependencies
-    deps = {
-        'packages': [
-           'sudo',
-           'make',
-           'live-build',
-           'pbuilder',
-           'devscripts',
-           'python3-pystache',
-           'python3-git',
-           'qemu-utils',
-           'gdisk',
-           'kpartx',
-           'dosfstools'
-        ],
-       'binaries': []
-    }
-
-    print("I: Checking if packages required for VyOS image build are installed")
-    try:
-        checker = utils.check_system_dependencies(deps)
-    except OSError as e:
-        print(f"E: {e}")
-        sys.exit(1)
-
-    ## Load the file with default build configuration options
-    try:
-        with open(defaults.DEFAULTS_FILE, 'rb') as f:
-            build_defaults = tomli.load(f)
-    except Exception as e:
-        print("E: Failed to open the defaults file {0}: {1}".format(defaults.DEFAULTS_FILE, e))
-        sys.exit(1)
-
     ## Get a list of available build flavors
     flavor_dir_env = os.getenv("VYOS_BUILD_FLAVORS_DIR")
     if flavor_dir_env:
@@ -371,6 +365,26 @@ if __name__ == "__main__":
 
         # Assign a (hopefully) unique identifier to the build (UUID)
         build_uuid = str(uuid.uuid4())
+
+        # Initialize Git object from our repository
+        try:
+            repo = git.Repo('.')
+            # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
+            build_git = repo.head.object.hexsha[:14]
+            # If somone played around with the source tree and the build is "dirty", mark it
+            if repo.is_dirty():
+                build_git += "-dirty"
+
+            # Retrieve git branch name or current tag
+            # Building a tagged release might leave us checking out a git tag that is not the tip of a named branch (detached HEAD)
+            # Check if the current HEAD is associated with a tag and use its name instead of an unavailable branch name.
+            git_branch = next((tag.name for tag in repo.tags if tag.commit == repo.head.commit), None)
+            if git_branch is None:
+                git_branch = repo.active_branch.name
+        except Exception as e:
+            print(f'W: Could not retrieve information from git: {repr(e)}')
+            build_git = ""
+            git_branch = ""
 
         # Create the build version string
         if build_config['build_type'] == 'development':
