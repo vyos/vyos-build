@@ -31,6 +31,8 @@ import argparse
 import datetime
 import functools
 import string
+import atexit
+from pathlib import Path
 
 # Import third-party modules
 try:
@@ -44,8 +46,13 @@ except ModuleNotFoundError as e:
 
 # Initialize Git object from our repository
 try:
+    with open('data/versions') as f:
+        branch_name = list(json.load(f))[0]
     repo = git.Repo('.', search_parent_directories=True)
-    repo.git.submodule('update', '--init')
+    repo.create_submodule(name='vyos-1x',
+                          url='https://github.com/vyos/vyos-1x',
+                          branch=branch_name,
+                          path='vyos-1x')
 
     # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
     build_git = repo.head.object.hexsha[:14]
@@ -64,11 +71,27 @@ except Exception as e:
     build_git = ""
     git_branch = ""
 
+@atexit.register
+def cleanup():
+    try:
+        repo = git.Repo('.', search_parent_directories=True)
+    except:
+        pass
+    else:
+        for submod in repo.submodules:
+            try:
+                submod.remove()
+            except:
+                pass
+        repo.index.remove('.gitmodules')
+        p = Path(repo.git_dir).parent
+        p.joinpath('.gitmodules').unlink(missing_ok=True)
+
 # Add the vyos-1x submodule directory to the Python path
 # so that we can import modules from it.
-VYOS1X_DIR = os.path.join(os.getcwd(), 'packages/vyos-1x/python')
+VYOS1X_DIR = os.path.join(os.getcwd(), 'vyos-1x/python')
 if not os.path.exists(VYOS1X_DIR):
-    print("E: packages/vyos-1x subdirectory does not exist, did git submodules fail to initialize?")
+    print("E: vyos-1x subdirectory does not exist, did git submodules fail to initialize?")
 else:
     sys.path.append(VYOS1X_DIR)
 
