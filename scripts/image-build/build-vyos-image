@@ -66,7 +66,17 @@ try:
     branch_name = build_defaults['vyos_branch']
     url_vyos_1x = 'https://github.com/vyos/vyos-1x'
     path_vyos_1x = os.path.join(defaults.BUILD_DIR, 'vyos-1x')
-    repo_vyos_1x = git.Repo.clone_from(url_vyos_1x, path_vyos_1x, no_checkout=True)
+    try:
+        repo_vyos_1x = git.Repo.clone_from(url_vyos_1x, path_vyos_1x, no_checkout=True)
+    except git.GitCommandError:
+        if os.path.exists(path_vyos_1x):
+            try:
+                repo_vyos_1x = git.Repo(path_vyos_1x)
+            except git.GitError:
+                print(f'E: Corrupted vyos-1x git repo: {path_vyos_1x}; remove')
+                sys.exit(1)
+        else:
+            raise
     # alternatively, pass commit hash or tag as arg:
     repo_vyos_1x.git.checkout(branch_name)
 except Exception as e:
@@ -368,7 +378,7 @@ if __name__ == "__main__":
 
         # Initialize Git object from our repository
         try:
-            repo = git.Repo('.')
+            repo = git.Repo('.', search_parent_directories=True)
             # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
             build_git = repo.head.object.hexsha[:14]
             # If somone played around with the source tree and the build is "dirty", mark it
