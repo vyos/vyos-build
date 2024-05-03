@@ -6,6 +6,10 @@ Package: netavark
 Pin: release n=trixie
 Pin-Priority: 900
 
+Package: libgpgme11t64
+Pin: release n=trixie
+Pin-Priority: 900
+
 Package: *
 Pin: release n=trixie
 Pin-Priority: -10
