@@ -217,18 +217,6 @@ RUN apt-get update && apt-get install -y \
       build-essential
 RUN gem install --no-document fpm
 
-# Build rtrlib release 0.8.0
-RUN export RTRLIB_VERSION="0.8.0" export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
-    git clone https://github.com/rtrlib/rtrlib.git /tmp/rtrlib && cd /tmp/rtrlib && \
-    mk-build-deps --install --tool "apt-get --yes --no-install-recommends" && \
-    dpkg-buildpackage -uc -us -tc -b && \
-    dpkg -i ../librtr0*_${ARCH}.deb ../librtr-dev*_${ARCH}.deb ../rtr-tools*_${ARCH}.deb
-
-RUN export LIBYANG_VERSION="v2.1.128" export ARCH=$(dpkg-architecture -qDEB_HOST_ARCH) && \
-    git clone https://github.com/CESNET/libyang.git /tmp/libyang && cd /tmp/libyang && \
-    pipx run apkg build -i && find pkg/pkgs -type f -name *.deb -exec mv -t .. {} + && \
-    dpkg -i ../libyang*.deb
-
 # Packages needed for vyos-1x
 RUN pip install --break-system-packages \
       git+https://github.com/aristanetworks/j2lint.git@341b5d5db86 \
