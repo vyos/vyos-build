@@ -32,7 +32,7 @@ def pkgList = [
     ['name': 'frr',
      'scmCommit': 'stable/9.1',
      'scmUrl': 'https://github.com/FRRouting/frr.git',
-     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build-frr.sh'],
+     'buildCmd': 'sudo dpkg -i ../*.deb; sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; cd ..; ./build-frr.sh'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
