@@ -31,7 +31,7 @@ fi
 
 echo "I: Ensure Debian build dependencies are met"
 sudo apt-get -y install chrpath gawk install-info libcap-dev libjson-c-dev librtr-dev
-sudo apt-get -y install libpam-dev libprotobuf-c-dev libpython3-dev:native libsnmp-dev protobuf-c-compiler python3-dev:native texinfo lua5.3
+sudo apt-get -y install libpam-dev libprotobuf-c-dev libpython3-dev:native python3-sphinx:native libsnmp-dev protobuf-c-compiler python3-dev:native texinfo lua5.3
 
 # Build Debian FRR package
 echo "I: Build Debian FRR Package"
