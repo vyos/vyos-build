@@ -22,6 +22,10 @@ import traceback
 
 import vyos.utils.process
 
+import vyos.template
+
+vyos.template.DEFAULT_TEMPLATE_DIR = os.path.join(os.getcwd(), 'build/vyos-1x/data/templates')
+
 SQUASHFS_FILE = 'live/filesystem.squashfs'
 VERSION_FILE = 'version.json'
 
@@ -138,7 +142,6 @@ def setup_grub_configuration(build_config, root_dir) -> None:
     Args:
         root_dir (str): a path to the root of target filesystem
     """
-    from vyos.template import render
     from vyos.system import grub
 
     print('I: Installing GRUB configuration files')
@@ -149,13 +152,13 @@ def setup_grub_configuration(build_config, root_dir) -> None:
     grub_cfg_options = f'{root_dir}/{grub.CFG_VYOS_OPTIONS}'
 
     # create new files
-    render(grub_cfg_main, grub.TMPL_GRUB_MAIN, {})
+    vyos.template.render(grub_cfg_main, grub.TMPL_GRUB_MAIN, {})
     grub.common_write(root_dir)
     grub.vars_write(grub_cfg_vars, build_config["boot_settings"])
     grub.modules_write(grub_cfg_modules, [])
     grub.write_cfg_ver(1, root_dir)
-    render(grub_cfg_menu, grub.TMPL_GRUB_MENU, {})
-    render(grub_cfg_options, grub.TMPL_GRUB_OPTS, {})
+    vyos.template.render(grub_cfg_menu, grub.TMPL_GRUB_MENU, {})
+    vyos.template.render(grub_cfg_options, grub.TMPL_GRUB_OPTS, {})
 
 def install_grub(con, version):
     from re import match
