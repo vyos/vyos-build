@@ -226,6 +226,7 @@ RUN pip install --break-system-packages \
       fakeroot \
       iproute2 \
       libzmq3-dev \
+      procps \
       python3 \
       python3-setuptools \
       python3-inotify \
