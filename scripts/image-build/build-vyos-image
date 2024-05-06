@@ -1,0 +1,644 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2022-2024 VyOS maintainers and contributors
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 or later as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File: build-vyos-image
+# Purpose: builds VyOS images using a fork of Debian's live-build tool
+
+# Import Python's standard library modules
+import re
+import os
+import sys
+import uuid
+import glob
+import json
+import shutil
+import getpass
+import platform
+import argparse
+import datetime
+import functools
+import string
+
+## Check if the script is running wirh root permissions
+## Since live-build requires privileged calls such as chroot(),
+## there's no real way around it.
+if os.getuid() != 0:
+    print("E: this script requires root privileges")
+    sys.exit(1)
+
+# Import third-party modules
+try:
+    import tomli
+    import jinja2
+    import git
+    import psutil
+except ModuleNotFoundError as e:
+    print(f"E: Cannot load required library {e}")
+    print("E: Please make sure the following Python3 modules are installed: tomli jinja2 git psutil")
+    sys.exit(1)
+
+# Import local defaults
+import defaults
+
+## Load the file with default build configuration options
+try:
+    with open(defaults.DEFAULTS_FILE, 'rb') as f:
+        build_defaults = tomli.load(f)
+except Exception as e:
+    print("E: Failed to open the defaults file {0}: {1}".format(defaults.DEFAULTS_FILE, e))
+    sys.exit(1)
+
+# Checkout vyos-1x under build directory
+try:
+    branch_name = build_defaults['vyos_branch']
+    url_vyos_1x = 'https://github.com/vyos/vyos-1x'
+    path_vyos_1x = os.path.join(defaults.BUILD_DIR, 'vyos-1x')
+    try:
+        repo_vyos_1x = git.Repo.clone_from(url_vyos_1x, path_vyos_1x, no_checkout=True)
+    except git.GitCommandError:
+        if os.path.exists(path_vyos_1x):
+            try:
+                repo_vyos_1x = git.Repo(path_vyos_1x)
+            except git.GitError:
+                print(f'E: Corrupted vyos-1x git repo: {path_vyos_1x}; remove')
+                sys.exit(1)
+        else:
+            raise
+    # alternatively, pass commit hash or tag as arg:
+    repo_vyos_1x.git.checkout(branch_name)
+except Exception as e:
+    print(f'E: Could not retrieve vyos-1x from branch {branch_name}: {repr(e)}')
+    sys.exit(1)
+
+# Add the vyos-1x directory to the Python path so that
+# we can import modules from it.
+VYOS1X_DIR = os.path.join(os.getcwd(), defaults.BUILD_DIR, 'vyos-1x/python')
+if not os.path.exists(VYOS1X_DIR):
+    print("E: vyos-1x subdirectory does not exist, did git checkout fail?")
+    sys.exit(1)
+else:
+    sys.path.append(VYOS1X_DIR)
+
+# Import local modules from scripts/image-build
+# They rely on modules from vyos-1x
+import utils
+import raw_image
+
+from utils import cmd
+
+## Check if there are missing build dependencies
+deps = {
+    'packages': [
+       'sudo',
+       'make',
+       'live-build',
+       'pbuilder',
+       'devscripts',
+       'python3-pystache',
+       'python3-git',
+       'qemu-utils',
+       'gdisk',
+       'kpartx',
+       'dosfstools'
+    ],
+   'binaries': []
+}
+
+print("I: Checking if packages required for VyOS image build are installed")
+try:
+    utils.check_system_dependencies(deps)
+except OSError as e:
+    print(f"E: {e}")
+    sys.exit(1)
+
+# argparse converts hyphens to underscores,
+# so for lookups in the original options hash we have to convert them back
+def field_to_option(s):
+    return re.sub(r'_', '-', s)
+
+def get_default_build_by():
+    return "{user}@{host}".format(user= getpass.getuser(), host=platform.node())
+
+def get_validator(optdict, name):
+    try:
+        return optdict[name][2]
+    except KeyError:
+        return None
+
+def merge_dicts(source, destination, skip_none=False):
+    """ Merge two dictionaries and return a new dict which has the merged key/value pairs.
+    Merging logic is as follows:
+      Sub-dicts are merged.
+      List values are combined.
+      Scalar values are set to those from the source dict.
+    """
+    from copy import deepcopy
+    tmp = deepcopy(destination)
+
+    for key, value in source.items():
+        if key not in tmp:
+            tmp[key] = value
+        elif isinstance(source[key], dict):
+            tmp[key] = merge_dicts(source[key], tmp[key])
+        elif isinstance(source[key], list):
+            tmp[key] = source[key] + tmp[key]
+        elif not skip_none or source[key] is not None:
+            tmp[key] = source[key]
+
+    return tmp
+
+def has_nonempty_key(config, key):
+    if key in config:
+        if config[key]:
+            return True
+    return False
+
+def make_toml_path(dir, file_basename):
+    return os.path.join(dir, file_basename + ".toml")
+
+
+if __name__ == "__main__":
+    ## Get a list of available build flavors
+    flavor_dir_env = os.getenv("VYOS_BUILD_FLAVORS_DIR")
+    if flavor_dir_env:
+        flavor_dir = flavor_dir_env
+    else:
+        flavor_dir = defaults.BUILD_FLAVORS_DIR
+
+    print(f"I: using build flavors directory {flavor_dir}")
+    build_flavors = [f[0] for f in map(os.path.splitext, os.listdir(flavor_dir)) if (f[1] == ".toml")]
+
+    ## Set up the option parser
+    ## XXX: It uses values from the default configuration file for its option defaults,
+    ## which is why it's defined after loading the defaults.toml file data.
+
+    # Options dict format:
+    # '$option_name_without_leading_dashes': { ('$help_string', $default_value_generator_thunk, $value_checker_thunk) }
+    options = {
+       'architecture': ('Image target architecture (amd64 or arm64)', None, lambda x: x in ['amd64', 'arm64', None]),
+       'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None),
+       'debian-mirror': ('Debian repository mirror', None, None),
+       'debian-security-mirror': ('Debian security updates mirror', None, None),
+       'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', None, None),
+       'vyos-mirror': ('VyOS package mirror', None, None),
+       'build-type': ('Build type, release or development', None, lambda x: x in ['release', 'development']),
+       'version': ('Version number (release builds only)', None, None),
+       'build-comment': ('Optional build comment', lambda: '', None)
+    }
+
+    # Create the option parser
+    parser = argparse.ArgumentParser()
+    for k, v in options.items():
+        help_string, default_value_thunk = v[0], v[1]
+        if default_value_thunk is None:
+            parser.add_argument('--' + k, type=str, help=help_string)
+        else:
+            parser.add_argument('--' + k, type=str, help=help_string, default=default_value_thunk())
+
+    # Debug options
+    parser.add_argument('--debug', help='Enable debug output', action='store_true')
+    parser.add_argument('--dry-run', help='Check build configuration and exit', action='store_true')
+
+    # Custom APT entry and APT key options can be used multiple times
+    parser.add_argument('--custom-apt-entry', help="Custom APT entry", action='append', default=[])
+    parser.add_argument('--custom-apt-key', help="Custom APT key file", action='append', default=[])
+    parser.add_argument('--custom-package', help="Custom package to install from repositories", action='append', default=[])
+
+    # Options relevant for non-ISO format flavors
+    parser.add_argument('--reuse-iso', help='Use an existing ISO file to build additional image formats', type=str, action='store', default=None)
+    parser.add_argument('--disk-size', help='Disk size for non-ISO image formats', type=int, action='store', default=10)
+
+    # Build flavor is a positional argument
+    parser.add_argument('build_flavor', help='Build flavor', nargs='?', action='store')
+
+    args = vars(parser.parse_args())
+
+    debug = args["debug"]
+
+    # Validate options
+    for k, v in args.items():
+        key = field_to_option(k)
+        func = get_validator(options, k)
+        if func is not None:
+            if not func(v):
+                print("E: {v} is not a valid value for --{o} option".format(o=key, v=v))
+                sys.exit(1)
+
+    if not args["build_flavor"]:
+        print("E: Build flavor is not specified!")
+        print("E: For example, to build the generic ISO, run {} iso".format(sys.argv[0]))
+        print("Available build flavors:\n")
+        print("\n".join(build_flavors))
+        sys.exit(1)
+
+    ## Try to get correct architecture and build type from build flavor and CLI arguments
+    pre_build_config = merge_dicts({}, build_defaults)
+
+    flavor_config = {}
+    build_flavor = args["build_flavor"]
+    try:
+        toml_flavor_file = make_toml_path(flavor_dir, args["build_flavor"])
+        with open(toml_flavor_file, 'rb') as f:
+            flavor_config = tomli.load(f)
+            pre_build_config = merge_dicts(flavor_config, pre_build_config)
+    except FileNotFoundError:
+        print(f"E: Flavor '{build_flavor}' does not exist")
+        sys.exit(1)
+    except tomli.TOMLDecodeError as e:
+        print(f"E: Failed to parse TOML file for flavor '{build_flavor}': {e}")
+        sys.exit(1)
+
+    ## Combine configs args > flavor > defaults
+    pre_build_config = merge_dicts(args, pre_build_config, skip_none=True)
+
+    # Some fixup for mirror settings.
+    # The idea is: if --debian-mirror is specified but --pbuilder-debian-mirror is not,
+    # use the --debian-mirror value for both lb and pbuilder bootstrap
+    if pre_build_config['debian_mirror'] is None or pre_build_config['debian_security_mirror'] is None:
+        print("E: debian_mirror and debian_security_mirror cannot be empty")
+        sys.exit(1)
+
+    if pre_build_config['pbuilder_debian_mirror'] is None:
+        args['pbuilder_debian_mirror'] = pre_build_config['pbuilder_debian_mirror'] = pre_build_config['debian_mirror']
+
+    # Version can only be set for release builds,
+    # for dev builds it hardly makes any sense
+    if pre_build_config['build_type'] == 'development':
+        if args['version'] is not None:
+            print("E: Version can only be set for release builds")
+            print("Use --build-type=release option if you want to set version number")
+            sys.exit(1)
+
+    # Validate characters in version name
+    if 'version' in args and args['version'] != None:
+        allowed = string.ascii_letters + string.digits + '.' + '-' + '+'
+        if not set(args['version']) <= set(allowed):
+            print(f'Version contained illegal character(s), allowed: {allowed}')
+            sys.exit(1)
+
+    ## Inject some useful hardcoded options
+    args['build_dir'] = defaults.BUILD_DIR
+    args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
+
+    ## Combine the arguments with non-configurable defaults
+    build_config = merge_dicts({}, build_defaults)
+
+    ## Load correct mix-ins
+    with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'rb') as f:
+        build_type_config = tomli.load(f)
+        build_config = merge_dicts(build_type_config, build_config)
+
+    with open(make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"]), 'rb') as f:
+        build_arch_config = tomli.load(f)
+        build_config = merge_dicts(build_arch_config, build_config)
+
+    ## Override with flavor and then CLI arguments
+    build_config = merge_dicts(flavor_config, build_config)
+    build_config = merge_dicts(args, build_config, skip_none=True)
+
+    ## Rename and merge some fields for simplicity
+    ## E.g. --custom-packages is for the user, but internally
+    ## it's added to the same package list as everything else
+    if has_nonempty_key(build_config, "custom_package"):
+        build_config["packages"] += build_config["custom_package"]
+        del build_config["custom_package"]
+
+    ## Add architecture-dependent packages from the flavor
+    if has_nonempty_key(build_config, "architectures"):
+        arch = build_config["architecture"]
+        if arch in build_config["architectures"]:
+            if has_nonempty_key(build_config["architectures"], "packages"):
+                build_config["packages"] += build_config["architectures"][arch]["packages"]
+
+    ## Check if image format is specified,
+    ## else we have no idea what we are actually supposed to build.
+    if not has_nonempty_key(build_config, "image_format"):
+        print("E: image format is not specified in the build flavor file")
+        sys.exit(1)
+
+    ## Add default boot settings if needed
+    if "boot_settings" not in build_config:
+        build_config["boot_settings"] = defaults.boot_settings
+    else:
+        build_config["boot_settings"] = merge_dicts(defaults.boot_settings, build_config["boot_settings"])
+
+    ## Convert the image_format field to a single-item list if it's a scalar
+    ## (like `image_format = "iso"`)
+    if type(build_config["image_format"]) != list:
+        build_config["image_format"] = [ build_config["image_format"] ]
+
+    ## Dump the complete config if the user enabled debug mode
+    if debug:
+        import json
+        print("D: Effective build config:\n")
+        print(json.dumps(build_config, indent=4))
+
+    ## Clean up the old build config and set up a fresh copy
+    lb_config_dir = os.path.join(defaults.BUILD_DIR, defaults.LB_CONFIG_DIR)
+    shutil.rmtree(lb_config_dir, ignore_errors=True)
+    shutil.copytree("data/live-build-config/", lb_config_dir)
+    os.makedirs(lb_config_dir, exist_ok=True)
+
+    # Switch to the build directory, this is crucial for the live-build work
+    # because the efective build config files etc. are there.
+    #
+    # All directory paths from this point must be relative to BUILD_DIR,
+    # not to the vyos-build repository root.
+    os.chdir(defaults.BUILD_DIR)
+
+    iso_file = None
+
+    if build_config["reuse_iso"]:
+        iso_file = build_config["reuse_iso"]
+    else:
+        ## Create the version file
+
+        # Create a build timestamp
+        now = datetime.datetime.today()
+        build_timestamp = now.strftime("%Y%m%d%H%M")
+
+        # FIXME: use aware rather than naive object
+        build_date = now.strftime("%a %d %b %Y %H:%M UTC")
+
+        # Assign a (hopefully) unique identifier to the build (UUID)
+        build_uuid = str(uuid.uuid4())
+
+        # Initialize Git object from our repository
+        try:
+            repo = git.Repo('.', search_parent_directories=True)
+            # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
+            build_git = repo.head.object.hexsha[:14]
+            # If somone played around with the source tree and the build is "dirty", mark it
+            if repo.is_dirty():
+                build_git += "-dirty"
+
+            # Retrieve git branch name or current tag
+            # Building a tagged release might leave us checking out a git tag that is not the tip of a named branch (detached HEAD)
+            # Check if the current HEAD is associated with a tag and use its name instead of an unavailable branch name.
+            git_branch = next((tag.name for tag in repo.tags if tag.commit == repo.head.commit), None)
+            if git_branch is None:
+                git_branch = repo.active_branch.name
+        except Exception as e:
+            print(f'W: Could not retrieve information from git: {repr(e)}')
+            build_git = ""
+            git_branch = ""
+
+        # Create the build version string
+        if build_config['build_type'] == 'development':
+            try:
+                if not git_branch:
+                    raise ValueError("git branch could not be determined")
+
+                # Load the branch to version mapping file
+                with open('../data/versions') as f:
+                    version_mapping = json.load(f)
+
+                branch_version = version_mapping[git_branch]
+
+                version = "{0}-rolling-{1}".format(branch_version, build_timestamp)
+            except Exception as e:
+                print("W: Could not build a version string specific to git branch, falling back to default: {0}".format(str(e)))
+                version = "999.{0}".format(build_timestamp)
+        else:
+            # Release build, use the version from ./configure arguments
+            version = build_config['version']
+
+        if build_config['build_type'] == 'development':
+            lts_build = False
+        else:
+            lts_build = True
+
+        version_data = {
+            'version': version,
+            'built_by': build_config['build_by'],
+            'built_on': build_date,
+            'build_uuid': build_uuid,
+            'build_git': build_git,
+            'build_branch': git_branch,
+            'release_train': build_config['release_train'],
+            'lts_build': lts_build,
+            'build_comment': build_config['build_comment'],
+            'bugtracker_url': build_config['bugtracker_url'],
+            'documentation_url': build_config['documentation_url'],
+            'project_news_url': build_config['project_news_url'],
+        }
+
+        # Multi line strings needs to be un-indented to not have leading
+        # whitespaces in the resulting file
+        os_release = f"""
+    PRETTY_NAME="VyOS {version} ({build_config['release_train']})"
+    NAME="VyOS"
+    VERSION_ID="{version}"
+    VERSION="{version} ({build_config['release_train']})"
+    VERSION_CODENAME={build_defaults['debian_distribution']}
+    ID=vyos
+    BUILD_ID="{build_git}"
+    HOME_URL="{build_defaults['website_url']}"
+    SUPPORT_URL="{build_defaults['support_url']}"
+    BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
+    DOCUMENTATION_URL="{build_config['documentation_url']}"
+        """
+
+        # Reminder: all paths relative to the build dir, not to the repository root
+        chroot_includes_dir = defaults.CHROOT_INCLUDES_DIR
+        binary_includes_dir = defaults.BINARY_INCLUDES_DIR
+        vyos_data_dir = os.path.join(chroot_includes_dir, "usr/share/vyos")
+        os.makedirs(vyos_data_dir, exist_ok=True)
+        with open(os.path.join(vyos_data_dir, 'version.json'), 'w') as f:
+            json.dump(version_data, f)
+        with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
+            json.dump(version_data, f)
+
+        # For backwards compatibility with 'add system image' script from older versions
+        # we need a file in the old format so that script can find out the version of the image
+        # for upgrade
+        os.makedirs(os.path.join(chroot_includes_dir, 'opt/vyatta/etc/'), exist_ok=True)
+        with open(os.path.join(chroot_includes_dir, 'opt/vyatta/etc/version'), 'w') as f:
+            print("Version: {0}".format(version), file=f)
+
+        # Define variables that influence to welcome message on boot
+        os.makedirs(os.path.join(chroot_includes_dir, 'usr/lib/'), exist_ok=True)
+        with open(os.path.join(chroot_includes_dir, 'usr/lib/os-release'), 'w') as f:
+            print(os_release, file=f)
+
+        ## Clean up earlier build state and artifacts
+        print("I: Cleaning the build workspace")
+        cmd("lb clean")
+        #iter(lambda p: shutil.rmtree(p, ignore_errors=True),
+        #  ['config/binary', 'config/bootstrap', 'config/chroot', 'config/common', 'config/source'])
+        artifacts = functools.reduce(
+          lambda x, y: x + y,
+          map(glob.glob, ['*.iso', '*.raw', '*.img', '*.xz', '*.ova', '*.ovf']))
+        iter(os.remove, artifacts)
+
+        ## Create the target ISO file path
+        iso_file = "vyos-{0}-{1}.iso".format(version_data["version"], build_config["architecture"])
+
+        ## Create live-build configuration files
+
+        # Add the additional repositories to package lists
+        print("I: Setting up additional APT entries")
+        vyos_repo_entry = "deb {vyos_mirror} {vyos_branch} main\n".format(**build_config)
+
+        apt_file = defaults.VYOS_REPO_FILE
+
+        if debug:
+            print(f"D: Adding these entries to {apt_file}:")
+            print("\t", vyos_repo_entry)
+
+        with open(apt_file, 'w') as f:
+            f.write(vyos_repo_entry)
+
+        # Add custom APT entries
+        if build_config.get('additional_repositories', False):
+            build_config['custom_apt_entry'] += build_config['additional_repositories']
+
+        if build_config.get('custom_apt_entry', False):
+            custom_apt_file = defaults.CUSTOM_REPO_FILE
+            entries = "\n".join(build_config['custom_apt_entry'])
+            if debug:
+                print("D: Adding custom APT entries:")
+                print(entries)
+            with open(custom_apt_file, 'w') as f:
+                f.write(entries)
+                f.write("\n")
+
+        # Add custom APT keys
+        if has_nonempty_key(build_config, 'custom_apt_key'):
+            key_dir = defaults.ARCHIVES_DIR
+            for k in build_config['custom_apt_key']:
+                dst_name = '{0}.key.chroot'.format(os.path.basename(k))
+                shutil.copy(k, os.path.join(key_dir, dst_name))
+
+        # Add custom packages
+        if has_nonempty_key(build_config, 'packages'):
+            package_list_file = defaults.PACKAGE_LIST_FILE
+            packages = "\n".join(build_config['packages'])
+            with open (package_list_file, 'w') as f:
+                f.write(packages)
+
+        ## Create includes
+        if has_nonempty_key(build_config, "includes_chroot"):
+            for i in build_config["includes_chroot"]:
+                file_path = os.path.join(chroot_includes_dir, i["path"])
+                if debug:
+                    print(f"D: Creating chroot include file: {file_path}")
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                with open(file_path, 'w') as f:
+                    f.write(i["data"])
+
+        ## Create the default config
+        ## Technically it's just another includes.chroot entry,
+        ## but it's special enough to warrant making it easier for flavor writers
+        if has_nonempty_key(build_config, "default_config"):
+            file_path = os.path.join(chroot_includes_dir, "opt/vyatta/etc/config.boot.default")
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write(build_config["default_config"])
+
+        ## Configure live-build
+        lb_config_tmpl = jinja2.Template("""
+        lb config noauto \
+                --apt-indices false \
+                --apt-options "--yes -oAPT::Get::allow-downgrades=true" \
+                --apt-recommends false \
+                --architecture {{architecture}} \
+                --archive-areas {{debian_archive_areas}} \
+                --backports true \
+                --binary-image iso-hybrid \
+                --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootloaders {{bootloaders}} \
+                --checksums 'sha256 md5' \
+                --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \
+                --debian-installer none \
+                --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2" \
+                --distribution {{debian_distribution}} \
+                --firmware-binary false \
+                --firmware-chroot false \
+                --iso-application "VyOS" \
+                --iso-publisher "{{build_by}}" \
+                --iso-volume "VyOS" \
+                --linux-flavours {{kernel_flavor}} \
+                --linux-packages linux-image-{{kernel_version}} \
+                --mirror-binary {{debian_mirror}} \
+                --mirror-binary-security {{debian_security_mirror}} \
+                --mirror-bootstrap {{debian_mirror}} \
+                --mirror-chroot {{debian_mirror}} \
+                --mirror-chroot-security {{debian_security_mirror}} \
+                --security true \
+                --updates true
+                "${@}"
+        """)
+
+        lb_config_command = lb_config_tmpl.render(build_config)
+
+        ## Pin release for VyOS packages
+        apt_pin = f"""Package: *
+    Pin: release n={build_config['release_train']}
+    Pin-Priority: 600
+    """
+
+        with open(defaults.VYOS_PIN_FILE, 'w') as f:
+            f.write(apt_pin)
+
+        print("I: Configuring live-build")
+
+        if debug:
+            print("D: live-build configuration command")
+            print(lb_config_command)
+
+        cmd(lb_config_command)
+
+        ## In dry-run mode, exit at this point
+        if build_config["dry_run"]:
+            print("I: dry-run, not starting image build")
+            sys.exit(0)
+
+        ## Add local packages
+        local_packages = glob.glob('../packages/*.deb')
+        if local_packages:
+            for f in local_packages:
+                shutil.copy(f, os.path.join(defaults.LOCAL_PACKAGES_PATH, os.path.basename(f)))
+
+        ## Build the image
+        print("I: Starting image build")
+        if debug:
+            print("D: It's not like I'm building this specially for you or anything!")
+        cmd("lb build 2>&1")
+
+        # Copy the image
+        shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]), iso_file)
+
+    # Build additional flavors from the ISO,
+    # if the flavor calls for them
+    if build_config["image_format"] != ["iso"]:
+        raw_image = raw_image.create_raw_image(build_config, iso_file, "tmp/")
+
+        if has_nonempty_key(build_config, "post_build_hook"):
+            # Some flavors require special procedures that aren't covered by qemu-img
+            # (most notably, the VMware OVA that requires a custom tool to make and sign the image).
+            # For those cases, we support running a post-build hook on the raw image.
+            # The image_format field should be 'raw' if a post-build hook is used.
+            hook_path = build_config["post_build_hook"]
+            cmd(f"{hook_path} {raw_image}")
+        else:
+            # Most other formats, thankfully, can be produced with just `qemu-img convert`
+            other_formats = filter(lambda x: x not in ["iso", "raw"], build_config["image_format"])
+            for f in other_formats:
+                target = f"{os.path.splitext(raw_image)[0]}.{f}"
+                print(f"I: Building {f} file {target}")
+                cmd(f"qemu-img convert -f raw -O {f} {raw_image} {target}")

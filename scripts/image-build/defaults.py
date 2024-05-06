@@ -1,4 +1,4 @@
-# Copyright (C) 2018 VyOS maintainers and contributors
+# Copyright (C) 2024 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -17,6 +17,15 @@
 
 
 import os
+
+# Default boot settings
+boot_settings: dict[str, str] = {
+    'timeout': '5',
+    'console_type': 'tty',
+    'console_num': '0',
+    'console_speed': '115200',
+    'bootmode': 'normal'
+}
 
 # Relative to the repository directory
 
@@ -37,6 +46,7 @@ PBUILDER_DIR = 'pbuilder'
 LB_CONFIG_DIR = 'config'
 
 CHROOT_INCLUDES_DIR = 'config/includes.chroot'
+BINARY_INCLUDES_DIR = 'config/includes.binary'
 ARCHIVES_DIR = 'config/archives/'
 
 VYOS_REPO_FILE = 'config/archives/vyos.list.chroot'

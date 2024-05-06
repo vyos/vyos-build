@@ -1,7 +1,0 @@
-[Match]
-Path=pci-0000:07:00.1
-Driver=ixgbe
-
-[Link]
-Name=eth6
-Alias=GE5

@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# This script will use "list-required-firmware" to scan the kernel source repository
-# in combination with its configuration file which drivers are compiled. Some of those
-# drivers require proprietary firmware.
-#
 # All selected drivers are then precomfiled "make drivers/foo/bar.i" and we grep for
 # the magic word "UNIQUE_ID_firmware" which identifies firmware files.
 

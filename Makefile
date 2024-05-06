@@ -7,19 +7,8 @@ all:
 	@echo "Make what specifically?"
 	@echo "The most common target is 'iso'"
 
-.PHONY: iso
-.ONESHELL:
-iso: clean
-	set -o pipefail
-	@./build-vyos-image iso
-	exit 0
-
-.PHONY: prepare-package-env
-.ONESHELL:
-prepare-package-env:
-	@set -e
-	@scripts/pbuilder-config
-	@scripts/pbuilder-setup
+%:
+	VYOS_TEMPLATE_DIR=`pwd`/packages/vyos-1x/data/templates/ ./build-vyos-image $*
 
 .PHONY: checkiso
 .ONESHELL:

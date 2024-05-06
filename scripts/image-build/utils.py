@@ -1,4 +1,4 @@
-# Copyright (C) 2015 VyOS maintainers and contributors
+# Copyright (C) 2024 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -21,7 +21,9 @@ import sys
 import os
 from distutils.spawn import find_executable
 
-import vyos_build_defaults as defaults
+# Local modules
+import defaults
+import vyos
 
 def check_build_config():
     if not os.path.exists(defaults.BUILD_CONFIG):
@@ -75,3 +77,8 @@ def check_system_dependencies(deps):
         raise OSError(checker.format_missing_dependencies())
     else:
         pass
+
+def cmd(command):
+    res = vyos.utils.process.call(command, shell=True)
+    if res > 0:
+        raise OSError(f"Command '{command}' failed")

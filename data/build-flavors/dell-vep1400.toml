@@ -1,0 +1,116 @@
+# ISO image for Dell VEP4600 devices
+
+image_formats = "iso"
+
+# Replace built-in NIC naming rules with empty files
+# to prevent them from taking any effect
+
+[[includes_chroot]]
+  path = "lib/systemd/network/99-default.link"
+  data = ''
+
+[[includes_chroot]]
+  path = "lib/udev/rules.d/65-vyatta-net.rules"
+  data = ''
+
+[[includes_chroot]]
+  path = "lib/udev/rules.d/75-persistent-net-generator.rules"
+  data = ''
+
+# Install platform-specific link files
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth0-000.link"
+  data = '''
+[Match]
+Path=pci-0000:05:00.1
+Driver=ixgbe
+
+[Link]
+Name=eth0
+Alias=SFP+1
+'''
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth1-000.link"
+  data = '''
+[Match]
+Path=pci-0000:05:00.0
+Driver=ixgbe
+
+[Link]
+Name=eth1
+Alias=SFP+2
+'''
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth2-000.link"
+  data = '''
+[Match]
+Path=pci-0000:02:00.2
+Driver=igb
+
+[Link]
+Name=eth2
+Alias=GE1
+'''
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth3-000.link"
+  data = '''
+[Match]
+Path=pci-0000:02:00.3
+Driver=igb
+
+[Link]
+Name=eth3
+Alias=GE2
+'''
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth4-000.link"
+  data = '''
+[Match]
+Path=pci-0000:02:00.0
+Driver=igb
+
+[Link]
+Name=eth4
+Alias=GE3
+'''
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth5-000.link"
+  data = '''
+[Match]
+Path=pci-0000:02:00.1
+Driver=igb
+
+[Link]
+Name=eth5
+Alias=GE4
+'''
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth6-000.link"
+  data = '''
+[Match]
+Path=pci-0000:07:00.1
+Driver=ixgbe
+
+[Link]
+Name=eth6
+Alias=GE5
+'''
+
+[[includes_chroot]]
+  path = "etc/systemd/network/10-eth7-000.link"
+  data = '''
+[Match]
+Path=pci-0000:07:00.0
+Driver=ixgbe
+
+[Link]
+Name=eth7
+Alias=GE6
+'''
