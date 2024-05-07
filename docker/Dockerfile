@@ -351,6 +351,10 @@ RUN apt-get update && apt-get install -y \
       libnl-genl-3-dev \
       libxtables-dev
 
+# Packages needed for nftables
+RUN apt-get update && apt-get install -y \
+      asciidoc-base
+
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
