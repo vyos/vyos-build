@@ -226,6 +226,9 @@ if __name__ == "__main__":
     # Build flavor is a positional argument
     parser.add_argument('build_flavor', help='Build flavor', nargs='?', action='store')
 
+    # Allow unsigned Vyos mirror
+    parser.add_argument('--unsigned-vyos-mirror', help='Vyos mirror is not signed', action='store_true'),
+
     args = vars(parser.parse_args())
 
     debug = args["debug"]
@@ -496,7 +499,8 @@ if __name__ == "__main__":
         # Add the additional repositories to package lists
         print("I: Setting up additional APT entries")
         vyos_repo_entry = "deb {vyos_mirror} {vyos_branch} main\n".format(**build_config)
-
+        if build_config['unsigned_vyos_mirror']:
+            vyos_repo_entry = "deb [trusted=yes] {vyos_mirror} {vyos_branch} main\n".format(**build_config)
         apt_file = defaults.VYOS_REPO_FILE
 
         if debug:
