@@ -320,7 +320,7 @@ if __name__ == "__main__":
     if has_nonempty_key(build_config, "architectures"):
         arch = build_config["architecture"]
         if arch in build_config["architectures"]:
-            if has_nonempty_key(build_config["architectures"], "packages"):
+            if has_nonempty_key(build_config["architectures"][arch], "packages"):
                 build_config["packages"] += build_config["architectures"][arch]["packages"]
 
     ## Check if image format is specified,
