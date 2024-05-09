@@ -425,6 +425,7 @@ if __name__ == "__main__":
 
         version_data = {
             'version': version,
+            'flavor': build_config["build_flavor"],
             'built_by': build_config['build_by'],
             'built_on': build_date,
             'build_uuid': build_uuid,
