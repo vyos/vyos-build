@@ -21,6 +21,7 @@
 import re
 import os
 import sys
+import copy
 import uuid
 import glob
 import json
@@ -138,21 +139,22 @@ def get_validator(optdict, name):
     except KeyError:
         return None
 
-def merge_dicts(source, destination, skip_none=False):
-    """ Merge two dictionaries and return a new dict which has the merged key/value pairs.
+def merge_defaults(source, defaults={}, skip_none=False):
+    """ Merge a dict with values from a defaults dict.
     Merging logic is as follows:
       Sub-dicts are merged.
       List values are combined.
-      Scalar values are set to those from the source dict.
+      Scalar values are set to those from the source dict,
+      if they exist there.
     """
     from copy import deepcopy
-    tmp = deepcopy(destination)
+    tmp = deepcopy(defaults)
 
     for key, value in source.items():
         if key not in tmp:
             tmp[key] = value
         elif isinstance(source[key], dict):
-            tmp[key] = merge_dicts(source[key], tmp[key])
+            tmp[key] = merge_defaults(source[key], tmp[key])
         elif isinstance(source[key], list):
             tmp[key] = source[key] + tmp[key]
         elif not skip_none or source[key] is not None:
@@ -245,7 +247,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ## Try to get correct architecture and build type from build flavor and CLI arguments
-    pre_build_config = merge_dicts({}, build_defaults)
+    pre_build_config = copy.deepcopy(build_defaults)
 
     flavor_config = {}
     build_flavor = args["build_flavor"]
@@ -253,7 +255,7 @@ if __name__ == "__main__":
         toml_flavor_file = make_toml_path(flavor_dir, args["build_flavor"])
         with open(toml_flavor_file, 'rb') as f:
             flavor_config = tomli.load(f)
-            pre_build_config = merge_dicts(flavor_config, pre_build_config)
+            pre_build_config = merge_defaults(flavor_config, defaults=pre_build_config)
     except FileNotFoundError:
         print(f"E: Flavor '{build_flavor}' does not exist")
         sys.exit(1)
@@ -262,7 +264,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ## Combine configs args > flavor > defaults
-    pre_build_config = merge_dicts(args, pre_build_config, skip_none=True)
+    pre_build_config = merge_defaults(args, defaults=pre_build_config, skip_none=True)
 
     # Some fixup for mirror settings.
     # The idea is: if --debian-mirror is specified but --pbuilder-debian-mirror is not,
@@ -294,20 +296,20 @@ if __name__ == "__main__":
     args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
 
     ## Combine the arguments with non-configurable defaults
-    build_config = merge_dicts({}, build_defaults)
+    build_config = copy.deepcopy(build_defaults)
 
     ## Load correct mix-ins
     with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'rb') as f:
         build_type_config = tomli.load(f)
-        build_config = merge_dicts(build_type_config, build_config)
+        build_config = merge_defaults(build_type_config, defaults=build_config)
 
     with open(make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"]), 'rb') as f:
         build_arch_config = tomli.load(f)
-        build_config = merge_dicts(build_arch_config, build_config)
+        build_config = merge_defaults(build_arch_config, defaults=build_config)
 
     ## Override with flavor and then CLI arguments
-    build_config = merge_dicts(flavor_config, build_config)
-    build_config = merge_dicts(args, build_config, skip_none=True)
+    build_config = merge_defaults(flavor_config, defaults=build_config)
+    build_config = merge_defaults(args, defaults=build_config, skip_none=True)
 
     ## Rename and merge some fields for simplicity
     ## E.g. --custom-packages is for the user, but internally
@@ -333,7 +335,7 @@ if __name__ == "__main__":
     if "boot_settings" not in build_config:
         build_config["boot_settings"] = defaults.boot_settings
     else:
-        build_config["boot_settings"] = merge_dicts(defaults.boot_settings, build_config["boot_settings"])
+        build_config["boot_settings"] = merge_defaults(build_config["boot_settings"], defaults=defaults.boot_settings)
 
     ## Convert the image_format field to a single-item list if it's a scalar
     ## (like `image_format = "iso"`)
