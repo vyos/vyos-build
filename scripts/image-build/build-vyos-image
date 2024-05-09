@@ -429,6 +429,7 @@ if __name__ == "__main__":
             'build_git': build_git,
             'build_branch': git_branch,
             'release_train': build_config['release_train'],
+            'architecture': build_config['architecture'],
             'lts_build': lts_build,
             'build_comment': build_config['build_comment'],
             'bugtracker_url': build_config['bugtracker_url'],
