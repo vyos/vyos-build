@@ -592,9 +592,9 @@ if __name__ == "__main__":
 
         ## Pin release for VyOS packages
         apt_pin = f"""Package: *
-    Pin: release n={build_config['release_train']}
-    Pin-Priority: 600
-    """
+Pin: release n={build_config['release_train']}
+Pin-Priority: 600
+"""
 
         with open(defaults.VYOS_PIN_FILE, 'w') as f:
             f.write(apt_pin)
