@@ -60,7 +60,6 @@ systemctl disable atop-rotate.timer
 systemctl disable ModemManager.service
 systemctl disable dnsdist.service
 systemctl disable haproxy.service
-systemctl disable miniupnpd.service
 systemctl disable owamp-server.service
 systemctl disable twamp-server.service
 systemctl disable podman-auto-update.service
