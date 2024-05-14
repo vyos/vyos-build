@@ -645,6 +645,6 @@ Pin-Priority: 600
             for f in other_formats:
                 image_ext = build_config.get("image_ext", f)
                 image_opts = build_config.get("image_opts", "")
-                target = f"{os.path.splitext(raw_image)[0]}.{image_ext}"
+                target = f"{os.path.splitext(raw_image)[0]}-{build_config['build_flavor']}.{image_ext}"
                 print(f"I: Building {f} file {target}")
                 cmd(f"qemu-img convert -f raw -O {f} {image_opts} {raw_image} {target}")
