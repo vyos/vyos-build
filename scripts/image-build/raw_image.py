@@ -201,7 +201,7 @@ def create_raw_image(build_config, iso_file, work_dir):
         con.build_config = build_config
         version_data = read_version_data(con.iso_dir)
         version = version_data['version']
-        raw_file = f"vyos-{version}.raw"
+        raw_file = f"vyos-{version}-{build_config['build_flavor']}-{build_config['architecture']}.raw"
         print(f"I: Building raw file {raw_file}")
         create_disk(raw_file, build_config["disk_size"])
         setup_loop_device(con, raw_file)
