@@ -17,6 +17,11 @@
 
 
 import os
+import getpass
+import platform
+
+def get_default_build_by():
+    return "{user}@{host}".format(user= getpass.getuser(), host=platform.node())
 
 # Default boot settings
 boot_settings: dict[str, str] = {
@@ -25,6 +30,17 @@ boot_settings: dict[str, str] = {
     'console_num': '0',
     'console_speed': '115200',
     'bootmode': 'normal'
+}
+
+# Hardcoded default values
+HARDCODED_BUILD = {
+    'custom_apt_entry': [],
+    'custom_apt_key': [],
+    'custom_package': [],
+    'reuse_iso': None,
+    'disk_size': 10,
+    'build_by': get_default_build_by(),
+    'build_comment': '',
 }
 
 # Relative to the repository directory
