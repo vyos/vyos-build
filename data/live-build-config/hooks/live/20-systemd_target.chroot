@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo I: Choose systemd multi-user.target over graphical.target
+systemctl set-default -f multi-user.target
