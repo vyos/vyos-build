@@ -29,9 +29,12 @@ system {
             address fe80::/10
             address fc00::/7
         }
-        server "time1.vyos.net"
-        server "time2.vyos.net"
-        server "time3.vyos.net"
+        server time1.vyos.net {
+        }
+        server time2.vyos.net {
+        }
+        server time3.vyos.net {
+        }
     }
     console {
         device ttyS0 {
