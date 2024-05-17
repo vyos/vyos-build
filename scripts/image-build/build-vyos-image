@@ -26,8 +26,6 @@ import uuid
 import glob
 import json
 import shutil
-import getpass
-import platform
 import argparse
 import datetime
 import functools
@@ -130,12 +128,9 @@ except OSError as e:
 def field_to_option(s):
     return re.sub(r'_', '-', s)
 
-def get_default_build_by():
-    return "{user}@{host}".format(user= getpass.getuser(), host=platform.node())
-
 def get_validator(optdict, name):
     try:
-        return optdict[name][2]
+        return optdict[name][1]
     except KeyError:
         return None
 
@@ -190,38 +185,35 @@ if __name__ == "__main__":
     # Options dict format:
     # '$option_name_without_leading_dashes': { ('$help_string', $default_value_generator_thunk, $value_checker_thunk) }
     options = {
-       'architecture': ('Image target architecture (amd64 or arm64)', None, lambda x: x in ['amd64', 'arm64', None]),
-       'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', get_default_build_by, None),
-       'debian-mirror': ('Debian repository mirror', None, None),
-       'debian-security-mirror': ('Debian security updates mirror', None, None),
-       'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', None, None),
-       'vyos-mirror': ('VyOS package mirror', None, None),
-       'build-type': ('Build type, release or development', None, lambda x: x in ['release', 'development']),
-       'version': ('Version number (release builds only)', None, None),
-       'build-comment': ('Optional build comment', lambda: '', None)
+       'architecture': ('Image target architecture (amd64 or arm64)', lambda x: x in ['amd64', 'arm64', None]),
+       'build-by': ('Builder identifier (e.g. jrandomhacker@example.net)', None),
+       'debian-mirror': ('Debian repository mirror', None),
+       'debian-security-mirror': ('Debian security updates mirror', None),
+       'pbuilder-debian-mirror': ('Debian repository mirror for pbuilder env bootstrap', None),
+       'vyos-mirror': ('VyOS package mirror', None),
+       'build-type': ('Build type, release or development', lambda x: x in ['release', 'development']),
+       'version': ('Version number (release builds only)', None),
+       'build-comment': ('Optional build comment', None)
     }
 
     # Create the option parser
     parser = argparse.ArgumentParser()
     for k, v in options.items():
-        help_string, default_value_thunk = v[0], v[1]
-        if default_value_thunk is None:
-            parser.add_argument('--' + k, type=str, help=help_string)
-        else:
-            parser.add_argument('--' + k, type=str, help=help_string, default=default_value_thunk())
+        help_string = v[0]
+        parser.add_argument('--' + k, type=str, help=help_string)
 
     # Debug options
     parser.add_argument('--debug', help='Enable debug output', action='store_true')
     parser.add_argument('--dry-run', help='Check build configuration and exit', action='store_true')
 
     # Custom APT entry and APT key options can be used multiple times
-    parser.add_argument('--custom-apt-entry', help="Custom APT entry", action='append', default=[])
-    parser.add_argument('--custom-apt-key', help="Custom APT key file", action='append', default=[])
-    parser.add_argument('--custom-package', help="Custom package to install from repositories", action='append', default=[])
+    parser.add_argument('--custom-apt-entry', help="Custom APT entry", action='append')
+    parser.add_argument('--custom-apt-key', help="Custom APT key file", action='append')
+    parser.add_argument('--custom-package', help="Custom package to install from repositories", action='append')
 
     # Options relevant for non-ISO format flavors
-    parser.add_argument('--reuse-iso', help='Use an existing ISO file to build additional image formats', type=str, action='store', default=None)
-    parser.add_argument('--disk-size', help='Disk size for non-ISO image formats', type=int, action='store', default=10)
+    parser.add_argument('--reuse-iso', help='Use an existing ISO file to build additional image formats', type=str, action='store')
+    parser.add_argument('--disk-size', help='Disk size for non-ISO image formats', type=int, action='store')
 
     # Build flavor is a positional argument
     parser.add_argument('build_flavor', help='Build flavor', nargs='?', action='store')
@@ -295,8 +287,11 @@ if __name__ == "__main__":
     args['build_dir'] = defaults.BUILD_DIR
     args['pbuilder_config'] = os.path.join(defaults.BUILD_DIR, defaults.PBUILDER_CONFIG)
 
+    ## Add hardcoded defaults
+    build_config = merge_defaults(defaults.HARDCODED_BUILD, defaults={})
+
     ## Combine the arguments with non-configurable defaults
-    build_config = copy.deepcopy(build_defaults)
+    build_config = merge_defaults(build_defaults, defaults=build_config)
 
     ## Load correct mix-ins
     with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'rb') as f:
