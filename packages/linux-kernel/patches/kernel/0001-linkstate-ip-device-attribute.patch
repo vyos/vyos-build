@@ -100,7 +100,7 @@ index bc74f131fe4d..9cdd5b50f9b2 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d1806eee1687..b4893d713b8c 100644
+index 9dfbda164e8c..2786c8ea451a 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -5656,6 +5656,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
@@ -111,7 +111,7 @@ index d1806eee1687..b4893d713b8c 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7084,6 +7085,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7085,6 +7086,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
