@@ -192,7 +192,9 @@ RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17
 
 # Packages needed for Linux Kernel
 # gnupg2 is required by Jenkins for the TAR verification
+# cmake required by accel-ppp
 RUN apt-get update && apt-get install -y \
+      cmake \
       gnupg2 \
       rsync \
       libelf-dev \
