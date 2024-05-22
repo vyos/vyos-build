@@ -201,8 +201,11 @@ RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       export LATEST="$(curl -s https://checkpoint-api.hashicorp.com/v1/check/packer | \
       jq -r -M '.current_version')"; \
-      echo "url https://releases.hashicorp.com/packer/${LATEST}/packer_${LATEST}_linux_amd64.zip" |\
-        curl -K- | gzip -d > /usr/bin/packer && \
+      export ZIP="packer_${LATEST}_linux_amd64.zip"; \
+      echo "url https://releases.hashicorp.com/packer/${LATEST}/${ZIP}" |\
+        curl -K- | dd of=/tmp/${ZIP} ; \
+        unzip -d /tmp /tmp/${ZIP} ;\
+        mv /tmp/packer /usr/bin/packer && \
       chmod +x /usr/bin/packer; \
     fi
 
