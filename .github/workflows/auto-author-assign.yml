@@ -3,25 +3,12 @@ on:
   pull_request_target:
     types: [opened, reopened, ready_for_review, locked]
 
+
 permissions:
   pull-requests: write
+  contents: read
 
 jobs:
-  # https://github.com/marketplace/actions/auto-author-assign
   assign-author:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Assign Author to PR"
-        uses: toshimaru/auto-author-assign@v1.3.5
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-  # https://github.com/shufo/auto-assign-reviewer-by-files
-  assign_reviewer:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Request review based on files changes and/or groups the author belongs to
-        uses: shufo/auto-assign-reviewer-by-files@v1.1.4
-        with:
-          token: ${{ secrets.PR_ACTION_ASSIGN_REVIEWERS }}
-          config: .github/reviewers.yml
+    uses: vyos/.github/.github/workflows/assign-author.yml@feature/T6349-reusable-workflows
+    secrets: inherit
