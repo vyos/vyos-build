@@ -7,7 +7,6 @@ import array
 import struct
 import time
 import sys
-import os
 
 from uuid import uuid4
 
