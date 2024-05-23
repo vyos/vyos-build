@@ -1,0 +1,12 @@
+name: Mergifyio backport
+
+on: [issue_comment]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  mergifyio-backport:
+    uses: vyos/.github/.github/workflows/label-backport.yml@feature/T6349-reusable-workflows
+    secrets: inherit
