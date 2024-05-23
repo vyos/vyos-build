@@ -62,7 +62,7 @@ RUN apt-get update && apt-get install -y \
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
 ENV LANG en_US.utf8
 
-ENV OCAML_VERSION 4.12.0
+ENV OCAML_VERSION 4.14.2
 
 # Base packaged needed to build packages and their package dependencies
 RUN apt-get update && apt-get install -y \
