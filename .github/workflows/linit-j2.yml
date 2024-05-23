@@ -5,7 +5,7 @@ on:
   pull_request:
     branches:
       - current
-      - crux
+      - sagitta
       - equuleus
   workflow_dispatch:
 

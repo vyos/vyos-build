@@ -4,6 +4,7 @@ on:
     branches:
       - current
       - sagitta
+      - equuleus
   workflow_dispatch:
 
 permissions:

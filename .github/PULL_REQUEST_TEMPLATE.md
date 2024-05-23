@@ -41,7 +41,7 @@ like this
 <!--- Go over all the following points, and put an `x` in all the boxes that apply. -->
 <!--- If you're unsure about any of these, don't hesitate to ask. We're here to help! -->
 <!--- The entire development process is outlined here: https://docs.vyos.io/en/latest/contributing/development.html -->
-- [ ] I have read the [**CONTRIBUTING**](https://github.com/vyos/vyos-1x/blob/current/CONTRIBUTING.md) document
+- [ ] I have read the [**CONTRIBUTING**](https://github.com/vyos/vyos-build/blob/current/CONTRIBUTING.md) document
 - [ ] I have linked this PR to one or more Phabricator Task(s)
 - [ ] My commit headlines contain a valid Task id
 - [ ] My change requires a change to the documentation
