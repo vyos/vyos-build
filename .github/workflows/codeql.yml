@@ -1,0 +1,23 @@
+name: "Perform CodeQL Analysis"
+
+on:
+  push:
+    branches: [ "current", "sagitta", "equuleus" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "current" ]
+  schedule:
+    - cron: '22 10 * * 0'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  codeql-analysis-call:
+    uses: vyos/.github/.github/workflows/codeql-analysis.yml@feature/T6349-reusable-workflows
+    secrets: inherit
+    with:
+      languages: "['python']"
