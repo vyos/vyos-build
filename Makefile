@@ -5,7 +5,7 @@ build_dir := build
 .PHONY: all
 all:
 	@echo "Make what specifically?"
-	@echo "The most common target is 'iso'"
+	@echo "The most common target is 'generic'"
 
 %:
 	./build-vyos-image $*
