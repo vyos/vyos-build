@@ -101,7 +101,7 @@ pipeline {
                             --build-by "${params.BUILD_BY}" \
                             --debian-mirror http://deb.debian.org/debian/ \
                             --build-type release \
-                            --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES} iso
+                            --version "${VYOS_VERSION}" ${CUSTOM_PACKAGES} generic
                     """
 
                     if (fileExists('build/live-image-amd64.hybrid.iso') == false) {
