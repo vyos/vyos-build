@@ -1,0 +1,17 @@
+name: Repo-sync
+
+on:
+    pull_request_target:
+      types:
+        - closed
+      branches:
+        - current
+    workflow_dispatch:
+
+jobs:
+  trigger-sync:
+    uses: vyos/.github/.github/workflows/trigger-repo-sync.yml@feature/T6349-reusable-workflows
+    secrets:
+      REMOTE_REPO: ${{ secrets.REMOTE_REPO }}
+      REMOTE_OWNER: ${{ secrets.REMOTE_OWNER }}
+      PAT: ${{ secrets.PAT }}
