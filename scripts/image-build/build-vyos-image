@@ -433,6 +433,7 @@ if __name__ == "__main__":
             'bugtracker_url': build_config['bugtracker_url'],
             'documentation_url': build_config['documentation_url'],
             'project_news_url': build_config['project_news_url'],
+            'support_url': build_config['support_url']
         }
 
         # Multi line strings needs to be un-indented to not have leading
