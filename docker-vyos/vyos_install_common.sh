@@ -25,7 +25,7 @@ function prepare_apt() {
     # Add VyOS repository to the system
     local APT_VYOS_MIRROR=$(tomlq --raw-output .vyos_mirror /tmp/defaults.toml)
     local APT_VYOS_BRANCH=$(tomlq --raw-output .vyos_branch /tmp/defaults.toml)
-    local APT_ADDITIONAL_REPOS=$(tomlq --raw-output .additional_repositories[] /tmp/amd64.toml)
+    local APT_ADDITIONAL_REPOS=$(tomlq --raw-output .additional_repositories[] /tmp/$(dpkg --print-architecture).toml)
     local RELEASE_TRAIN=$(tomlq --raw-output .release_train /tmp/defaults.toml)
 
     echo "APT_VYOS_MIRROR      : $APT_VYOS_MIRROR"

@@ -1,0 +1,40 @@
+system {
+    host-name vyos
+    login {
+        user vyos {
+            authentication {
+                encrypted-password "*"
+                plaintext-password ""
+            }
+            level admin
+        }
+    }
+    syslog {
+        global {
+            facility all {
+                level info
+            }
+            facility protocols {
+                level debug
+            }
+        }
+    }
+    ntp {
+        server "time1.vyos.net"
+        server "time2.vyos.net"
+        server "time3.vyos.net"
+    }
+    console {
+        device ttyS0 {
+            speed 115200
+        }
+    }
+    config-management {
+        commit-revisions 100
+    }
+}
+
+interfaces {
+    loopback lo {
+    }
+}
