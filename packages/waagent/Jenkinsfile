@@ -29,4 +29,4 @@ def pkgList = [
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
-buildPackage("${package_name}", pkgList, null, true, "**/packages/waagent/**")
+buildPackage("${package_name}", pkgList, null, false, "**/packages/waagent/**")
