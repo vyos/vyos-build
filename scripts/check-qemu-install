@@ -150,7 +150,7 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
         -smp {cpucount},sockets=1,cores={cpucount},threads=1 \
         -cpu host \
         {uefi} \
-        -m 3G \
+        -m 4G \
         -vga none \
         -nographic \
         -machine accel=kvm \
