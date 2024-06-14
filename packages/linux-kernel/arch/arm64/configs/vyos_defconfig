@@ -6053,7 +6053,8 @@ CONFIG_THUNDERX2_PMU=m
 # end of Performance monitor support
 
 CONFIG_RAS=y
-# CONFIG_USB4 is not set
+CONFIG_USB4=m
+CONFIG_USB4_NET=m
 
 #
 # Android
