@@ -37,30 +37,32 @@ RUN apt-get update && apt-get install -y \
 
 # Copy installer script and default build settings
 COPY [ "data/defaults.toml", \
-       "data/architectures/amd64.toml", \
        "data/live-build-config/archives/*", \
        "docker-vyos/vyos_install_common.sh", \
        "docker-vyos/vyos_install_stage_01.sh", \
        "/tmp/"]
+COPY [ "data/architectures/*", "/tmp/architectures_triage/" ]
 COPY [ "data/live-build-config/hooks/live/*", "/tmp/hooks/" ]
 
 # Install VyOS dependencies
 WORKDIR /tmp
+RUN bash -c 'mv /tmp/architectures_triage/$(dpkg --print-architecture).toml /tmp && rm -rf /tmp/architectures_triage'
 RUN bash /tmp/vyos_install_stage_01.sh
 
 
 # Install VyOS specific software
 COPY [ "data/defaults.toml", \
-       "data/architectures/amd64.toml", \
        "docker-vyos/vyos_install_common.sh", \
        "docker-vyos/vyos_install_stage_02.sh", "/tmp/" ]
+COPY [ "data/architectures/*", "/tmp/architectures_triage/" ]
+RUN bash -c 'mv /tmp/architectures_triage/$(dpkg --print-architecture).toml /tmp && rm -rf /tmp/architectures_triage'
 RUN bash /tmp/vyos_install_stage_02.sh
 
 
 # Tune system for VyOS
 COPY [ "docker-vyos/vyos_install_common.sh", "docker-vyos/vyos_install_stage_03.sh", "/tmp/" ]
 # Copy default config
-COPY data/live-build-config/includes.chroot/opt/vyatta/etc/config.boot.default /opt/vyatta/etc/
+COPY tools/container/config.boot.default /opt/vyatta/etc/
 
 RUN bash /tmp/vyos_install_stage_03.sh
 

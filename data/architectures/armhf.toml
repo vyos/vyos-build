@@ -1,2 +1,6 @@
+additional_repositories = [
+  "deb [arch=armhf] https://repo.saltproject.io/py3/debian/11/armhf/3005 bullseye main"
+]
+
 # Packages included in armhf images by default
 packages = ["grub-efi-arm"]
