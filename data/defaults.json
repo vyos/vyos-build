@@ -10,7 +10,8 @@
   "release_train": "equuleus",
   "additional_repositories": [
     "deb [arch=amd64] https://repo.saltproject.io/py3/debian/10/amd64/3003 buster main",
-    "deb [arch=amd64] http://repo.powerdns.com/debian buster-rec-48 main"
+    "deb [arch=amd64] http://repo.powerdns.com/debian buster-rec-48 main",
+    "deb http://local.deb.vyos.io/extended-lts/ buster main contrib non-free"
   ],
   "custom_packages": []
 }
