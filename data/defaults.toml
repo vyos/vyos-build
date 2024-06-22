@@ -14,7 +14,7 @@ vyos_mirror = "https://rolling-packages.vyos.net/current"
 vyos_branch = "current"
 release_train = "current"
 
-kernel_version = "6.6.34"
+kernel_version = "6.6.35"
 bootloaders = "syslinux,grub-efi"
 
 squashfs_compression_type = "xz -Xbcj x86 -b 256k -always-use-fragments -no-recovery"
