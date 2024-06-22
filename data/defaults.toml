@@ -14,7 +14,7 @@ vyos_mirror = "http://dev.packages.vyos.net/repositories/sagitta"
 vyos_branch = "sagitta"
 release_train = "sagitta"
 
-kernel_version = "6.6.33"
+kernel_version = "6.6.35"
 bootloaders = "syslinux,grub-efi"
 
 squashfs_compression_type = "xz -Xbcj x86 -b 256k -always-use-fragments -no-recovery"
