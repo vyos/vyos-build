@@ -3,12 +3,11 @@ on:
   pull_request_target:
     types: [opened, reopened, ready_for_review, locked]
 
-
 permissions:
   pull-requests: write
   contents: read
 
 jobs:
   assign-author:
-    uses: vyos/.github/.github/workflows/assign-author.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/assign-author.yml@equuleus
     secrets: inherit
