@@ -1,0 +1,17 @@
+name: Repo-sync
+
+on:
+    pull_request_target:
+      types:
+        - closed
+      branches:
+        - sagitta
+    workflow_dispatch:
+
+jobs:
+  trigger-sync:
+    uses: vyos/.github/.github/workflows/trigger-repo-sync.yml@sagitta
+    secrets:
+      REMOTE_REPO: ${{ secrets.REMOTE_REPO }}
+      REMOTE_OWNER: ${{ secrets.REMOTE_OWNER }}
+      PAT: ${{ secrets.PAT }}
