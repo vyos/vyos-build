@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   assign-author:
-    uses: vyos/.github/.github/workflows/assign-author.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/assign-author.yml@current
     secrets: inherit

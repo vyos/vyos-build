@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   check-pr-conflict-call:
-    uses: vyos/.github/.github/workflows/check-pr-merge-conflict.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/check-pr-merge-conflict.yml@current
     secrets: inherit
