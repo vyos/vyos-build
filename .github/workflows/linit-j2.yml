@@ -15,5 +15,5 @@ permissions:
 
 jobs:
   j2lint:
-    uses: vyos/.github/.github/workflows/lint-j2.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/lint-j2.yml@current
     secrets: inherit

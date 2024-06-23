@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   codeql-analysis-call:
-    uses: vyos/.github/.github/workflows/codeql-analysis.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/codeql-analysis.yml@current
     secrets: inherit
     with:
       languages: "['python']"

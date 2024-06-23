@@ -2,7 +2,7 @@
 name: Check pull request message format
 
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - current
       - sagitta
@@ -14,5 +14,5 @@ permissions:
 
 jobs:
   check-pr-title:
-    uses: vyos/.github/.github/workflows/check-pr-message.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/check-pr-message.yml@current
     secrets: inherit
