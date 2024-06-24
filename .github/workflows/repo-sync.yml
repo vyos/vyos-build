@@ -1,16 +1,16 @@
-name: Repo-sync
+name: Repo-sync circinus
 
 on:
     pull_request_target:
       types:
         - closed
       branches:
-        - current
+        - circinus
     workflow_dispatch:
 
 jobs:
   trigger-sync:
-    uses: vyos/.github/.github/workflows/trigger-repo-sync.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/trigger-repo-sync.yml@circinus
     secrets:
       REMOTE_REPO: ${{ secrets.REMOTE_REPO }}
       REMOTE_OWNER: ${{ secrets.REMOTE_OWNER }}
