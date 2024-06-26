@@ -247,6 +247,12 @@ RUN pip install --break-system-packages \
       python3-stdeb \
       python3-all \
       python3-coverage \
+      python3-hurry.filesize \
+      python3-netaddr \
+      python3-paramiko \
+      python3-passlib \
+      python3-tabulate \
+      python3-zmq \
       pylint \
       quilt \
       whois
