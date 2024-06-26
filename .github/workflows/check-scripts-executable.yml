@@ -1,0 +1,32 @@
+name: "Check for Jenkins build scripts has executable bit"
+
+on:
+  pull_request:
+    branches:
+      - current
+      - circinus
+      - sagitta
+      - equuleus
+
+permissions:
+  contents: read
+
+jobs:
+  check-scripts-executable:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.repository }}
+      - name: Checking scripts are executable
+        run: |
+          files=$(find packages/ -type f -name '*.py' -or -name '*.sh' -not -executable -print)
+          if [[ -n $files ]]; then
+            echo "Found files without executable bit:"
+            for file in $files; do
+              echo $file;
+            done;
+            exit 1;
+          fi
+        shell: bash
