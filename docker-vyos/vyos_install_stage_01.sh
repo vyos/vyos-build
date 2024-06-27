@@ -23,7 +23,14 @@ echo "Configuring APT repositories"
 prepare_apt
 
 # Get list of VyOS packages
-vyos_packages=(`apt-cache -i depends vyos-world | awk '/Depends:/ { printf("%s ", $2) }'`)
+vyos_packages=(
+    "vyatta-cfg-system"
+    "vyatta-bash"
+    "vyatta-op"
+    "vyatta-cfg"
+    "vyatta-wanloadbalance"
+    "vyos-1x"
+    )
 
 # Do not analyze packages, which we do not need in Docker
 vyos_packages_filter=(

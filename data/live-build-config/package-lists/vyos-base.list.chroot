@@ -1,6 +1,11 @@
 debconf
 gpgv
 gnupg
-vyos-world
+vyatta-cfg-system
+vyatta-bash
+vyatta-op
+vyatta-cfg
+vyatta-wanloadbalance
+vyos-1x
 vyos-user-utils
 zstd
