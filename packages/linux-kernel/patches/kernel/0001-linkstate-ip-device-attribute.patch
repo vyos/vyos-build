@@ -126,10 +126,10 @@ index 9dfbda164e8c..2786c8ea451a 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c48eaa7c2340..309a93100c34 100644
+index eb3afaee62e8..0f8670e74cc7 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -677,6 +677,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
+@@ -679,6 +679,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
  }
  #endif
  
@@ -144,7 +144,7 @@ index c48eaa7c2340..309a93100c34 100644
  /*
   * Default Router Selection (RFC 2461 6.3.6)
   */
-@@ -718,6 +726,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
+@@ -720,6 +728,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
  
  	if (!m && (strict & RT6_LOOKUP_F_IFACE))
  		return RT6_NUD_FAIL_HARD;
