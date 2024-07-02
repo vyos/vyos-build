@@ -8,5 +8,5 @@ permissions:
 
 jobs:
   mergifyio-backport:
-    uses: vyos/.github/.github/workflows/label-backport.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/label-backport.yml@equuleus
     secrets: inherit

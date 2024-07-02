@@ -2,8 +2,6 @@ name: Check for unused imports using Pylint
 on:
   pull_request:
     branches:
-      - current
-      - sagitta
       - equuleus
   workflow_dispatch:
 
@@ -12,5 +10,5 @@ permissions:
 
 jobs:
   check-unused-imports:
-    uses: vyos/.github/.github/workflows/check-unused-imports.yml@feature/T6349-reusable-workflows
+    uses: vyos/.github/.github/workflows/check-unused-imports.yml@equuleus
     secrets: inherit
