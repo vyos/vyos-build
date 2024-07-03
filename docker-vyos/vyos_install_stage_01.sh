@@ -24,11 +24,6 @@ prepare_apt
 
 # Get list of VyOS packages
 vyos_packages=(
-    "vyatta-cfg-system"
-    "vyatta-bash"
-    "vyatta-op"
-    "vyatta-cfg"
-    "vyatta-wanloadbalance"
     "vyos-1x"
     )
 
