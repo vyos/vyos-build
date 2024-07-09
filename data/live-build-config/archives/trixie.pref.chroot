@@ -1,5 +1,5 @@
 Package: podman
-Pin: release n=trixie
+Pin: version 4.9.4*
 Pin-Priority: 900
 
 Package: netavark
