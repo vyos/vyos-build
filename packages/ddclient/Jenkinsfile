@@ -1,4 +1,4 @@
-// Copyright (C) 2023 VyOS maintainers and contributors
+// Copyright (C) 2023-2024 VyOS maintainers and contributors
 //
 // This program is free software; you can redistribute it and/or modify
 // in order to easy exprort images built to "external" world
@@ -20,14 +20,10 @@
 @Library('vyos-build@current')_
 
 def pkgList = [
-    ['name': 'ddclient-debian',
-     'scmCommit': 'debian/3.10.0-3',
+    ['name': 'ddclient',
+     'scmCommit': '93bd643',
      'scmUrl': 'https://salsa.debian.org/debian/ddclient',
-     'buildCmd': '/bin/true'],
-    ['name': 'ddclient-github',
-     'scmCommit': 'v3.11.2',
-     'scmUrl': 'https://github.com/ddclient/ddclient',
-     'buildCmd': 'cd ..; ./build.sh'],
+     'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; dpkg-buildpackage  -uc -us -tc -b'],
 ]
 
 // Start package build using library function from https://github.com/vyos/vyos-build
