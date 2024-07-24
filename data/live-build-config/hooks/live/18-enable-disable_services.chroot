@@ -62,9 +62,6 @@ systemctl disable dnsdist.service
 systemctl disable haproxy.service
 systemctl disable owamp-server.service
 systemctl disable twamp-server.service
-systemctl disable podman-auto-update.service
-systemctl disable podman-auto-update.timer
-systemctl disable podman-restart.service
 systemctl disable vyos-wan-load-balance.service
 systemctl disable nvmf-autoconnect.service
 systemctl disable dpkg-db-backup.timer
