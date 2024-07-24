@@ -25,7 +25,7 @@ def pkgList = [
      'scmUrl': 'https://salsa.debian.org/debian/wpa',
      'buildCmd': '/bin/true'],
     ['name': 'hostap',
-     'scmCommit': '6b9c86466',
+     'scmCommit': 'e7172e26d',
      'scmUrl': 'git://w1.fi/srv/git/hostap.git',
      'buildCmd': 'cd ..; ./build.sh'],
 ]
