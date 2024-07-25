@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+export PATH=/opt/go/bin:$PATH
 
 SRC=podman
 if [ ! -d $SRC ]; then
