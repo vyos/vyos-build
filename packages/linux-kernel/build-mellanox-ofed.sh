@@ -71,10 +71,10 @@ sudo ./install.pl \
   --without-mlnx-nvme-modules \
   --with-vma --vma-vpi --vma-eth \
   --guest --hypervisor \
-  --builddir $DEBIAN_DIR/mlx \
-  --distro $DEB_DISTRO \
-  -s $KERNEL_DIR \
-  -k $KERNEL_VERSION
+  --builddir ${DEBIAN_DIR}/mlx \
+  --distro ${DEB_DISTRO} \
+  --kernel-sources ${KERNEL_DIR} \
+  --kernel ${KERNEL_VERSION}${KERNEL_SUFFIX}
 
 if [ $DROP_DEV_DBG_DEBS -eq 1 ]; then
   echo "I: Removing development and debug packages"
