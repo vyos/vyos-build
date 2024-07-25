@@ -62,6 +62,9 @@ def pkgList = [
     // Intel IXGBEVF
     ['name': 'ixgbevf', 'buildCmd': 'cd ..; ./build-intel-ixgbevf.sh'],
 
+    // Mellanox OFED
+    ['name': 'ofed', 'buildCmd': 'cd ..; ./build-mellanox-ofed.sh'],
+
     // Jool
     ['name': 'jool', 'buildCmd': 'cd ..; ./build-jool.py'],
 
