@@ -65,6 +65,33 @@ if [ -z $KERNEL_DIR ]; then
     exit 1
 fi
 
+rm -f SOURCES/ibarr_0.1.3.orig.tar.gz
+rm -f SOURCES/ibdump_6.0.0.orig.tar.gz
+rm -f SOURCES/ibsim_0.12.orig.tar.gz
+rm -f SOURCES/iser_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
+rm -f SOURCES/isert_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
+rm -f SOURCES/kernel-mft_4.28.0.92.orig.tar.gz
+rm -f SOURCES/knem_1.1.4.90mlnx3.orig.tar.gz
+rm -f SOURCES/libvma_9.8.60.orig.tar.gz
+rm -f SOURCES/libxlio_3.30.5.orig.tar.gz
+rm -f SOURCES/mlnx-ethtool_6.7.orig.tar.gz
+rm -f SOURCES/mlnx-iproute2_6.7.0.orig.tar.gz
+rm -f SOURCES/mlnx-nfsrdma_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
+rm -f SOURCES/mlnx-nvme_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
+rm -f SOURCES/mlx-steering-dump_1.0.0.orig.tar.gz
+rm -f SOURCES/mpitests_3.2.23.orig.tar.gz
+rm -f SOURCES/mstflint_4.16.1.orig.tar.gz
+rm -f SOURCES/ofed-scripts_24.04.OFED.24.04.0.6.6.orig.tar.gz
+rm -f SOURCES/openmpi_4.1.7a1.orig.tar.gz
+rm -f SOURCES/openvswitch_2.17.8.orig.tar.gz
+rm -f SOURCES/perftest_24.04.0.orig.tar.gz
+rm -f SOURCES/rdma-core_2404mlnx51.orig.tar.gz
+rm -f SOURCES/rshim_2.0.28.orig.tar.gz
+rm -f SOURCES/sockperf_3.10.orig.tar.gz
+rm -f SOURCES/srp_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
+rm -f SOURCES/ucx_1.17.0.orig.tar.gz
+
+
 sudo ./install.pl \
   --basic --dpdk \
   --without-dkms \
