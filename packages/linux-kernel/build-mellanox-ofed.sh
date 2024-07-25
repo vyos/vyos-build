@@ -21,6 +21,8 @@ url="https://www.mellanox.com/downloads/ofed/MLNX_OFED-24.04-0.6.6.0/MLNX_OFED_S
 cd ${CWD}
 
 DRIVER_FILE=$(basename ${url} | sed -e s/tar_0/tar/)
+DRIVER_SHA1="003c1c022f9f6558d45750eacc0a64d06cf9cd42"
+
 DRIVER_DIR="${DRIVER_FILE%.tgz}"
 DRIVER_NAME="ofed"
 DRIVER_PRFX="MLNX_OFED"
@@ -39,6 +41,13 @@ if [ -e ${DRIVER_FILE} ]; then
 fi
 curl -L -o ${DRIVER_FILE} ${url}
 if [ "$?" -ne "0" ]; then
+    exit 1
+fi
+
+# Verify integrity
+echo "${DRIVER_SHA1} ${DRIVER_FILE}" | sha1sum -c -
+if [[ $? != 0 ]]; then
+    echo SHA1 checksum missmatch
     exit 1
 fi
 
