@@ -12,6 +12,8 @@ packages = [
   "vyos-intel-qat",
   "vyos-intel-ixgbe",
   "vyos-intel-ixgbevf",
+  "mlnx-ofed-kernel-modules",
+  "mlnx-tools",
   "openvpn-dco",
   "telegraf"
 ]
