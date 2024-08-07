@@ -27,5 +27,6 @@ fpm --input-type dir --output-type deb --name podman \
     --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
     --description "Engine to run OCI-based containers in Pods" \
     --depends conmon --depends crun --depends netavark --depends libgpgme11 \
+    --depends fuse-overlayfs --depends golang-github-containers-common \
     --license "Apache License 2.0" -C podman-v$VERSION --package ..
 
