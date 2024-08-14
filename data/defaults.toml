@@ -11,8 +11,8 @@ debian_archive_areas = "main contrib non-free non-free-firmware"
 
 vyos_mirror = "https://rolling-packages.vyos.net/current"
 
-vyos_branch = "current"
-release_train = "current"
+vyos_branch = "circinus"
+release_train = "circinus"
 
 kernel_version = "6.6.45"
 bootloaders = "syslinux,grub-efi"
