@@ -1,6 +1,6 @@
 # Installation ISO for the XCP-ng virtualization platform
 
-image_formats = "iso"
+image_format = "iso"
 
 # Include these packages in the image
 packages = ["xe-guest-utilities"]

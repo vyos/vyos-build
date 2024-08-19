@@ -1,6 +1,6 @@
 # ISO image for Dell VEP4600 devices
 
-image_formats = "iso"
+image_format = "iso"
 
 # Replace built-in NIC naming rules with empty files
 # to prevent them from taking any effect
