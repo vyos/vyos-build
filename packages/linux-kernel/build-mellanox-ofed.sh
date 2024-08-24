@@ -16,12 +16,13 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-url="https://www.mellanox.com/downloads/ofed/MLNX_OFED-24.04-0.6.6.0/MLNX_OFED_SRC-debian-24.04-0.6.6.0.tgz"
+mlxver="24.07-0.6.1.0"
+url="https://www.mellanox.com/downloads/ofed/MLNX_OFED-${mlxver}/MLNX_OFED_SRC-debian-${mlxver}.tgz"
 
 cd ${CWD}
 
 DRIVER_FILE=$(basename ${url} | sed -e s/tar_0/tar/)
-DRIVER_SHA1="003c1c022f9f6558d45750eacc0a64d06cf9cd42"
+DRIVER_SHA1="c64defa8fb38dcbce153adc09834ab5cdcecd791"
 
 DRIVER_DIR="${DRIVER_FILE%.tgz}"
 DRIVER_NAME="ofed"
@@ -46,7 +47,7 @@ fi
 
 # Verify integrity
 echo "${DRIVER_SHA1} ${DRIVER_FILE}" | sha1sum -c -
-if [[ $? != 0 ]]; then
+if [ $? != 0 ]; then
     echo SHA1 checksum missmatch
     exit 1
 fi
