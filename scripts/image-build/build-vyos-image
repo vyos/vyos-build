@@ -549,6 +549,13 @@ if __name__ == "__main__":
             with open(file_path, 'w') as f:
                 f.write(build_config["default_config"])
 
+        ## Initialize build manifest
+        manifest = {
+            'build_config' : build_config,
+            'artifacts' : [iso_file],
+            'pre_build_config' : pre_build_config
+        }
+
         ## Configure live-build
         lb_config_tmpl = jinja2.Template("""
         lb config noauto \
@@ -627,6 +634,7 @@ Pin-Priority: 600
     # if the flavor calls for them
     if build_config["image_format"] != ["iso"]:
         raw_image = raw_image.create_raw_image(build_config, iso_file, "tmp/")
+        manifest['artifacts'].append(raw_image)
 
         if has_nonempty_key(build_config, "post_build_hook"):
             # Some flavors require special procedures that aren't covered by qemu-img
@@ -644,3 +652,7 @@ Pin-Priority: 600
                 target = f"{os.path.splitext(raw_image)[0]}.{image_ext}"
                 print(f"I: Building {f} file {target}")
                 cmd(f"qemu-img convert -f raw -O {f} {image_opts} {raw_image} {target}")
+                manifest['artifacts'].append(target)
+
+    with open('manifest.json', 'w') as f:
+        f.write(json.dumps(manifest))
