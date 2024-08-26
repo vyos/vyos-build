@@ -1,0 +1,61 @@
+[defaults]
+kernel_version = "6.6.47"
+kernel_flavor = "amd64-vyos"
+
+
+[[packages]]
+name = "linux-kernel"
+commit_id = "" # Uses defaults.kernel_version
+scm_url = ""
+build_cmd = "build_kernel"
+
+[[packages]]
+name = "linux-firmware"
+commit_id = "20240610"
+scm_url = "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
+build_cmd = "build_linux_firmware"
+
+[[packages]]
+name = "accel-ppp"
+commit_id = "1.13.0"
+scm_url = "https://github.com/accel-ppp/accel-ppp.git"
+build_cmd = "build_accel_ppp"
+
+
+[[packages]]
+name = "ovpn-dco"
+commit_id = "v0.2.20231117"
+scm_url = "https://github.com/OpenVPN/ovpn-dco"
+build_cmd = "build_openvpn_dco"
+
+[[packages]]
+name = "nat-rtsp"
+commit_id = "475af0a"
+scm_url = "https://github.com/maru-sama/rtsp-linux.git"
+build_cmd = "build_nat_rtsp"
+
+
+[[packages]]
+name = "qat"
+commit_id = ""
+scm_url = ""
+build_cmd = "build_intel_qat"
+
+[[packages]]
+name = "ixgbe"
+commit_id = ""
+scm_url = ""
+build_cmd = "build_intel_ixgbe"
+
+[[packages]]
+name = "ixgbevf"
+commit_id = ""
+scm_url = ""
+build_cmd = "build_intel_ixgbevf"
+
+[[packages]]
+name = "jool"
+commit_id = ""
+scm_url = ""
+build_cmd = "build_jool"
+

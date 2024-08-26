@@ -1,0 +1,48 @@
+From 58e0d3317795987b2f1ca788645196d0e3543f88 Mon Sep 17 00:00:00 2001
+From: Adam Smith <zero1three@gmail.com>
+Date: Tue, 23 Jan 2024 21:47:00 -0500
+Subject: [PATCH 3/4] fix compilation errors
+
+---
+ common/lpf.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/common/lpf.c b/common/lpf.c
+index 75609f5..1561d71 100644
+--- a/common/lpf.c
++++ b/common/lpf.c
+@@ -195,6 +195,7 @@ static void lpf_tr_filter_setup (struct interface_info *);
+ #endif
+ 
+ static void lpf_gen_filter_setup (struct interface_info *);
++static void lpf_pureip_gen_filter_setup (struct interface_info *);
+ 
+ void if_register_receive (info)
+ 	struct interface_info *info;
+@@ -215,14 +216,13 @@ void if_register_receive (info)
+ 	}
+ #endif
+ 
+-
+ #if defined (HAVE_TR_SUPPORT)
+ 	if (info -> hw_address.hbuf [0] == HTYPE_IEEE802)
+ 		lpf_tr_filter_setup (info);
+ 	else
+ #endif
+ 	if (info -> hw_address.hbuf [0] == HTYPE_PUREIP)
+-		lpf_pureip_filter_setup (info);
++		lpf_pureip_gen_filter_setup (info);
+ 	else
+ 		lpf_gen_filter_setup (info);
+ 
+@@ -349,6 +349,7 @@ static void lpf_pureip_gen_filter_setup (info)
+ 	}
+ }
+ 
++
+ #if defined (HAVE_TR_SUPPORT)
+ static void lpf_tr_filter_setup (info)
+ 	struct interface_info *info;
+-- 
+2.39.2
+

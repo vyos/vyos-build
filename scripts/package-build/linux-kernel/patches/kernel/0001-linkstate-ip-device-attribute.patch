@@ -1,0 +1,158 @@
+From 81d38c4a32e059ad7835f7dc254e7627642afbe9 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 29 Apr 2013 18:50:15 -0700
+Subject: [PATCH] VyOS: Add linkstate IP device attribute
+
+Backport of earlier Vyatta patch.
+
+(cherry picked from commit 7c5a851086686be14ae937c80d6cee34814dbefc)
+---
+ Documentation/networking/ip-sysctl.rst | 11 +++++++++++
+ include/linux/inetdevice.h             |  1 +
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ip.h                |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv4/devinet.c                     |  1 +
+ net/ipv6/addrconf.c                    |  8 ++++++++
+ net/ipv6/route.c                       | 10 ++++++++++
+ 8 files changed, 34 insertions(+)
+
+diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
+index a66054d0763a..53440098fa98 100644
+--- a/Documentation/networking/ip-sysctl.rst
++++ b/Documentation/networking/ip-sysctl.rst
+@@ -1734,6 +1734,17 @@ src_valid_mark - BOOLEAN
+ 
+ 	Default value is 0.
+ 
++link_filter - INTEGER
++	0 - Allow packets to be received for the address on this interface
++	    even if interface is disabled or no carrier.
++	1 - Ignore packets received if interface associated with the incoming
++	    address is down.
++	2 - Ignore packets received if interface associated with the incoming
++	    address is down or has no carrier.
++
++	Default value is 0. Note that some distributions enable it
++	in startup scripts.
++
+ arp_filter - BOOLEAN
+ 	- 1 - Allows you to have multiple network interfaces on the same
+ 	  subnet, and have the ARPs for each interface be answered
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index ddb27fc0ee8c..8ee3191d9558 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -137,6 +137,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ #define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
+ #define IN_DEV_ARP_EVICT_NOCARRIER(in_dev) IN_DEV_ANDCONF((in_dev), \
+ 							  ARP_EVICT_NOCARRIER)
++#define IN_DEV_LINKFILTER(in_dev)	IN_DEV_MAXCONF((in_dev), LINKFILTER)
+ 
+ struct in_ifaddr {
+ 	struct hlist_node	hash;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index af8a771a053c..ece8ac89d317 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -84,6 +84,7 @@ struct ipv6_devconf {
+ 	__u8		ndisc_evict_nocarrier;
+ 
+ 	struct ctl_table_header *sysctl_header;
++	__s32           link_filter;
+ };
+ 
+ struct ipv6_params {
+diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+index 283dec7e3645..8067941a635e 100644
+--- a/include/uapi/linux/ip.h
++++ b/include/uapi/linux/ip.h
+@@ -173,6 +173,7 @@ enum
+ 	IPV4_DEVCONF_DROP_GRATUITOUS_ARP,
+ 	IPV4_DEVCONF_BC_FORWARDING,
+ 	IPV4_DEVCONF_ARP_EVICT_NOCARRIER,
++	IPV4_DEVCONF_LINKFILTER,
+ 	__IPV4_DEVCONF_MAX
+ };
+ 
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index cf592d7b630f..e8915701aa73 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -199,6 +199,7 @@ enum {
+ 	DEVCONF_NDISC_EVICT_NOCARRIER,
+ 	DEVCONF_ACCEPT_UNTRACKED_NA,
+ 	DEVCONF_ACCEPT_RA_MIN_LFT,
++	DEVCONF_LINK_FILTER,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index bc74f131fe4d..9cdd5b50f9b2 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2595,6 +2595,7 @@ static struct devinet_sysctl_table {
+ 					      "route_localnet"),
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
+ 					      "drop_unicast_in_l2_multicast"),
++		DEVINET_SYSCTL_RW_ENTRY(LINKFILTER, "link_filter"),
+ 	},
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a9358c796a81..7e39846f556b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5657,6 +5657,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_NDISC_EVICT_NOCARRIER] = cnf->ndisc_evict_nocarrier;
+ 	array[DEVCONF_ACCEPT_UNTRACKED_NA] = cnf->accept_untracked_na;
+ 	array[DEVCONF_ACCEPT_RA_MIN_LFT] = cnf->accept_ra_min_lft;
++	array[DEVCONF_LINK_FILTER] = cnf->link_filter;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -7086,6 +7087,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.extra1		= (void *)SYSCTL_ZERO,
+ 		.extra2		= (void *)SYSCTL_ONE,
+ 	},
++	{
++		.procname	= "link_filter",
++		.data		= &ipv6_devconf.link_filter,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
+ 	{
+ 		.procname	= "ioam6_id",
+ 		.data		= &ipv6_devconf.ioam6_id,
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index eb3afaee62e8..0f8670e74cc7 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -679,6 +679,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
+ }
+ #endif
+ 
++static inline int rt6_link_filter(const struct fib6_nh *nh)
++{
++	const struct net_device *dev = nh->fib_nh_dev;
++	int linkf = __in6_dev_get(dev)->cnf.link_filter;
++	return (linkf && !netif_running(dev))
++		|| (linkf > 1 && !netif_carrier_ok(dev));
++}
++
+ /*
+  * Default Router Selection (RFC 2461 6.3.6)
+  */
+@@ -720,6 +728,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
+ 
+ 	if (!m && (strict & RT6_LOOKUP_F_IFACE))
+ 		return RT6_NUD_FAIL_HARD;
++	if (rt6_link_filter(nh))
++		return -1;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(fib6_flags)) << 2;
+ #endif
+-- 
+2.39.2
+

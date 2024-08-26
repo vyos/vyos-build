@@ -1,0 +1,7 @@
+pam_tacplus/
+pam_tacplus-debian/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc
