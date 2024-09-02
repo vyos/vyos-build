@@ -1,0 +1,7 @@
+[[packages]]
+name = "isc-dhcp"
+commit_id = "debian/4.4.3-P1-4"
+scm_url = "https://salsa.debian.org/debian/isc-dhcp"
+
+[packages.dependencies]
+packages = ["libpam0g-dev"]

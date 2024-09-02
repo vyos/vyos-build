@@ -1,0 +1,83 @@
+From b148ba055245cec5007ee91dd3ffbfeb58d49c5a Mon Sep 17 00:00:00 2001
+From: Henning Surmeier <me@hensur.de>
+Date: Sun, 9 Jan 2022 20:35:15 +0100
+Subject: [PATCH 1/2] skip route table if there is no auto rule
+
+---
+ src/ndppd.cc | 3 ++-
+ src/rule.cc  | 8 ++++++++
+ src/rule.h   | 4 ++++
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/src/ndppd.cc b/src/ndppd.cc
+index bec9656..b303721 100644
+--- a/src/ndppd.cc
++++ b/src/ndppd.cc
+@@ -304,7 +304,8 @@ int main(int argc, char* argv[], char* env[])
+         t1.tv_sec  = t2.tv_sec;
+         t1.tv_usec = t2.tv_usec;
+ 
+-        route::update(elapsed_time);
++        if (rule::any_auto())
++            route::update(elapsed_time);
+         session::update_all(elapsed_time);
+     }
+ 
+diff --git a/src/rule.cc b/src/rule.cc
+index 9e72480..a1e8376 100644
+--- a/src/rule.cc
++++ b/src/rule.cc
+@@ -24,6 +24,8 @@
+ 
+ NDPPD_NS_BEGIN
+ 
++bool rule::_any_aut = false;
++
+ rule::rule()
+ {
+ }
+@@ -49,6 +51,7 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, bool aut)
+     ru->_pr    = pr;
+     ru->_addr  = addr;
+     ru->_aut   = aut;
++    _any_aut = _any_aut || aut;
+ 
+     logger::debug()
+         << "rule::create() if=" << pr->ifa()->name().c_str() << ", addr=" << addr
+@@ -57,6 +60,11 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, bool aut)
+     return ru;
+ }
+ 
++bool rule::any_auto()
++{
++    return _any_aut;
++}
++
+ const address& rule::addr() const
+ {
+     return _addr;
+diff --git a/src/rule.h b/src/rule.h
+index 6663066..ca2aa36 100644
+--- a/src/rule.h
++++ b/src/rule.h
+@@ -42,6 +42,8 @@ public:
+ 
+     bool check(const address& addr) const;
+ 
++    static bool any_auto();
++
+ private:
+     weak_ptr<rule> _ptr;
+ 
+@@ -53,6 +55,8 @@ private:
+ 
+     bool _aut;
+ 
++    static bool _any_aut;
++
+     rule();
+ };
+ 
+-- 
+2.34.1
+

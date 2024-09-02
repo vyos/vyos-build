@@ -1,0 +1,4 @@
+[[packages]]
+name = "wide-dhcpv6"
+commit_id = "debian/20080615-23"
+scm_url = "https://salsa.debian.org/debian/wide-dhcpv6"

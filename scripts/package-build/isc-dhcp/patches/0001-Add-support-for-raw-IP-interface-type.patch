@@ -1,0 +1,248 @@
+From 8d9e8ace96ad9e2dba9f2d4069228dee5daf6772 Mon Sep 17 00:00:00 2001
+From: Loic Poulain <loic.poulain@linaro.org>
+Date: Mon, 2 Nov 2020 06:42:12 -0500
+Subject: [PATCH 1/4] Add support for raw IP interface type
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Under linux some devices can expose raw IP interfaces, such as WWAN
+modems. In that case IP data is not encapsulated in any lower level
+protocol.
+
+dhclient does not support this currently and this patch adds support
+for such pure IP interfaces.
+
+The original patch comes from Bjørn Mork on Network-Manage mailing list:
+https://mail.gnome.org/archives/networkmanager-list/2015-December/msg00044.html
+
+---
+ common/bpf.c    | 60 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ common/lpf.c    | 59 +++++++++++++++++++++++++++++++++++++-----------
+ common/packet.c |  7 ++++++
+ includes/dhcp.h |  1 +
+ 4 files changed, 113 insertions(+), 14 deletions(-)
+
+diff --git a/common/bpf.c b/common/bpf.c
+index 658e5db..0c08574 100644
+--- a/common/bpf.c
++++ b/common/bpf.c
+@@ -198,6 +198,34 @@ struct bpf_insn dhcp_bpf_filter [] = {
+ 	BPF_STMT (BPF_RET + BPF_K, 0),
+ };
+ 
++int dhcp_bpf_filter_len = sizeof dhcp_bpf_filter / sizeof (struct bpf_insn);
++
++struct bpf_insn dhcp_bpf_pureip_filter [] = {
++	/* Make sure it's a UDP packet... */
++	BPF_STMT (BPF_LD + BPF_B + BPF_ABS, 9),
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 0, 6),
++
++	/* Make sure this isn't a fragment... */
++	BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 6),
++	BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, 0x1fff, 4, 0),
++
++	/* Get the IP header length... */
++	BPF_STMT (BPF_LDX + BPF_B + BPF_MSH, 0),
++
++	/* Make sure it's to the right port... */
++	BPF_STMT (BPF_LD + BPF_H + BPF_IND, 2),
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 37, 0, 1),             /* patch */
++
++	/* If we passed all the tests, ask for the whole packet. */
++	BPF_STMT(BPF_RET+BPF_K, (u_int)-1),
++
++	/* Otherwise, drop it. */
++	BPF_STMT(BPF_RET+BPF_K, 0),
++};
++
++int dhcp_bpf_pureip_filter_len =
++	sizeof dhcp_bpf_pureip_filter / sizeof (struct bpf_insn);
++
+ #if defined(RELAY_PORT)
+ /*
+  * For relay port extension
+@@ -235,13 +263,43 @@ struct bpf_insn dhcp_bpf_relay_filter [] = {
+ 
+ int dhcp_bpf_relay_filter_len =
+ 	sizeof dhcp_bpf_relay_filter / sizeof (struct bpf_insn);
++
++struct bpf_insn dhcp_bpf_pureip_relay_filter [] = {
++	/* Make sure it's a UDP packet... */
++	BPF_STMT (BPF_LD + BPF_B + BPF_ABS, 9),
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 0, 8),
++
++	/* Make sure this isn't a fragment... */
++	BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 6),
++	BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, 0x1fff, 6, 0),
++
++	/* Get the IP header length... */
++	BPF_STMT (BPF_LDX + BPF_B + BPF_MSH, 0),
++
++	/* Make sure it's to the right port... */
++	BPF_STMT (BPF_LD + BPF_H + BPF_IND, 16),
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 37, 2, 0),             /* patch */
++
++	/* relay can have an alternative port... */
++	BPF_STMT (BPF_LD + BPF_H + BPF_IND, 16),
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 37, 0, 1),             /* patch */
++
++	/* If we passed all the tests, ask for the whole packet. */
++	BPF_STMT (BPF_RET + BPF_K, (u_int)-1),
++
++	/* Otherwise, drop it. */
++	BPF_STMT (BPF_RET + BPF_K, 0),
++};
++
++int dhcp_bpf_pureip_relay_filter_len =
++	sizeof dhcp_bpf_pureip_relay_filter / sizeof (struct bpf_insn);
++
+ #endif
+ 
+ #if defined (DEC_FDDI)
+ struct bpf_insn *bpf_fddi_filter = NULL;
+ #endif
+ 
+-int dhcp_bpf_filter_len = sizeof dhcp_bpf_filter / sizeof (struct bpf_insn);
+ #if defined (HAVE_TR_SUPPORT)
+ struct bpf_insn dhcp_bpf_tr_filter [] = {
+         /* accept all token ring packets due to variable length header */
+diff --git a/common/lpf.c b/common/lpf.c
+index bb8822a..d8f34a4 100644
+--- a/common/lpf.c
++++ b/common/lpf.c
+@@ -177,9 +177,15 @@ void if_deregister_send (info)
+ extern struct sock_filter dhcp_bpf_filter [];
+ extern int dhcp_bpf_filter_len;
+ 
++extern struct sock_filter dhcp_bpf_pureip_filter [];
++extern int dhcp_bpf_pureip_filter_len;
++
+ #if defined(RELAY_PORT)
+ extern struct sock_filter dhcp_bpf_relay_filter [];
+ extern int dhcp_bpf_relay_filter_len;
++
++extern struct sock_filter dhcp_bpf_pureip_relay_filter [];
++extern int dhcp_bpf_pureip_relay_filter_len;
+ #endif
+ 
+ #if defined (HAVE_TR_SUPPORT)
+@@ -249,31 +255,52 @@ void if_deregister_receive (info)
+ static void lpf_gen_filter_setup (info)
+ 	struct interface_info *info;
+ {
++	int pure_ip = info -> hw_address.hbuf [0] == HTYPE_PUREIP;
+ 	struct sock_fprog p;
+ 
+ 	memset(&p, 0, sizeof(p));
+ 
+-	/* Set up the bpf filter program structure.    This is defined in
+-	   bpf.c */
+-	p.len = dhcp_bpf_filter_len;
+-	p.filter = dhcp_bpf_filter;
++	/* Set up the bpf filter program structure and patch port(s).
++	 *
++	 * This is defined in bpf.c, XXX changes to filter program may
++	 * require changes to the insn number(s) used below! XXX
++	 */
++
++	if (pure_ip) {
++		p.len = dhcp_bpf_pureip_filter_len;
++		p.filter = dhcp_bpf_pureip_filter;
++
++		/* patch port */
++		dhcp_bpf_pureip_filter [6].k = ntohs (local_port);
++	} else {
++		p.len = dhcp_bpf_filter_len;
++		p.filter = dhcp_bpf_filter;
++
++		/* patch port */
++		dhcp_bpf_filter [8].k = ntohs (local_port);
++	}
+ 
+-        /* Patch the server port into the LPF  program...
+-	   XXX changes to filter program may require changes
+-	   to the insn number(s) used below! XXX */
+ #if defined(RELAY_PORT)
+-	if (relay_port) {
+-		/*
+-		 * If user defined relay UDP port, we need to filter
+-		 * also on the user UDP port.
+-		 */
++	/*
++	 * If user defined relay UDP port, we need to filter
++	 * also on the user UDP port.
++	 */
++	if (relay_port && pure_ip) {
++		p.len = dhcp_bpf_pureip_relay_filter_len;
++		p.filter = dhcp_bpf_pureip_relay_filter;
++
++		/* patch ports */
++		dhcp_bpf_pureip_relay_filter [6].k = ntohs (local_port);
++		dhcp_bpf_pureip_relay_filter [8].k = ntohs (relay_port);
++	} else if (relay_port) {
+ 		p.len = dhcp_bpf_relay_filter_len;
+ 		p.filter = dhcp_bpf_relay_filter;
+ 
++		/* patch ports */
++		dhcp_bpf_relay_filter [8].k = ntohs (local_port);
+ 		dhcp_bpf_relay_filter [10].k = ntohs (relay_port);
+ 	}
+ #endif
+-	dhcp_bpf_filter [8].k = ntohs (local_port);
+ 
+ 	if (setsockopt (info -> rfdesc, SOL_SOCKET, SO_ATTACH_FILTER, &p,
+ 			sizeof p) < 0) {
+@@ -578,6 +605,12 @@ get_hw_addr(const char *name, struct hardware *hw) {
+ 			hw->hbuf[3] = 0xbe;
+ 			hw->hbuf[4] = 0xef;
+ 			break;
++#endif
++#ifdef ARPHRD_RAWIP
++		case ARPHRD_RAWIP:
++			hw->hlen = 1;
++			hw->hbuf[0] = HTYPE_PUREIP;
++			break;
+ #endif
+ 		default:
+ 			log_fatal("Unsupported device type %ld for \"%s\"",
+diff --git a/common/packet.c b/common/packet.c
+index 49795c4..6745db7 100644
+--- a/common/packet.c
++++ b/common/packet.c
+@@ -119,6 +119,10 @@ void assemble_hw_header (interface, buf, bufix, to)
+ 	case HTYPE_INFINIBAND:
+ 		log_error("Attempt to assemble hw header for infiniband");
+ 		break;
++	case HTYPE_PUREIP:
++		/* Nothing to do, there is no hw header */
++		*bufix = 0;
++		break;
+ 	case HTYPE_ETHER:
+ 	default:
+ 		assemble_ethernet_header(interface, buf, bufix, to);
+@@ -219,6 +223,9 @@ ssize_t decode_hw_header (interface, buf, bufix, from)
+ 	case HTYPE_INFINIBAND:
+ 		log_error("Attempt to decode hw header for infiniband");
+ 		return (0);
++	case HTYPE_PUREIP:
++		/* Nothing to do, there is no hw header */
++		return 0;
+ 	case HTYPE_ETHER:
+ 	default:
+ 		return (decode_ethernet_header(interface, buf, bufix, from));
+diff --git a/includes/dhcp.h b/includes/dhcp.h
+index d519821..75be1fb 100644
+--- a/includes/dhcp.h
++++ b/includes/dhcp.h
+@@ -76,6 +76,7 @@ struct dhcp_packet {
+ #define HTYPE_IEEE802	6               /* IEEE 802.2 Token Ring...	*/
+ #define HTYPE_FDDI	8		/* FDDI...			*/
+ #define HTYPE_INFINIBAND  32		/* IP over Infiniband		*/
++#define HTYPE_PUREIP	35		/* Pure IP			*/
+ #define HTYPE_IPMP       255            /* IPMP - random hw address - there
+ 					 * is no standard for this so we
+ 					 * just steal a type            */
+-- 
+2.39.2
+

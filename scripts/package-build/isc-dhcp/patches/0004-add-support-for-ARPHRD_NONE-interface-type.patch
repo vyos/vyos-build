@@ -1,0 +1,29 @@
+From fd96a11b31cd05aae450ec65fde0b5c6e0b718c2 Mon Sep 17 00:00:00 2001
+From: Adam Smith <zero1three@gmail.com>
+Date: Tue, 23 Jan 2024 22:35:54 -0500
+Subject: [PATCH 4/4] add support for ARPHRD_NONE interface type
+
+---
+ common/lpf.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/common/lpf.c b/common/lpf.c
+index 1561d71..f7e84b1 100644
+--- a/common/lpf.c
++++ b/common/lpf.c
+@@ -643,6 +643,12 @@ get_hw_addr(const char *name, struct hardware *hw) {
+ 			hw->hlen = 1;
+ 			hw->hbuf[0] = HTYPE_PUREIP;
+ 			break;
++#endif
++#ifdef ARPHRD_NONE
++		case ARPHRD_NONE:
++			hw->hlen = 1;
++			hw->hbuf[0] = HTYPE_PUREIP;
++			break;
+ #endif
+ 		default:
+ 			log_fatal("Unsupported device type %ld for \"%s\"",
+-- 
+2.39.2
+

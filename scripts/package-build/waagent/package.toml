@@ -1,0 +1,7 @@
+[[packages]]
+name = "waagent"
+commit_id = "debian/2.9.1.1-2"
+scm_url = "https://salsa.debian.org/cloud-team/waagent.git"
+
+[packages.dependencies]
+packages = ["dpkg-source-gitarchive"]

@@ -1,0 +1,129 @@
+From af4aa758c3512bec8233549e138b03741c5404f9 Mon Sep 17 00:00:00 2001
+From: Quentin Armitage <quentin@armitage.org.uk>
+Date: Sat, 14 Oct 2023 15:37:19 +0100
+Subject: [PATCH] vrrp: Set sysctl arp_ignore to 1 on IPv6 VMACs
+
+Setting arp_ignore to 1 ensures that the VMAC interface does not respond
+to ARP requests for IPv4 addresses not configured on the VMAC.
+
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+---
+ keepalived/include/vrrp_if_config.h |  2 +-
+ keepalived/vrrp/vrrp_if_config.c    | 28 ++++++++++++++++++++--------
+ keepalived/vrrp/vrrp_vmac.c         |  5 ++---
+ 3 files changed, 23 insertions(+), 12 deletions(-)
+
+diff --git a/keepalived/include/vrrp_if_config.h b/keepalived/include/vrrp_if_config.h
+index 35465cd..c35e56e 100644
+--- a/keepalived/include/vrrp_if_config.h
++++ b/keepalived/include/vrrp_if_config.h
+@@ -34,7 +34,7 @@ extern void set_promote_secondaries(interface_t*);
+ extern void reset_promote_secondaries(interface_t*);
+ #ifdef _HAVE_VRRP_VMAC_
+ extern void restore_rp_filter(void);
+-extern void set_interface_parameters(const interface_t*, interface_t*);
++extern void set_interface_parameters(const interface_t*, interface_t*, sa_family_t);
+ extern void reset_interface_parameters(interface_t*);
+ extern void link_set_ipv6(const interface_t*, bool);
+ #endif
+diff --git a/keepalived/vrrp/vrrp_if_config.c b/keepalived/vrrp/vrrp_if_config.c
+index cfce7e2..fbfd34c 100644
+--- a/keepalived/vrrp/vrrp_if_config.c
++++ b/keepalived/vrrp/vrrp_if_config.c
+@@ -81,6 +81,11 @@ static sysctl_opts_t vmac_sysctl[] = {
+ 	{ 0, 0}
+ };
+ 
++static sysctl_opts_t vmac_sysctl_6[] = {
++	{ IPV4_DEVCONF_ARP_IGNORE, 1 },
++	{ 0, 0}
++};
++
+ #endif
+ #endif
+ 
+@@ -216,11 +221,14 @@ netlink_set_interface_flags(unsigned ifindex, const sysctl_opts_t *sys_opts)
+ 
+ #ifdef _HAVE_VRRP_VMAC_
+ static inline int
+-netlink_set_interface_parameters(const interface_t *ifp, interface_t *base_ifp)
++netlink_set_interface_parameters(const interface_t *ifp, interface_t *base_ifp, sa_family_t family)
+ {
+-	if (netlink_set_interface_flags(ifp->ifindex, vmac_sysctl))
++	if (netlink_set_interface_flags(ifp->ifindex, family == AF_INET6 ? vmac_sysctl_6 : vmac_sysctl))
+ 		return -1;
+ 
++	if (family == AF_INET6)
++		return 0;
++
+ 	/* If the underlying interface is a MACVLAN that has been moved into
+ 	 * a separate network namespace from the parent, we can't access the
+ 	 * parent. */
+@@ -271,9 +279,9 @@ netlink_reset_interface_parameters(const interface_t* ifp)
+ }
+ 
+ static inline void
+-set_interface_parameters_devconf(const interface_t *ifp, interface_t *base_ifp)
++set_interface_parameters_devconf(const interface_t *ifp, interface_t *base_ifp, sa_family_t family)
+ {
+-	if (netlink_set_interface_parameters(ifp, base_ifp))
++	if (netlink_set_interface_parameters(ifp, base_ifp, family))
+ 		log_message(LOG_INFO, "Unable to set parameters for %s", ifp->ifname);
+ }
+ 
+@@ -310,11 +318,15 @@ reset_promote_secondaries_devconf(interface_t *ifp)
+ 
+ #ifdef _HAVE_VRRP_VMAC_
+ static inline void
+-set_interface_parameters_sysctl(const interface_t *ifp, interface_t *base_ifp)
++set_interface_parameters_sysctl(const interface_t *ifp, interface_t *base_ifp, sa_family_t family)
+ {
+ 	unsigned val;
+ 
+ 	set_sysctl("net/ipv4/conf", ifp->ifname, "arp_ignore", 1);
++
++	if (family == AF_INET6)
++		return;
++
+ 	set_sysctl("net/ipv4/conf", ifp->ifname, "accept_local", 1);
+ 	set_sysctl("net/ipv4/conf", ifp->ifname, "rp_filter", 0);
+ 
+@@ -524,15 +536,15 @@ restore_rp_filter(void)
+ }
+ 
+ void
+-set_interface_parameters(const interface_t *ifp, interface_t *base_ifp)
++set_interface_parameters(const interface_t *ifp, interface_t *base_ifp, sa_family_t family)
+ {
+ 	if (all_rp_filter == UINT_MAX)
+ 		clear_rp_filter();
+ 
+ #ifdef _HAVE_IPV4_DEVCONF_
+-	set_interface_parameters_devconf(ifp, base_ifp);
++	set_interface_parameters_devconf(ifp, base_ifp, family);
+ #else
+-	set_interface_parameters_sysctl(ifp, base_ifp);
++	set_interface_parameters_sysctl(ifp, base_ifp, family);
+ #endif
+ }
+ 
+diff --git a/keepalived/vrrp/vrrp_vmac.c b/keepalived/vrrp/vrrp_vmac.c
+index e5ff0e9..021953a 100644
+--- a/keepalived/vrrp/vrrp_vmac.c
++++ b/keepalived/vrrp/vrrp_vmac.c
+@@ -407,10 +407,9 @@ netlink_link_add_vmac(vrrp_t *vrrp, const interface_t *old_interface)
+ 	if (!ifp->ifindex)
+ 		return false;
+ 
+-	if (vrrp->family == AF_INET && create_interface) {
++	if (create_interface) {
+ 		/* Set the necessary kernel parameters to make macvlans work for us */
+-// If this saves current base_ifp's settings, we need to be careful if multiple VMACs on same i/f
+-		set_interface_parameters(ifp, ifp->base_ifp);
++		set_interface_parameters(ifp, ifp->base_ifp, vrrp->family);
+ 	}
+ 
+ #ifdef _WITH_FIREWALL_
+-- 
+2.34.1
+

@@ -1,0 +1,7 @@
+dropbear/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc
+

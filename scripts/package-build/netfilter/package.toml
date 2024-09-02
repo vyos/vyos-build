@@ -1,0 +1,11 @@
+[[packages]]
+name = "pkg-libnftnl"
+commit_id = "debian/1.2.6-2"
+scm_url = "https://salsa.debian.org/pkg-netfilter-team/pkg-libnftnl.git"
+build_cmd = "sudo mk-build-deps --install --tool 'apt-get --yes --no-install-recommends'; dpkg-buildpackage -uc -us -tc -b"
+
+[[packages]]
+name = "pkg-nftables"
+commit_id = "debian/1.0.9-1"
+scm_url = "https://salsa.debian.org/pkg-netfilter-team/pkg-nftables.git"
+build_cmd = "sudo dpkg -i ../libnftnl*.deb; dpkg-buildpackage -uc -us -tc -b"

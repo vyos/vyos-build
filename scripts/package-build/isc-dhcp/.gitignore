@@ -1,0 +1,7 @@
+isc-dhcp/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc
+

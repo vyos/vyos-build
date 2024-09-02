@@ -1,0 +1,21 @@
+[[packages]]
+name = "opennhrp"
+commit_id = "613277f"
+scm_url = "https://git.code.sf.net/p/opennhrp/code"
+
+build_cmd = """
+make clean
+make
+
+install --directory debian/etc debian/usr/sbin
+install --mode 0644 etc/racoon-ph1dead.sh debian/etc
+install --mode 0644 etc/racoon-ph1down.sh debian/etc
+install --strip --mode 0755 nhrp/opennhrp debian/usr/sbin
+install --strip --mode 0755 nhrp/opennhrpctl debian/usr/sbin
+
+fpm --input-type dir --output-type deb --name opennhrp \
+    --version $(git describe --always | cut -c2-) --deb-compression gz \
+    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
+    --description "NBMA Next Hop Resolution Protocol daemon" \
+    --license "MIT" -C debian --package ..
+"""

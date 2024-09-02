@@ -1,0 +1,230 @@
+From 1e4a9a7b61090043924f2aa9359dcbc9f5e11bfc Mon Sep 17 00:00:00 2001
+From: Brandon Stepler <brandon@stepler.net>
+Date: Mon, 25 Jan 2021 14:18:57 +0000
+Subject: [PATCH] dhcpc6: support per-interface client DUIDs
+
+---
+ cfparse.y     | 13 +++++++++++--
+ cftoken.l     | 10 ++++++++++
+ config.c      | 27 +++++++++++++++++++++++++++
+ config.h      |  3 ++-
+ dhcp6c.c      | 11 ++++++++---
+ dhcp6c.conf.5 |  6 ++++++
+ 6 files changed, 64 insertions(+), 6 deletions(-)
+
+diff --git a/cfparse.y b/cfparse.y
+index 9e685f4..244987c 100644
+--- a/cfparse.y
++++ b/cfparse.y
+@@ -116,6 +116,7 @@ static void cleanup_cflist __P((struct cf_list *));
+ %token BCMCS_SERVERS BCMCS_NAME
+ %token INFO_ONLY
+ %token SCRIPT DELAYEDKEY
++%token CLIENT_ID CLIENT_ID_DUID
+ %token AUTHENTICATION PROTOCOL ALGORITHM DELAYED RECONFIG HMACMD5 MONOCOUNTER
+ %token AUTHNAME RDM KEY
+ %token KEYINFO REALM KEYID SECRET KEYNAME EXPIRE
+@@ -134,8 +135,8 @@ static void cleanup_cflist __P((struct cf_list *));
+ 	struct dhcp6_poolspec *pool;
+ }
+ 
+-%type <str> IFNAME HOSTNAME AUTHNAME KEYNAME DUID_ID STRING QSTRING IAID
+-%type <str> POOLNAME PROFILENAME
++%type <str> IFNAME HOSTNAME CLIENT_ID_DUID AUTHNAME KEYNAME DUID_ID
++%type <str> STRING QSTRING IAID POOLNAME PROFILENAME
+ %type <num> NUMBER duration authproto authalg authrdm
+ %type <list> declaration declarations dhcpoption ifparam ifparams
+ %type <list> address_list address_list_ent dhcpoption_list
+@@ -639,6 +640,14 @@ dhcpoption:
+ 			/* no value */
+ 			$$ = l;
+ 		}
++	|	CLIENT_ID CLIENT_ID_DUID
++		{
++			struct cf_list *l;
++
++			MAKE_CFLIST(l, DHCPOPT_CLIENT_ID, NULL, NULL);
++			l->ptr = $2;
++			$$ = l;
++		}
+ 	|	AUTHENTICATION AUTHNAME
+ 		{
+ 			struct cf_list *l;
+diff --git a/cftoken.l b/cftoken.l
+index e266ac2..d7edd1f 100644
+--- a/cftoken.l
++++ b/cftoken.l
+@@ -119,6 +119,7 @@ ecl		\}
+ %s S_HOST
+ %s S_DUID
+ %s S_IA
++%s S_CID
+ %s S_AUTH
+ %s S_KEY
+ %s S_SECRET
+@@ -249,6 +250,15 @@ ecl		\}
+ 	/* duration */
+ <S_CNF>infinity { DECHO; return (INFINITY); }
+ 
++	/* client-id option */
++<S_CNF>client-id { DECHO; BEGIN S_CID; return (CLIENT_ID); }
++<S_CID>{duid} {
++	DECHO;
++	yylval.str = strdup(yytext);
++	BEGIN S_CNF;
++	return (CLIENT_ID_DUID);
++}
++
+ 	/* authentication option */
+ <S_CNF>authentication { DECHO; BEGIN S_AUTH; return (AUTHENTICATION); }
+ <S_AUTH>{string} {
+diff --git a/config.c b/config.c
+index 70f6287..0cbe631 100644
+--- a/config.c
++++ b/config.c
+@@ -100,6 +100,7 @@ struct dhcp6_ifconf {
+ 	struct dhcp6_ifconf *next;
+ 
+ 	char *ifname;
++	struct duid duid;
+ 
+ 	/* configuration flags */
+ 	u_long send_flags;
+@@ -1366,6 +1367,7 @@ configure_commit()
+ 	/* commit interface configuration */
+ 	for (ifp = dhcp6_if; ifp; ifp = ifp->next) {
+ 		/* re-initialization */
++		duidfree(&ifp->duid);
+ 		ifp->send_flags = 0;
+ 		ifp->allow_flags = 0;
+ 		dhcp6_clear_list(&ifp->reqopt_list);
+@@ -1395,6 +1397,8 @@ configure_commit()
+ 		}
+ 
+ 		/* copy new configuration */
++		ifp->duid = ifc->duid;
++		ifc->duid.duid_id = NULL;
+ 		ifp->send_flags = ifc->send_flags;
+ 		ifp->allow_flags = ifc->allow_flags;
+ 		dhcp6_copy_list(&ifp->reqopt_list, &ifc->reqopt_list);
+@@ -1505,6 +1509,7 @@ clear_ifconf(iflist)
+ 		ifc_next = ifc->next;
+ 
+ 		free(ifc->ifname);
++		duidfree(&ifc->duid);
+ 		dhcp6_clear_list(&ifc->reqopt_list);
+ 
+ 		clear_iaconf(&ifc->iaconf_list);
+@@ -1635,6 +1640,28 @@ add_options(opcode, ifc, cfl0)
+ 				return (-1);
+ 			}
+ 			break;
++		case DHCPOPT_CLIENT_ID:
++			if (opcode != DHCPOPTCODE_SEND) {
++				debug_printf(LOG_ERR, FNAME,
++				    "invalid operation (%d) "
++				    "for option type (%d)",
++				    opcode, cfl->type);
++				return (-1);
++			}
++			if (ifc->duid.duid_id != NULL) {
++				debug_printf(LOG_ERR, FNAME, "%s:%d "
++				    "client-id is doubly specified on %s",
++				    configfilename, cfl->line, ifc->ifname);
++				return (-1);
++			}
++			if ((configure_duid((char *)cfl->ptr,
++					    &ifc->duid)) != 0) {
++				debug_printf(LOG_ERR, FNAME, "%s:%d "
++				    "failed to configure DUID for %s",
++				    configfilename, cfl->line, ifc->ifname);
++				return (-1);
++			}
++			break;			
+ 		case DHCPOPT_AUTHINFO:
+ 			if (opcode != DHCPOPTCODE_SEND) {
+ 				debug_printf(LOG_ERR, FNAME,
+diff --git a/config.h b/config.h
+index 36a5aa3..cfcfdd5 100644
+--- a/config.h
++++ b/config.h
+@@ -69,6 +69,7 @@ struct dhcp6_if {
+ 	u_int32_t linkid;	/* to send link-local packets */
+ 	/* multiple global address configuration is not supported now */
+ 	struct in6_addr addr; 	/* global address */
++	struct duid duid;
+ 
+ 	/* configuration parameters */
+ 	u_long send_flags;
+@@ -267,7 +268,7 @@ enum { DECL_SEND, DECL_ALLOW, DECL_INFO_ONLY, DECL_REQUEST, DECL_DUID,
+        DECL_ADDRESS,
+        DECL_RANGE, DECL_ADDRESSPOOL,
+        IFPARAM_SLA_ID, IFPARAM_SLA_LEN, IFPARAM_IFID, IFPARAM_IFID_RAND,
+-       DHCPOPT_RAPID_COMMIT, DHCPOPT_AUTHINFO,
++       DHCPOPT_RAPID_COMMIT, DHCPOPT_CLIENT_ID, DHCPOPT_AUTHINFO,
+        DHCPOPT_DNS, DHCPOPT_DNSNAME,
+        DHCPOPT_IA_PD, DHCPOPT_IA_NA, DHCPOPT_NTP,
+        DHCPOPT_REFRESHTIME,
+diff --git a/dhcp6c.c b/dhcp6c.c
+index 849835e..875a147 100644
+--- a/dhcp6c.c
++++ b/dhcp6c.c
+@@ -433,6 +433,11 @@ client6_start(ifp)
+ 	}
+ 	dhcp6_reset_timer(ev);
+ 
++	if (!ifp->duid.duid_id && duidcpy(&ifp->duid, &client_duid)) {
++		debug_printf(LOG_ERR, FNAME, "failed to copy client DUID");
++		return (-1);
++	}	
++
+ 	return (0);
+ }
+ 
+@@ -1249,7 +1254,7 @@ client6_send(ev)
+ 	}
+ 
+ 	/* client ID */
+-	if (duidcpy(&optinfo.clientID, &client_duid)) {
++	if (duidcpy(&optinfo.clientID, &ifp->duid)) {
+ 		debug_printf(LOG_ERR, FNAME, "failed to copy client ID");
+ 		goto end;
+ 	}
+@@ -1533,7 +1538,7 @@ client6_recvadvert(ifp, dh6, len, optinfo)
+ 		debug_printf(LOG_INFO, FNAME, "no client ID option");
+ 		return (-1);
+ 	}
+-	if (duidcmp(&optinfo->clientID, &client_duid)) {
++	if (duidcmp(&optinfo->clientID, &ifp->duid)) {
+ 		debug_printf(LOG_INFO, FNAME, "client DUID mismatch");
+ 		return (-1);
+ 	}
+@@ -1805,7 +1810,7 @@ client6_recvreply(ifp, dh6, len, optinfo)
+ 		debug_printf(LOG_INFO, FNAME, "no client ID option");
+ 		return (-1);
+ 	}
+-	if (duidcmp(&optinfo->clientID, &client_duid)) {
++	if (duidcmp(&optinfo->clientID, &ifp->duid)) {
+ 		debug_printf(LOG_INFO, FNAME, "client DUID mismatch");
+ 		return (-1);
+ 	}
+diff --git a/dhcp6c.conf.5 b/dhcp6c.conf.5
+index 5693fb8..589510a 100644
+--- a/dhcp6c.conf.5
++++ b/dhcp6c.conf.5
+@@ -139,6 +139,12 @@ An
+ statement for
+ .Ar authname
+ must be provided.
++.It Ic client-id Ar ID
++means the client's DHCP unique identifier
++.Pq DUID .
++.Ar ID
++is a colon-separated hexadecimal sequence where each separated part
++must be composed of two hexadecimal values.
+ .El
+ .\"
+ .Sh Interface statement
+-- 
+2.20.1
+

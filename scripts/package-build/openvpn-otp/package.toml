@@ -1,0 +1,19 @@
+[[packages]]
+name = "openvpn-otp"
+commit_id = "master"
+scm_url = "https://github.com/evgeny-gridasov/openvpn-otp"
+
+# build_cmd = "cd ..; ./build-openvpn-otp.sh"
+build_cmd = """
+./autogen.sh
+./configure --prefix=/usr
+make
+mkdir -p usr/lib/openvpn
+cp src/.libs/openvpn-otp.so usr/lib/openvpn
+
+fpm --input-type dir --output-type deb --name openvpn-otp \
+    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
+    --description "OpenVPN OTP Authentication support." \
+    --depends openvpn --architecture $(dpkg --print-architecture) \
+    --version $(git describe --tags --always | cut -c2-) --deb-compression gz usr
+"""

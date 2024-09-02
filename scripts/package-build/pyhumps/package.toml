@@ -1,0 +1,5 @@
+[[packages]]
+name = "humps"
+commit_id = "v3.8.0"
+scm_url = "https://github.com/nficano/humps.git"
+build_cmd = "python3 setup.py --command-packages=stdeb.command bdist_deb; cp deb_dist/*.deb .."
