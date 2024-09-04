@@ -18,7 +18,7 @@ echo "I: clean modified files"
 git reset --hard HEAD
 
 KERNEL_VERSION=$(make kernelversion)
-KERNEL_SUFFIX=-$(dpkg --print-architecture)-vyos
+KERNEL_SUFFIX=-$(awk -F "= " '/kernel_flavor/ {print $2}' ../../../data/defaults.toml | tr -d \")
 
 # VyOS requires some small Kernel Patches - apply them here
 # It's easier to habe them here and make use of the upstream

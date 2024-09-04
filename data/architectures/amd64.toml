@@ -2,8 +2,6 @@ additional_repositories = [
   "deb [arch=amd64] https://repo.saltproject.io/py3/debian/11/amd64/3005 bullseye main"
 ]
 
-kernel_flavor = "amd64-vyos"
-
 # Packages added to images for x86 by default
 packages = [
   "grub2",

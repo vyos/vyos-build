@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2023, VyOS maintainers and contributors
+# Copyright (C) 2019-2024, VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -47,6 +47,8 @@ import tomli
 from io import BytesIO
 from io import StringIO
 from datetime import datetime
+from pathlib import Path
+from tomllib import loads as toml_loads
 
 EXCEPTION = 0
 now = datetime.now()
@@ -416,8 +418,11 @@ try:
     c.expect(op_mode_prompt)
     c.sendline('show version')
     c.expect(op_mode_prompt)
+
     c.sendline('show version kernel')
-    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["architecture"]}-vyos')
+    kernel_flavor = toml_loads(Path('data/architectures/amd64.toml').read_text()).get('kernel_flavor')
+    c.expect(f'{vyos_defaults["kernel_version"]}-{kernel_flavor}')
+
     c.expect(op_mode_prompt)
     c.sendline('show version frr')
     c.expect(op_mode_prompt)

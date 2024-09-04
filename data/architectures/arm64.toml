@@ -2,8 +2,6 @@ additional_repositories = [
   "deb [arch=arm64] https://repo.saltproject.io/py3/debian/11/arm64/3005 bullseye main"
 ]
 
-kernel_flavor = "arm64-vyos"
-
 # Packages included in ARM64 images by default
 packages = [
   "grub-efi-arm64",
