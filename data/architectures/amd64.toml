@@ -14,5 +14,4 @@ packages = [
   "vyos-intel-ixgbevf",
   "mlnx-ofed-kernel-modules",
   "mlnx-tools",
-  "openvpn-dco",
 ]
