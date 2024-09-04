@@ -1,0 +1,18 @@
+#!/bin/sh
+SIGN_FILE=$(find /usr/lib -name sign-file)
+MOK_KEY="/var/lib/shim-signed/mok/kernel.key"
+MOK_CERT="/var/lib/shim-signed/mok/kernel.pem"
+kernel_elf=$(readlink /boot/vmlinuz)
+
+if [ ! -f ${MOK_KEY} ]; then
+    echo "I: Signing key for Linux Kernel not found - Secure Boot not possible"
+else
+    echo "I: Signing Linux Kernel for Secure Boot"
+
+    sbsign --key $MOK_KEY --cert $MOK_CERT /boot/${kernel_elf} --output /boot/${kernel_elf}
+    sbverify --list /boot/${kernel_elf}
+
+    find /lib/modules -type f -name \*.ko -o -name \*.ko.xz | while read module; do
+      $SIGN_FILE sha512 $MOK_KEY $MOK_CERT $module
+    done
+fi

@@ -43,6 +43,7 @@ import traceback
 import logging
 import re
 import tomli
+import shutil
 
 from io import BytesIO
 from datetime import datetime
@@ -51,6 +52,17 @@ EXCEPTION = 0
 now = datetime.now()
 tpm_folder = '/tmp/vyos_tpm_test'
 qemu_name = 'VyOS-QEMU'
+
+# getch.py
+KEY_F2 = chr(27) + chr(91) + chr(49) + chr(50) + chr(126)
+KEY_F10 = chr(27) + chr(91) + chr(50) + chr(49) + chr(126)
+KEY_DOWN = chr(27) + chr(91) + chr(66)
+KEY_SPACE = chr(32)
+KEY_RETURN = chr(13)
+KEY_ESC = chr(27)
+KEY_Y = chr(121)
+
+mok_password = '1234'
 
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
 parser.add_argument('iso', help='ISO file to install')
@@ -77,6 +89,8 @@ parser.add_argument('--smoketest', help='Execute script based CLI smoketests',
 parser.add_argument('--configtest', help='Execute load/commit config tests',
 				action='store_true', default=False)
 parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
+                action='store_true', default=False)
+parser.add_argument('--sbtest', help='Execute Secure Boot tests',
                 action='store_true', default=False)
 parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
                 action='store_true', default=False)
@@ -114,17 +128,33 @@ def get_half_cpus():
         cpu /= 2
     return int(cpu)
 
-def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False, vnc_enabled=False):
+OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.secboot.fd'
+OVMF_VARS_TMP = args.disk.replace('.img', '.efivars')
+if args.sbtest:
+    shutil.copy('/usr/share/OVMF/OVMF_VARS_4M.ms.fd', OVMF_VARS_TMP)
+
+def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False, vnc_enabled=False, secure_boot=False):
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
+    machine = 'pc'
+    vga = '-vga none'
+    vnc = ''
+    if vnc_enabled:
+        vga = '-vga virtio'
+        vnc = '-vnc :0'
+
     if enable_uefi:
         uefi = '-bios /usr/share/OVMF/OVMF_CODE.fd'
         name = f'{name}-UEFI'
-        uuid = 'd27cf29e-4419-4407-8f82-dc73d1acd184'
 
-    vga = '-vga none'
-    if vnc_enabled:
-        vga = ' -vga virtio -vnc :0'
+        if secure_boot:
+            name = f'{name}-SECURE-BOOT'
+            machine = 'q35,smm=on'
+
+            uefi = f'-drive "if=pflash,unit=0,format=raw,readonly=on,file={OVMF_CODE}" ' \
+                   f'-drive "if=pflash,unit=1,format=raw,file={OVMF_VARS_TMP}"'
+            # Changing UEFI settings require a display
+            vga = '-vga virtio'
 
     cdrom = ""
     if iso_img:
@@ -140,12 +170,12 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -name "{name}" \
         -smp {cpucount},sockets=1,cores={cpucount},threads=1 \
         -cpu host \
+        -machine {machine},accel=kvm \
         {uefi} \
         -m 4G \
         -vga none \
         -nographic \
-        {vga} \
-        -machine accel=kvm \
+        {vga} {vnc}\
         -uuid {uuid} \
         -cpu host \
         {cdrom} \
@@ -280,8 +310,50 @@ def start_swtpm():
     tpm_process.start()
     return tpm_process
 
+def toggleUEFISecureBoot(c):
+    def UEFIKeyPress(c, key):
+        UEFI_SLEEP = 1
+        c.send(key)
+        time.sleep(UEFI_SLEEP)
+
+    # Enter UEFI
+    for ii in range(1, 10):
+        c.send(KEY_F2)
+        time.sleep(0.250)
+
+    time.sleep(10)
+
+    # Device Manager
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_RETURN)
+
+    # Secure Boot Configuration
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_RETURN)
+
+    # Attempt Secure Boot Toggle
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_RETURN)
+    UEFIKeyPress(c, KEY_RETURN)
+
+    # Save Secure Boot
+    UEFIKeyPress(c, KEY_F10)
+    UEFIKeyPress(c, KEY_Y)
+
+    # Go Back to Menu
+    UEFIKeyPress(c, KEY_ESC)
+    UEFIKeyPress(c, KEY_ESC)
+
+    # Go Down for reset
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_DOWN)
+    UEFIKeyPress(c, KEY_RETURN)
+
 if args.qemu_cmd:
-    tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, iso_img=args.iso, vnc_enabled=args.vnc)
+    tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
     os.system(tmp)
     exit(0)
 
@@ -292,7 +364,7 @@ try:
     # Installing image to disk
     #################################################
     log.info('Installing system')
-    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, iso_img=args.iso, vnc_enabled=args.vnc)
+    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
@@ -303,6 +375,10 @@ try:
     cfg_mode_prompt = r'vyos@vyos#'
     default_user = 'vyos'
     default_password = 'vyos'
+
+    if args.sbtest:
+        log.info('Disable UEFI Secure Boot for initial installation')
+        toggleUEFISecureBoot(c)
 
     try:
         c.expect('Automatic boot in', timeout=10)
@@ -348,8 +424,62 @@ try:
         c.sendline('')
 
     c.expect(op_mode_prompt)
+
+    if args.sbtest:
+        c.sendline('install mok')
+        c.expect('input password:.*')
+        c.sendline(mok_password)
+        c.expect('input password again:.*')
+        c.sendline(mok_password)
+        c.expect(op_mode_prompt)
+
     log.info('system installed, rebooting')
     c.sendline('reboot now')
+
+    #################################################
+    # SHIM Mok Manager
+    #################################################
+    if args.sbtest:
+        log.info('Install Secure Boot Machine Owner Key')
+        MOK_SLEEP = 0.5
+        c.expect('BdsDxe: starting Boot00.*')
+        time.sleep(3)
+        # press any key
+        c.send(KEY_RETURN)
+        time.sleep(MOK_SLEEP)
+
+        # Enroll MOK
+        c.send(KEY_DOWN)
+        time.sleep(MOK_SLEEP)
+        c.send(KEY_RETURN)
+        time.sleep(MOK_SLEEP)
+
+        # Continue
+        c.send(KEY_DOWN)
+        time.sleep(MOK_SLEEP)
+        c.send(KEY_RETURN)
+        time.sleep(MOK_SLEEP)
+
+        # Enroll Keys
+        c.send(KEY_DOWN)
+        time.sleep(MOK_SLEEP)
+        c.send(KEY_RETURN)
+        time.sleep(MOK_SLEEP)
+
+        c.sendline(mok_password)
+        c.send(KEY_RETURN)
+        time.sleep(MOK_SLEEP)
+
+        # Reboot
+        c.send(KEY_RETURN)
+        time.sleep(MOK_SLEEP)
+
+    #################################################
+    # Re-Enable Secure Boot
+    #################################################
+    if args.sbtest:
+        log.info('Enable UEFI Secure Boot for initial installation')
+        toggleUEFISecureBoot(c)
 
     #################################################
     # Removing CD installation media
@@ -588,7 +718,6 @@ try:
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
-
         #################################################
         # Logging into VyOS system
         #################################################
@@ -710,7 +839,10 @@ try:
             tmp = 'Configtest failed :/ - check debug output'
             log.error(tmp)
             raise Exception(tmp)
-
+    elif args.sbtest:
+        c.sendline('show secure-boot')
+        c.expect('SecureBoot enabled')
+        c.expect(op_mode_prompt)
     else:
         log.info('No testcase selected!')
 
@@ -748,6 +880,8 @@ if not args.keep:
         os.remove(args.disk)
         if diskname_raid:
             os.remove(diskname_raid)
+        if args.sbtest:
+            os.remove(OVMF_VARS_TMP)
     except Exception:
         log.error('Exception while removing diskimage!')
         log.error(traceback.format_exc())

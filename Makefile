@@ -38,6 +38,11 @@ testc: checkiso
 testraid: checkiso
 	scripts/check-qemu-install --debug --configd --raid build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
 
+.PHONY: testsb
+.ONESHELL:
+testsb: checkiso
+	scripts/check-qemu-install --debug --uefi --sbtest build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
+
 .PHONY: testtpm
 .ONESHELL:
 testtpm: checkiso
