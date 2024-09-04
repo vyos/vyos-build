@@ -15,5 +15,4 @@ packages = [
   "mlnx-ofed-kernel-modules",
   "mlnx-tools",
   "openvpn-dco",
-  "telegraf"
 ]
