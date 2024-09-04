@@ -48,8 +48,7 @@ testtpm: checkiso
 qemu-live: checkiso
 	scripts/check-qemu-install --qemu-cmd --uefi build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
 
-
-.PHONE: oci
+.PHONY: oci
 .ONESHELL:
 oci: checkiso
 	scripts/iso-to-oci build/live-image-amd64.hybrid.iso
