@@ -43,10 +43,9 @@ try:
     import tomli
     import jinja2
     import git
-    import psutil
 except ModuleNotFoundError as e:
     print(f"E: Cannot load required library {e}")
-    print("E: Please make sure the following Python3 modules are installed: tomli jinja2 git psutil")
+    print("E: Please make sure the following Python3 modules are installed: tomli jinja2 git")
     sys.exit(1)
 
 # Import local defaults

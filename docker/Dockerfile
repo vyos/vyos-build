@@ -50,7 +50,7 @@ LABEL authors="VyOS Maintainers <maintainers@vyos.io>" \
       org.opencontainers.image.title="vyos-build" \
       org.opencontainers.image.description="Container to build VyOS ISO" \
       org.opencontainers.image.base.name="docker.io/debian/debian:bookworm"
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
 
@@ -60,9 +60,9 @@ RUN apt-get update && apt-get install -y \
       locales
 
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
-ENV LANG en_US.utf8
+ENV LANG=en_US.utf8
 
-ENV OCAML_VERSION 4.14.2
+ENV OCAML_VERSION=4.14.2
 
 # Base packaged needed to build packages and their package dependencies
 RUN apt-get update && apt-get install -y \
