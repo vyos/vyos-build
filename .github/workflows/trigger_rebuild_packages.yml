@@ -1,0 +1,197 @@
+name: Trigger to build package
+
+on:
+  push:
+    branches:
+      - current
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+
+    env:
+      REF: main  # Used for curl to trigger build package
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: current
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          base: current
+          filters: |
+            aws-gwlbtun:
+              - 'scripts/package-build/aws-gwlbtun/**'
+            ddclient:
+              - 'scripts/package-build/ddclient/**'
+            dropbear:
+              - 'scripts/package-build/dropbear/**'
+            ethtool:
+              - 'scripts/package-build/ethtool/**'
+            frr:
+              - 'scripts/package-build/frr/**'
+            hostap:
+              - 'scripts/package-build/hostap/**'
+            hsflowd:
+              - 'scripts/package-build/hsflowd/**'
+            isc-dhcp:
+              - 'scripts/package-build/isc-dhcp/**'
+            kea:
+              - 'scripts/package-build/kea/**'
+            keepalived:
+              - 'scripts/package-build/keepalived/**'
+            linux-kernel:
+              - 'scripts/package-build/linux-kernel/**'
+            ndppd:
+              - 'scripts/package-build/ndppd/**'
+            net-snmp:
+              - 'scripts/package-build/net-snmp/**'
+            netfilter:
+              - 'scripts/package-build/netfilter/**'
+            opennhrp:
+              - 'scripts/package-build/opennhrp/**'
+            openvpn-otp:
+              - 'scripts/package-build/openvpn-otp/**'
+            owamp:
+              - 'scripts/package-build/owamp/**'
+            pam_tacplus:
+              - 'scripts/package-build/pam_tacplus/**'
+            pmacct:
+              - 'scripts/package-build/pmacct/**'
+            podman:
+              - 'scripts/package-build/podman/**'
+            pyhumps:
+              - 'scripts/package-build/pyhumps/**'
+            radvd:
+              - 'scripts/package-build/radvd/**'
+            strongswan:
+              - 'scripts/package-build/strongswan/**'
+            telegraf:
+              - 'scripts/package-build/telegraf/**'
+            waagent:
+              - 'scripts/package-build/waagent/**'
+            wide-dhcpv6:
+              - 'scripts/package-build/wide-dhcpv6/**'
+
+      - name: Trigger builds for changed packages
+        run: |
+          set -eux
+          function trigger_build() {
+            PACKAGE_NAME=$1
+            echo "${PACKAGE_NAME} change detected!"
+            curl -L \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.PAT }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/${{ secrets.REMOTE_OWNER }}/${{ secrets.REMOTE_REUSE_REPO }}/actions/workflows/build-package.yml/dispatches \
+              -d '{"ref": "${{ env.REF }}", "inputs":{"package_name":"'"$PACKAGE_NAME"'"}}'
+          }
+
+          # Trigger builds based on detected changes
+          if [ "${{ steps.changes.outputs.aws-gwlbtun }}" == "true" ]; then
+            trigger_build "aws-gwlbtun"
+          fi
+
+          if [ "${{ steps.changes.outputs.ddclient }}" == "true" ]; then
+            trigger_build "ddclient"
+          fi
+
+          if [ "${{ steps.changes.outputs.dropbear }}" == "true" ]; then
+            trigger_build "dropbear"
+          fi
+
+          if [ "${{ steps.changes.outputs.ethtool }}" == "true" ]; then
+            trigger_build "ethtool"
+          fi
+
+          if [ "${{ steps.changes.outputs.frr }}" == "true" ]; then
+            trigger_build "frr"
+          fi
+
+          if [ "${{ steps.changes.outputs.hostap }}" == "true" ]; then
+            trigger_build "hostap"
+          fi
+
+          if [ "${{ steps.changes.outputs.hsflowd }}" == "true" ]; then
+            trigger_build "hsflowd"
+          fi
+
+          if [ "${{ steps.changes.outputs.isc-dhcp }}" == "true" ]; then
+            trigger_build "isc-dhcp"
+          fi
+
+          if [ "${{ steps.changes.outputs.kea }}" == "true" ]; then
+            trigger_build "kea"
+          fi
+
+          if [ "${{ steps.changes.outputs.keepalived }}" == "true" ]; then
+            trigger_build "keepalived"
+          fi
+
+          if [ "${{ steps.changes.outputs.linux-kernel }}" == "true" ]; then
+            trigger_build "linux-kernel"
+          fi
+
+          if [ "${{ steps.changes.outputs.ndppd }}" == "true" ]; then
+            trigger_build "ndppd"
+          fi
+
+          if [ "${{ steps.changes.outputs.net-snmp }}" == "true" ]; then
+            trigger_build "net-snmp"
+          fi
+
+          if [ "${{ steps.changes.outputs.netfilter }}" == "true" ]; then
+            trigger_build "netfilter"
+          fi
+
+          if [ "${{ steps.changes.outputs.opennhrp }}" == "true" ]; then
+            trigger_build "opennhrp"
+          fi
+
+          if [ "${{ steps.changes.outputs.openvpn-otp }}" == "true" ]; then
+            trigger_build "openvpn-otp"
+          fi
+
+          if [ "${{ steps.changes.outputs.owamp }}" == "true" ]; then
+            trigger_build "owamp"
+          fi
+
+          if [ "${{ steps.changes.outputs.pam_tacplus }}" == "true" ]; then
+            trigger_build "pam_tacplus"
+          fi
+
+          if [ "${{ steps.changes.outputs.pmacct }}" == "true" ]; then
+            trigger_build "pmacct"
+          fi
+
+          if [ "${{ steps.changes.outputs.podman }}" == "true" ]; then
+            trigger_build "podman"
+          fi
+
+          if [ "${{ steps.changes.outputs.pyhumps }}" == "true" ]; then
+            trigger_build "pyhumps"
+          fi
+
+          if [ "${{ steps.changes.outputs.radvd }}" == "true" ]; then
+            trigger_build "radvd"
+          fi
+
+          if [ "${{ steps.changes.outputs.strongswan }}" == "true" ]; then
+            trigger_build "strongswan"
+          fi
+
+          if [ "${{ steps.changes.outputs.telegraf }}" == "true" ]; then
+            trigger_build "telegraf"
+          fi
+
+          if [ "${{ steps.changes.outputs.waagent }}" == "true" ]; then
+            trigger_build "waagent"
+          fi
+
+          if [ "${{ steps.changes.outputs.wide-dhcpv6 }}" == "true" ]; then
+            trigger_build "ethtool"
+          fi
