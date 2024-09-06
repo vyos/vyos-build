@@ -44,6 +44,7 @@ jobs:
             keepalived:
               - 'scripts/package-build/keepalived/**'
             linux-kernel:
+              - 'data/defaults.toml'
               - 'scripts/package-build/linux-kernel/**'
             ndppd:
               - 'scripts/package-build/ndppd/**'
