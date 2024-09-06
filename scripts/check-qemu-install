@@ -160,6 +160,7 @@ def get_qemu_cmd(name, enable_kvm, enable_uefi, disk_img, raid=None, iso_img=Non
         {cpu} \
         {cdrom} \
         {kvm} \
+        -monitor unix:/tmp/qemu-monitor-socket-{disk_img},server,nowait \
         -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="" \
         -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="" \
         -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="" \
@@ -363,14 +364,20 @@ try:
         c.expect('\nWhich file would you like as boot config?.*')
         c.sendline('')
 
-    log.info('system installed, shutting down')
+    c.expect(op_mode_prompt)
+    log.info('system installed, rebooting')
+    c.sendline('reboot now')
+
+    #################################################
+    # Removing CD installation media
+    #################################################
+    time.sleep(2)
+    log.info('eject installation media')
+    os.system(f'echo "eject -f drive-cd1" | socat - unix-connect:/tmp/qemu-monitor-socket-{args.disk}')
 
     #################################################
     # Powering down installer
     #################################################
-    shutdownVM(c, log, 'Shutting down installation system')
-    c.close()
-
     if args.tpmtest:
         tpm_process = start_swtpm()
 
@@ -378,9 +385,6 @@ try:
     # Booting installed system
     #################################################
     log.info('Booting installed system')
-    cmd = get_qemu_cmd('TESTVM', kvm, args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
-    log.debug(f'Executing command: {cmd}')
-    c = pexpect.spawn(cmd, logfile=stl)
 
     #################################################
     # Logging into VyOS system
@@ -412,17 +416,16 @@ try:
     # Basic Configmode/Opmode switch
     #################################################
     log.info('Basic CLI configuration mode test')
+    kernel_flavor = toml_loads(Path('data/defaults.toml').read_text()).get('kernel_flavor')
+
     c.sendline('configure')
     c.expect(cfg_mode_prompt)
     c.sendline('exit')
     c.expect(op_mode_prompt)
     c.sendline('show version')
     c.expect(op_mode_prompt)
-
     c.sendline('show version kernel')
-    kernel_flavor = toml_loads(Path('data/architectures/amd64.toml').read_text()).get('kernel_flavor')
     c.expect(f'{vyos_defaults["kernel_version"]}-{kernel_flavor}')
-
     c.expect(op_mode_prompt)
     c.sendline('show version frr')
     c.expect(op_mode_prompt)
