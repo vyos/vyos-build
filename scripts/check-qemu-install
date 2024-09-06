@@ -124,16 +124,11 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
     if vnc_enabled:
         vga = ' -vga virtio -vnc :0'
 
-    bootindex = '1'
     cdrom = ""
     if iso_img:
-        cdrom = f' -boot d' \
-                f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on' \
+        cdrom = f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on' \
                 f' -device ahci,id=achi0' \
-                f' -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex={bootindex}'
-
-        # Set regular harddisk bootindex to 2 as we boot from a CDROM drive
-        bootindex = '2'
+                f' -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex=10'
 
     # test using half of the available CPUs on the system
     cpucount = get_half_cpus()
@@ -164,13 +159,11 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07,romfile="" \
         -device virtio-scsi-pci,id=scsi0 \
         -drive format=raw,file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
-        -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex={bootindex}'
+        -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex=1'
 
-    # dynamically increment bootindex - required for RAID system
-    bootindex = str(int(bootindex) + 1)
     if raid:
         cmd += f' -drive format=raw,file={raid},if=none,media=disk,id=drive-hd2,readonly=off' \
-               f' -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex={bootindex}'
+               f' -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex=2'
 
     if tpm:
         cmd += f' -chardev socket,id=chrtpm,path={tpm_folder}/swtpm-sock' \
