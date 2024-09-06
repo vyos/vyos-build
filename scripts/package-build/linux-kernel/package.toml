@@ -1,6 +1,7 @@
-[defaults]
-kernel_version = "6.6.47"
-kernel_flavor = "amd64-vyos"
+# [defaults]
+# We get the kernel_version from vyos-build/data/defaults.toml
+# kernel_version = "6.6.47"
+# kernel_flavor = "amd64-vyos"
 
 
 [[packages]]

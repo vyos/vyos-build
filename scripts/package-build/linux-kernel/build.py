@@ -26,6 +26,9 @@ from argparse import ArgumentParser
 from pathlib import Path
 from subprocess import run, CalledProcessError
 
+# Relative path to defaults.toml
+defaults_path = "../../../data/defaults.toml"
+
 
 def ensure_dependencies(dependencies: list) -> None:
     """Ensure Debian build dependencies are met"""
@@ -211,7 +214,9 @@ if __name__ == '__main__':
         config = toml.load(file)
 
     # Extract defaults and packages
-    defaults = config.get('defaults', {})
+    with open(defaults_path, 'r') as file:
+        defaults = toml.load(file)
+
     packages = config['packages']
 
     # Filter packages if specific packages are specified in the arguments
