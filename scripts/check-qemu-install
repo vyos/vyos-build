@@ -50,6 +50,7 @@ from datetime import datetime
 EXCEPTION = 0
 now = datetime.now()
 tpm_folder = '/tmp/vyos_tpm_test'
+qemu_name = 'VyOS-QEMU'
 
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
 parser.add_argument('iso', help='ISO file to install')
@@ -279,7 +280,7 @@ def start_swtpm():
     return tpm_process
 
 if args.qemu_cmd:
-    tmp = get_qemu_cmd('TESTVM', args.uefi, args.disk, diskname_raid, args.iso)
+    tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, diskname_raid, args.iso)
     os.system(tmp)
     exit(0)
 
@@ -290,7 +291,7 @@ try:
     # Installing image to disk
     #################################################
     log.info('Installing system')
-    cmd = get_qemu_cmd('TESTVM', args.uefi, args.disk, diskname_raid, args.iso)
+    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, diskname_raid, args.iso)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
@@ -488,7 +489,7 @@ try:
 
         # Booting back into VM
         log.info('Booting TPM-backed system')
-        cmd = get_qemu_cmd('TESTVM', args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
+        cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
@@ -523,7 +524,7 @@ try:
 
         # Booting back into VM
         log.info('Booting system with cleared TPM')
-        cmd = get_qemu_cmd('TESTVM', args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
+        cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, diskname_raid, tpm=args.tpmtest)
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
@@ -575,7 +576,7 @@ try:
         # Booting RAID-1 system with one missing disk
         #################################################
         log.info('Booting RAID-1 system')
-        cmd = get_qemu_cmd('TESTVM', args.uefi, args.disk, diskname_raid)
+        cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, diskname_raid)
 
         # We need to swap boot indexes to boot from second harddisk so we can
         # recreate the RAID on the first disk
@@ -625,7 +626,7 @@ try:
         shutdownVM(c, log, f'Shutdown VM and start from recovered RAID member "{args.disk}"')
 
         log.info('Booting RAID-1 system')
-        cmd = get_qemu_cmd('TESTVM', args.uefi, args.disk, diskname_raid)
+        cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, diskname_raid)
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
