@@ -1,0 +1,17 @@
+diff --git a/dhcp6c.c b/dhcp6c.c
+index 1caaaa5..04ce9c5 100644
+--- a/dhcp6c.c
++++ b/dhcp6c.c
+@@ -217,6 +217,12 @@ main(argc, argv)
+ 			    argv[0]);
+ 			exit(1);
+ 		}
++
++        if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, argv[0], strlen(argv[0])) != 0) {
++            debug_printf(LOG_ERR, FNAME, "failed to bind %s", argv[0]);
++            exit(1);
++        }
++
+ 		argv++;
+ 	}
+ 

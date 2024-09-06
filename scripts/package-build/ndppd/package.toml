@@ -1,0 +1,4 @@
+[[packages]]
+name = "ndppd"
+commit_id = "debian/0.2.5-6"
+scm_url = "https://salsa.debian.org/debian/ndppd"

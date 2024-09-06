@@ -1,0 +1,19 @@
+[[packages]]
+name = "pam_tacplus-debian"
+commit_id = "50c6fd7"
+scm_url = "https://github.com/kravietz/pam_tacplus-debian"
+build_cmd = "/bin/true"
+
+[[packages]]
+name = "pam_tacplus"
+#commit_id = "4f91b0d" # This commit cannot build the package
+commit_id = "b839c44"
+scm_url = "https://github.com/kravietz/pam_tacplus"
+
+#build_cmd = "sudo mk-build-deps --install --tool 'apt-get --yes --no-install-recommends'; cd ..; ./build.sh"
+build_cmd = """
+cp -a ../pam_tacplus-debian debian
+rm -f debian/compat
+sudo mk-build-deps --install --tool 'apt-get --yes --no-install-recommends'
+dpkg-buildpackage -uc -us -tc -b -d
+"""

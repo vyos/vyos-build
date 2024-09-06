@@ -1,0 +1,4 @@
+[[packages]]
+name = "isc-kea"
+commit_id = "debian/2.4.1-3"
+scm_url = "https://salsa.debian.org/debian/isc-kea"

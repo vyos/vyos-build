@@ -1,0 +1,6 @@
+owamp/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc

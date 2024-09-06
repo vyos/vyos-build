@@ -1,0 +1,59 @@
+[[packages]]
+name = "aws-gwlbtun"
+commit_id = "f78058a"
+scm_url = "https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler"
+
+
+## Build cmd start
+build_cmd = '''\
+mkdir -p debian
+echo 'obj-*-linux-gnu/gwlbtun usr/sbin' > debian/install
+
+# changelog
+cat <<EOF > debian/changelog
+aws-gwlbtun (1.0-1) unstable; urgency=low
+
+  * Initial release
+
+ -- Your Name <your.email@example.com>  Wed, 29 Aug 2024 09:00:00 +0000
+
+EOF
+
+# control
+/bin/bash -c "cat <<EOF > debian/control
+Source: aws-gwlbtun
+Section: net
+Priority: optional
+Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Homepage: https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler
+
+Package: aws-gwlbtun
+Architecture: any
+Depends: \${shlibs:Depends}, \${misc:Depends}
+Description: AWS Gateway Load Balancer Tunnel Handler
+ This is a simple package that handles tunneling for the AWS Gateway Load Balancer.
+EOF
+"
+
+# rules
+cat <<EOF > debian/rules
+#!/usr/bin/make -f
+
+%: dh $@
+
+build:
+	dh build
+
+binary:
+	dh binary
+
+clean:
+	dh clean
+EOF
+
+chmod +x debian/rules
+debuild -us -uc -b
+'''
+## Build cmd end

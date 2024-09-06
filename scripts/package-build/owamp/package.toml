@@ -1,0 +1,4 @@
+[[packages]]
+name = "owamp"
+commit_id = "v4.4.6"
+scm_url = "https://github.com/perfsonar/owamp"

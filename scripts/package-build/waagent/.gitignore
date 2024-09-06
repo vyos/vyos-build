@@ -1,0 +1,8 @@
+waagent/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc
+*.tar.gz
+*.tar.xz

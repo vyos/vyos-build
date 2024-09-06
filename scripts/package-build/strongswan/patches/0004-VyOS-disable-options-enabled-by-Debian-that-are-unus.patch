@@ -1,0 +1,115 @@
+From ee6c0b3ff6e3df5c7aef628621e19a813ff308ed Mon Sep 17 00:00:00 2001
+From: Christian Poessinger <christian@poessinger.com>
+Date: Tue, 27 Dec 2022 13:36:43 +0000
+Subject: [PATCH] VyOS: disable options enabled by Debian that are unused
+
+VyOS does not implement CLI options for all options exposed by Debian.
+
+The following options need to be disabled for the DMVPN patchset:
+  - mediation
+  - nm
+
+In addition we have no LED, LDAP and SQL configuration knows, thus we spare
+the plugins.
+---
+ debian/libcharon-extra-plugins.install     |  3 ---
+ debian/libstrongswan-extra-plugins.install |  3 ---
+ debian/rules                               | 11 ++++++++++-
+ debian/strongswan-nm.install               |  2 --
+ 4 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/debian/libcharon-extra-plugins.install b/debian/libcharon-extra-plugins.install
+index 94fbabd88..068708ecb 100644
+--- a/debian/libcharon-extra-plugins.install
++++ b/debian/libcharon-extra-plugins.install
+@@ -13,7 +13,6 @@ usr/lib/ipsec/plugins/libstrongswan-error-notify.so
+ usr/lib/ipsec/plugins/libstrongswan-forecast.so
+ usr/lib/ipsec/plugins/libstrongswan-ha.so
+ usr/lib/ipsec/plugins/libstrongswan-kernel-libipsec.so
+-usr/lib/ipsec/plugins/libstrongswan-led.so
+ usr/lib/ipsec/plugins/libstrongswan-lookip.so
+ #usr/lib/ipsec/plugins/libstrongswan-medsrv.so
+ #usr/lib/ipsec/plugins/libstrongswan-medcli.so
+@@ -36,7 +35,6 @@ usr/share/strongswan/templates/config/plugins/error-notify.conf
+ usr/share/strongswan/templates/config/plugins/forecast.conf
+ usr/share/strongswan/templates/config/plugins/ha.conf
+ usr/share/strongswan/templates/config/plugins/kernel-libipsec.conf
+-usr/share/strongswan/templates/config/plugins/led.conf
+ usr/share/strongswan/templates/config/plugins/lookip.conf
+ #usr/share/strongswan/templates/config/plugins/medsrv.conf
+ #usr/share/strongswan/templates/config/plugins/medcli.conf
+@@ -60,7 +58,6 @@ etc/strongswan.d/charon/error-notify.conf
+ etc/strongswan.d/charon/forecast.conf
+ etc/strongswan.d/charon/ha.conf
+ etc/strongswan.d/charon/kernel-libipsec.conf
+-etc/strongswan.d/charon/led.conf
+ etc/strongswan.d/charon/lookip.conf
+ #etc/strongswan.d/charon/medsrv.conf
+ #etc/strongswan.d/charon/medcli.conf
+diff --git a/debian/libstrongswan-extra-plugins.install b/debian/libstrongswan-extra-plugins.install
+index 2846e2155..00cd0a146 100644
+--- a/debian/libstrongswan-extra-plugins.install
++++ b/debian/libstrongswan-extra-plugins.install
+@@ -8,7 +8,6 @@ usr/lib/ipsec/plugins/libstrongswan-ctr.so
+ usr/lib/ipsec/plugins/libstrongswan-curl.so
+ usr/lib/ipsec/plugins/libstrongswan-curve25519.so
+ usr/lib/ipsec/plugins/libstrongswan-gcrypt.so
+-usr/lib/ipsec/plugins/libstrongswan-ldap.so
+ usr/lib/ipsec/plugins/libstrongswan-pkcs11.so
+ usr/lib/ipsec/plugins/libstrongswan-test-vectors.so
+ usr/lib/ipsec/plugins/libstrongswan-tpm.so
+@@ -20,7 +19,6 @@ usr/share/strongswan/templates/config/plugins/ctr.conf
+ usr/share/strongswan/templates/config/plugins/curl.conf
+ usr/share/strongswan/templates/config/plugins/curve25519.conf
+ usr/share/strongswan/templates/config/plugins/gcrypt.conf
+-usr/share/strongswan/templates/config/plugins/ldap.conf
+ usr/share/strongswan/templates/config/plugins/pkcs11.conf
+ usr/share/strongswan/templates/config/plugins/test-vectors.conf
+ usr/share/strongswan/templates/config/plugins/tpm.conf
+@@ -31,7 +29,6 @@ etc/strongswan.d/charon/ctr.conf
+ etc/strongswan.d/charon/curl.conf
+ etc/strongswan.d/charon/curve25519.conf
+ etc/strongswan.d/charon/gcrypt.conf
+-etc/strongswan.d/charon/ldap.conf
+ etc/strongswan.d/charon/pkcs11.conf
+ etc/strongswan.d/charon/test-vectors.conf
+ etc/strongswan.d/charon/tpm.conf
+diff --git a/debian/rules b/debian/rules
+index 2fed1f10f..fa0d21a0c 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -3,6 +3,15 @@ export DEB_LDFLAGS_MAINT_APPEND=-Wl,-O1
+ #export DEB_LDFLAGS_MAINT_APPEND=-Wl,--as-needed -Wl,-O1 -Wl,-z,defs
+ export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+ 
++CONFIGUREARGS_VYOS := --disable-warnings \
++               --disable-ldap \
++               --disable-led \
++               --disable-nm \
++               --disable-mediation \
++               --disable-mysql \
++               --disable-sqlite \
++               --disable-sql
++
+ CONFIGUREARGS := --libdir=/usr/lib --libexecdir=/usr/lib \
+ 		--enable-addrblock \
+ 		--enable-agent \
+@@ -88,7 +97,7 @@ ifeq ($(DEB_HOST_ARCH_OS),kfreebsd)
+ deb_systemdsystemunitdir = $(shell pkg-config --variable=systemdsystemunitdir systemd | sed s,^/,,)
+ 
+ override_dh_auto_configure:
+-	dh_auto_configure -- $(CONFIGUREARGS)
++	dh_auto_configure -- $(CONFIGUREARGS) $(CONFIGUREARGS_VYOS)
+ 
+ override_dh_auto_clean:
+ 	dh_auto_clean
+diff --git a/debian/strongswan-nm.install b/debian/strongswan-nm.install
+index b0c05d94f..e69de29bb 100644
+--- a/debian/strongswan-nm.install
++++ b/debian/strongswan-nm.install
+@@ -1,2 +0,0 @@
+-usr/lib/ipsec/charon-nm
+-usr/share/dbus-1/system.d/nm-strongswan-service.conf
+-- 
+2.30.2
+

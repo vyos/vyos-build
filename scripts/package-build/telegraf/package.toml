@@ -1,0 +1,5 @@
+[[packages]]
+name = "telegraf"
+commit_id = "v1.28.3"
+scm_url = "https://github.com/influxdata/telegraf.git"
+build_cmd = "cd ..; ./build.sh; cp telegraf/build/dist/*.deb ."

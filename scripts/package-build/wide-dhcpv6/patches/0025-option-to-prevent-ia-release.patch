@@ -1,0 +1,155 @@
+From: 1vivy <1vivy@tutanota.com>
+Date: Sat, 22 Jul 2023 13:07:10 -0600
+Subject: wide-dhcpv6: T5387: Add a no release option '-n'.
+
+This prevents a release signal from being sent to the ISP causing a new PD or address to be allocated.
+
+Co-authored-by: MrLenin <909621+MrLenin@users.noreply.github.com>
+Co-authored-by: marjohn56 <martin@queens-park.com>
+--- wide-dhcpv6.orig/common.h
++++ wide-dhcpv6/common.h
+@@ -120,6 +120,7 @@ sysdep_sa_len (const struct sockaddr *sa
+ extern int foreground;
+ extern int debug_thresh;
+ extern char *device;
++extern int opt_norelease;
+ 
+ /* search option for dhcp6_find_listval() */
+ #define MATCHLIST_PREFIXLEN 0x1
+--- wide-dhcpv6.orig/dhcp6c.8
++++ wide-dhcpv6/dhcp6c.8
+@@ -88,6 +88,10 @@ is terminated.  (suits for a use in shel
+ Since the configuration is internally generated, you cannot provide a configuration in this mode.  If you want to have different actions for the stateless DHCPv6 information, you should write an appropriate configuration and invoke
+ .Nm
+ without this option.
++.It Fl n
++Prevent Release message from being sent to DHCPv6 server when
++.Nm
++stops. This is useful for preventing a new address from being configured by the DHCPv6 server when restarting the DHCPv6 client.
+ .It Fl p Ar pid-file
+ Use
+ .Ar pid-file
+@@ -109,18 +113,22 @@ or
+ .Fl i
+ option is specified.
+ .Pp
+-Upon receipt of the
+-.Dv SIGHUP
++Upon receipt of a
++.Dv SIGHUP ,
++.Dv SIGTERM ,
+ or
+-.Dv SIGTERM
+-signals,
+-.Nm
+-will remove all stateful resources from the system.
+-In the former case the daemon will then reinvoke itself,
+-while it will stop running in the latter case.
+-In either case,
++.Dv SIGUSR1
++signal,
+ .Nm
+-will send DHCPv6 Release messages to release resources assigned from servers.
++will remove all stateful resources from the system. After that,
++.Dv SIGHUP
++reinitializes the daemon, and
++.Dv SIGTERM
++stops the daemon. In both cases, DHCPv6 Release message will be sent to release resources assigned from servers.
++.Dv SIGUSR1
++stops the daemon as
++.Dv SIGTERM
++does though DHCPv6 Release message will not be sent.
+ .\"
+ .Sh FILES
+ .Bl -tag -width /etc/wide-dhcpv6/dhcp6c.conf -compact
+--- wide-dhcpv6.orig/dhcp6c.c
++++ wide-dhcpv6/dhcp6c.c
+@@ -84,6 +84,7 @@ static int exit_ok = 0;
+ static sig_atomic_t sig_flags = 0;
+ #define SIGF_TERM 0x1
+ #define SIGF_HUP 0x2
++#define SIGF_USR1 0x4
+ 
+ const dhcp6_mode_t dhcp6_mode = DHCP6_MODE_CLIENT;
+ 
+@@ -108,6 +109,8 @@ static int ctldigestlen;
+ 
+ static int infreq_mode = 0;
+ 
++int opt_norelease;
++
+ static inline int get_val32 __P((char **, int *, u_int32_t *));
+ static inline int get_ifname __P((char **, int *, char *, int));
+ 
+@@ -170,7 +173,7 @@ main(argc, argv)
+ 	else
+ 		progname++;
+ 
+-	while ((ch = getopt(argc, argv, "c:dDfik:p:P:")) != -1) {
++	while ((ch = getopt(argc, argv, "c:dDfik:np:P:")) != -1) {
+ 		switch (ch) {
+ 		case 'c':
+ 			conffile = optarg;
+@@ -190,6 +193,9 @@ main(argc, argv)
+ 		case 'k':
+ 			ctlkeyfile = optarg;
+ 			break;
++		case 'n':
++			opt_norelease = 1;
++			break;
+ 		case 'p':
+ 			pid_file = optarg;
+ 			break;
+@@ -395,6 +401,11 @@ client6_init()
+ 		    strerror(errno));
+ 		exit(1);
+ 	}
++	if (signal(SIGUSR1, client6_signal) == SIG_ERR) {
++		debug_printf(LOG_WARNING, FNAME, "failed to set signal: %s",
++		    strerror(errno));
++		exit(1);
++	}
+ }
+ 
+ int
+@@ -525,6 +536,13 @@ process_signals()
+ 		free_resources(NULL);
+ 		client6_startall(1);
+ 	}
++	if ((sig_flags & SIGF_USR1)) {
++		debug_printf(LOG_INFO, FNAME, "exit without release");
++		exit_ok = 1;
++		opt_norelease = 1;
++		free_resources(NULL);
++		check_exit();
++	}
+ 
+ 	sig_flags = 0;
+ }
+@@ -1171,6 +1189,9 @@ client6_signal(sig)
+ 	case SIGHUP:
+ 		sig_flags |= SIGF_HUP;
+ 		break;
++	case SIGUSR1:
++		sig_flags |= SIGF_USR1;
++		break;
+ 	}
+ }
+ 
+--- wide-dhcpv6.orig/dhcp6c_ia.c
++++ wide-dhcpv6/dhcp6c_ia.c
+@@ -420,7 +420,13 @@ release_all_ia(ifp)
+ 		for (ia = TAILQ_FIRST(&iac->iadata); ia; ia = ia_next) {
+ 			ia_next = TAILQ_NEXT(ia, link);
+ 
+-			(void)release_ia(ia);
++			if (opt_norelease == 0) {
++				debug_printf(LOG_INFO, FNAME, "Start address "
++				    "release");
++				(void)release_ia(ia);
++			} else
++				debug_printf(LOG_INFO, FNAME, "Bypassing address "
++				    "release because of -n flag");
+ 
+ 			/*
+ 			 * The client MUST stop using all of the addresses

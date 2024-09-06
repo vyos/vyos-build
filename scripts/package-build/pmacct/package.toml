@@ -1,0 +1,4 @@
+[[packages]]
+name = "pmacct"
+commit_id = "debian/1.7.7-1"
+scm_url = "https://salsa.debian.org/debian/pmacct.git"

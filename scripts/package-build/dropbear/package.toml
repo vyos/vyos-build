@@ -1,0 +1,7 @@
+[[packages]]
+name = "dropbear"
+commit_id = "debian/2022.83-1+deb12u1"
+scm_url = "https://salsa.debian.org/debian/dropbear.git"
+
+[packages.dependencies]
+packages = ["libpam0g-dev"]

@@ -1,0 +1,6 @@
+host-sflow/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc
