@@ -72,6 +72,8 @@ parser.add_argument('--configd', help='Execute testsuite with config daemon', ac
 				default=False)
 parser.add_argument('--no-interfaces', help='Execute testsuite without interface tests to save time',
                 action='store_true', default=False)
+parser.add_argument('--smoketest', help='Execute script based CLI smoketests',
+                action='store_true', default=False)
 parser.add_argument('--configtest', help='Execute load/commit config tests',
 				action='store_true', default=False)
 parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
@@ -634,7 +636,7 @@ try:
         c.sendline('cat /proc/mdstat')
         c.expect(op_mode_prompt)
 
-    elif not args.configtest:
+    elif args.smoketest:
         # run default smoketest suite
         if args.match:
             # Remove tests that we don't want to run
@@ -670,7 +672,7 @@ try:
             raise Exception("Smoketest-failed, please look into debug output")
 
     # else, run configtest suite
-    else:
+    elif args.configtest:
         log.info('Adding a legacy WireGuard default keypair for migrations')
         c.sendline('sudo mkdir -p /config/auth/wireguard/default')
         c.expect(op_mode_prompt)
@@ -695,7 +697,7 @@ try:
         if i==0:
             raise Exception('Invalid command detected')
         elif i==1:
-            tmp = '(W)hy (T)he (F)ace? VyOS smoketest not found!'
+            tmp = 'VyOS smoketest not found!'
             log.error(tmp)
             raise Exception(tmp)
 
@@ -708,6 +710,9 @@ try:
             tmp = 'Configtest failed :/ - check debug output'
             log.error(tmp)
             raise Exception(tmp)
+
+    else:
+        log.info('No testcase selected!')
 
     shutdownVM(c, log, 'Powering off system')
     c.close()
@@ -752,3 +757,5 @@ if EXCEPTION:
     log.error('Hmm... system got an exception while processing.')
     log.error('The ISO image is not considered usable!')
     sys.exit(1)
+
+sys.exit(0)
