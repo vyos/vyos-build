@@ -1,0 +1,170 @@
+From e67d1b6b4178f412084459c4cb7e54a8c0019bd2 Mon Sep 17 00:00:00 2001
+From: Francis Dupont <fdupont@isc.org>
+Date: Fri, 6 Nov 2020 10:46:09 +0100
+Subject: [PATCH 2/4] Checkpoint: improved patch
+
+---
+ common/bpf.c | 10 +++---
+ common/lpf.c | 89 +++++++++++++++++++++++++++++++++++-----------------
+ 2 files changed, 65 insertions(+), 34 deletions(-)
+
+diff --git a/common/bpf.c b/common/bpf.c
+index 0c08574..30dcaa5 100644
+--- a/common/bpf.c
++++ b/common/bpf.c
+@@ -214,13 +214,13 @@ struct bpf_insn dhcp_bpf_pureip_filter [] = {
+ 
+ 	/* Make sure it's to the right port... */
+ 	BPF_STMT (BPF_LD + BPF_H + BPF_IND, 2),
+-	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 37, 0, 1),             /* patch */
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 67, 0, 1),             /* patch */
+ 
+ 	/* If we passed all the tests, ask for the whole packet. */
+-	BPF_STMT(BPF_RET+BPF_K, (u_int)-1),
++	BPF_STMT(BPF_RET + BPF_K, (u_int)-1),
+ 
+ 	/* Otherwise, drop it. */
+-	BPF_STMT(BPF_RET+BPF_K, 0),
++	BPF_STMT(BPF_RET + BPF_K, 0),
+ };
+ 
+ int dhcp_bpf_pureip_filter_len =
+@@ -278,11 +278,11 @@ struct bpf_insn dhcp_bpf_pureip_relay_filter [] = {
+ 
+ 	/* Make sure it's to the right port... */
+ 	BPF_STMT (BPF_LD + BPF_H + BPF_IND, 16),
+-	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 37, 2, 0),             /* patch */
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 67, 2, 0),             /* patch */
+ 
+ 	/* relay can have an alternative port... */
+ 	BPF_STMT (BPF_LD + BPF_H + BPF_IND, 16),
+-	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 37, 0, 1),             /* patch */
++	BPF_JUMP (BPF_JMP + BPF_JEQ + BPF_K, 67, 0, 1),             /* patch */
+ 
+ 	/* If we passed all the tests, ask for the whole packet. */
+ 	BPF_STMT (BPF_RET + BPF_K, (u_int)-1),
+diff --git a/common/lpf.c b/common/lpf.c
+index d8f34a4..75609f5 100644
+--- a/common/lpf.c
++++ b/common/lpf.c
+@@ -221,6 +221,9 @@ void if_register_receive (info)
+ 		lpf_tr_filter_setup (info);
+ 	else
+ #endif
++	if (info -> hw_address.hbuf [0] == HTYPE_PUREIP)
++		lpf_pureip_filter_setup (info);
++	else
+ 		lpf_gen_filter_setup (info);
+ 
+ 	if (!quiet_interface_discovery)
+@@ -255,50 +258,78 @@ void if_deregister_receive (info)
+ static void lpf_gen_filter_setup (info)
+ 	struct interface_info *info;
+ {
+-	int pure_ip = info -> hw_address.hbuf [0] == HTYPE_PUREIP;
+ 	struct sock_fprog p;
+ 
+ 	memset(&p, 0, sizeof(p));
+ 
+-	/* Set up the bpf filter program structure and patch port(s).
+-	 *
+-	 * This is defined in bpf.c, XXX changes to filter program may
+-	 * require changes to the insn number(s) used below! XXX
+-	 */
++	/* Set up the bpf filter program structure.    This is defined in
++	   bpf.c */
++	p.len = dhcp_bpf_filter_len;
++	p.filter = dhcp_bpf_filter;
++
++	dhcp_bpf_filter [8].k = ntohs (local_port);
+ 
+-	if (pure_ip) {
+-		p.len = dhcp_bpf_pureip_filter_len;
+-		p.filter = dhcp_bpf_pureip_filter;
++        /* Patch the server port into the LPF  program...
++	   XXX changes to filter program may require changes
++	   to the insn number(s) used below! XXX */
++#if defined(RELAY_PORT)
++	if (relay_port) {
++		/*
++		 * If user defined relay UDP port, we need to filter
++		 * also on the user UDP port.
++		 */
++		p.len = dhcp_bpf_relay_filter_len;
++		p.filter = dhcp_bpf_relay_filter;
+ 
+-		/* patch port */
+-		dhcp_bpf_pureip_filter [6].k = ntohs (local_port);
+-	} else {
+-		p.len = dhcp_bpf_filter_len;
+-		p.filter = dhcp_bpf_filter;
++		dhcp_bpf_relay_filter [8].k = ntohs (local_port);
++		dhcp_bpf_relay_filter [10].k = ntohs (relay_port);
++	}
++#endif
+ 
+-		/* patch port */
+-		dhcp_bpf_filter [8].k = ntohs (local_port);
++	if (setsockopt (info -> rfdesc, SOL_SOCKET, SO_ATTACH_FILTER, &p,
++			sizeof p) < 0) {
++		if (errno == ENOPROTOOPT || errno == EPROTONOSUPPORT ||
++		    errno == ESOCKTNOSUPPORT || errno == EPFNOSUPPORT ||
++		    errno == EAFNOSUPPORT) {
++			log_error ("socket: %m - make sure");
++			log_error ("CONFIG_PACKET (Packet socket) %s",
++				   "and CONFIG_FILTER");
++			log_error ("(Socket Filtering) are enabled %s",
++				   "in your kernel");
++			log_fatal ("configuration!");
++		}
++		log_fatal ("Can't install packet filter program: %m");
+ 	}
++}
++
++static void lpf_pureip_gen_filter_setup (info)
++	struct interface_info *info;
++{
++	struct sock_fprog p;
++
++	memset(&p, 0, sizeof(p));
++
++	/* Set up the bpf filter program structure.    This is defined in
++	   bpf.c */
++	p.len = dhcp_bpf_pureip_filter_len;
++	p.filter = dhcp_bpf_pureip_filter;
++
++	dhcp_bpf_pureip_filter [6].k = ntohs (local_port);
+ 
++        /* Patch the server port into the LPF  program...
++	   XXX changes to filter program may require changes
++	   to the insn number(s) used below! XXX */
+ #if defined(RELAY_PORT)
+-	/*
+-	 * If user defined relay UDP port, we need to filter
+-	 * also on the user UDP port.
+-	 */
+-	if (relay_port && pure_ip) {
++	if (relay_port) {
++		/*
++		 * If user defined relay UDP port, we need to filter
++		 * also on the user UDP port.
++		 */
+ 		p.len = dhcp_bpf_pureip_relay_filter_len;
+ 		p.filter = dhcp_bpf_pureip_relay_filter;
+ 
+-		/* patch ports */
+ 		dhcp_bpf_pureip_relay_filter [6].k = ntohs (local_port);
+ 		dhcp_bpf_pureip_relay_filter [8].k = ntohs (relay_port);
+-	} else if (relay_port) {
+-		p.len = dhcp_bpf_relay_filter_len;
+-		p.filter = dhcp_bpf_relay_filter;
+-
+-		/* patch ports */
+-		dhcp_bpf_relay_filter [8].k = ntohs (local_port);
+-		dhcp_bpf_relay_filter [10].k = ntohs (relay_port);
+ 	}
+ #endif
+ 
+-- 
+2.39.2
+

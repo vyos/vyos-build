@@ -1,0 +1,12 @@
+[[packages]]
+name = "wpa"
+commit_id = "debian/2%2.10-12"
+scm_url = "https://salsa.debian.org/debian/wpa"
+build_cmd = "/bin/true"
+
+[[packages]]
+name = "hostap"
+commit_id = "e7172e26d"
+scm_url = "git://w1.fi/srv/git/hostap.git"
+build_cmd = "cd ..; y | ./build.sh"
+

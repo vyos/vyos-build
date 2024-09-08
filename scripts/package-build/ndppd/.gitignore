@@ -1,0 +1,7 @@
+ndppd/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc
+

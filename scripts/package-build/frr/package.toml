@@ -1,0 +1,36 @@
+[[packages]]
+name = "libyang"
+commit_id = "v2.1.148"
+scm_url = "https://github.com/CESNET/libyang.git"
+build_cmd = "pipx run apkg build -i && find pkg/pkgs -type f -name *.deb -exec mv -t .. {} +"
+
+[[packages]]
+name = "rtrlib"
+commit_id = "v0.8.0"
+scm_url = "https://github.com/rtrlib/rtrlib.git"
+build_cmd = "sudo mk-build-deps --install --tool 'apt-get --yes --no-install-recommends'; dpkg-buildpackage -uc -us -tc -b"
+
+[[packages]]
+name = "frr"
+commit_id = "stable/9.1"
+scm_url = "https://github.com/FRRouting/frr.git"
+build_cmd = "sudo dpkg -i ../*.deb; sudo dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib,pkg.frr.lua"
+
+[packages.dependencies]
+packages = [
+    "chrpath",
+    "gawk",
+    "install-info",
+    "libcap-dev",
+    "libjson-c-dev",
+    "librtr-dev",
+    "libpam-dev",
+    "libprotobuf-c-dev",
+    "libpython3-dev:native",
+    "python3-sphinx:native",
+    "libsnmp-dev",
+    "protobuf-c-compiler",
+    "python3-dev:native",
+    "texinfo",
+    "lua5.3"
+]

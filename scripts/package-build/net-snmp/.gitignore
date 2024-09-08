@@ -1,0 +1,6 @@
+net-snmp/
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc

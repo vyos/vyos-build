@@ -1,0 +1,45 @@
+[[packages]]
+name = "strongswan"
+commit_id = "debian/5.9.11-2"
+scm_url = "https://salsa.debian.org/debian/strongswan.git"
+
+# build_cmd = "cd ..; yes | ./build.sh; ./build-vici.sh"
+build_cmd = """
+export DEBEMAIL="maintainers@vyos.net"
+export DEBFULLNAME="VyOS Package Maintainers"
+
+dch -v "5.9.11-2+vyos0" "Patchset for DMVPN support" -b
+dpkg-buildpackage -uc -us -tc -b -d
+cd ..; ./build-vici.sh
+"""
+
+[packages.dependencies]
+packages = [
+    "bison",
+    "bzip2",
+    "debhelper-compat",
+    "dh-apparmor",
+    "dpkg-dev",
+    "flex",
+    "gperf",
+    "libiptc-dev",
+    "libcap-dev",
+    "libcurl3-dev",
+    "libgcrypt20-dev",
+    "libgmp3-dev",
+    "libkrb5-dev",
+    "libldap2-dev",
+    "libnm-dev",
+    "libpam0g-dev",
+    "libsqlite3-dev",
+    "libssl-dev",
+    "libsystemd-dev",
+    "libtool",
+    "libtss2-dev",
+    "libxml2-dev",
+    "pkg-config",
+    "po-debconf",
+    "systemd",
+    "libsystemd-dev",
+    "tzdata"
+]
