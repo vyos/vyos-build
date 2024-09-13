@@ -65,3 +65,9 @@ name = "mlnx"
 commit_id = ""
 scm_url = ""
 build_cmd = "build_mellanox_ofed"
+
+[[packages]]
+name = "realtek-r8152"
+commit_id = ""
+scm_url = ""
+build_cmd = "build_realtek_r8152"
