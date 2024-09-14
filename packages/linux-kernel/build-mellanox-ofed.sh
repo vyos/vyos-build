@@ -4,6 +4,11 @@ DEB_DISTRO='debian12.1'
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
 
+if [ $(id -u) -ne 0 ]; then
+  echo "Mellanox OFED script needs to be run as root"
+  exit
+fi
+
 if ! dpkg-architecture -iamd64; then
     echo "Mellanox OFED is only buildable on amd64 platforms"
     exit 0
@@ -66,34 +71,33 @@ if [ -z $KERNEL_DIR ]; then
     exit 1
 fi
 
-rm -f SOURCES/ibarr_0.1.3.orig.tar.gz
-rm -f SOURCES/ibdump_6.0.0.orig.tar.gz
-rm -f SOURCES/ibsim_0.12.orig.tar.gz
-rm -f SOURCES/iser_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
-rm -f SOURCES/isert_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
-rm -f SOURCES/kernel-mft_4.28.0.92.orig.tar.gz
-rm -f SOURCES/knem_1.1.4.90mlnx3.orig.tar.gz
-rm -f SOURCES/libvma_9.8.60.orig.tar.gz
-rm -f SOURCES/libxlio_3.30.5.orig.tar.gz
-rm -f SOURCES/mlnx-ethtool_6.7.orig.tar.gz
-rm -f SOURCES/mlnx-iproute2_6.7.0.orig.tar.gz
-rm -f SOURCES/mlnx-nfsrdma_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
-rm -f SOURCES/mlnx-nvme_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
-rm -f SOURCES/mlx-steering-dump_1.0.0.orig.tar.gz
-rm -f SOURCES/mpitests_3.2.23.orig.tar.gz
-rm -f SOURCES/mstflint_4.16.1.orig.tar.gz
-rm -f SOURCES/ofed-scripts_24.04.OFED.24.04.0.6.6.orig.tar.gz
-rm -f SOURCES/openmpi_4.1.7a1.orig.tar.gz
-rm -f SOURCES/openvswitch_2.17.8.orig.tar.gz
-rm -f SOURCES/perftest_24.04.0.orig.tar.gz
-rm -f SOURCES/rdma-core_2404mlnx51.orig.tar.gz
-rm -f SOURCES/rshim_2.0.28.orig.tar.gz
-rm -f SOURCES/sockperf_3.10.orig.tar.gz
-rm -f SOURCES/srp_24.04.OFED.24.04.0.6.6.1.orig.tar.gz
-rm -f SOURCES/ucx_1.17.0.orig.tar.gz
+rm -f SOURCES/ibarr_*.tar.gz
+rm -f SOURCES/ibdump_*.tar.gz
+rm -f SOURCES/ibsim_*.tar.gz
+rm -f SOURCES/iser_*.tar.gz
+rm -f SOURCES/isert_*.tar.gz
+rm -f SOURCES/kernel-mft_*.tar.gz
+rm -f SOURCES/knem_*.tar.gz
+rm -f SOURCES/libvma_*.tar.gz
+rm -f SOURCES/libxlio_*.tar.gz
+rm -f SOURCES/mlnx-ethtool_*.tar.gz
+rm -f SOURCES/mlnx-iproute2_*.tar.gz
+rm -f SOURCES/mlnx-nfsrdma_*.tar.gz
+rm -f SOURCES/mlnx-nvme_*.tar.gz
+rm -f SOURCES/mlx-steering-dump_*.tar.gz
+rm -f SOURCES/mpitests_*.tar.gz
+rm -f SOURCES/mstflint_*.tar.gz
+rm -f SOURCES/ofed-scripts_*.tar.gz
+rm -f SOURCES/openmpi_*.tar.gz
+rm -f SOURCES/openvswitch_*.tar.gz
+rm -f SOURCES/perftest_*.tar.gz
+rm -f SOURCES/rdma-core_*.tar.gz
+rm -f SOURCES/rshim_*.tar.gz
+rm -f SOURCES/sockperf_*.tar.gz
+rm -f SOURCES/srp_*.tar.gz
+rm -f SOURCES/ucx_*.tar.gz
 
-
-sudo ./install.pl \
+./install.pl \
   --basic --dpdk \
   --without-dkms \
   --without-mlnx-nvme-modules \
@@ -106,19 +110,19 @@ sudo ./install.pl \
 
 if [ $DROP_DEV_DBG_DEBS -eq 1 ]; then
   echo "I: Removing development and debug packages"
-  sudo rm $(find $CWD/$DRIVER_DIR/DEBS/$DEB_DISTRO -type f | grep -E '\-dev|\-dbg')
+  rm -f $(find $CWD/$DRIVER_DIR/DEBS/$DEB_DISTRO -type f | grep -E '\-dev|\-dbg')
 fi
 
 cp $(find $CWD/$DRIVER_DIR/DEBS/$DEB_DISTRO -type f | grep '\.deb$') "$CWD/"
 
 echo "I: Cleanup ${DRIVER_NAME} source"
 cd ${CWD}
-if [ -e ${DRIVER_FILE} ]; then
+if [ -f ${DRIVER_FILE} ]; then
     rm -f ${DRIVER_FILE}
 fi
 if [ -d ${DRIVER_DIR} ]; then
-    sudo rm -rf ${DRIVER_DIR}
+    rm -rf ${DRIVER_DIR}
 fi
 if [ -d ${DEBIAN_DIR} ]; then
-    sudo rm -rf ${DEBIAN_DIR}
+    rm -rf ${DEBIAN_DIR}
 fi
