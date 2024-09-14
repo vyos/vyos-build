@@ -109,3 +109,6 @@ fi
 if [ -d ${DEBIAN_DIR} ]; then
     rm -rf ${DEBIAN_DIR}
 fi
+if [ -f ${DEBIAN_POSTINST} ]; then
+    rm -f ${DEBIAN_POSTINST}
+fi

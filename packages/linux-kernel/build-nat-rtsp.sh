@@ -36,3 +36,7 @@ fpm --input-type dir --output-type deb --name nat-rtsp \
     --license "GPL2" --chdir tmp
 
 mv *.deb ..
+
+if [ -f ${DEBIAN_POSTINST} ]; then
+    rm -f ${DEBIAN_POSTINST}
+fi
