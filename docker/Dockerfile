@@ -372,6 +372,11 @@ RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
 RUN echo "$(opam env --root=/opt/opam --set-root)" >> /etc/skel/.bashrc && \
     echo "export PATH=/opt/go/bin:\$PATH" >> /etc/skel/.bashrc
 
+# Rise upper limit for UID when working in an Active Direcotry integrated
+# environment. This solves the warning: vyos_bld's uid 1632000007 outside of the
+# UID_MIN 1000 and UID_MAX 60000 range.
+RUN sed -i 's/UID_MAX\t\t\t60000/UID_MAX\t\t\t2000000000/g' /etc/login.defs
+
 # Cleanup
 RUN rm -rf /tmp/*
 

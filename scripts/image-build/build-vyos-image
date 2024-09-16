@@ -571,7 +571,7 @@ if __name__ == "__main__":
                 --checksums 'sha256 md5' \
                 --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \
                 --debian-installer none \
-                --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2" \
+                --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2,linux-kbuild-6.1" \
                 --distribution {{debian_distribution}} \
                 --firmware-binary false \
                 --firmware-chroot false \

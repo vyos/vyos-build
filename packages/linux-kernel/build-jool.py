@@ -29,9 +29,8 @@ def add_depends(package_dir: str, package_name: str,
 # find kernel version and source path
 arch: str = find_arch()
 defaults_file: str = Path('../../data/defaults.toml').read_text()
-architecture_file: str = Path(f'../../data/architectures/{arch}.toml').read_text()
 KERNEL_VER: str = toml_loads(defaults_file).get('kernel_version')
-KERNEL_FLAVOR: str = toml_loads(architecture_file).get('kernel_flavor')
+KERNEL_FLAVOR: str = toml_loads(defaults_file).get('kernel_flavor')
 KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
 
 # define variables
