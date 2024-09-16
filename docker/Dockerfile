@@ -177,6 +177,18 @@ RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archiv
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
     cd /tmp/open-vmdk-master/ && make && make install
 
+# Packages need for build live-build
+RUN apt-get update && apt-get install -y \
+      cpio
+
+COPY patches/live-build/0001-save-package-info.patch /tmp/0001-save-package-info.patch
+
+RUN git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build && \
+    cd /tmp/live-build && git checkout debian/1%20240810 && \
+    patch -p1 < /tmp/0001-save-package-info.patch && \
+    dch -n "Applying fix for save package info" && \
+    dpkg-buildpackage -us -uc && \
+    dpkg -i ../live-build*.deb
 #
 # live-build: building in docker fails with mounting /proc | /sys
 #

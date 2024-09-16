@@ -1,0 +1,60 @@
+From 3ddf0e979c352f2917be6a949fb8dd37b5c9f2b7 Mon Sep 17 00:00:00 2001
+From: khramshinr <khramshinr@gmail.com>
+Date: Wed, 28 Aug 2024 14:38:15 +0600
+Subject: [PATCH] T6684: new Debian package repo snapshot logic
+
+save information about all installed packages and teir source repo, including temporary packages
+---
+ functions/packages.sh | 7 +++++++
+ scripts/build/chroot  | 6 ++++++
+ scripts/build/clean   | 2 +-
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/functions/packages.sh b/functions/packages.sh
+index 9e25df5f3..4d1fa695e 100755
+--- a/functions/packages.sh
++++ b/functions/packages.sh
+@@ -60,6 +60,13 @@ Install_packages ()
+ 			Chroot chroot "aptitude install --without-recommends ${APTITUDE_OPTIONS} ${_LB_PACKAGES}"
+ 			;;
+ 	esac
++
++  # save information about all temporary installed packages and source repos
++	for PACKAGE in ${_LB_PACKAGES}; do
++		Chroot chroot "apt-cache policy ${PACKAGE}"  | sed -n '/\*\*\*/,$p' | grep -P 'http:|https:' -m 1 | awk -v pkg="${PACKAGE}" '{print $2" "$3" "pkg}' >> chroot.packages.all.info
++
++	done
++
+ 	unset _LB_PACKAGES # Can clear this now
+ }
+
+diff --git a/scripts/build/chroot b/scripts/build/chroot
+index a0aa10be0..700762e78 100755
+--- a/scripts/build/chroot
++++ b/scripts/build/chroot
+@@ -48,6 +48,12 @@ for _PASS in install live; do
+ 	fi
+ done
+
++# save information about all installed packages and source repos
++Chroot chroot "dpkg-query -W" | while read PACKAGE; do
++  Chroot chroot "apt-cache policy ${PACKAGE}"  | sed -n '/\*\*\*/,$p' | grep -P 'http:|https:' -m 1 | awk -v pkg="${PACKAGE}" '{print $2" "$3" "pkg}' >> chroot.packages.all.info
++done
++
++
+ lb chroot_includes_after_packages "${@}"
+ lb chroot_hooks "${@}"
+ lb chroot_hacks "${@}"
+diff --git a/scripts/build/clean b/scripts/build/clean
+index 6549fc635..4376d7525 100755
+--- a/scripts/build/clean
++++ b/scripts/build/clean
+@@ -159,7 +159,7 @@ if [ "${RM_CHROOT}" = "true" ]; then
+
+ 	rm -rf chroot chroot.tmp
+
+-	rm -f chroot.packages.live chroot.packages.install
++	rm -f chroot.packages.live chroot.packages.install chroot.packages.all.info
+ 	rm -f chroot.files
+
+ 	rm -f "$(Installed_tmp_packages_file)"
