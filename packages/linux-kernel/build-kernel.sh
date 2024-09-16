@@ -35,7 +35,7 @@ done
 TRUSTED_KEYS_FILE=trusted_keys.pem
 # start with empty key file
 echo -n "" > $TRUSTED_KEYS_FILE
-CERTS=$(ls ../../../data/live-build-config/includes.chroot/var/lib/shim-signed/mok/*.pem)
+CERTS=$(find ../../../data/live-build-config/includes.chroot/var/lib/shim-signed/mok -name "*.pem" -type f)
 if [ ! -z "${CERTS}" ]; then
   # add known public keys to Kernel certificate chain
   for file in $CERTS; do
