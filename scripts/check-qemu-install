@@ -569,7 +569,7 @@ try:
         tpm_timeout = 600 # Give it 10 mins to encrypt
 
         # Verify TPM is loaded
-        c.sendline('ls /dev/tpm0')
+        c.sendline('find /dev -name tpm0')
         c.expect('/dev/tpm0')
         c.expect(op_mode_prompt)
 
