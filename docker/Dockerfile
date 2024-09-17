@@ -87,7 +87,8 @@ RUN apt-get update && apt-get install -y \
       gosu \
       po4a \
       openssh-client \
-      jq
+      jq \
+      socat
 
 # Packages needed for vyos-build
 RUN apt-get update && apt-get install -y \
