@@ -360,11 +360,15 @@ if args.qemu_cmd:
 test_timeout = 3 *3600 # 3 hours (in seconds)
 tpm_process = None
 try:
+    # Start TPM emulator
+    if args.tpmtest:
+        tpm_process = start_swtpm()
+
     #################################################
     # Installing image to disk
     #################################################
     log.info('Installing system')
-    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
+    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
@@ -489,12 +493,6 @@ try:
     os.system(f'echo "eject -f drive-cd1" | socat - unix-connect:/tmp/qemu-monitor-socket-{args.disk}')
 
     #################################################
-    # Powering down installer
-    #################################################
-    if args.tpmtest:
-        tpm_process = start_swtpm()
-
-    #################################################
     # Booting installed system
     #################################################
     log.info('Booting installed system')
@@ -608,21 +606,8 @@ try:
         c.sendline('exit')
         c.expect(op_mode_prompt)
 
-        # Shutdown VM
-        shutdownVM(c, log, 'Shutdown VM after TPM encryption')
-
-        # Shutdown kills swtpm
-        tpm_process.join()
-        tpm_process.close()
-
-        # Start emulator again
-        tpm_process = start_swtpm()
-
-        # Booting back into VM
-        log.info('Booting TPM-backed system')
-        cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, tpm=args.tpmtest, vnc_enabled=args.vnc)
-        log.debug(f'Executing command: {cmd}')
-        c = pexpect.spawn(cmd, logfile=stl)
+        log.info('system installed, rebooting')
+        c.sendline('reboot now')
 
         try:
             c.expect('The highlighted entry will be executed automatically in', timeout=10)
