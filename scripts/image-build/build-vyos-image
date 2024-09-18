@@ -355,10 +355,18 @@ if __name__ == "__main__":
     # not to the vyos-build repository root.
     os.chdir(defaults.BUILD_DIR)
 
+    ## Initialize build manifest
+    manifest = {
+      'build_config' : build_config,
+      'artifacts' : [],
+      'pre_build_config' : pre_build_config
+    }
+
     iso_file = None
 
     if build_config["reuse_iso"]:
         iso_file = build_config["reuse_iso"]
+        manifest["artifacts"] = [iso_file]
     else:
         ## Create the version file
 
@@ -547,13 +555,6 @@ if __name__ == "__main__":
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, 'w') as f:
                 f.write(build_config["default_config"])
-
-        ## Initialize build manifest
-        manifest = {
-            'build_config' : build_config,
-            'artifacts' : [iso_file],
-            'pre_build_config' : pre_build_config
-        }
 
         ## Configure live-build
         lb_config_tmpl = jinja2.Template("""
