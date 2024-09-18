@@ -95,7 +95,7 @@ else:
 import utils
 import raw_image
 
-from utils import cmd
+from utils import cmd, rc_cmd
 
 ## Check if there are missing build dependencies
 deps = {
@@ -192,7 +192,8 @@ if __name__ == "__main__":
        'vyos-mirror': ('VyOS package mirror', None),
        'build-type': ('Build type, release or development', lambda x: x in ['release', 'development']),
        'version': ('Version number (release builds only)', None),
-       'build-comment': ('Optional build comment', None)
+       'build-comment': ('Optional build comment', None),
+       'build-hook-opts': ('Custom options for the post-build hook', None)
     }
 
     # Create the option parser
@@ -630,29 +631,43 @@ Pin-Priority: 600
         # Copy the image
         shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]), iso_file)
 
-    # Build additional flavors from the ISO,
-    # if the flavor calls for them
+    # If the flavor has `image_format = "iso"`, then the work is done.
+    # If not, build additional flavors from the ISO.
     if build_config["image_format"] != ["iso"]:
+        # For all non-iso formats, we always build a raw image first
         raw_image = raw_image.create_raw_image(build_config, iso_file, "tmp/")
         manifest['artifacts'].append(raw_image)
 
-        if has_nonempty_key(build_config, "post_build_hook"):
-            # Some flavors require special procedures that aren't covered by qemu-img
-            # (most notably, the VMware OVA that requires a custom tool to make and sign the image).
-            # For those cases, we support running a post-build hook on the raw image.
-            # The image_format field should be 'raw' if a post-build hook is used.
-            hook_path = build_config["post_build_hook"]
-            cmd(f"{hook_path} {raw_image}")
-        else:
-            # Most other formats, thankfully, can be produced with just `qemu-img convert`
-            other_formats = filter(lambda x: x not in ["iso", "raw"], build_config["image_format"])
-            for f in other_formats:
-                image_ext = build_config.get("image_ext", f)
-                image_opts = build_config.get("image_opts", "")
-                target = f"{os.path.splitext(raw_image)[0]}.{image_ext}"
-                print(f"I: Building {f} file {target}")
-                cmd(f"qemu-img convert -f raw -O {f} {image_opts} {raw_image} {target}")
-                manifest['artifacts'].append(target)
+        # If there are other formats in the flavor, the assumptions is that
+        # they can be produced from a raw image with `qemu-img convert`
+        other_formats = filter(lambda x: x not in ["iso", "raw"], build_config["image_format"])
+        for f in other_formats:
+            image_ext = build_config.get("image_ext", f)
+            image_opts = build_config.get("image_opts", "")
+            target = f"{os.path.splitext(raw_image)[0]}.{image_ext}"
+            print(f"I: Building {f} file {target}")
+            cmd(f"qemu-img convert -f raw -O {f} {image_opts} {raw_image} {target}")
+            manifest['artifacts'].append(target)
+
+        # Finally, there are formats that require special procedures.
+        # For example, a VMware OVA needs a custom tool for image building and signing.
+        # For those cases, we support custom build hooks that run on raw images.
+        # A post-build hook is a script embedded in the flavor file
+        # that must return the artifact name via stdout.
+        if has_nonempty_key(build_config, "build_hook"):
+            hook_source = build_config["build_hook"]
+
+            with open('build_hook', 'w') as f:
+                f.write(hook_source)
+            os.chmod('build_hook', 0o755)
+
+            if has_nonempty_key(build_config, "build_hook_opts"):
+                hook_opts = build_config["build_hook_opts"]
+            else:
+                hook_opts = ""
+            custom_image = rc_cmd(f"./build_hook {raw_image} {build_config['version']} \
+              {build_config['architecture']} {hook_opts}")
+            manifest['artifacts'].append(custom_image)
 
     with open('manifest.json', 'w') as f:
         f.write(json.dumps(manifest))

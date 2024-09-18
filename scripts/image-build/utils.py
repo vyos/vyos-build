@@ -82,3 +82,10 @@ def cmd(command):
     res = vyos.utils.process.call(command, shell=True)
     if res > 0:
         raise OSError(f"Command '{command}' failed")
+
+def rc_cmd(command):
+    code, out = vyos.utils.process.rc_cmd(command, shell=True)
+    if code > 0:
+        raise OSError(f"Command '{command}' failed")
+    else:
+        return out
