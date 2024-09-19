@@ -337,6 +337,17 @@ if __name__ == "__main__":
     if type(build_config["image_format"]) != list:
         build_config["image_format"] = [ build_config["image_format"] ]
 
+    ## If the user didn't explicitly specify what extensions build artifact should have,
+    ## assume that the list is the same as image formats.
+    ## One case when it's not the same is when a custom build hook is used
+    ## to build a format that our build script doesn't support natively.
+    if not has_nonempty_key(build_config, "artifact_format"):
+        build_config["artifact_format"] = build_config["image_format"]
+    else:
+        # If the option is there, also make it list if it's a scalar
+        if type(build_config["artifact_format"]) != list:
+            build_config["artifact_format"] = [ build_config["artifact_format"] ]
+
     ## Dump the complete config if the user enabled debug mode
     if debug:
         import json
@@ -631,6 +642,9 @@ Pin-Priority: 600
         # Copy the image
         shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]), iso_file)
 
+        # Add the image to the manifest
+        manifest['artifacts'].append(iso_file)
+
     # If the flavor has `image_format = "iso"`, then the work is done.
     # If not, build additional flavors from the ISO.
     if build_config["image_format"] != ["iso"]:
@@ -668,6 +682,19 @@ Pin-Priority: 600
             custom_image = rc_cmd(f"./build_hook {raw_image} {build_config['version']} \
               {build_config['architecture']} {hook_opts}")
             manifest['artifacts'].append(custom_image)
+
+    # Filter out unwanted files from the artifact list
+    # and leave only those the user specified
+    # in either `artifact_format` or `image_format`.
+    #
+    # For example, with `image_format = "raw"`,
+    # the ISO image is just an intermediate object, not an target artifact.
+
+    # os.path.splitext returns extensions with dots,
+    # so we need to remove the dots, hence [1:]
+    is_artifact = lambda f: os.path.splitext(f)[-1][1:] in build_config['artifact_format']
+
+    manifest['artifacts'] = list(filter(is_artifact, manifest['artifacts']))
 
     with open('manifest.json', 'w') as f:
         f.write(json.dumps(manifest))
