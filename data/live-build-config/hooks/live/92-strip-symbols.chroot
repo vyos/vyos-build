@@ -15,7 +15,6 @@ STRIPCMD_UNNEEDED="strip --strip-unneeded --remove-section=.comment --remove-sec
 STRIPDIR_REGULAR="
 "
 STRIPDIR_DEBUG="
-/usr/lib/modules
 "
 STRIPDIR_UNNEEDED="
 /etc/hsflowd/modules
