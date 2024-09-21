@@ -14,7 +14,7 @@ vyos_mirror = "https://rolling-packages.vyos.net/current"
 vyos_branch = "current"
 release_train = "current"
 
-kernel_version = "6.6.51"
+kernel_version = "6.6.52"
 kernel_flavor = "vyos"
 bootloaders = "syslinux,grub-efi"
 
