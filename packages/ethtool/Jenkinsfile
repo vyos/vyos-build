@@ -22,7 +22,7 @@
 
 def pkgList = [
     ['name': 'ethtool',
-     'scmCommit': 'debian/1%6.6-1',
+     'scmCommit': 'debian/1%6.10-1',
      'scmUrl': 'https://salsa.debian.org/kernel-team/ethtool',
      'buildCmd': 'sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"; dpkg-buildpackage -uc -us -tc -b'],
 ]
