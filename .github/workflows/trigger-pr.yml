@@ -1,0 +1,19 @@
+name: Trigger PR
+
+on:
+    pull_request_target:
+      types:
+        - closed
+      branches:
+        - circinus
+
+jobs:
+  trigger-PR:
+    uses: vyos/.github/.github/workflows/trigger-pr.yml@current
+    with:
+      source_branch: 'circinus'
+      target_branch: 'circinus'
+    secrets:
+      REMOTE_REPO: ${{ secrets.REMOTE_REPO }}
+      REMOTE_OWNER: ${{ secrets.REMOTE_OWNER }}
+      PAT: ${{ secrets.PAT }}
