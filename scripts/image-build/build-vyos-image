@@ -432,11 +432,6 @@ if __name__ == "__main__":
             # Release build, use the version from ./configure arguments
             version = build_config['version']
 
-        if build_config['build_type'] == 'development':
-            lts_build = False
-        else:
-            lts_build = True
-
         version_data = {
             'version': version,
             'flavor': build_config["build_flavor"],
@@ -447,7 +442,7 @@ if __name__ == "__main__":
             'build_branch': git_branch,
             'release_train': build_config['release_train'],
             'architecture': build_config['architecture'],
-            'lts_build': lts_build,
+            'build_type': build_config['build_type'],
             'build_comment': build_config['build_comment'],
             'bugtracker_url': build_config['bugtracker_url'],
             'documentation_url': build_config['documentation_url'],
