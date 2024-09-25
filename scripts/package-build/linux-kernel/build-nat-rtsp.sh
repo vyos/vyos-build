@@ -15,7 +15,10 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-cd ${SRC} && make KERNELDIR=$KERNEL_DIR
+cd ${SRC}
+git reset --hard HEAD
+git clean --force -d -x
+make KERNELDIR=$KERNEL_DIR
 
 # Copy binary to package directory
 DEBIAN_DIR=tmp/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra
@@ -25,6 +28,9 @@ cp nf_conntrack_rtsp.ko nf_nat_rtsp.ko ${DEBIAN_DIR}
 DEBIAN_POSTINST="${CWD}/vyos-nat-rtsp.postinst"
 echo "#!/bin/sh" > ${DEBIAN_POSTINST}
 echo "/sbin/depmod -a ${KERNEL_VERSION}${KERNEL_SUFFIX}" >> ${DEBIAN_POSTINST}
+
+# Sign generated Kernel modules
+${CWD}/sign-modules.sh ${DEBIAN_DIR}
 
 # Build Debian Package
 fpm --input-type dir --output-type deb --name nat-rtsp \
@@ -36,3 +42,7 @@ fpm --input-type dir --output-type deb --name nat-rtsp \
     --license "GPL2" --chdir tmp
 
 mv *.deb ..
+
+if [ -f ${DEBIAN_POSTINST} ]; then
+    rm -f ${DEBIAN_POSTINST}
+fi

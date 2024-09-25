@@ -1,0 +1,22 @@
+#!/bin/sh
+SIGN_FILE=$(find /usr/lib -name sign-file)
+MOK_KEY="/var/lib/shim-signed/mok/MOK.key"
+MOK_CERT="/var/lib/shim-signed/mok/MOK.pem"
+VMLINUZ=$(readlink /boot/vmlinuz)
+
+# All Linux Kernel modules need to be cryptographically signed
+find /lib/modules -type f -name \*.ko | while read MODULE; do
+    modinfo ${MODULE} | grep -q "signer:"
+    if [ $? != 0 ]; then
+        echo "E: Module ${MODULE} is not signed!"
+        read -n 1 -s -r -p "Press any key to continue"
+    fi
+done
+
+if [ ! -f ${MOK_KEY} ]; then
+    echo "I: Signing key for Linux Kernel not found - Secure Boot not possible"
+else
+    echo "I: Signing Linux Kernel for Secure Boot"
+    sbsign --key ${MOK_KEY} --cert ${MOK_CERT} /boot/${VMLINUZ} --output /boot/${VMLINUZ}
+    sbverify --list /boot/${VMLINUZ}
+fi

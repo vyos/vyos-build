@@ -29,9 +29,8 @@ def add_depends(package_dir: str, package_name: str,
 # find kernel version and source path
 arch: str = find_arch()
 defaults_file: str = Path('../../../data/defaults.toml').read_text()
-architecture_file: str = Path(f'../../../data/architectures/{arch}.toml').read_text()
 KERNEL_VER: str = toml_loads(defaults_file).get('kernel_version')
-KERNEL_FLAVOR: str = toml_loads(architecture_file).get('kernel_flavor')
+KERNEL_FLAVOR: str = toml_loads(defaults_file).get('kernel_flavor')
 KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
 
 # define variables
@@ -66,7 +65,7 @@ MODULES_DIR := extra
 
 # main packaging script based on dh7 syntax
 %:
-	dh $@  
+	dh $@
 
 override_dh_clean:
 	dh_clean --exclude=debian/{PACKAGE_NAME}.substvars
@@ -88,7 +87,7 @@ override_dh_auto_install:
 	install -D -m 644 src/mod/common/jool_common.ko ${{PACKAGE_BUILD_DIR}}/lib/modules/${{KVER}}/${{MODULES_DIR}}/jool_common.ko
 	install -D -m 644 src/mod/nat64/jool.ko ${{PACKAGE_BUILD_DIR}}/lib/modules/${{KVER}}/${{MODULES_DIR}}/jool.ko
 	install -D -m 644 src/mod/siit/jool_siit.ko ${{PACKAGE_BUILD_DIR}}/lib/modules/${{KVER}}/${{MODULES_DIR}}/jool_siit.ko
-
+	${{KERNEL_DIR}}/../sign-modules.sh ${{PACKAGE_BUILD_DIR}}/lib
 '''
 bild_rules = Path(f'{PACKAGE_DIR}/debian/rules')
 bild_rules.write_text(build_rules_text)

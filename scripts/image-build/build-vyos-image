@@ -599,7 +599,8 @@ if __name__ == "__main__":
                 --mirror-chroot {{debian_mirror}} \
                 --mirror-chroot-security {{debian_security_mirror}} \
                 --security true \
-                --updates true
+                --updates true \
+                --utc-time true
                 "${@}"
         """)
 

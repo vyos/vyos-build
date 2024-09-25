@@ -98,6 +98,8 @@ def build_package(package: dict, dependencies: list) -> None:
             build_intel_ixgbe()
         elif package['build_cmd'] == 'build_intel_ixgbevf':
             build_intel_ixgbevf()
+        elif package['build_cmd'] == 'build_mellanox_ofed':
+            build_mellanox_ofed()
         elif package['build_cmd'] == 'build_jool':
             build_jool()
         elif package['build_cmd'] == 'build_openvpn_dco':
@@ -181,6 +183,11 @@ def build_intel_ixgbe():
 def build_intel_ixgbevf():
     """Build Intel IXGBEVF"""
     run(['./build-intel-ixgbevf.sh'], check=True)
+
+
+def build_mellanox_ofed():
+    """Build Mellanox OFED"""
+    run(['sudo ./build-mellanox-ofed.sh'], check=True)
 
 
 def build_jool():

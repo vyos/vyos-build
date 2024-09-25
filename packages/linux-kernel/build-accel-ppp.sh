@@ -13,6 +13,10 @@ if [ ! -f ${KERNEL_VAR_FILE} ]; then
     exit 1
 fi
 
+cd ${ACCEL_SRC}
+git reset --hard HEAD
+git clean --force -d -x
+
 PATCH_DIR=${CWD}/patches/accel-ppp
 if [ -d $PATCH_DIR ]; then
     cd ${ACCEL_SRC}
@@ -36,6 +40,10 @@ cmake -DBUILD_IPOE_DRIVER=TRUE \
     -DMODULES_KDIR=${KERNEL_VERSION}${KERNEL_SUFFIX} \
     -DCPACK_TYPE=Debian12 ..
 make
+
+# Sign generated Kernel modules
+${CWD}/sign-modules.sh .
+
 cpack -G DEB
 
 # rename resulting Debian package according git description

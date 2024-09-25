@@ -60,3 +60,8 @@ commit_id = ""
 scm_url = ""
 build_cmd = "build_jool"
 
+[[packages]]
+name = "mlnx"
+commit_id = ""
+scm_url = ""
+build_cmd = "build_mellanox_ofed"

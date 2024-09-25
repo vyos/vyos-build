@@ -80,6 +80,9 @@ fi
 echo "I: Building Debian package vyos-intel-${DRIVER_NAME}"
 cd ${CWD}
 
+# Sign generated Kernel modules
+${CWD}/sign-modules.sh ${DEBIAN_DIR}
+
 # delete non required files which are also present in the kernel package
 # und thus lead to duplicated files
 find ${DEBIAN_DIR} -name "modules.*" | xargs rm -f
@@ -104,4 +107,7 @@ if [ -d ${DRIVER_DIR} ]; then
 fi
 if [ -d ${DEBIAN_DIR} ]; then
     rm -rf ${DEBIAN_DIR}
+fi
+if [ -f ${DEBIAN_POSTINST} ]; then
+    rm -f ${DEBIAN_POSTINST}
 fi
