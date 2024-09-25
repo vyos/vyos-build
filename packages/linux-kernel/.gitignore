@@ -13,6 +13,8 @@
 /QAT*
 *.tar.xz
 /*.postinst
+/ephemeral.key
+/ephemeral.pem
 
 # Intel Driver source
 i40e-*/

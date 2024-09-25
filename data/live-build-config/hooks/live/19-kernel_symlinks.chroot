@@ -1,6 +1,9 @@
 #!/bin/sh
 
-echo I: Creating kernel symlinks.
+echo I: Creating Linux Kernel symbolic links
 cd /boot
 ln -s initrd.img-* initrd.img
 ln -s vmlinuz-* vmlinuz
+
+echo I: Remove Linux Kernel symbolic link to source folder
+rm -rf /lib/modules/*/build

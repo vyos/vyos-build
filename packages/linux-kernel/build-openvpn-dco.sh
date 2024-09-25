@@ -15,12 +15,18 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-cd ${SRC} && make KERNEL_SRC=$KERNEL_DIR
+cd ${SRC}
+git reset --hard HEAD
+git clean --force -d -x
+make KERNEL_SRC=$KERNEL_DIR
 
 # Copy binary to package directory
 DEBIAN_DIR=tmp/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra
 mkdir -p ${DEBIAN_DIR}
 cp drivers/net/ovpn-dco/ovpn-dco-v2.ko ${DEBIAN_DIR}
+
+# Sign generated Kernel modules
+${CWD}/sign-modules.sh ${DEBIAN_DIR}
 
 # Build Debian Package
 fpm --input-type dir --output-type deb --name openvpn-dco \
