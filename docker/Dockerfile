@@ -154,7 +154,7 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
 
 # Build VyConf which is required to build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
-    opam pin add vyos1x-config https://github.com/vyos/vyos1x-config.git#fc327ecd76 -y
+    opam pin add vyos1x-config https://github.com/vyos/vyos1x-config.git#d7260e772e39bc6a3a2d76d629567e03bbad16b5 -y
 
 # Packages needed for libvyosconfig
 RUN apt-get update && apt-get install -y \
