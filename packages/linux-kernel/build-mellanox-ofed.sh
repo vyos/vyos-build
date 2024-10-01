@@ -26,6 +26,13 @@ url="https://www.mellanox.com/downloads/ofed/MLNX_OFED-${mlxver}/MLNX_OFED_SRC-d
 
 cd ${CWD}
 
+# Get MFT userspace DEB from NV
+mftver="4.29.0-131"
+mfturl="https://www.mellanox.com/downloads/MFT/mft-${mftver}-x86_64-deb.tgz"
+curl -L -o "$(basename "$mfturl")" "$mfturl"
+tar xzf "$(basename "$mfturl")"
+rm "$(basename "$mfturl")"
+
 DRIVER_FILE=$(basename ${url} | sed -e s/tar_0/tar/)
 DRIVER_SHA1="c64defa8fb38dcbce153adc09834ab5cdcecd791"
 
