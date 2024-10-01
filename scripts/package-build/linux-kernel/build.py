@@ -187,7 +187,7 @@ def build_intel_ixgbevf():
 
 def build_mellanox_ofed():
     """Build Mellanox OFED"""
-    run(['sudo ./build-mellanox-ofed.sh'], check=True)
+    run(['sudo', './build-mellanox-ofed.sh'], check=True)
 
 
 def build_jool():
