@@ -9,7 +9,7 @@ debian_security_mirror = "http://deb.debian.org/debian-security"
 
 debian_archive_areas = "main contrib non-free non-free-firmware"
 
-vyos_mirror = "https://rolling-packages.vyos.net/current"
+vyos_mirror = "https://packages.vyos.net/repositories/current"
 
 vyos_branch = "current"
 release_train = "current"
