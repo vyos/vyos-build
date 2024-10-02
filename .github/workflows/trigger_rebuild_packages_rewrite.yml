@@ -1,0 +1,95 @@
+name: Trigger to build package (common approach)
+
+on:
+  pull_request_target:
+    types:
+      - closed
+    # branches:
+    #   - current
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changes-matrix: ${{ steps.changes.outputs.changes }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          base: ${{ github.ref_name }}
+          filters: |
+            aws-gwlbtun:
+              - 'scripts/package-build/aws-gwlbtun/**'
+            ddclient:
+              - 'scripts/package-build/ddclient/**'
+            dropbear:
+              - 'scripts/package-build/dropbear/**'
+            ethtool:
+              - 'scripts/package-build/ethtool/**'
+            frr:
+              - 'scripts/package-build/frr/**'
+            hostap:
+              - 'scripts/package-build/hostap/**'
+            hsflowd:
+              - 'scripts/package-build/hsflowd/**'
+            isc-dhcp:
+              - 'scripts/package-build/isc-dhcp/**'
+            kea:
+              - 'scripts/package-build/kea/**'
+            keepalived:
+              - 'scripts/package-build/keepalived/**'
+            linux-kernel:
+              - 'data/defaults.toml'
+              - 'scripts/package-build/linux-kernel/**'
+            ndppd:
+              - 'scripts/package-build/ndppd/**'
+            net-snmp:
+              - 'scripts/package-build/net-snmp/**'
+            netfilter:
+              - 'scripts/package-build/netfilter/**'
+            opennhrp:
+              - 'scripts/package-build/opennhrp/**'
+            openvpn-otp:
+              - 'scripts/package-build/openvpn-otp/**'
+            owamp:
+              - 'scripts/package-build/owamp/**'
+            pam_tacplus:
+              - 'scripts/package-build/pam_tacplus/**'
+            pmacct:
+              - 'scripts/package-build/pmacct/**'
+            podman:
+              - 'scripts/package-build/podman/**'
+            pyhumps:
+              - 'scripts/package-build/pyhumps/**'
+            radvd:
+              - 'scripts/package-build/radvd/**'
+            strongswan:
+              - 'scripts/package-build/strongswan/**'
+            telegraf:
+              - 'scripts/package-build/telegraf/**'
+            waagent:
+              - 'scripts/package-build/waagent/**'
+            wide-dhcpv6:
+              - 'scripts/package-build/wide-dhcpv6/**'
+
+  trigger-package-build:
+    needs: changes
+    strategy:
+        matrix:
+          package: ${{ fromJSON(needs.changes.outputs.changes-matrix) }}
+    uses: vyos/.github/.github/workflows/trigger-rebuild-repo-package.yml@current
+    with:
+      branch: current
+      package_name: ${{ matrix.package }}
+    secrets:
+      REMOTE_OWNER: ${{ secrets.REMOTE_OWNER }}
+      REMOTE_REUSE_REPO: ${{ secrets.REMOTE_REUSE_REPO }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      PAT: ${{ secrets.PAT }}
