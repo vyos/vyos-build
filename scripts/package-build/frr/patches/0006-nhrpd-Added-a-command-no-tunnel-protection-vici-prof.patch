@@ -1,0 +1,40 @@
+From 548f6dc1c8d02e5a5913c8cbc7c17c2148a41186 Mon Sep 17 00:00:00 2001
+From: aapostoliuk <a.apostoliuk@vyos.io>
+Date: Thu, 5 Sep 2024 18:37:27 +0300
+Subject: [PATCH 6/6] nhrpd: Added a command "no tunnel protection vici profile
+ PROFILE"
+
+For compatibility with frr-reload, a command
+"no tunnel protection [vici profile PROFILE [fallback-profile FALLBACK]]"
+was added.
+
+Signed-off-by: aapostoliuk <a.apostoliuk@vyos.io>
+---
+ nhrpd/nhrp_vty.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/nhrpd/nhrp_vty.c b/nhrpd/nhrp_vty.c
+index 96ba4728b..f20257696 100644
+--- a/nhrpd/nhrp_vty.c
++++ b/nhrpd/nhrp_vty.c
+@@ -295,10 +295,15 @@ DEFUN(tunnel_protection, tunnel_protection_cmd,
+ }
+ 
+ DEFUN(no_tunnel_protection, no_tunnel_protection_cmd,
+-	"no tunnel protection",
++	"no tunnel protection [vici profile PROFILE [fallback-profile FALLBACK]]",
+ 	NO_STR
+ 	"NHRP/GRE integration\n"
+-	"IPsec protection\n")
++	"IPsec protection\n"
++	"VICI (StrongSwan)\n"
++	"IPsec profile\n"
++	"IPsec profile name\n"
++	"Fallback IPsec profile\n"
++	"Fallback IPsec profile name\n")
+ {
+ 	VTY_DECLVAR_CONTEXT(interface, ifp);
+ 
+-- 
+2.30.2
+
