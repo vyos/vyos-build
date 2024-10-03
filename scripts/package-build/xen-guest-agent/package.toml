@@ -1,0 +1,34 @@
+[[packages]]
+name = "xen-guest-agent"
+commit_id = "0.4.0"
+scm_url = "https://gitlab.com/xen-project/xen-guest-agent"
+
+
+build_cmd = """
+# changelog
+cat <<EOF > debian/changelog
+xen-guest-agent (0.4.0) UNRELEASED; urgency=medium
+
+  * Upstream package
+
+ -- VyOS Maintainers <maintainers@vyos.io>  Thu, 26 Sep 2024 12:35:47 +0000
+
+EOF
+
+# Apply the patch to modify the debian/rules file
+sed -i 's|../xen-guest-agent-$(UPSTREAM_VERSION)-linux-$(DEB_TARGET_GNU_CPU)|target/release/xen-guest-agent|' debian/rules
+
+sudo apt-get -y install --no-install-recommends libclang-dev libxen-dev
+# Install rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y --default-toolchain stable --profile default --no-modify-path
+
+# Set PATH for Cargo
+export PATH="$HOME/.cargo/bin:$PATH"
+rustup update
+cd xen-guest-agent
+cargo update
+
+# Build deb
+cargo build -F static --profile release
+dpkg-buildpackage -b -us -uc
+"""
