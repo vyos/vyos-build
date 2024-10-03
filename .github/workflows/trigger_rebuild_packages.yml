@@ -76,6 +76,8 @@ jobs:
               - 'scripts/package-build/waagent/**'
             wide-dhcpv6:
               - 'scripts/package-build/wide-dhcpv6/**'
+            xen-guest-agent:
+              - 'scripts/package-build/xen-guest-agent/**'
 
       - name: Trigger builds for changed packages
         run: |
@@ -195,4 +197,8 @@ jobs:
 
           if [ "${{ steps.changes.outputs.wide-dhcpv6 }}" == "true" ]; then
             trigger_build "ethtool"
+          fi
+
+          if [ "${{ steps.changes.outputs.xen-guest-agent }}" == "true" ]; then
+            trigger_build "xen-guest-agent"
           fi
