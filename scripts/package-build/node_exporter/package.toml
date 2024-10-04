@@ -1,0 +1,21 @@
+[[packages]]
+name = "node_exporter"
+commit_id = "v1.8.2"
+scm_url = "https://github.com/prometheus/node_exporter"
+
+build_cmd = """
+
+# Create the install directory
+mkdir -p debian/usr/sbin
+make build
+
+# Move the node_exporter binary to the install directory
+mv node_exporter debian/usr/sbin
+
+# Build the Debian package
+fpm --input-type dir --output-type deb --name node-exporter \
+    --version $(git describe --tags --always | cut -c2-) --deb-compression gz \
+    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
+    --description "Prometheus exporter for machine metrics" \
+    --license Apache-2.0 -C debian --package ..
+"""
