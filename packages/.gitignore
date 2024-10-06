@@ -1,6 +1,1 @@
-*.tar.gz
-*.deb
-*.dsc
-*.buildinfo
-*.changes
-*.git
+/*
