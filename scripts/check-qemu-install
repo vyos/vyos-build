@@ -479,6 +479,14 @@ try:
 
     elif not args.configtest:
         # run default smoketest suite
+<<<<<<< HEAD
+=======
+        if args.match:
+            # Remove tests that we don't want to run
+            match_str = '-o '.join([f'-name "test_*{name}*.py" ' for name in args.match.split("|")]).strip()
+            c.sendline(f'sudo find /usr/libexec/vyos/tests/smoke -maxdepth 2 -type f -name test_* ! \( {match_str} \) -delete')
+            c.expect(op_mode_prompt)
+>>>>>>> 57d5afe0 (Testsuite: T6494: add new make target "test-interfaces")
         if args.no_interfaces:
             # remove interface tests as they consume a lot of time
             c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_interfaces_*')
