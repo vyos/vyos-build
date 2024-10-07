@@ -165,7 +165,7 @@ RUN apt-get update && apt-get install -y \
 # Build libvyosconfig
 RUN eval $(opam env --root=/opt/opam --set-root) && \
     git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig && \
-    cd /tmp/libvyosconfig && git checkout 3a021a0964882cdd1873de6cf2bb3b4acb9043e0 && \
+    cd /tmp/libvyosconfig && git checkout 9e4f6c1494fcff64ad22503b704dbdd43347b0a6 && \
     dpkg-buildpackage -uc -us -tc -b && \
     dpkg -i /tmp/libvyosconfig0_*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
 
