@@ -452,19 +452,18 @@ if __name__ == "__main__":
 
         # Multi line strings needs to be un-indented to not have leading
         # whitespaces in the resulting file
-        os_release = f"""
-    PRETTY_NAME="VyOS {version} ({build_config['release_train']})"
-    NAME="VyOS"
-    VERSION_ID="{version}"
-    VERSION="{version} ({build_config['release_train']})"
-    VERSION_CODENAME={build_defaults['debian_distribution']}
-    ID=vyos
-    BUILD_ID="{build_git}"
-    HOME_URL="{build_defaults['website_url']}"
-    SUPPORT_URL="{build_defaults['support_url']}"
-    BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
-    DOCUMENTATION_URL="{build_config['documentation_url']}"
-        """
+        os_release = f"""PRETTY_NAME="VyOS {version} ({build_config['release_train']})"
+NAME="VyOS"
+VERSION_ID="{version}"
+VERSION="{version} ({build_config['release_train']})"
+VERSION_CODENAME={build_defaults['debian_distribution']}
+ID=vyos
+BUILD_ID="{build_git}"
+HOME_URL="{build_defaults['website_url']}"
+SUPPORT_URL="{build_defaults['support_url']}"
+BUG_REPORT_URL="{build_defaults['bugtracker_url']}"
+DOCUMENTATION_URL="{build_config['documentation_url']}"
+"""
 
         # Reminder: all paths relative to the build dir, not to the repository root
         chroot_includes_dir = defaults.CHROOT_INCLUDES_DIR
@@ -484,8 +483,8 @@ if __name__ == "__main__":
             print("Version: {0}".format(version), file=f)
 
         # Define variables that influence to welcome message on boot
-        os.makedirs(os.path.join(chroot_includes_dir, 'usr/lib/'), exist_ok=True)
-        with open(os.path.join(chroot_includes_dir, 'usr/lib/os-release'), 'w') as f:
+        os.makedirs(os.path.join(chroot_includes_dir, 'etc/'), exist_ok=True)
+        with open(os.path.join(chroot_includes_dir, 'etc/os-release'), 'w') as f:
             print(os_release, file=f)
 
         ## Clean up earlier build state and artifacts
