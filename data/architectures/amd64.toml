@@ -6,6 +6,7 @@ additional_repositories = [
 packages = [
   "grub2",
   "grub-pc",
+  "vyos-drivers-realtek-r8152",
   "vyos-linux-firmware",
   "vyos-intel-qat",
   "vyos-intel-ixgbe",

@@ -100,6 +100,8 @@ def build_package(package: dict, dependencies: list) -> None:
             build_intel_ixgbevf()
         elif package['build_cmd'] == 'build_mellanox_ofed':
             build_mellanox_ofed()
+        elif package['build_cmd'] == 'build_realtek_r8152':
+            build_realtek_r8152()
         elif package['build_cmd'] == 'build_jool':
             build_jool()
         elif package['build_cmd'] == 'build_openvpn_dco':
@@ -188,6 +190,11 @@ def build_intel_ixgbevf():
 def build_mellanox_ofed():
     """Build Mellanox OFED"""
     run(['sudo', './build-mellanox-ofed.sh'], check=True)
+
+
+def build_realtek_r8152():
+    """Build Realtek r8152"""
+    run(['sudo', './build-driver-realtek-r8152.py'], check=True)
 
 
 def build_jool():
