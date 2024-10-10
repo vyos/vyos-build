@@ -651,7 +651,7 @@ try:
         if args.match:
             # Remove tests that we don't want to run
             match_str = '-o '.join([f'-name "test_*{name}*.py" ' for name in args.match.split("|")]).strip()
-            c.sendline(f'sudo find /usr/libexec/vyos/tests/smoke/cli/test_* -type f ! \( {match_str} \) -delete')
+            c.sendline(f'sudo find /usr/libexec/vyos/tests/smoke -maxdepth 2 -type f -name test_* ! \( {match_str} \) -delete')
             c.expect(op_mode_prompt)
         if args.no_interfaces:
             # remove interface tests as they consume a lot of time
