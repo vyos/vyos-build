@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+import os
 from tomllib import loads as toml_loads
 from requests import get
 from pathlib import Path
 from subprocess import run
+
+CWD = os.getcwd()
 
 # dependency modifier
 def add_depends(package_dir: str, package_name: str,
@@ -86,3 +89,7 @@ build_rules_path.write_text(build_rules_text, encoding='utf-8')
 # build a package
 debuild_cmd: list[str] = ['debuild']
 run(debuild_cmd, cwd=PACKAGE_DIR, check=True)
+
+# Sign generated Kernel modules
+sign_modules_script = os.path.join(CWD, 'sign-modules.sh')
+run([sign_modules_script, PACKAGE_DIR], check=True)
