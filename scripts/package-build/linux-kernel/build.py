@@ -194,7 +194,7 @@ def build_mellanox_ofed():
 
 def build_realtek_r8152():
     """Build Realtek r8152"""
-    run(['sudo', './build-driver-realtek-r8152.py'], check=True)
+    run(['sudo', './build-realtek-r8152.py'], check=True)
 
 
 def build_jool():

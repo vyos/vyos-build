@@ -30,7 +30,6 @@ architecture_file: str = Path('../../../data/architectures/amd64.toml').read_tex
 KERNEL_VER: str = toml_loads(defaults_file).get('kernel_version')
 KERNEL_FLAVOR: str = toml_loads(defaults_file).get('kernel_flavor')
 KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
-
 # define variables
 PACKAGE_NAME: str = 'vyos-drivers-realtek-r8152'
 PACKAGE_VERSION: str = '2.18.1'
@@ -80,6 +79,7 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 \tinstall -D -m 644 r8152.ko ${{PACKAGE_BUILD_DIR}}/lib/modules/${{KVER}}/${{MODULES_DIR}}/r8152.ko
+\t${{KERNELDIR}}/../sign-modules.sh ${{PACKAGE_BUILD_DIR}}/lib
 \tinstall -D -m 644 50-usb-realtek-net.rules ${{PACKAGE_BUILD_DIR}}/etc/udev/rules.d/50-usb-realtek-net.rules
 '''.format(KERNEL_SRC=KERNEL_SRC, PACKAGE_NAME=PACKAGE_NAME, KERNEL_VER=KERNEL_VER, KERNEL_FLAVOR=KERNEL_FLAVOR)
 
@@ -91,5 +91,5 @@ debuild_cmd: list[str] = ['debuild']
 run(debuild_cmd, cwd=PACKAGE_DIR, check=True)
 
 # Sign generated Kernel modules
-sign_modules_script = os.path.join(CWD, 'sign-modules.sh')
-run([sign_modules_script, PACKAGE_DIR], check=True)
+clean_cmd: list[str] = ['rm', '-rf', PACKAGE_DIR]
+run(clean_cmd, cwd=CWD, check=True)
