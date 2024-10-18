@@ -34,8 +34,8 @@ KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
 PACKAGE_NAME: str = 'vyos-drivers-realtek-r8152'
 PACKAGE_VERSION: str = '2.18.1'
 PACKAGE_DIR: str = f'{PACKAGE_NAME}-{PACKAGE_VERSION}'
-SOURCES_ARCHIVE: str = 'r8152-2.18.1-1.tar.gz'
-SOURCES_URL: str = f'https://github.com/bb-qq/r8152/archive/refs/tags/2.18.1-1.tar.gz'
+SOURCES_ARCHIVE: str = 'r8152-2.18.1.tar.bz2'
+SOURCES_URL: str = f'https://packages.vyos.net/source-mirror/r8152-2.18.1.tar.bz2'
 
 # download sources
 sources_archive = Path(SOURCES_ARCHIVE)
