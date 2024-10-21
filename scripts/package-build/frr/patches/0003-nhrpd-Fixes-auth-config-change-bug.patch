@@ -1,0 +1,47 @@
+From 889df80cd104bae5e3ce4a11a7af68723a4de082 Mon Sep 17 00:00:00 2001
+From: Dave LeRoy <dleroy@labn.net>
+Date: Wed, 17 Jul 2024 10:37:44 -0700
+Subject: [PATCH 3/6] nhrpd: Fixes auth config change bug
+
+Freeing auth-token does not set nifp->auth_token to NULL.
+Explicitly set auth_token to NULL when deleting auth config in order
+for write config logic to succeed.
+
+Fix bug #16359
+
+Signed-off-by: Dave LeRoy <dleroy@labn.net>
+---
+ nhrpd/nhrp_vty.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/nhrpd/nhrp_vty.c b/nhrpd/nhrp_vty.c
+index 8d0d0cc54..96ba4728b 100644
+--- a/nhrpd/nhrp_vty.c
++++ b/nhrpd/nhrp_vty.c
+@@ -481,8 +481,10 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
+ 		return CMD_WARNING_CONFIG_FAILED;
+ 	}
+ 
+-	if (nifp->auth_token)
++	if (nifp->auth_token) {
+ 		zbuf_free(nifp->auth_token);
++		nifp->auth_token = NULL;
++	}
+ 
+ 	nifp->auth_token = zbuf_alloc(pass_len + sizeof(uint32_t));
+ 	auth = (struct nhrp_cisco_authentication_extension *)
+@@ -505,8 +507,10 @@ DEFPY(if_no_nhrp_authentication, if_no_nhrp_authentication_cmd,
+ 	VTY_DECLVAR_CONTEXT(interface, ifp);
+ 	struct nhrp_interface *nifp = ifp->info;
+ 
+-	if (nifp->auth_token)
++	if (nifp->auth_token) {
+ 		zbuf_free(nifp->auth_token);
++		nifp->auth_token = NULL;
++	}
+ 	return CMD_SUCCESS;
+ }
+ 
+-- 
+2.30.2
+
