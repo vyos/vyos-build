@@ -36,7 +36,7 @@ jobs:
               - 'docker/**'
 
       - name: "Trigger Docker image build for ${{ github.ref_name }}"
-        if: ${{ steps.changes.outputs.docker-dir }}
+        if: ${{ steps.changes.outputs.docker-dir == 'true' }}
         run: |
           curl -L \
             -X POST \
