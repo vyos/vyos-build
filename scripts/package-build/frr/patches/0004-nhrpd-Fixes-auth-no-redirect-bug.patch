@@ -1,0 +1,48 @@
+From 89fced5c4e96f891926acecdac1cf35bde34925d Mon Sep 17 00:00:00 2001
+From: Dave LeRoy <dleroy@labn.net>
+Date: Thu, 18 Jul 2024 10:19:30 -0700
+Subject: [PATCH 4/6] nhrpd: Fixes auth no redirect bug
+
+The nhrp_peer_forward() routine was not explicitly handling the
+Authentication Extension in the switch statement and instead fell
+through to the default case which checked whether this was an
+unhandled Compulsory extension and errored out, never forwarding
+the Resolution Request.
+
+Fix bug #16371
+
+Signed-off-by: Dave LeRoy <dleroy@labn.net>
+---
+ nhrpd/nhrp_peer.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/nhrpd/nhrp_peer.c b/nhrpd/nhrp_peer.c
+index 602db36d2..1fd089a34 100644
+--- a/nhrpd/nhrp_peer.c
++++ b/nhrpd/nhrp_peer.c
+@@ -1052,6 +1052,13 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
+ 				zbuf_put(zb, extpl.head, len);
+ 			}
+ 			break;
++		case NHRP_EXTENSION_AUTHENTICATION:
++			/* At this point, received packet has been authenticated.
++			 *  Just need to regenerate auth extension before forwarding.
++			 *  This will be done below in nhrp_packet_complete_auth().
++			 */
++			break;
++
+ 		default:
+ 			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
+ 				/* FIXME: RFC says to just copy, but not
+@@ -1070,7 +1077,7 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
+ 		nhrp_ext_complete(zb, dst);
+ 	}
+ 
+-	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
++	nhrp_packet_complete_auth(zb, hdr, pp->ifp, true);
+ 	nhrp_peer_send(p, zb);
+ 	zbuf_free(zb);
+ 	zbuf_free(zb_copy);
+-- 
+2.30.2
+
