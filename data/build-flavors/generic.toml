@@ -7,6 +7,7 @@ packages = [
   # QEMU and Xen guest tools exist for multiple architectures
   "qemu-guest-agent",
   "vyos-xe-guest-utilities",
+  "ipmitool"
 ]
 
 [architectures.amd64]
