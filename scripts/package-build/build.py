@@ -101,6 +101,12 @@ def build_package(package: list, dependencies: list, patch_dir: Path) -> None:
         if (repo_dir / 'patches'):
             apply_patches(repo_dir, patch_dir)
 
+        # Sanitize the commit ID and build a tarball for the package
+        commit_id_sanitized = package['commit_id'].replace('/', '_')
+        tarball_name = f"{repo_name}_{commit_id_sanitized}.tar.gz"
+        run(['tar', '-czf', tarball_name, '-C', str(repo_dir.parent), repo_name], check=True)
+        print(f"I: Tarball created: {tarball_name}")
+
         # Prepare the package if required
         if package.get('prepare_package', False):
             prepare_package(repo_dir, package.get('install_data', ''))
