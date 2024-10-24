@@ -10,22 +10,22 @@ SERIAL_CONSOLE="console=tty0 console=ttyS0,115200"
 GRUB_MENUENTRY=$(sed -e '/menuentry.*hotkey.*/,/^}/!d' -e 's/--hotkey=l//g' $GRUB_PATH)
 
 # Update KVM menuentry name
-sed -i 's/"Live system \((.*-vyos)\)"/"Live system \1 - KVM console"/' $GRUB_PATH
+sed -i 's/"Live system \((.*vyos)\)"/"Live system \1 - KVM console"/' $GRUB_PATH
 
 # Insert serial menuentry
 echo "$GRUB_MENUENTRY" | sed \
-    -e 's/"Live system \((.*-vyos)\)"/"Live system \1 - Serial console"/' \
+    -e 's/"Live system \((.*vyos)\)"/"Live system \1 - Serial console"/' \
     -e "s/$KVM_CONSOLE/$SERIAL_CONSOLE/g" >> $GRUB_PATH
 
 # Live.cfg Update
 ISOLINUX_MENUENTRY=$(sed -e '/label live-\(.*\)-vyos$/,/^\tappend.*/!d' $ISOLINUX_PATH)
 
 # Update KVM menuentry name
-sed -i 's/Live system \((.*-vyos)\)/Live system \1 - KVM console/' $ISOLINUX_PATH
+sed -i 's/Live system \((.*vyos)\)/Live system \1 - KVM console/' $ISOLINUX_PATH
 
 # Insert serial menuentry
 echo "\n$ISOLINUX_MENUENTRY" | sed \
     -e 's/live-\(.*\)-vyos/live-\1-vyos-serial/' \
     -e '/^\tmenu default/d' \
-    -e 's/Live system \((.*-vyos)\)/Live system \1 - Serial console/' \
+    -e 's/Live system \((.*vyos)\)/Live system \1 - Serial console/' \
     -e "s/$KVM_CONSOLE/$SERIAL_CONSOLE/g" >> $ISOLINUX_PATH
