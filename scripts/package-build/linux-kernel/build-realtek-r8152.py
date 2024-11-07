@@ -80,7 +80,6 @@ override_dh_auto_build:
 override_dh_auto_install:
 \tinstall -D -m 644 r8152.ko ${{PACKAGE_BUILD_DIR}}/lib/modules/${{KVER}}/${{MODULES_DIR}}/r8152.ko
 \t${{KERNELDIR}}/../sign-modules.sh ${{PACKAGE_BUILD_DIR}}/lib
-\tinstall -D -m 644 50-usb-realtek-net.rules ${{PACKAGE_BUILD_DIR}}/etc/udev/rules.d/50-usb-realtek-net.rules
 '''.format(KERNEL_SRC=KERNEL_SRC, PACKAGE_NAME=PACKAGE_NAME, KERNEL_VER=KERNEL_VER, KERNEL_FLAVOR=KERNEL_FLAVOR)
 
 build_rules_path = Path(f'{PACKAGE_DIR}/debian/rules')
