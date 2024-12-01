@@ -14,7 +14,7 @@ build_cmd = "dpkg-buildpackage -uc -us -tc -b"
 name = "frr"
 commit_id = "stable/10.2"
 scm_url = "https://github.com/FRRouting/frr.git"
-build_cmd = "dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib,pkg.frr.lua"
+build_cmd = "sudo dpkg -i ../*.deb; dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib,pkg.frr.lua"
 
 [dependencies]
 packages = [
