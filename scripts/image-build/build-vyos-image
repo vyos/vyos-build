@@ -272,7 +272,7 @@ if __name__ == "__main__":
         pre_build_config['pbuilder_debian_mirror'] = pre_build_config['debian_mirror']
 
     if pre_build_config['debian_security_mirror'] is None:
-        pre_build_config['debian_security_mirror'] = pre_build_config['debian_mirror']
+        pre_build_config['debian_security_mirror'] = pre_build_config['debian_mirror'].replace('/debian', '/debian-security')
 
     # Validate characters in version name
     if args.get('version'):
@@ -306,8 +306,8 @@ if __name__ == "__main__":
 
     # If Debian mirror is specified explicitly but Debian security mirror is not,
     # assume that the user wants to use that mirror for security updates as well.
-    if (args['debian_mirror'] is not None) and (args['debian_security_mirror'] is None):
-        build_config['debian_security_mirror'] = args['debian_mirror']
+    if (build_config['debian_mirror'] is not None) and (build_config['debian_security_mirror'] is None):
+        build_config['debian_security_mirror'] = build_config['debian_mirror'].replace('/debian', '/debian-security')
 
     ## Rename and merge some fields for simplicity
     ## E.g. --custom-packages is for the user, but internally
