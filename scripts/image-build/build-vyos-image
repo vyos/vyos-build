@@ -667,7 +667,7 @@ Pin-Priority: 600
         print("I: Starting image build")
         if debug:
             print("D: It's not like I'm building this specially for you or anything!")
-        cmd("lb build 2>&1")
+        cmd("sudo lb build 2>&1")
 
         # Copy the image
         shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]), iso_file)
