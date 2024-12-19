@@ -2,3 +2,20 @@
 name = "isc-kea"
 commit_id = "debian/2.4.1-3"
 scm_url = "https://salsa.debian.org/debian/isc-kea"
+build_env = "DEB_BUILD_OPTIONS='parallel=1'"
+
+[dependencies]
+packages = [
+  "default-libmysqlclient-dev",
+  "dh-apparmor",
+  "docbook",
+  "elinks",
+  "libboost-dev",
+  "libboost-system-dev",
+  "liblog4cplus-dev",
+  "libpq-dev",
+  "postgresql-server-dev-all",
+  "python3-dev",
+  "python3-sphinx",
+  "python3-sphinx-rtd-theme"
+]
