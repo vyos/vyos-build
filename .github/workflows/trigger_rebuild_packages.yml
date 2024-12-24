@@ -29,6 +29,8 @@ jobs:
               - 'scripts/package-build/amazon-ssm-agent/**'
             aws-gwlbtun:
               - 'scripts/package-build/aws-gwlbtun/**'
+            blackbox_exporter:
+              - 'scripts/package-build/blackbox_exporter/**'
             ddclient:
               - 'scripts/package-build/ddclient/**'
             dropbear:
