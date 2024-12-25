@@ -13,7 +13,6 @@ go build
 
 # Move the blackbox_exporter binary and config to the install directory
 mv blackbox_exporter debian/usr/sbin
-mv blackbox.yml debian/etc/blackbox_exporter/config.yml
 
 # Build the Debian package
 fpm --input-type dir --output-type deb --name blackbox-exporter \
