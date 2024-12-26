@@ -52,7 +52,7 @@ build:
 binary:
 	mkdir -p debian/blackbox-exporter
 	mkdir -p debian/blackbox-exporter/usr/sbin
-	mkdir -p debian/blackbox-exporter/etc/blackbox_exporter
+	mkdir -p debian/blackbox-exporter/run/blackbox_exporter
 	cp blackbox_exporter debian/blackbox-exporter/usr/sbin/blackbox_exporter
 	dh_gencontrol
 	dh_builddeb
