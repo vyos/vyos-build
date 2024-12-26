@@ -2,22 +2,4 @@
 name = "blackbox_exporter"
 commit_id = "v0.25.0"
 scm_url = "https://github.com/prometheus/blackbox_exporter"
-
-build_cmd = """
-
-# Create the install directory
-mkdir -p \
-    debian/usr/sbin \
-    debian/etc/blackbox_exporter
-go build
-
-# Move the blackbox_exporter binary and config to the install directory
-mv blackbox_exporter debian/usr/sbin
-
-# Build the Debian package
-fpm --input-type dir --output-type deb --name blackbox-exporter \
-    --version $(git describe --tags --always | cut -c2-) --deb-compression gz \
-    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
-    --description "Prometheus exporter for probing endpoints" \
-    --license Apache-2.0 -C debian --package ..
-"""
+build_cmd = "cd ..; y | ./build.sh"
