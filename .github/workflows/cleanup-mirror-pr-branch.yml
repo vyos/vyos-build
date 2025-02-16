@@ -11,5 +11,6 @@ permissions:
 
 jobs:
   call-delete-branch:
+    if: github.repository_owner != 'vyos'
     uses: vyos/.github/.github/workflows/cleanup-mirror-pr-branch.yml@current
     secrets: inherit
