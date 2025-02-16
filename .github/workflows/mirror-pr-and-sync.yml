@@ -1,0 +1,26 @@
+name: Create Mirror PR and Repo Sync
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Source repo PR Number'
+        required: true
+        type: string
+      sync_branch:
+        description: 'branch to sync'
+        required: true
+        type: string
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  call-mirror-pr-and-sync:
+    if: github.repository_owner != 'vyos'
+    uses: VyOS-Networks/vyos-reusable-workflows/.github/workflows/mirror-pr-and-sync.yml@main
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      sync_branch: ${{ inputs.sync_branch }}
+    secrets:
+      PAT: ${{ secrets.PAT }}
