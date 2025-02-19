@@ -585,6 +585,7 @@ RUN apt-get update && apt-get install -y \
       ruby-dev \
       rubygems \
       build-essential
+RUN gem install --no-document dotenv -v 2.8.1
 RUN gem install --no-document fpm
 
 # Allow password-less 'sudo' for all users in group 'sudo'
