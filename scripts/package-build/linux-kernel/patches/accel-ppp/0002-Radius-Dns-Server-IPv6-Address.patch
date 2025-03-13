@@ -1,0 +1,194 @@
+From: Ben Hardill <ben@hardill.me.uk>
+Date: Tue, 13 Mar 2025 05:00:00 +0000
+Subject: [PATCH] PPPoE: IPv6 DNS from Radius - managing the DNS-Server-IPv6-Address attribute
+
+Patch authored by Ben Hardill from
+https://github.com/accel-ppp/accel-ppp/pull/69
+---
+diff --git a/accel-pppd/include/ap_session.h b/accel-pppd/include/ap_session.h
+index 70515133..507eae04 100644
+--- a/accel-pppd/include/ap_session.h
++++ b/accel-pppd/include/ap_session.h
+@@ -84,6 +84,7 @@ struct ap_session
+ 	struct ipv4db_item_t *ipv4;
+ 	struct ipv6db_item_t *ipv6;
+ 	struct ipv6db_prefix_t *ipv6_dp;
++	struct ipv6db_item_t *ipv6_dns;
+ 	char *ipv4_pool_name;
+ 	char *ipv6_pool_name;
+ 	char *dpv6_pool_name;
+diff --git a/accel-pppd/ipv6/dhcpv6.c b/accel-pppd/ipv6/dhcpv6.c
+index 158771b1..1ef48132 100644
+--- a/accel-pppd/ipv6/dhcpv6.c
++++ b/accel-pppd/ipv6/dhcpv6.c
+@@ -214,19 +214,41 @@ static void insert_status(struct dhcpv6_packet *pkt, struct dhcpv6_option *opt,
+ 	status->code = htons(code);
+ }
+ 
+-static void insert_oro(struct dhcpv6_packet *reply, struct dhcpv6_option *opt)
++static void insert_oro(struct dhcpv6_packet *reply, struct dhcpv6_option *opt, struct ap_session *ses)
+ {
+ 	struct dhcpv6_option *opt1;
+-	int i, j;
++	int i = 0, j = 0, k = 0;
+ 	uint16_t *ptr;
+ 	struct in6_addr addr, *addr_ptr;
++	struct ipv6db_addr_t *dns;
+ 
+ 	for (i = ntohs(opt->hdr->len) / 2, ptr = (uint16_t *)opt->hdr->data; i; i--, ptr++) {
+ 		if (ntohs(*ptr) == D6_OPTION_DNS_SERVERS) {
+-			if (conf_dns_count) {
+-				opt1 = dhcpv6_option_alloc(reply, D6_OPTION_DNS_SERVERS, conf_dns_count * sizeof(addr));
+-				for (j = 0, addr_ptr = (struct in6_addr *)opt1->hdr->data; j < conf_dns_count; j++, addr_ptr++)
+-					memcpy(addr_ptr, conf_dns + j, sizeof(addr));
++			if (ses->ipv6_dns && !list_empty(&ses->ipv6_dns->addr_list)) {
++				list_for_each_entry(dns, &ses->ipv6_dns->addr_list, entry) {
++					j++;
++				}
++				if (j >= 3) {
++					j = 3;
++				}
++				opt1 = dhcpv6_option_alloc(reply, D6_OPTION_DNS_SERVERS, j * sizeof(addr));
++				addr_ptr = (struct in6_addr *)opt1->hdr->data;
++				list_for_each_entry(dns, &ses->ipv6_dns->addr_list, entry) {
++					if (k < j) {
++						memcpy(addr_ptr, &dns->addr, sizeof(addr));
++						k++;
++						addr_ptr++;
++					} else {
++						break;
++					}
++				}
++
++			} else {
++				if (conf_dns_count) {
++					opt1 = dhcpv6_option_alloc(reply, D6_OPTION_DNS_SERVERS, conf_dns_count * sizeof(addr));
++					for (j = 0, addr_ptr = (struct in6_addr *)opt1->hdr->data; j < conf_dns_count; j++, addr_ptr++)
++						memcpy(addr_ptr, conf_dns + j, sizeof(addr));
++				}
+ 			}
+ 		} else if (ntohs(*ptr) == D6_OPTION_DOMAIN_LIST) {
+ 			if (conf_dnssl_size) {
+@@ -434,7 +456,10 @@ static void dhcpv6_send_reply(struct dhcpv6_packet *req, struct dhcpv6_pd *pd, i
+ 
+ 		// Option Request
+ 		} else if (ntohs(opt->hdr->code) == D6_OPTION_ORO) {
+-			insert_oro(reply, opt);
++			if (ses->ipv6_dns &&!list_empty(&ses->ipv6_dns->addr_list)) {
++				log_ppp_info2("User specific IPv6 DNS entries\n");
++			} 
++			insert_oro(reply, opt, ses);
+ 
+ 		} else if (ntohs(opt->hdr->code) == D6_OPTION_RAPID_COMMIT) {
+ 			if (req->hdr->type == D6_SOLICIT)
+@@ -594,7 +619,7 @@ static void dhcpv6_send_reply2(struct dhcpv6_packet *req, struct dhcpv6_pd *pd,
+ 			}
+ 		// Option Request
+ 		} else if (ntohs(opt->hdr->code) == D6_OPTION_ORO)
+-			insert_oro(reply, opt);
++			insert_oro(reply, opt, ses);
+ 	}
+ 
+ 	opt1 = dhcpv6_option_alloc(reply, D6_OPTION_PREFERENCE, 1);
+diff --git a/accel-pppd/ipv6/nd.c b/accel-pppd/ipv6/nd.c
+index 297e4d63..b3054274 100644
+--- a/accel-pppd/ipv6/nd.c
++++ b/accel-pppd/ipv6/nd.c
+@@ -174,7 +174,32 @@ static void ipv6_nd_send_ra(struct ipv6_nd_handler_t *h, struct sockaddr_in6 *ds
+ 		rinfo++;
+ 	}*/
+ 
+-	if (conf_dns_count) {
++	if (ses->ipv6_dns && !list_empty(&ses->ipv6_dns->addr_list)) {
++		int i = 0, j = 0;
++		struct ipv6db_addr_t *dns;
++
++		list_for_each_entry(dns, &ses->ipv6_dns->addr_list, entry) {
++			i++;
++		}
++		if (i >= 3) {
++			i = 3;
++		}
++		rdnssinfo = (struct nd_opt_rdnss_info_local *)pinfo;
++		memset(rdnssinfo, 0, sizeof(*rdnssinfo));
++		rdnssinfo->nd_opt_rdnssi_type = ND_OPT_RDNSS_INFORMATION;
++		rdnssinfo->nd_opt_rdnssi_len = 1 + 2 * i;
++		rdnssinfo->nd_opt_rdnssi_lifetime = htonl(conf_rdnss_lifetime);
++		rdnss_addr = (struct in6_addr *)rdnssinfo->nd_opt_rdnssi;
++		list_for_each_entry(dns, &ses->ipv6_dns->addr_list, entry) {
++			if (j < i) {
++				memcpy(rdnss_addr, &dns->addr, sizeof(*rdnss_addr));
++				j++;
++				rdnss_addr++;
++			} else {
++				break;
++			}
++		}
++	} else if (conf_dns_count) {
+ 		rdnssinfo = (struct nd_opt_rdnss_info_local *)pinfo;
+ 		memset(rdnssinfo, 0, sizeof(*rdnssinfo));
+ 		rdnssinfo->nd_opt_rdnssi_type = ND_OPT_RDNSS_INFORMATION;
+diff --git a/accel-pppd/radius/radius.c b/accel-pppd/radius/radius.c
+index 786faa56..1379b0b2 100644
+--- a/accel-pppd/radius/radius.c
++++ b/accel-pppd/radius/radius.c
+@@ -403,6 +403,12 @@ int rad_proc_attrs(struct rad_req_t *req)
+ 			case Framed_IPv6_Route:
+ 				rad_add_framed_ipv6_route(attr->val.string, rpd);
+ 				break;
++			case DNS_Server_IPv6_Address:
++				a = _malloc(sizeof(*a));
++				memset(a, 0, sizeof(*a));
++				a->addr = attr->val.ipv6addr;
++				list_add_tail(&a->entry, &rpd->ipv6_dns.addr_list);
++				break;
+ 		}
+ 	}
+ 
+@@ -420,6 +426,9 @@ int rad_proc_attrs(struct rad_req_t *req)
+ 	if (!rpd->ses->ipv6_dp && !list_empty(&rpd->ipv6_dp.prefix_list))
+ 		rpd->ses->ipv6_dp = &rpd->ipv6_dp;
+ 
++	if (!rpd->ses->ipv6_dns && !list_empty(&rpd->ipv6_dns.addr_list))
++		rpd->ses->ipv6_dns = &rpd->ipv6_dns;
++
+ 	return res;
+ }
+ 
+@@ -584,10 +593,12 @@ static void ses_starting(struct ap_session *ses)
+ 	INIT_LIST_HEAD(&rpd->plugin_list);
+ 	INIT_LIST_HEAD(&rpd->ipv6_addr.addr_list);
+ 	INIT_LIST_HEAD(&rpd->ipv6_dp.prefix_list);
++	INIT_LIST_HEAD(&rpd->ipv6_dns.addr_list);
+ 
+ 	rpd->ipv4_addr.owner = &ipdb;
+ 	rpd->ipv6_addr.owner = &ipdb;
+ 	rpd->ipv6_dp.owner = &ipdb;
++	rpd->ipv6_dns.owner = &ipdb;
+ 
+ 	list_add_tail(&rpd->pd.entry, &ses->pd_list);
+ 
+@@ -764,6 +775,12 @@ static void ses_finished(struct ap_session *ses)
+ 		_free(a);
+ 	}
+ 
++	while (!list_empty(&rpd->ipv6_dns.addr_list)) {
++		a = list_entry(rpd->ipv6_dns.addr_list.next, typeof(*a), entry);
++		list_del(&a->entry);
++		_free(a);
++	}
++
+ 	fr6 = rpd->fr6;
+ 	while (fr6) {
+ 		struct framed_ip6_route *next = fr6->next;
+diff --git a/accel-pppd/radius/radius_p.h b/accel-pppd/radius/radius_p.h
+index 988f154f..eaa5acb0 100644
+--- a/accel-pppd/radius/radius_p.h
++++ b/accel-pppd/radius/radius_p.h
+@@ -65,6 +65,7 @@ struct radius_pd_t {
+ 	struct ipv4db_item_t ipv4_addr;
+ 	struct ipv6db_item_t ipv6_addr;
+ 	struct ipv6db_prefix_t ipv6_dp;
++	struct ipv6db_item_t ipv6_dns;
+ 	int acct_interim_interval;
+ 	int acct_interim_jitter;
