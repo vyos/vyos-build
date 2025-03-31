@@ -363,6 +363,12 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
       asciidoc-base
 
+# Packages needed for libpam-radius-auth
+RUN apt-get update && apt-get install -y \
+      libpam0g-dev \
+      libaudit-dev \
+      libcap-dev
+
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
