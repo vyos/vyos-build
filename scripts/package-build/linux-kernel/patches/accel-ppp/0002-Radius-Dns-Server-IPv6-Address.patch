@@ -192,4 +192,3 @@ index 988f154f..eaa5acb0 100644
 +	struct ipv6db_item_t ipv6_dns;
  	int acct_interim_interval;
  	int acct_interim_jitter;
-
