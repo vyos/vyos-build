@@ -2,7 +2,6 @@ From: Ben Hardill <ben@hardill.me.uk>
 Date: Tue, 13 Mar 2025 05:00:00 +0000
 Subject: [PATCH] PPPoE: IPv6 DNS from Radius - managing the DNS-Server-IPv6-Address attribute
 
-
 Patch authored by Ben Hardill from
 https://github.com/accel-ppp/accel-ppp/pull/69
 ---
