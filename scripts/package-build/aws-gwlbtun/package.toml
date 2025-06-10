@@ -1,8 +1,23 @@
 [[packages]]
-name = "aws-gwlbtun"
-commit_id = "f78058a"
-scm_url = "https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler"
+# Newest 'asw-gwlbtun' requires the specific boost version (1.83)
+# https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler/blob/c1fd48b7b05879b199ebf1beeeacf0442b3c4ad2/CMakeLists.txt#L7
+name = "boost"
+commit_id = "boost-1.83.0"
+scm_url = "https://github.com/boostorg/boost"
+apply_patches = false
 
+build_cmd = """
+git submodule update --init --recursive
+./bootstrap.sh --prefix=$HOME/.local
+./b2 -j$(nproc) install
+"""
+
+
+[[packages]]
+name = "aws-gwlbtun"
+commit_id = "c1fd48b"
+scm_url = "https://github.com/aws-samples/aws-gateway-load-balancer-tunnel-handler"
+apply_patches = false
 
 ## Build cmd start
 build_cmd = '''\
@@ -54,6 +69,13 @@ clean:
 EOF
 
 chmod +x debian/rules
+
+# Patches for aws-gwlbtun should applied here
+for patch in ../patches/aws-gwlbtun/*.patch; do
+    echo "I: build_cmd applying patch $patch..."
+    git -c user.email=maintainers@vyos.net -c user.name=vyos am "$patch" || { echo "Failed to apply patch $patch"; exit 1; }
+done
+
 debuild -us -uc -b
 '''
 ## Build cmd end

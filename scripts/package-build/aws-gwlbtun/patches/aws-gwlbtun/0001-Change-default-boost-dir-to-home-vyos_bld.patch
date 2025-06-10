@@ -1,0 +1,25 @@
+From fecface1a9c5efbc558025e574a8eb8122c4dd2f Mon Sep 17 00:00:00 2001
+From: Viacheslav <v.gletenko@vyos.io>
+Date: Wed, 11 Jun 2025 00:04:29 +0000
+Subject: [PATCH] Change default boost dir to home vyos_bld
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0f55e81..879b1f0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -3,7 +3,7 @@ project(gwlbtun)
+ set(CMAKE_CXX_STANDARD 17)
+ find_package(Threads)
+ 
+-set(Boost_INCLUDE_DIR /home/ec2-user/boost)
++set(Boost_INCLUDE_DIR /home/vyos_bld/.local/include)
+ find_package(Boost 1.83 REQUIRED)
+ if(Boost_FOUND)
+     include_directories(${Boost_INCLUDE_DIRS})
+-- 
+2.39.5
+
