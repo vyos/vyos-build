@@ -18,7 +18,7 @@
 
 # This Dockerfile is installable on both x86, x86-64, armhf and arm64 systems
 ARG ARCH=
-FROM ${ARCH}debian:bookworm-slim
+FROM ${ARCH}debian:trixie-slim
 
 RUN grep "VERSION_ID" /etc/os-release || (echo 'VERSION_ID="12"' >> /etc/os-release)
 
@@ -49,7 +49,7 @@ LABEL authors="VyOS Maintainers <maintainers@vyos.io>" \
       org.opencontainers.image.licenses="GNU" \
       org.opencontainers.image.title="vyos-build" \
       org.opencontainers.image.description="Container to build VyOS ISO" \
-      org.opencontainers.image.base.name="docker.io/debian/debian:bookworm"
+      org.opencontainers.image.base.name="docker.io/debian/debian:trixie"
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
@@ -226,7 +226,7 @@ RUN pip --no-cache --no-cache-dir install --break-system-packages \
       python3-inotify \
       python3-xmltodict \
       python3-lxml \
-      python3-nose \
+      python3-pytest \
       python3-netifaces \
       python3-jinja2 \
       python3-jmespath \
@@ -290,13 +290,13 @@ RUN apt-get update && apt-get install -y \
       python3-jsonpatch \
       python3-mock \
       python3-oauthlib \
-      python3-pep8 \
+      # python3-pep8 \        # has no installation candidate (trixie)
       python3-pyflakes \
       python3-serial \
-      python3-unittest2 \
+      # python3-unittest2 \   # Unable to locate package (trixie)
       python3-yaml \
       python3-jsonschema \
-      python3-contextlib2 \
+      # python3-contextlib2 \ # has no installation candidate (trixie)
       python3-pytest-cov \
       cloud-utils
 

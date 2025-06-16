@@ -627,7 +627,7 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
                 --checksums "sha256" \
                 --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \
                 --debian-installer none \
-                --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2,linux-kbuild-6.1" \
+                --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2,linux-kbuild-6.12.30" \
                 --distribution "{{debian_distribution}}" \
                 --firmware-binary false \
                 --firmware-chroot false \
@@ -681,6 +681,11 @@ Pin-Priority: 600
         print("I: Starting image build")
         if debug:
             print("D: It's not like I'm building this specially for you or anything!")
+        # Add deboots scripts symbolic link to sid
+        src_deboots_script = "/usr/share/debootstrap/scripts/cid"
+        dst_deboots_script = "/usr/share/debootstrap/scripts/trixie"
+        if not os.path.islink(dst_deboots_script):
+            os.symlink(src_deboots_script, dst_deboots_script)
         cmd("lb build 2>&1")
 
         # Copy the image

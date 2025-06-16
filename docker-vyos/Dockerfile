@@ -19,7 +19,7 @@ ARG VYOS_VERSION
 ARG BUILD_DATE
 
 # Use Debian as base layer
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 ENV DEBIAN_FRONTEND noninteractive
