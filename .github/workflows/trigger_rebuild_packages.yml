@@ -62,8 +62,6 @@ jobs:
               - 'scripts/package-build/linux-kernel/**'
             ndppd:
               - 'scripts/package-build/ndppd/**'
-            net-snmp:
-              - 'scripts/package-build/net-snmp/**'
             netfilter:
               - 'scripts/package-build/netfilter/**'
             node_exporter:
@@ -189,10 +187,6 @@ jobs:
 
           if [ "${{ steps.changes.outputs.ndppd }}" == "true" ]; then
             trigger_build "ndppd"
-          fi
-
-          if [ "${{ steps.changes.outputs.net-snmp }}" == "true" ]; then
-            trigger_build "net-snmp"
           fi
 
           if [ "${{ steps.changes.outputs.netfilter }}" == "true" ]; then
