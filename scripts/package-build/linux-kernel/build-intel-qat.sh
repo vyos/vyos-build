@@ -14,7 +14,7 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-url="https://packages.vyos.net/source-mirror/QAT.L.4.24.0-00005.tar.gz"
+url="https://packages.vyos.net/source-mirror/QAT.L.4.28.0-00004.tar.gz"
 
 cd ${CWD}
 
@@ -72,7 +72,7 @@ cp quickassist/qat/fw/*.bin ${DEBIAN_DIR}/lib/firmware
 cp build/*.so ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu
 cp build/adf_ctl ${DEBIAN_DIR}/usr/sbin
 cp quickassist/build_system/build_files/qat_service ${DEBIAN_DIR}/etc/init.d
-cp build/usdm_drv.ko ${DEBIAN_DIR}/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/updates/drivers
+#cp build/usdm_drv.ko ${DEBIAN_DIR}/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/updates/drivers
 chmod 644 ${DEBIAN_DIR}/lib/firmware/*
 chmod 755 ${DEBIAN_DIR}/etc/init.d/* ${DEBIAN_DIR}/usr/local/bin/*
 

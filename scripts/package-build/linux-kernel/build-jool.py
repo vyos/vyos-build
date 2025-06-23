@@ -38,7 +38,7 @@ PACKAGE_NAME: str = 'jool'
 PACKAGE_VERSION: str = '4.1.9+bf4c7e3669'
 PACKAGE_DIR: str = f'{PACKAGE_NAME}-{PACKAGE_VERSION}'
 SOURCES_ARCHIVE: str = 'jool-4.1.9+bf4c7e3669.tar.gz'
-SOURCES_URL: str = f'https://github.com/NICMx/Jool/archive/7f08c42c615ed63cf0fdc1522d91aa0809f6d990.tar.gz'
+SOURCES_URL: str = f'https://packages.vyos.net/source-mirror/jool-4.1.9+bf4c7e3669.tar.gz'
 
 # download sources
 sources_archive = Path(SOURCES_ARCHIVE)
@@ -46,7 +46,7 @@ sources_archive.write_bytes(get(SOURCES_URL).content)
 
 # prepare sources
 debmake_cmd: list[str] = [
-    'debmake', '-e', 'support@vyos.io', '-f', 'VyOS Support', '-p',
+    'debmake', '-z', 'tar.gz', '-e', 'support@vyos.io', '-f', 'VyOS Support', '-p',
     PACKAGE_NAME, '-u', PACKAGE_VERSION, '-a', SOURCES_ARCHIVE
 ]
 run(debmake_cmd)

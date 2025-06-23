@@ -19,10 +19,9 @@ Subject: [PATCH 2/4] Add vrf support for Framed-Route and Framed-IPv6-Route
  create mode 100644 accel-pppd/libnetlink/rt_names.h
 
 diff --git a/accel-pppd/CMakeLists.txt b/accel-pppd/CMakeLists.txt
-index ab8a350..c3995ea 100644
 --- a/accel-pppd/CMakeLists.txt
 +++ b/accel-pppd/CMakeLists.txt
-@@ -123,6 +123,10 @@ ADD_EXECUTABLE(accel-pppd
+@@ -171,4 +171,8 @@ ADD_EXECUTABLE(accel-pppd
  	main.c
  )
  
@@ -30,9 +29,7 @@ index ab8a350..c3995ea 100644
 +	target_sources(accel-pppd PRIVATE libnetlink/rt_names.c)
 +ENDIF (DEFINED HAVE_VRF)
 +
- TARGET_LINK_LIBRARIES(accel-pppd triton rt pthread ${crypto_lib} pcre)
- set_property(TARGET accel-pppd PROPERTY CMAKE_SKIP_BUILD_RPATH FALSE)
- set_property(TARGET accel-pppd PROPERTY CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+ # check if we have getcontext/setcontext
 diff --git a/accel-pppd/ctrl/ipoe/ipoe.c b/accel-pppd/ctrl/ipoe/ipoe.c
 index 61b7c23..6f23fd6 100644
 --- a/accel-pppd/ctrl/ipoe/ipoe.c

@@ -12,25 +12,25 @@ build_cmd = "build_kernel"
 
 [[packages]]
 name = "linux-firmware"
-commit_id = "20240610"
+commit_id = "20250613"
 scm_url = "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
 build_cmd = "build_linux_firmware"
 
 [[packages]]
 name = "accel-ppp"
-commit_id = "1.13.0"
+commit_id = "43f9e5c"
 scm_url = "https://github.com/accel-ppp/accel-ppp.git"
 build_cmd = "build_accel_ppp"
 
 [[packages]]
 name = "ovpn-dco"
-commit_id = "v0.2.20231117"
+commit_id = "v0.2.20241216"
 scm_url = "https://github.com/OpenVPN/ovpn-dco"
 build_cmd = "build_openvpn_dco"
 
 [[packages]]
 name = "nat-rtsp"
-commit_id = "475af0a"
+commit_id = "5aeee02"
 scm_url = "https://github.com/maru-sama/rtsp-linux.git"
 build_cmd = "build_nat_rtsp"
 
@@ -42,19 +42,19 @@ build_cmd = "build_intel_qat"
 
 [[packages]]
 name = "igb"
-commit_id = "v5.18.7"
+commit_id = "v5.19.2.1"
 scm_url = "https://github.com/intel/ethernet-linux-igb"
 build_cmd = "build_intel_igb"
 
 [[packages]]
 name = "ixgbe"
-commit_id = "v6.0.5"
+commit_id = "v6.1.4"
 scm_url = "https://github.com/intel/ethernet-linux-ixgbe"
 build_cmd = "build_intel_ixgbe"
 
 [[packages]]
 name = "ixgbevf"
-commit_id = "v5.0.2"
+commit_id = "v5.1.3"
 scm_url = "http://github.com/intel/ethernet-linux-ixgbevf"
 build_cmd = "build_intel_ixgbevf"
 
@@ -118,7 +118,6 @@ packages = [
     "liblua5.3-dev",
     "libssl3",
     "libssl-dev",
-    "libpcre3-dev",
     "libnl-genl-3-dev",
     "libxtables-dev",
     "asciidoc-base"

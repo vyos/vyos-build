@@ -34,8 +34,8 @@ KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
 PACKAGE_NAME: str = 'vyos-drivers-realtek-r8152'
 PACKAGE_VERSION: str = '2.18.1'
 PACKAGE_DIR: str = f'{PACKAGE_NAME}-{PACKAGE_VERSION}'
-SOURCES_ARCHIVE: str = 'r8152-2.18.1.tar.bz2'
-SOURCES_URL: str = f'https://packages.vyos.net/source-mirror/r8152-2.18.1.tar.bz2'
+SOURCES_ARCHIVE: str = 'r8152-2.20.1.tar.gz'
+SOURCES_URL: str = 'https://packages.vyos.net/source-mirror/r8152-2.20.1.tar.gz'
 
 # download sources
 sources_archive = Path(SOURCES_ARCHIVE)
@@ -43,7 +43,7 @@ sources_archive.write_bytes(get(SOURCES_URL).content)
 
 # prepare sources
 debmake_cmd: list[str] = [
-    'debmake', '-e', 'support@vyos.io', '-f', 'VyOS Support', '-p',
+    'debmake', '-z', 'tar.gz', '-e', 'support@vyos.io', '-f', 'VyOS Support', '-p',
     PACKAGE_NAME, '-u', PACKAGE_VERSION, '-a', SOURCES_ARCHIVE
 ]
 run(debmake_cmd)
