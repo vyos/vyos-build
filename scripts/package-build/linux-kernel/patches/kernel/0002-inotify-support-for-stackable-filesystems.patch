@@ -221,31 +221,25 @@ index 93ee57bc82ad..5f4f886d011e 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1548,18 +1561,24 @@ static int __init ovl_init(void)
- 	err = ovl_aio_request_cache_init();
- 	if (!err) {
- 		err = register_filesystem(&ovl_fs_type);
--		if (!err)
--			return 0;
-+		if (err)
-+			goto err;
-+		err = inotify_register_stackfs(&ovl_inotify);
-+		if (err)
-+			goto err;
-+		return 0;
+@@ -1548,9 +1561,14 @@ static int __init ovl_init(void)
+		return -ENOMEM;
  
--		ovl_aio_request_cache_destroy();
- 	}
+ 	err = register_filesystem(&ovl_fs_type);
+-	if (!err)
+-		return 0;
++	if (err)
++		goto err;
++	err = inotify_register_stackfs(&ovl_inotify);
++	if (err)
++		goto err;
++	return 0;
+ 
 +err:
  	kmem_cache_destroy(ovl_inode_cachep);
 -
 +	unregister_filesystem(&ovl_fs_type);
-+	ovl_aio_request_cache_destroy();
- 	return err;
- }
- 
- static void __exit ovl_exit(void)
- {
+	return err;
+@@ -1554,3 +1554,4 @@ static void __exit ovl_exit(void)
 +	inotify_unregister_stackfs(&ovl_inotify);
  	unregister_filesystem(&ovl_fs_type);
  

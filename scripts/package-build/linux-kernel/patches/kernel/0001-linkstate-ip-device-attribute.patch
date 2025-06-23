@@ -104,11 +104,11 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 index 231fa4dc6cde..8d8a8ee9c4fe 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5677,6 +5677,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_NDISC_EVICT_NOCARRIER] = cnf->ndisc_evict_nocarrier;
- 	array[DEVCONF_ACCEPT_UNTRACKED_NA] = cnf->accept_untracked_na;
- 	array[DEVCONF_ACCEPT_RA_MIN_LFT] = cnf->accept_ra_min_lft;
-+	array[DEVCONF_LINK_FILTER] = cnf->link_filter;
+@@ -5674,6 +5674,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_ACCEPT_UNTRACKED_NA] =
+ 		READ_ONCE(cnf->accept_untracked_na);
+ 	array[DEVCONF_ACCEPT_RA_MIN_LFT] = READ_ONCE(cnf->accept_ra_min_lft);
++	array[DEVCONF_LINK_FILTER] = READ_ONCE(cnf->link_filter);
  }
  
  static inline size_t inet6_ifla6_size(void)

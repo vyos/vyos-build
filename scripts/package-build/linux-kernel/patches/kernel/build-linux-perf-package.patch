@@ -2,8 +2,8 @@ diff --git c/scripts/package/builddeb i/scripts/package/builddeb
 index d7dd0d04c70c..6f4a9a7c2c62 100755
 --- c/scripts/package/builddeb
 +++ i/scripts/package/builddeb
-@@ -182,6 +182,16 @@ install_libc_headers () {
- 	mv $pdir/usr/include/asm $pdir/usr/include/$host_arch/
+@@ -182,4 +182,14 @@ install_libc_headers () {
+ 	mv "$pdir/usr/include/asm" "$pdir/usr/include/${DEB_HOST_MULTIARCH}"
  }
  
 +install_perf () {
@@ -16,27 +16,14 @@ index d7dd0d04c70c..6f4a9a7c2c62 100755
 +
 +}
 +
- rm -f debian/files
- 
- packages_enabled=$(dh_listpackages)
-@@ -199,6 +209,8 @@ do
- 		install_libc_headers debian/linux-libc-dev;;
- 	linux-headers-*)
- 		install_kernel_headers debian/linux-headers ${package#linux-headers-};;
+ package=$1
+@@ -167,4 +167,6 @@ case
+ 	install_libc_headers "${package}";;
+ linux-headers-*)
+ 	install_kernel_headers "${package}";;
 +	linux-perf-*)
 +		install_perf debian/linux-perf ${package};;
- 	esac
- done
- 
-@@ -213,6 +225,8 @@ do
- 		create_package ${package} debian/linux-libc-dev;;
- 	linux-headers-*)
- 		create_package ${package} debian/linux-headers;;
-+	linux-perf-*)
-+		create_package ${package} debian/linux-perf;;
- 	esac
- done
- 
+ esac
 diff --git c/scripts/package/mkdebian i/scripts/package/mkdebian
 index 5044224cf671..21f98ae50be0 100755
 --- c/scripts/package/mkdebian
@@ -47,13 +34,13 @@ index 5044224cf671..21f98ae50be0 100755
  
 +cat <<EOF >> debian/control
 +
-+Package: linux-perf-$version
++Package: linux-perf-${KERNELRELEASE}
 +Section: devel
 +Architecture: $debarch
 +Depends: \${shlibs:Depends}
-+Description: Performance analysis tools for Linux $version
++Description: Performance analysis tools for Linux ${KERNELRELEASE}
 + This package contains the 'perf' performance analysis tools for Linux
-+ kernel version $version .
++ kernel version ${KERNELRELEASE} .
 +Multi-Arch: same
 +EOF
 +
