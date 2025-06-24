@@ -1,0 +1,875 @@
+From 0ec2162cf645063b3fe5af6b3b3c482444a9508e Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Sat, 20 Jul 2024 02:48:42 +0200
+Subject: [PATCH 01/16] compat: Really fix __has_attribute usage
+
+Fixes: 40fefb2 ("compat: Fix __has_attribute usage")
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ compat.h | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/compat.h b/compat.h
+index 8461c3d..6c4984b 100644
+--- a/compat.h
++++ b/compat.h
+@@ -773,13 +773,14 @@ struct module *find_module(const char *name)
+ 
+ /* Copy from 294f69e662d1 ("compiler_attributes.h: Add 'fallthrough' pseudo
+  * keyword for switch/case use") */
+-#ifndef fallthrough
+-# if defined __has_attribute && __has_attribute(__fallthrough__)
++#if !defined(fallthrough) && defined(__has_attribute)
++# if __has_attribute(__fallthrough__)
+ #  define fallthrough			__attribute__((__fallthrough__))
+-# else
+-#  define fallthrough			do {} while (0)  /* fallthrough */
+ # endif
+ #endif
++#ifndef fallthrough
++#  define fallthrough			do {} while (0)  /* fallthrough */
++#endif
+ 
+ #ifndef HAVE_NF_CT_EVENT_NOTIFIER_CT_EVENT
+ /*
+
+From e7799319f68f0e8483f8b0cc75f5d0dfcda57777 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Wed, 3 Jul 2024 12:06:55 +0200
+Subject: [PATCH 02/16] Fix dkms status invocation
+
+and do not query unrelated modules
+
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure b/configure
+index 66ced00..86f9488 100755
+--- a/configure
++++ b/configure
+@@ -614,7 +614,7 @@ dkms_check() {
+   echo Yes.
+   DKMSINSTALL=dinstall
+   test "$FROMDKMSCONF" && return
+-  if dkms status | grep ^ipt-netflow, >/dev/null; then
++  if dkms status ipt-netflow | grep ^ipt-netflow/ >/dev/null; then
+     echo "! You are already have module installed via DKMS"
+     echo "!   it will be uninstalled on 'make install' and"
+     echo "!   current version of module installed afterwards."
+
+From 944c81ececb31ffac8fd89d09744fb066fc38308 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Wed, 3 Jul 2024 12:09:45 +0200
+Subject: [PATCH 03/16] Do not check for dkms if called from dkms
+
+the recursive calls slowed down the configure script significantly
+
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure b/configure
+index 86f9488..f2ec1a9 100755
+--- a/configure
++++ b/configure
+@@ -348,7 +348,7 @@ do
+     --disable-snmp-a*)   SKIPSNMP=1 ;;
+     --disable-net-snmp*) SKIPSNMP=1 ;;
+     --disable-dkms*)     SKIPDKMS=1 ;;
+-    --from-dkms-conf*) ;;
++    --from-dkms-conf*)   SKIPDKMS=1 ;;
+     --make) echo called from make; CARGS=`echo $CARGS | sed s/--make//g` ;;
+     -Werror) KOPTS="$KOPTS -Werror" ;;
+     --help|-h) show_help ;;
+
+From 51d65f0dffba3b2024586b4fbff579186b089af9 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Wed, 3 Jul 2024 12:12:31 +0200
+Subject: [PATCH 04/16] Set KDIR early if called from dkms and get version from
+ sources
+
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ configure | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configure b/configure
+index f2ec1a9..ae8a579 100755
+--- a/configure
++++ b/configure
+@@ -6,6 +6,7 @@ PATH=$PATH:/bin:/usr/bin:/usr/sbin:/sbin:/usr/local/sbin
+ case "$1" in
+   --from-dkms-conf*)
+     KDKMS=`echo "$1" | sed 's/[^=]*.//'`
++    KDIR="$KDKMS"
+     # restore options from existing Makefile, if present
+     if [ -e Makefile ]; then
+       set -- `sed -n 's/^CARGS = \(.*\)/\1/p' Makefile`
+
+From 55858baa52c0bb55dcd65522b5ffbd59fd507bf2 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Sat, 1 Mar 2025 14:40:37 +0100
+Subject: [PATCH 05/16] dkms.conf: Declare BUILD_EXCLUSIVE_KERNEL_MIN="3"
+
+skb_reset_mac_len() was introduced in v3.0-rc3
+and is used unconditionally
+
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ dkms.conf     | 4 ++++
+ ipt_NETFLOW.c | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/dkms.conf b/dkms.conf
+index 808e158..7968b38 100644
+--- a/dkms.conf
++++ b/dkms.conf
+@@ -2,6 +2,10 @@ PACKAGE_NAME="ipt-netflow"
+ pushd `dirname $BASH_SOURCE`
+ PACKAGE_VERSION=`./version.sh`
+ popd
++
++# skb_reset_mac_len() was introduced in v3.0-rc3
++BUILD_EXCLUSIVE_KERNEL_MIN="3"
++
+ BUILT_MODULE_NAME[0]=ipt_NETFLOW
+ DEST_MODULE_LOCATION[0]=/kernel/extra
+ STRIP[0]=no
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index eee8074..91c8c1e 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -74,6 +74,7 @@
+ 	 * but centos6 have it backported on its 2.6.32.el6 */
+ # include <linux/llist.h>
+ #endif
++#include <linux/ratelimit.h>
+ #include "compat.h"
+ #include "ipt_NETFLOW.h"
+ #include "murmur3.h"
+
+From 22c47fc63c1fda10a5a8f8bdf99e5fdd7335f280 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Thu, 18 Jul 2024 00:24:57 +0200
+Subject: [PATCH 06/16] Fix module build for Linux v4.3
+
+netif_is_bridge_port() was introduced in v4.4-rc2 by
+"vlan: Do not put vlan headers back on bridge and macvlan ports"
+(28f9ee22bcdd84726dbf6267d0b58f254166b900)
+
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ ipt_NETFLOW.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index 91c8c1e..4b7b423 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -4882,6 +4882,8 @@ static void parse_l2_header(const struct sk_buff *skb, struct ipt_netflow_tuple
+ 		    && !(vlan->flags & VLAN_FLAG_REORDER_HDR)
+ #  if LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)
+ 		    && !netif_is_macvlan_port(vlan_dev)
++#  endif
++#  if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+ 		    && !netif_is_bridge_port(vlan_dev)
+ #  endif
+ 		   ))
+
+From c2d6eeb62dbe429f7a08b4ae970339884f5d2765 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Sat, 20 Jul 2024 02:22:01 +0200
+Subject: [PATCH 07/16] Unexporting find_module() has been backported to Linux
+ v5.10.220
+
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ compat.h | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/compat.h b/compat.h
+index 6c4984b..dffc9e3 100644
+--- a/compat.h
++++ b/compat.h
+@@ -746,9 +746,10 @@ unsigned long long strtoul(const char *cp, char **endp, unsigned int base)
+ 	return result;
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)) \
++    || ((LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,220)) && (LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)))
+ /*
+- * find_module() is unexported in v5.12:
++ * find_module() is unexported in v5.12 (backported to 5.10.220):
+  *   089049f6c9956 ("module: unexport find_module and module_mutex")
+  * and module_mutex is replaced with RCU in
+  *   a006050575745 ("module: use RCU to synchronize find_module")
+
+From ca9a6ae33874c124f8382e68fc65fdbf08cdd6cd Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Fri, 7 Mar 2025 10:03:58 +0100
+Subject: [PATCH 08/16] Fix module build for Linux v6.12
+
+adapt to "move asm/unaligned.h to linux/unaligned.h"
+(5f60d5f6bbc12e782fac78110b0ee62698f3b576) in v6.12-rc2
+
+Fixes: #237
+Signed-off-by: Andreas Beckmann <anbe@debian.org>
+---
+ gen_compat_def | 9 +++++++--
+ ipt_NETFLOW.c  | 4 ++++
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/gen_compat_def b/gen_compat_def
+index a9cb95e..e9d4e76 100755
+--- a/gen_compat_def
++++ b/gen_compat_def
+@@ -64,7 +64,7 @@ kbuild_test_symbol() {
+   echo -n "Test function $* " >&2
+   kbuild_test_compile ${1^^} $1 ${2-} <<-EOF
+ 	#include <linux/module.h>
+-	${2:+#include <$2>}
++	${3:-${2:+#include <$2>}}
+ 	MODULE_LICENSE("GPL");
+ 	void *test = $1;
+ 	EOF
+@@ -121,7 +121,12 @@ kbuild_test_symbol nf_bridge_info_get linux/netfilter_bridge.h
+ # Stumbled on 5.9
+ kbuild_test_struct vlan_dev_priv linux/if_vlan.h
+ # Kernel version check broken by centos8
+-kbuild_test_symbol put_unaligned_be24 asm/unaligned.h
++kbuild_test_symbol put_unaligned_be24 '???/unaligned.h' '#include <linux/version.h>
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
++#include <linux/unaligned.h>
++#else
++#include <asm/unaligned.h>
++#endif'
+ # totalram_pages changed from atomic to inline function.
+ kbuild_test_symbol totalram_pages linux/mm.h
+ kbuild_test_ref    totalram_pages linux/mm.h
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index 4b7b423..bbd2c9b 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -68,7 +68,11 @@
+ # include <net/netfilter/nf_conntrack_core.h>
+ #endif
+ #include <linux/version.h>
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
++#include <linux/unaligned.h>
++#else
+ #include <asm/unaligned.h>
++#endif
+ #ifdef HAVE_LLIST
+ 	/* llist.h is officially defined since linux 3.1,
+ 	 * but centos6 have it backported on its 2.6.32.el6 */
+
+From c5158c432a06ec1c161f418b6f89c9d9bf26ee4a Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Sun, 16 Mar 2025 17:12:00 +0200
+Subject: [PATCH 09/16] Less verbose kbuild_test_symbol on third parameter.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ gen_compat_def | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gen_compat_def b/gen_compat_def
+index e9d4e76..8a25d41 100755
+--- a/gen_compat_def
++++ b/gen_compat_def
+@@ -61,7 +61,7 @@ kbuild_test_compile() {
+ 
+ # Test that symbol is defined (will catch functions mostly).
+ kbuild_test_symbol() {
+-  echo -n "Test function $* " >&2
++  echo -n "Test function $1 $2" >&2
+   kbuild_test_compile ${1^^} $1 ${2-} <<-EOF
+ 	#include <linux/module.h>
+ 	${3:-${2:+#include <$2>}}
+
+From df33a7d0819e0f2fbd645dedb596b53709f07395 Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Sun, 16 Mar 2025 17:13:44 +0200
+Subject: [PATCH 10/16] Use strscpy rather than strlcpy (keep as fallback).
+
+strscpy has been around since 4.3, and strlcpy got removed in 6.8.
+
+This patch switches to the plainly preferred strscpy whenever it is
+available, but will define that to strlcpy if strscpy (sized_strscpy due
+to strscpy really being a macro) is not available.
+
+Ideally we want to compile a test-call, but kbuild_test_symbol() doesn't
+work that way.
+
+We could also simply go "#ifndef strscpy ... # define strscpy strlcpy"
+if that would be preferred.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ compat.h       |  4 ++++
+ gen_compat_def |  2 ++
+ ipt_NETFLOW.c  | 11 ++++++-----
+ 3 files changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/compat.h b/compat.h
+index dffc9e3..2e12d18 100644
+--- a/compat.h
++++ b/compat.h
+@@ -178,6 +178,10 @@ static int __ethtool_get_settings(struct net_device *dev, struct ethtool_cmd *cm
+ # define NF_IP_POST_ROUTING	NF_INET_POST_ROUTING
+ #endif
+ 
++#ifndef HAVE_SIZED_STRSCPY
++#define strscpy strlcpy
++#endif
++
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+ /* net/netfilter/x_tables.c */
+ static void xt_unregister_targets(struct xt_target *target, unsigned int n)
+diff --git a/gen_compat_def b/gen_compat_def
+index 8a25d41..8643369 100755
+--- a/gen_compat_def
++++ b/gen_compat_def
+@@ -134,6 +134,8 @@ kbuild_test_ref    totalram_pages linux/mm.h
+ kbuild_test_member nf_ct_event_notifier.ct_event net/netfilter/nf_conntrack_ecache.h
+ # 6.4: 0199849acd07 ("sysctl: remove register_sysctl_paths()")
+ kbuild_test_symbol register_sysctl_paths linux/sysctl.h
++# If we have strscpy, we can use that (more optimal compared to strlcpy).
++kbuild_test_symbol sized_strscpy linux/string.h
+ 
+ echo "// End of compat_def.h"
+ 
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index bbd2c9b..a8455d8 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -42,6 +42,7 @@
+ #include <linux/spinlock_types.h>
+ #include <linux/ktime.h>
+ #include <linux/if_arp.h>
++#include <linux/string.h>
+ #include <net/icmp.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
+@@ -4092,7 +4093,7 @@ static int ethtool_drvinfo(unsigned char *ptr, size_t size, struct net_device *d
+ 		ops->get_drvinfo(dev, &info);
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+ 	else if (dev->dev.parent && dev->dev.parent->driver) {
+-		strlcpy(info.driver, dev->dev.parent->driver->name, sizeof(info.driver));
++		strscpy(info.driver, dev->dev.parent->driver->name, sizeof(info.driver));
+ 	}
+ #endif
+ 	n = scnprintf(ptr, len, "%s", info.driver);
+@@ -5691,7 +5692,7 @@ static int __init ipt_netflow_init(void)
+ 	if (!destination)
+ 		destination = destination_buf;
+ 	if (destination != destination_buf) {
+-		strlcpy(destination_buf, destination, sizeof(destination_buf));
++		strscpy(destination_buf, destination, sizeof(destination_buf));
+ 		destination = destination_buf;
+ 	}
+ 	if (add_destinations(destination) < 0)
+@@ -5701,7 +5702,7 @@ static int __init ipt_netflow_init(void)
+ 	if (!aggregation)
+ 		aggregation = aggregation_buf;
+ 	if (aggregation != aggregation_buf) {
+-		strlcpy(aggregation_buf, aggregation, sizeof(aggregation_buf));
++		strscpy(aggregation_buf, aggregation, sizeof(aggregation_buf));
+ 		aggregation = aggregation_buf;
+ 	}
+ 	add_aggregation(aggregation);
+@@ -5711,7 +5712,7 @@ static int __init ipt_netflow_init(void)
+ 	if (!sampler)
+ 		sampler = sampler_buf;
+ 	if (sampler != sampler_buf) {
+-		strlcpy(sampler_buf, sampler, sizeof(sampler_buf));
++		strscpy(sampler_buf, sampler, sizeof(sampler_buf));
+ 		sampler = sampler_buf;
+ 	}
+ 	parse_sampler(sampler);
+@@ -5728,7 +5729,7 @@ static int __init ipt_netflow_init(void)
+ 	if (!snmp_rules)
+ 		snmp_rules = snmp_rules_buf;
+ 	if (snmp_rules != snmp_rules_buf) {
+-		strlcpy(snmp_rules_buf, snmp_rules, sizeof(snmp_rules_buf));
++		strscpy(snmp_rules_buf, snmp_rules, sizeof(snmp_rules_buf));
+ 		snmp_rules = snmp_rules_buf;
+ 	}
+ 	add_snmp_rules(snmp_rules);
+
+From 42382255d39f8a9f0913eba013969d91a278e42c Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Sun, 16 Mar 2025 18:04:23 +0200
+Subject: [PATCH 11/16] Custom strtoul => simple_strtoul.
+
+I've verified and traced this back to the initial import into git,
+around version 2.6.12 of the kernel.  If anybody fails to compile
+against older than that I think we can look into this but highly doubt
+that'll be an issue.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ compat.h      | 34 ----------------------------------
+ ipt_NETFLOW.c |  4 ++--
+ 2 files changed, 2 insertions(+), 36 deletions(-)
+
+diff --git a/compat.h b/compat.h
+index 2e12d18..7447f91 100644
+--- a/compat.h
++++ b/compat.h
+@@ -716,40 +716,6 @@ static inline void do_gettimeofday(struct timeval *tv)
+ }
+ #endif
+ 
+-#define TOLOWER(x) ((x) | 0x20)
+-unsigned long long strtoul(const char *cp, char **endp, unsigned int base)
+-{
+-	unsigned long long result = 0;
+-
+-	if (!base) {
+-		if (cp[0] == '0') {
+-			if (TOLOWER(cp[1]) == 'x' && isxdigit(cp[2]))
+-				base = 16;
+-			else
+-				base = 8;
+-		} else {
+-			base = 10;
+-		}
+-	}
+-
+-	if (base == 16 && cp[0] == '0' && TOLOWER(cp[1]) == 'x')
+-		cp += 2;
+-
+-	while (isxdigit(*cp)) {
+-		unsigned int value;
+-
+-		value = isdigit(*cp) ? *cp - '0' : TOLOWER(*cp) - 'a' + 10;
+-		if (value >= base)
+-			break;
+-		result = result * base + value;
+-		cp++;
+-	}
+-	if (endp)
+-		*endp = (char *)cp;
+-
+-	return result;
+-}
+-
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)) \
+     || ((LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,220)) && (LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)))
+ /*
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index a8455d8..c305cff 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -2402,7 +2402,7 @@ static int add_destinations(const char *ptr)
+ 				++end;
+ 			if (succ &&
+ 			    (*end == ':' || *end == '.' || *end == 'p' || *end == '#'))
+-				sin6->sin6_port = htons(strtoul(++end, (char **)&end, 0));
++				sin6->sin6_port = htons(simple_strtoul(++end, (char **)&end, 0));
+ 			if (succ && *end == '@') {
+ 				++end;
+ 				sout->sin6_family = AF_INET6;
+@@ -2417,7 +2417,7 @@ static int add_destinations(const char *ptr)
+ 			sin->sin_port = htons(2055);
+ 			succ = in4_pton(ptr, len, (u8 *)&sin->sin_addr, -1, &end);
+ 			if (succ && *end == ':')
+-				sin->sin_port = htons(strtoul(++end, (char **)&end, 0));
++				sin->sin_port = htons(simple_strtoul(++end, (char **)&end, 0));
+ 			if (succ && *end == '@') {
+ 				++end;
+ 				sout->sin_family = AF_INET;
+
+From 87074c132a0db7d8ecde3d1c4194bc8cdcd11e9b Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Sun, 16 Mar 2025 18:05:33 +0200
+Subject: [PATCH 12/16] static inline functions that's defined in headers.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ compat.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/compat.h b/compat.h
+index 7447f91..8f7df98 100644
+--- a/compat.h
++++ b/compat.h
+@@ -220,7 +220,7 @@ struct timeval {
+ 	long tv_usec; /* microseconds */
+ };
+ 
+-unsigned long timeval_to_jiffies(const struct timeval *tv)
++static inline unsigned long timeval_to_jiffies(const struct timeval *tv)
+ {
+ 	return timespec64_to_jiffies(&(struct timespec64){
+ 				     tv->tv_sec,
+@@ -387,7 +387,7 @@ static int sockaddr_cmp(const struct sockaddr_storage *sa1, const struct sockadd
+ #ifndef IN6PTON_XDIGIT
+ #define hex_to_bin compat_hex_to_bin
+ /* lib/hexdump.c */
+-int hex_to_bin(char ch)
++static inline int hex_to_bin(char ch)
+ {
+ 	if ((ch >= '0') && (ch <= '9'))
+ 		return ch - '0';
+
+From 5612f23270dda9db03782f19f8958cc4564357da Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Sun, 16 Mar 2025 17:22:03 +0200
+Subject: [PATCH 13/16] Add .gitignore file.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ .gitignore | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+ create mode 100644 .gitignore
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..93ce46a
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,12 @@
++.*.cmd
++.*.o.d
++*.ko
++*.o
++*.mod
++*.mod.c
++*.so
++Makefile
++Module.symvers
++compat_def.h
++modules.order
++version.h
+
+From 2a2c579751013f9db8089fe112f2d820308dc08f Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Sun, 16 Mar 2025 18:14:33 +0200
+Subject: [PATCH 14/16] Add required const to proc_handler prototypes for
+ sysfs.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ ipt_NETFLOW.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index c305cff..8314000 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -1525,7 +1525,7 @@ static int switch_promisc(int newpromisc)
+ 
+ #ifdef CONFIG_SYSCTL
+ /* sysctl /proc/sys/net/netflow */
+-static int hsize_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int hsize_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret, hsize;
+@@ -1542,7 +1542,7 @@ static int hsize_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp
+ 		return ret;
+ }
+ 
+-static int sndbuf_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int sndbuf_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret;
+@@ -1577,7 +1577,7 @@ static int sndbuf_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *fil
+ }
+ 
+ static void free_templates(void);
+-static int destination_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int destination_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret;
+@@ -1594,7 +1594,7 @@ static int destination_procctl(ctl_table *ctl, int write, BEFORE2632(struct file
+ }
+ 
+ #ifdef ENABLE_AGGR
+-static int aggregation_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int aggregation_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret;
+@@ -1609,7 +1609,7 @@ static int aggregation_procctl(ctl_table *ctl, int write, BEFORE2632(struct file
+ #endif
+ 
+ #ifdef ENABLE_PROMISC
+-static int promisc_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int promisc_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int newpromisc = promisc;
+@@ -1626,7 +1626,7 @@ static int promisc_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *fi
+ 
+ #ifdef ENABLE_SAMPLER
+ static int parse_sampler(char *ptr);
+-static int sampler_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int sampler_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret;
+@@ -1659,7 +1659,7 @@ static int sampler_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *fi
+ 
+ #ifdef SNMP_RULES
+ static int add_snmp_rules(char *ptr);
+-static int snmp_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int snmp_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+        int ret;
+@@ -1684,7 +1684,7 @@ static void clear_ipt_netflow_stat(void)
+ 	}
+ }
+ 
+-static int flush_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int flush_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret;
+@@ -1713,7 +1713,7 @@ static int flush_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp
+ 	return ret;
+ }
+ 
+-static int protocol_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int protocol_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret;
+@@ -1746,7 +1746,7 @@ static int protocol_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *f
+ #ifdef CONFIG_NF_NAT_NEEDED
+ static void register_ct_events(void);
+ static void unregister_ct_events(void);
+-static int natevents_procctl(ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
++static int natevents_procctl(const ctl_table *ctl, int write, BEFORE2632(struct file *filp,)
+ 			 void __user *buffer, size_t *lenp, loff_t *fpos)
+ {
+ 	int ret;
+@@ -1772,7 +1772,7 @@ static struct ctl_table_header *netflow_sysctl_header;
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
+ #define _CTL_NAME(x) .ctl_name = x,
+-static void ctl_table_renumber(ctl_table *table)
++static void ctl_table_renumber(const ctl_table *table)
+ {
+ 	int c;
+ 
+
+From 5fb1aed4c7da1e231d75fbe6dcdd223258306691 Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Mon, 17 Mar 2025 09:59:17 +0200
+Subject: [PATCH 15/16] Fix printf type warnings.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ ipt_NETFLOW.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index 8314000..2504fbc 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -765,11 +765,11 @@ static int nf_seq_show(struct seq_file *seq, void *v)
+ 		    sampler_mode_string(),
+ 		    get_sampler_interval());
+ 		if (get_sampler_mode() != SAMPLER_HASH)
+-			seq_printf(seq, " Flows selected %lu, discarded %lu.",
++			seq_printf(seq, " Flows selected %lld, discarded %llu.",
+ 			    atomic64_read(&flows_selected),
+ 			    atomic64_read(&flows_observed) - atomic64_read(&flows_selected));
+ 		else
+-			seq_printf(seq, " Flows selected %lu.", atomic64_read(&flows_selected));
++			seq_printf(seq, " Flows selected %llu.", atomic64_read(&flows_selected));
+ 		seq_printf(seq, " Pkts selected %llu, discarded %llu.\n",
+ 		    t.pkts_selected,
+ 		    t.pkts_observed - t.pkts_selected);
+
+From 0c5759d002131ac3ae161713f4ce0d515037c1de Mon Sep 17 00:00:00 2001
+From: Jaco Kroon <jaco@uls.co.za>
+Date: Mon, 17 Mar 2025 16:43:30 +0200
+Subject: [PATCH 16/16] Fix prandom_u32{,_max} => get_random_u32{,_below}
+
+For backwards compatiblity this gets pretty nasty.  This should work
+fairly well.
+
+Signed-off-by: Jaco Kroon <jaco@uls.co.za>
+---
+ compat.h       | 33 +++++++++++++++++++++++++--------
+ gen_compat_def | 44 ++++++++++++++++++++++++++++++++++++++------
+ ipt_NETFLOW.c  |  6 +++---
+ 3 files changed, 66 insertions(+), 17 deletions(-)
+
+diff --git a/compat.h b/compat.h
+index 8f7df98..2383997 100644
+--- a/compat.h
++++ b/compat.h
+@@ -108,17 +108,34 @@ union nf_inet_addr {
+ # define time_is_after_jiffies(a) time_before(jiffies, a)
+ #endif
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
+-# if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+-#  define prandom_u32 get_random_int
+-# elif LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0)
+-#  define prandom_u32 random32
++#ifndef HAVE_GET_RANDOM_U32
++# ifdef HAVE_PRANDOM_U32
++#  ifdef HAVE_PRANDOM_H
++#   include <linux/prandom.h>
++#  endif
++static inline u32 get_random_u32() {
++	return prandom_u32();
++}
++# else
++#  pragma error Need fallback for get_random_u32
++# endif
+ #endif
+-#define prandom_u32_max compat_prandom_u32_max
+-static inline u32 prandom_u32_max(u32 ep_ro)
++
++#ifndef HAVE_GET_RANDOM_U32_BELOW
++# ifdef HAVE_PRANDOM_U32_MAX
++#  ifdef HAVE_PRANDOM_H
++#   include <linux/prandom.h>
++#  endif
++static inline u32 get_random_u32_below(u32 ep_ro)
+ {
+-	return (u32)(((u64) prandom_u32() * ep_ro) >> 32);
++	return prandom_u32_max(ep_ro);
+ }
++# else
++static inline u32 get_random_u32_below(u32 ep_ro)
++{
++	return (u32)(((u64) get_random_u32() * ep_ro) >> 32);
++}
++# endif
+ #endif
+ 
+ #ifndef min_not_zero
+diff --git a/gen_compat_def b/gen_compat_def
+index 8643369..a26c5c4 100755
+--- a/gen_compat_def
++++ b/gen_compat_def
+@@ -1,4 +1,4 @@
+-#!/bin/bash -efu
++#!/bin/bash -fu
+ # SPDX-License-Identifier: GPL-2.0-only
+ #
+ # Generate defines based on kernel having some symbols declared.
+@@ -21,7 +21,7 @@ WD=cc-test-build
+ mkdir -p $WD
+ cd ./$WD || fatal "cannot cd to $WD"
+ 
+-# args: HAVE_SUMBOL symbol include
++# args: HAVE_SYMBOL symbol [include] [success] [failure]
+ kbuild_test_compile() {
+   local cmd
+ 
+@@ -30,14 +30,15 @@ kbuild_test_compile() {
+   cmd="make -s -B -C $KDIR M=$PWD modules"
+   echo "$cmd" > log
+   if $cmd >> log 2>&1; then
+-    echo " declared" >&2
+-    [ "$2" ] && echo "// $2 is declared ${3:+in <$3>}"
++    echo " ${4-declared}" >&2
++    [ "$2" ] && echo "// $2 ${4-is declared}${3:+ in <$3>}"
+     echo "#define HAVE_$1"
+     echo
++    return 0
+   else
+-    echo " undeclared" >&2
++    echo " ${5-undeclared}" >&2
+     echo "#undef HAVE_$1"
+-    echo "// ${2:-symbol} is undeclared${3:+ in <$3>}. Compile:"
++    echo "// ${2:-symbol} ${5-is undeclared}${3:+ in <$3>}. Compile:"
+     sed  "s/^/\/\/   /" test.c
+     echo "// Output:"
+     sed  "s/^/\/\/   /" log
+@@ -56,6 +57,7 @@ kbuild_test_compile() {
+       echo >&2
+       exit 3
+     fi
++    return 1
+   fi
+ }
+ 
+@@ -105,6 +107,22 @@ kbuild_test_member() {
+ 	typeof(((struct $structname*)0)->$member) test;
+ 	EOF
+ }
++
++# Test that a header is available/exist
++kbuild_test_header() {
++  echo -n "Test header $*" >&2
++  structname=${1%.*}
++  member=${1#*.}
++  def=${1^^}
++  def=${def##*/}
++  def=${def//./_}
++  kbuild_test_compile $def "header $1" "" "exists" "doesn't exist" <<-EOF
++	#include <linux/module.h>
++	#include <$1>
++	MODULE_LICENSE("GPL");
++	EOF
++}
++
+ echo "// Autogenerated for $KDIR"
+ echo
+ 
+@@ -136,6 +154,20 @@ kbuild_test_member nf_ct_event_notifier.ct_event net/netfilter/nf_conntrack_ecac
+ kbuild_test_symbol register_sysctl_paths linux/sysctl.h
+ # If we have strscpy, we can use that (more optimal compared to strlcpy).
+ kbuild_test_symbol sized_strscpy linux/string.h
++# Do we have get_random_u32_below
++kbuild_test_symbol get_random_u32_below linux/random.h
++# Do we have get_random_u32
++kbuild_test_symbol get_random_u32 linux/random.h
++
++# prandom functions moved from random.h to prandom.h recentish.
++# We use these for fallback for the above only.
++if kbuild_test_header linux/prandom.h; then
++  prand_h=linux/prandom.h
++else
++  prand_h=linux/random.h
++fi
++kbuild_test_symbol prandom_u32 $prand_h
++kbuild_test_symbol prandom_u32_max $prand_h
+ 
+ echo "// End of compat_def.h"
+ 
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index 2504fbc..707dede 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -4460,7 +4460,7 @@ static int netflow_scan_and_export(const int flush)
+ 				val = nf->sampler_count % interval;
+ 				break;
+ 			case SAMPLER_RANDOM:
+-				val = prandom_u32_max(interval);
++				val = get_random_u32_below(interval);
+ 				break;
+ 			default: /* SAMPLER_HASH */
+ 				val = 0;
+@@ -5717,12 +5717,12 @@ static int __init ipt_netflow_init(void)
+ 	}
+ 	parse_sampler(sampler);
+ #ifdef SAMPLING_HASH
+-	hash_seed = prandom_u32();
++	hash_seed = get_random_u32();
+ #endif
+ #endif
+ 
+ #ifdef ENABLE_RANDOM_TEMPLATE_IDS
+-	template_ids = FLOWSET_DATA_FIRST | prandom_u32_max(0x00010000);
++	template_ids = FLOWSET_DATA_FIRST | get_random_u32_below(0x00010000);
+ #endif
+ 
+ #ifdef SNMP_RULES

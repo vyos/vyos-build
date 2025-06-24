@@ -19,6 +19,13 @@ if [ -d .git ]; then
     git clean --force -d -x
 fi
 
+PATCH_DIR=${CWD}/patches/ipt-netflow
+for patch in $(ls ${PATCH_DIR})
+do
+    echo "I: Apply patch: ${PATCH_DIR}/${patch}"
+    patch -p1 < ${PATCH_DIR}/${patch}
+done
+
 . ${KERNEL_VAR_FILE}
 
 DRIVER_VERSION=$(git describe | sed s/^v//)
