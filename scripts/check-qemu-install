@@ -156,7 +156,7 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         vnc = '-vnc :0'
 
     if enable_uefi:
-        uefi = '-bios /usr/share/OVMF/OVMF_CODE.fd'
+        uefi = '-bios /usr/share/ovmf/OVMF.fd'
         name = f'{name}-UEFI'
 
         if secure_boot:
