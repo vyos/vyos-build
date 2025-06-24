@@ -171,7 +171,8 @@ RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archiv
 
 # Packages need for build live-build
 RUN apt-get update && apt-get install -y \
-      cpio
+      cpio \
+      debootstrap
 
 COPY patches/live-build/0001-save-package-info.patch /tmp/0001-save-package-info.patch
 
@@ -180,26 +181,7 @@ RUN git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build 
     patch -p1 < /tmp/0001-save-package-info.patch && \
     dch -n "Applying fix for save package info" && \
     dpkg-buildpackage -us -uc && \
-    dpkg -i ../live-build*.deb && \
-    rm -rf /tmp/live-build
-
-#
-# live-build: building in docker fails with mounting /proc | /sys
-#
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=919659
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=921815
-# https://salsa.debian.org/installer-team/debootstrap/merge_requests/26
-#
-RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch \
-      -O /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
-    git clone https://salsa.debian.org/installer-team/debootstrap /tmp/debootstrap && \
-    cd /tmp/debootstrap && git checkout 1.0.114 && \
-    patch -p1 < /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
-    dch -n "Applying fix for docker image compile" && \
-    dpkg-buildpackage -us -uc && \
-    sudo dpkg -i ../debootstrap*.deb \
-    && rm /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch \
-    && rm -rf /tmp/debootstrap
+    dpkg -i ../live-build*.deb
 
 # FPM is used when generation Debian pckages for e.g. Intel QAT drivers
 RUN gem install --no-document fpm
