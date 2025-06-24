@@ -1,0 +1,31 @@
+[[packages]]
+name = "unionfs-fuse"
+commit_id = "v3.6"
+scm_url = "https://github.com/rpodgorny/unionfs-fuse"
+
+build_cmd = """
+mkdir build
+cd build
+
+cmake .. -DWITH_LIBFUSE3=TRUE \
+         -DCMAKE_SKIP_RPATH=TRUE \
+         -DCMAKE_INSTALL_PREFIX=/usr
+make
+make DESTDIR=. install
+
+VERSION=$(git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD)
+
+fpm --input-type dir --output-type deb --name unionfs-fuse \
+    --version $VERSION --deb-compression gz \
+    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
+    --description "Fuse implementation of unionfs" \
+    --depends libfuse3-dev \
+    --license "BSD" --package ../.. usr
+
+"""
+
+[dependencies]
+packages = [
+    "cmake",
+    "libfuse3-dev"
+]
