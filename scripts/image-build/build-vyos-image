@@ -682,7 +682,7 @@ Pin-Priority: 600
         if debug:
             print("D: It's not like I'm building this specially for you or anything!")
         # Add deboots scripts symbolic link to sid
-        src_deboots_script = "/usr/share/debootstrap/scripts/cid"
+        src_deboots_script = "/usr/share/debootstrap/scripts/sid"
         dst_deboots_script = "/usr/share/debootstrap/scripts/trixie"
         if not os.path.islink(dst_deboots_script):
             os.symlink(src_deboots_script, dst_deboots_script)
