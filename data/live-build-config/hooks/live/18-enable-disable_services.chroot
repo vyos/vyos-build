@@ -72,6 +72,10 @@ systemctl disable suricata.service
 systemctl disable vyconfd.service
 systemctl disable vpp.service
 systemctl disable netplug.service
+systemctl disable stunnel4.service
+systemctl disable igmpproxy.service
+systemctl disable wide-dhcpv6-client.service
+systemctl disable qat_service.service
 
 echo I: Enabling services
 systemctl enable vyos-hostsd.service
