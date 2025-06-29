@@ -1,0 +1,3 @@
+Package: salt-*
+Pin: version 3006.*
+Pin-Priority: 1001
