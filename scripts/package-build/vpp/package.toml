@@ -7,7 +7,7 @@ apply_patches = false
 
 [[packages]]
 name = "vpp-sflow"
-commit_id = "v0.9.02-2"
+commit_id = "v1.0.01-1"
 scm_url = "https://github.com/sflow/vpp-sflow"
 build_cmd = "/bin/true"
 apply_patches = false
