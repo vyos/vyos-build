@@ -17,3 +17,11 @@ fpm --input-type dir --output-type deb --name openvpn-otp \
     --depends openvpn --architecture $(dpkg --print-architecture) \
     --version $(git describe --tags --always | cut -c2-) --deb-compression gz usr
 """
+
+
+[dependencies]
+packages = [
+  "debhelper",
+  "libssl-dev",
+  "openvpn"
+]

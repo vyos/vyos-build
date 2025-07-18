@@ -13,3 +13,9 @@ sudo dpkg -i ../libnftnl*.deb
 sudo mk-build-deps --install --tool 'apt-get --yes --no-install-recommends'
 dpkg-buildpackage -uc -us -tc -b
 """
+
+[dependencies]
+packages = [
+    "asciidoc-base",
+    "bison"
+]

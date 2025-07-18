@@ -33,5 +33,9 @@ packages = [
     "python3-dev:native",
     "texinfo",
     "lua5.3",
-    "doxygen"
+    "doxygen",
+    "bison",
+    "liblua5.3-dev",
+    "flex",
+    "libelf-dev"
 ]

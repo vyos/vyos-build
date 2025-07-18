@@ -1,0 +1,62 @@
+diff --git c/scripts/package/builddeb i/scripts/package/builddeb
+index d7dd0d04c70c..6f4a9a7c2c62 100755
+--- c/scripts/package/builddeb
++++ i/scripts/package/builddeb
+@@ -182,6 +182,16 @@ install_libc_headers () {
+ 	mv $pdir/usr/include/asm $pdir/usr/include/$host_arch/
+ }
+ 
++install_perf () {
++	pdir=$1
++
++	rm -rf $pdir
++
++	$MAKE -C tools/ perf_install prefix=$pdir/usr
++	mv tools/perf/$pdir/usr $srctree/$pdir
++
++}
++
+ rm -f debian/files
+ 
+ packages_enabled=$(dh_listpackages)
+@@ -199,6 +209,8 @@ do
+ 		install_libc_headers debian/linux-libc-dev;;
+ 	linux-headers-*)
+ 		install_kernel_headers debian/linux-headers ${package#linux-headers-};;
++	linux-perf-*)
++		install_perf debian/linux-perf ${package};;
+ 	esac
+ done
+ 
+@@ -213,6 +225,8 @@ do
+ 		create_package ${package} debian/linux-libc-dev;;
+ 	linux-headers-*)
+ 		create_package ${package} debian/linux-headers;;
++	linux-perf-*)
++		create_package ${package} debian/linux-perf;;
+ 	esac
+ done
+ 
+diff --git c/scripts/package/mkdebian i/scripts/package/mkdebian
+index 5044224cf671..21f98ae50be0 100755
+--- c/scripts/package/mkdebian
++++ i/scripts/package/mkdebian
+@@ -238,6 +238,18 @@ Description: Linux support headers for userspace development
+ Multi-Arch: same
+ EOF
+ 
++cat <<EOF >> debian/control
++
++Package: linux-perf-$version
++Section: devel
++Architecture: $debarch
++Depends: \${shlibs:Depends}
++Description: Performance analysis tools for Linux $version
++ This package contains the 'perf' performance analysis tools for Linux
++ kernel version $version .
++Multi-Arch: same
++EOF
++
+ if is_enabled CONFIG_MODULES; then
+ cat <<EOF >> debian/control
+ 

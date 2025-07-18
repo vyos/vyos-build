@@ -1,0 +1,202 @@
+From f30e9b267d582040df5afeb57ed8a337fba00bfb Mon Sep 17 00:00:00 2001
+From: Daniil Baturin <daniil@vyos.io>
+Date: Mon, 26 May 2025 17:59:39 +0100
+Subject: [PATCH] Add Debian packaging
+
+---
+ Makefile                     |  9 ++++++
+ debian/changelog             |  5 +++
+ debian/compat                |  1 +
+ debian/control               | 26 +++++++++++++++
+ debian/copyright             | 16 +++++++++
+ debian/rules                 | 63 ++++++++++++++++++++++++++++++++++++
+ udp-broadcast-relay@.service | 14 ++++++++
+ 7 files changed, 134 insertions(+)
+ create mode 100644 debian/changelog
+ create mode 100644 debian/compat
+ create mode 100644 debian/control
+ create mode 100644 debian/copyright
+ create mode 100755 debian/rules
+ create mode 100644 udp-broadcast-relay@.service
+
+diff --git a/Makefile b/Makefile
+index 04ef122..2ff8dbd 100644
+--- a/Makefile
++++ b/Makefile
+@@ -6,3 +6,12 @@ udp-broadcast-relay: main.c
+ 
+ clean:
+ 	rm -f udp-broadcast-relay
++	rm -f build-stamp
++	rm -rf debian/udp-broadcast-relay
++
++
++install:
++	install -d $(DESTDIR)/usr/sbin
++	install -d $(DESTDIR)/lib/systemd/system
++	install -m 0755 udp-broadcast-relay $(DESTDIR)/usr/sbin
++	install -m 0644 udp-broadcast-relay@.service $(DESTDIR)/lib/systemd/system
+diff --git a/debian/changelog b/debian/changelog
+new file mode 100644
+index 0000000..a94fcee
+--- /dev/null
++++ b/debian/changelog
+@@ -0,0 +1,5 @@
++udp-broadcast-relay (0.3+vyos) unstable; urgency=medium
++
++  * Debian packaging for VyOS.
++
++ -- Daniil Baturin <daniil@vyos.io>  Mon, 26 May 2025 17:58:33 +0100
+diff --git a/debian/compat b/debian/compat
+new file mode 100644
+index 0000000..f599e28
+--- /dev/null
++++ b/debian/compat
+@@ -0,0 +1 @@
++10
+diff --git a/debian/control b/debian/control
+new file mode 100644
+index 0000000..2528395
+--- /dev/null
++++ b/debian/control
+@@ -0,0 +1,26 @@
++Source: udp-broadcast-relay
++Section: net
++Priority: optional
++Maintainer: VyOS maintainers <maintainers@vyos.io>
++Build-Depends: debhelper (>= 9.2),
++               pkg-config,
++Standards-Version: 3.9.6
++Vcs-Git: https://github.com/nomeata/udp-broadcast-relay
++Homepage: https://github.com/nomeata/udp-broadcast-relay
++
++Package: udp-broadcast-relay
++Architecture: linux-any
++Depends: ${shlibs:Depends}, ${misc:Depends}
++Description: UDP Broadcast Packet Relay
++ This program listens for packets on a specified UDP broadcast port. When
++ a packet is received, it sends that packet to all specified interfaces
++ but the one it came from as though it originated from the original
++ sender.
++ .
++ The primary purpose of this is to allow games on machines on separated
++ local networks (Ethernet, WLAN) that use udp broadcasts to find each
++ other to do so.
++ .
++ It also works on ppp links, so you can log in from windows boxes (e.g.
++ using pptp) and play LAN-based games together. Currently, you have to
++ care about upcoming or downgoing interfaces yourself.
+diff --git a/debian/copyright b/debian/copyright
+new file mode 100644
+index 0000000..1c19114
+--- /dev/null
++++ b/debian/copyright
+@@ -0,0 +1,16 @@
++Copyright (C) 2022 Joachim Breitner
++
++This program is free software; you can redistribute it and/or
++modify it under the terms of the GNU General Public License
++as published by the Free Software Foundation; either version 2
++of the License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with this program; if not, write to the Free Software
++Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++
+diff --git a/debian/rules b/debian/rules
+new file mode 100755
+index 0000000..16c5748
+--- /dev/null
++++ b/debian/rules
+@@ -0,0 +1,63 @@
++#!/usr/bin/make -f
++# -*- makefile -*-
++# Sample debian/rules that uses debhelper.
++# This file was originally written by Joey Hess and Craig Small.
++# As a special exception, when this file is copied by dh-make into a
++# dh-make output file, you may use that output file without restriction.
++# This special exception was added by Craig Small in version 0.37 of dh-make.
++
++# Uncomment this to turn on verbose mode.
++#export DH_VERBOSE=1
++
++PACKAGE=udp-broadcast-relay
++PKGDIR=$(CURDIR)/debian/$(PACKAGE)
++
++build: build-stamp
++
++build-stamp:
++	dh_testdir
++	$(MAKE)
++	touch $@
++
++clean: clean-patched
++
++# Clean everything up, including everything auto-generated
++# at build time that needs not to be kept around in the Debian diff
++clean-patched:
++	dh_testdir
++	dh_testroot
++	if test -f Makefile ; then $(MAKE) clean ; fi
++	rm -f build-stamp
++	rm -rf config
++	dh_clean
++
++install: build
++	dh_testdir
++	dh_testroot
++	dh_prep
++	dh_installdirs
++
++	$(MAKE) install DESTDIR=$(PKGDIR)
++
++# Build architecture-independent files here.
++binary-indep: build install
++	rm -f debian/files
++	dh_testdir
++	dh_testroot
++	dh_install
++	dh_installdebconf
++	dh_installinit
++	dh_compress
++	dh_fixperms
++	dh_installdeb
++	dh_gencontrol
++	dh_md5sums
++	dh_builddeb
++
++# Build architecture-dependent files here.
++binary-arch: build install
++# This is an architecture independent package
++# so; we have nothing to do by default.
++
++binary: binary-indep
++.PHONY: build clean binary-indep binary install
+diff --git a/udp-broadcast-relay@.service b/udp-broadcast-relay@.service
+new file mode 100644
+index 0000000..229748c
+--- /dev/null
++++ b/udp-broadcast-relay@.service
+@@ -0,0 +1,14 @@
++[Unit]
++Description=UDP-bcast-relay
++After=network.target
++RequiresMountsFor=/run
++
++[Service]
++Type=simple
++NotifyAccess=main
++EnvironmentFile=-/etc/default/udp-broadcast-relay%I
++ExecStart=/usr/sbin/udp-broadcast-relay $DAEMON_ARGS
++Restart=on-failure
++
++[Install]
++WantedBy=multi-user.target
+-- 
+2.49.0
+

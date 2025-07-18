@@ -81,3 +81,45 @@ name = "ipt-netflow"
 commit_id = "0eb2092e93"
 scm_url = "https://github.com/aabc/ipt-netflow"
 build_cmd = "build_ipt_netflow"
+
+[dependencies]
+packages = [
+    "cmake",
+    "gnupg2",
+    "rsync",
+    "libelf-dev",
+    "libncurses5-dev",
+    "flex",
+    "bison",
+    "bc",
+    "kmod",
+    "cpio",
+    "dwarves",
+    "nasm",
+    "rdfind",
+    "pciutils",
+    "yasm",
+    "libudev-dev",
+    "ruby",
+    "ruby-dev",
+    "rubygems",
+    "build-essential",
+    "libdw-dev",
+    "libunwind-dev",
+    "systemtap-sdt-dev",
+    "libslang2-dev",
+    "python-dev-is-python3",
+    "libzstd-dev",
+    "libcap-dev",
+    "libnuma-dev",
+    "libbabeltrace-ctf-dev",
+    "libpfm4-dev",
+    "libtraceevent-dev",
+    "liblua5.3-dev",
+    "libssl3",
+    "libssl-dev",
+    "libpcre3-dev",
+    "libnl-genl-3-dev",
+    "libxtables-dev",
+    "asciidoc-base"
+]

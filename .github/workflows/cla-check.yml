@@ -1,0 +1,18 @@
+name: "CLA Check"
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: write
+  statuses: write
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, closed]
+  issue_comment:
+    types: [created]
+
+jobs:
+  call-cla-assistant:
+    uses: vyos/vyos-cla-signatures/.github/workflows/cla-reusable.yml@current
+    secrets: inherit

@@ -71,9 +71,7 @@ systemctl disable zabbix-agent2.service
 systemctl disable suricata.service
 systemctl disable vyconfd.service
 systemctl disable vpp.service
-systemctl disable vyos-commitd.service
 systemctl disable netplug.service
-
 
 echo I: Enabling services
 systemctl enable vyos-hostsd.service
@@ -81,6 +79,7 @@ systemctl enable acpid.service
 systemctl enable vyos-router.service
 systemctl enable vyos-configd.service
 systemctl enable vyos-grub-update.service
+systemctl enable vyos-commitd.service
 
 echo I: Masking services
 systemctl mask systemd-journald-audit.socket

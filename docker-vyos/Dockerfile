@@ -25,6 +25,8 @@ LABEL authors="VyOS Maintainers <maintainers@vyos.io>"
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
+# Clean cache after each apt-get install command so that it is not stored in the image
+RUN /bin/echo -e 'DPkg::Post-Invoke {"/bin/rm -f /var/cache/apt/archives/*.deb /var/lib/apt/lists/* || true";};' > /etc/apt/apt.conf.d/clean
 
 # Base packaged needed to build packages and their package dependencies
 RUN apt-get update && apt-get install -y \
@@ -68,6 +70,9 @@ RUN bash /tmp/vyos_install_stage_03.sh
 
 # Delete installer scripts
 RUN rm -rf /tmp/*
+
+# Remove cleanup script so that in-container apt-get install uses cache
+RUN rm /etc/apt/apt.conf.d/clean
 
 
 # Make changes specific to the container environment

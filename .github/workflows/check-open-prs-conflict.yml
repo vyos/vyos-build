@@ -1,0 +1,17 @@
+name: "Open PRs Conflicts checker"
+on:
+  push:
+    branches:
+      - current
+      - sagitta
+      - circinus
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-pr-conflict-call:
+    uses: vyos/.github/.github/workflows/check-open-prs-conflict.yml@current
+    secrets: inherit

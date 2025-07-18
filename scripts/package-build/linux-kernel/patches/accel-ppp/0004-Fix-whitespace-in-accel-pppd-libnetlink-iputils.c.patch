@@ -1,0 +1,26 @@
+From a959ab0c0d659a8b314b98bb577a79ec9ed3542c Mon Sep 17 00:00:00 2001
+From: Chris Hills <chris@brsk.co.uk>
+Date: Tue, 11 Jul 2023 10:14:52 +0100
+Subject: [PATCH 4/4] Fix whitespace in accel-pppd/libnetlink/iputils.c
+
+(cherry picked from commit 10d2fba58928dcb4604a04169cbb3a8c9e8a172f)
+---
+ accel-pppd/libnetlink/iputils.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/accel-pppd/libnetlink/iputils.c b/accel-pppd/libnetlink/iputils.c
+index 60eca8b..afe2380 100644
+--- a/accel-pppd/libnetlink/iputils.c
++++ b/accel-pppd/libnetlink/iputils.c
+@@ -551,7 +551,7 @@ int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw
+ #ifdef HAVE_VRF
+ 	__u32 rt_table = ipvrf_get_table(vrf_name);
+ #else
+-  __u32 rt_table = RT_TABLE_MAIN;
++	__u32 rt_table = RT_TABLE_MAIN;
+ #endif
+ 
+ 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+-- 
+2.39.5
+

@@ -11,3 +11,5 @@ packages/*
 /testinstall*.efivars
 /*.qcow2
 /*.tar
+.DS_Store
+._.DS_Store

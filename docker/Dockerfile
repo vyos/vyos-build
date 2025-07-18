@@ -53,6 +53,8 @@ LABEL authors="VyOS Maintainers <maintainers@vyos.io>" \
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN /bin/echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommends
+# Clean cache after each apt-get install command so that it is not stored in the image
+RUN /bin/echo -e 'DPkg::Post-Invoke {"/bin/rm -f /var/cache/apt/archives/*.deb /var/lib/apt/lists/* || true";};' > /etc/apt/apt.conf.d/clean
 
 RUN apt-get update && apt-get install -y \
       dialog \
@@ -88,7 +90,8 @@ RUN apt-get update && apt-get install -y \
       po4a \
       openssh-client \
       jq \
-      socat
+      socat \
+      python-is-python3
 
 # Packages needed for vyos-build
 RUN apt-get update && apt-get install -y \
@@ -124,9 +127,10 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
 
 # Building libvyosconf requires a full configured OPAM/OCaml setup
 RUN apt-get update && apt-get install -y \
+      quilt \
       debhelper \
       libffi-dev \
-      libpcre3-dev \
+      libpcre2-dev \
       unzip
 
 # Update certificate store to not crash ocaml package install
@@ -136,17 +140,16 @@ RUN dpkg-reconfigure ca-certificates; \
       echo "cacert=/etc/ssl/certs/ca-certificates.crt" >> ~/.curlrc; \
     fi
 
-# Installing OCAML needed to compile libvyosconfig
+# Installing OCaml needed to compile libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
     sed -i 's/read_tty BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
-    opam init --root=/opt/opam --comp=${OCAML_VERSION} --disable-sandboxing --no-setup
-
-RUN eval $(opam env --root=/opt/opam --set-root) && \
-    opam pin add pcre https://github.com/mmottl/pcre-ocaml.git#0c4ca03a -y
+    opam init --root=/opt/opam --comp=${OCAML_VERSION} --disable-sandboxing --no-setup \
+    && rm /tmp/opam_install.sh
 
 RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       re \
+      pcre2 \
       num \
       ctypes \
       ctypes-foreign \
@@ -155,12 +158,6 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
       fileutils \
       xml-light
 
-# Packages needed for libvyosconfig
-RUN apt-get update && apt-get install -y \
-      quilt \
-      libpcre3-dev \
-      libffi-dev
-
 # Packages needed for open-vmdk
 RUN apt-get update && apt-get install -y \
       zlib1g-dev
@@ -168,7 +165,8 @@ RUN apt-get update && apt-get install -y \
 # Install open-vmdk
 RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
     unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
-    cd /tmp/open-vmdk-master/ && make && make install
+    cd /tmp/open-vmdk-master/ && make && make install && \
+    cd /tmp && rm -rf /tmp/open-vmdk-master/ && rm /tmp/open-vmdk-master.zip
 
 # Packages need for build live-build
 RUN apt-get update && apt-get install -y \
@@ -181,7 +179,9 @@ RUN git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build 
     patch -p1 < /tmp/0001-save-package-info.patch && \
     dch -n "Applying fix for save package info" && \
     dpkg-buildpackage -us -uc && \
-    dpkg -i ../live-build*.deb
+    dpkg -i ../live-build*.deb && \
+    rm -rf /tmp/live-build
+
 #
 # live-build: building in docker fails with mounting /proc | /sys
 #
@@ -196,43 +196,19 @@ RUN wget https://salsa.debian.org/klausenbusk-guest/debootstrap/commit/a9a603b17
     patch -p1 < /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch && \
     dch -n "Applying fix for docker image compile" && \
     dpkg-buildpackage -us -uc && \
-    sudo dpkg -i ../debootstrap*.deb
+    sudo dpkg -i ../debootstrap*.deb \
+    && rm /tmp/a9a603b17cadbf52cb98cde0843dc9f23a08b0da.patch \
+    && rm -rf /tmp/debootstrap
 
-# Packages needed for Linux Kernel
-# cmake required by accel-ppp
-RUN apt-get update && apt-get install -y \
-      cmake \
-      gnupg2 \
-      rsync \
-      libelf-dev \
-      libncurses5-dev \
-      flex \
-      bison \
-      bc \
-      kmod \
-      cpio \
-      python-is-python3 \
-      dwarves \
-      nasm \
-      rdfind
-
-# Packages needed for Intel QAT out-of-tree drivers
 # FPM is used when generation Debian pckages for e.g. Intel QAT drivers
-RUN apt-get update && apt-get install -y \
-      pciutils \
-      yasm \
-      ruby \
-      libudev-dev \
-      ruby-dev \
-      rubygems \
-      build-essential
 RUN gem install --no-document fpm
 
 # Packages needed for vyos-1x
-RUN pip install --break-system-packages \
+RUN pip --no-cache --no-cache-dir install --break-system-packages \
       git+https://github.com/aristanetworks/j2lint.git@341b5d5db86 \
       pyhumps==3.8.0; \
     apt-get update && apt-get install -y \
+      build-essential \
       dh-python \
       fakeroot \
       iproute2 \
@@ -322,12 +298,6 @@ RUN if dpkg-architecture -iarm64; then \
       grub-efi-arm; \
     fi
 
-# Packages needed for openvpn-otp
-RUN apt-get update && apt-get install -y \
-      debhelper \
-      libssl-dev \
-      openvpn
-
 # Packages needed for OWAMP/TWAMP (service sla)
 RUN git clone -b 4.4.6 https://github.com/perfsonar/i2util.git /tmp/i2util && \
       cd /tmp/i2util && \
@@ -340,29 +310,10 @@ RUN apt-get update && apt-get install -y \
       udev \
       zip
 
-# Packages needed for Accel-PPP
-# XXX: please note that this must be installed after nftable dependencies - otherwise
-# APT will remove liblua5.3-dev which breaks the Accel-PPP build
-# With bookworm, updated to libssl3 (Note: https://github.com/accel-ppp/accel-ppp/issues/68)
-RUN apt-get update && apt-get install -y \
-      liblua5.3-dev \
-      libssl3 \
-      libssl-dev \
-      libpcre3-dev
-
 # debmake: a native Debian tool for preparing sources for packaging
 RUN apt-get update && apt-get install -y \
       debmake \
       python3-debian
-
-# Packages for jool
-RUN apt-get update && apt-get install -y \
-      libnl-genl-3-dev \
-      libxtables-dev
-
-# Packages needed for nftables
-RUN apt-get update && apt-get install -y \
-      asciidoc-base
 
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
@@ -379,6 +330,12 @@ RUN sed -i 's/UID_MAX\t\t\t60000/UID_MAX\t\t\t2000000000/g' /etc/login.defs
 
 # Cleanup
 RUN rm -rf /tmp/*
+
+# Remove cleanup script so that in-container apt-get install uses cache
+RUN rm /etc/apt/apt.conf.d/clean
+
+# Add cache once as it is needed by some builds in GitHub Actions
+RUN apt-get update
 
 # Disable mouse in vim
 RUN printf "set mouse=\nset ttymouse=\n" > /etc/vim/vimrc.local

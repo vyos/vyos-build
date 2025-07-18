@@ -1,0 +1,213 @@
+From 4898832b90a6b929b8316fe55085b14c3afcf4a8 Mon Sep 17 00:00:00 2001
+From: Chris Hills <chris@brsk.co.uk>
+Date: Mon, 3 Jul 2023 14:42:22 +0100
+Subject: [PATCH 3/4] Simplify implementation of vrf support for
+ iproute_add/del
+
+(cherry picked from commit 85cbd27bd440e0a4836bb9e03c933e05fd321769)
+---
+ accel-pppd/ctrl/ipoe/ipoe.c     | 24 ++----------------------
+ accel-pppd/libnetlink/iputils.c | 16 ----------------
+ accel-pppd/libnetlink/iputils.h |  5 -----
+ accel-pppd/radius/radius.c      | 16 ----------------
+ accel-pppd/session.c            |  1 +
+ 5 files changed, 3 insertions(+), 59 deletions(-)
+
+diff --git a/accel-pppd/ctrl/ipoe/ipoe.c b/accel-pppd/ctrl/ipoe/ipoe.c
+index 6f23fd6..3a6c85b 100644
+--- a/accel-pppd/ctrl/ipoe/ipoe.c
++++ b/accel-pppd/ctrl/ipoe/ipoe.c
+@@ -1021,9 +1021,9 @@ static void __ipoe_session_activate(struct ipoe_session *ses)
+ 			in_addr_t gw;
+ 			iproute_get(ses->router, &gw, NULL);
+ 			if (gw)
+-				iproute_add(0, ses->siaddr, ses->yiaddr, gw, conf_proto, 32);
++				iproute_add(0, ses->siaddr, ses->yiaddr, gw, conf_proto, 32, NULL);
+ 			else
+-				iproute_add(0, ses->siaddr, ses->router, gw, conf_proto, 32);
++				iproute_add(0, ses->siaddr, ses->router, gw, conf_proto, 32, NULL);
+ 		}*/
+ 
+ 		if (serv->opt_mode == MODE_L3)
+@@ -1067,17 +1067,9 @@ static void __ipoe_session_activate(struct ipoe_session *ses)
+ 
+ 	if (ses->ifindex == -1 && !serv->opt_ifcfg) {
+ 		if (!serv->opt_ip_unnumbered)
+-#ifdef HAVE_VRF
+ 			iproute_add(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0, NULL);
+-#else
+-			iproute_add(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0);
+-#endif
+ 		else
+-#ifdef HAVE_VRF
+ 			iproute_add(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0, NULL);
+-#else
+-			iproute_add(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0);
+-#endif
+ 	}
+ 
+ 	if (ses->l4_redirect)
+@@ -1178,11 +1170,7 @@ static void ipoe_session_started(struct ap_session *s)
+ 
+ 	if (ses->ses.ipv4->peer_addr != ses->yiaddr)
+ 		//ipaddr_add_peer(ses->ses.ifindex, ses->router, ses->yiaddr); // breaks quagga
+-#ifdef HAVE_VRF
+ 		iproute_add(ses->ses.ifindex, ses->router, ses->yiaddr, 0, conf_proto, 32, 0, NULL);
+-#else
+-		iproute_add(ses->ses.ifindex, ses->router, ses->yiaddr, 0, conf_proto, 32, 0);
+-#endif
+ 
+ 	if (ses->ifindex != -1 && ses->xid) {
+ 		ses->dhcpv4 = dhcpv4_create(ses->ctrl.ctx, ses->ses.ifname, "");
+@@ -1266,17 +1254,9 @@ static void ipoe_session_finished(struct ap_session *s)
+ 	} else if (ses->started) {
+ 		if (!serv->opt_ifcfg) {
+ 			if (!serv->opt_ip_unnumbered)
+-#ifdef HAVE_VRF
+ 				iproute_del(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0, NULL);
+-#else
+-				iproute_del(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0);
+-#endif
+ 			else
+-#ifdef HAVE_VRF
+ 				iproute_del(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0, NULL);
+-#else
+-				iproute_del(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0);
+-#endif
+ 		}
+ 	}
+ 
+diff --git a/accel-pppd/libnetlink/iputils.c b/accel-pppd/libnetlink/iputils.c
+index 6c61fc2..60eca8b 100644
+--- a/accel-pppd/libnetlink/iputils.c
++++ b/accel-pppd/libnetlink/iputils.c
+@@ -533,11 +533,7 @@ out:
+ }
+ #endif
+ 
+-#ifdef HAVE_VRF
+ int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name)
+-#else
+-int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio)
+-#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+@@ -586,11 +582,7 @@ int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw
+ 	return r;
+ }
+ 
+-#ifdef HAVE_VRF
+ int __export iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name)
+-#else
+-int __export iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio)
+-#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+@@ -633,11 +625,7 @@ int __export iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw
+ 	return r;
+ }
+ 
+-#ifdef HAVE_VRF
+ int __export ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio, const char *vrf_name)
+-#else
+-int __export ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio)
+-#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+@@ -684,11 +672,7 @@ int __export ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len,
+ 	return r;
+ }
+ 
+-#ifdef HAVE_VRF
+ int __export ip6route_del(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio, const char *vrf_name)
+-#else
+-int __export ip6route_del(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio)
+-#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+diff --git a/accel-pppd/libnetlink/iputils.h b/accel-pppd/libnetlink/iputils.h
+index c3063f4..d3a93f4 100644
+--- a/accel-pppd/libnetlink/iputils.h
++++ b/accel-pppd/libnetlink/iputils.h
+@@ -21,13 +21,8 @@ int ipaddr_add_peer(int ifindex, in_addr_t addr, in_addr_t peer_addr);
+ int ipaddr_del(int ifindex, in_addr_t addr, int mask);
+ int ipaddr_del_peer(int ifindex, in_addr_t addr, in_addr_t peer);
+ 
+-#ifdef HAVE_VRF
+ int iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name);
+ int iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name);
+-#else
+-int iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio);
+-int iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio);
+-#endif
+ in_addr_t iproute_get(in_addr_t dst, in_addr_t *gw);
+ 
+ #ifdef HAVE_VRF
+diff --git a/accel-pppd/radius/radius.c b/accel-pppd/radius/radius.c
+index a45666f..9d567b7 100644
+--- a/accel-pppd/radius/radius.c
++++ b/accel-pppd/radius/radius.c
+@@ -643,11 +643,7 @@ static void ses_started(struct ap_session *ses)
+ 		char nbuf[INET6_ADDRSTRLEN];
+ 		char gwbuf[INET6_ADDRSTRLEN];
+ 
+-#ifdef HAVE_VRF
+ 		if (ip6route_add(gw_spec ? 0 : rpd->ses->ifindex, &fr6->prefix, fr6->plen, gw_spec ? &fr6->gw : NULL, 3, fr6->prio, rpd->ses->vrf_name)) {
+-#else
+-		if (ip6route_add(gw_spec ? 0 : rpd->ses->ifindex, &fr6->prefix, fr6->plen, gw_spec ? &fr6->gw : NULL, 3, fr6->prio)) {
+-#endif
+ 			log_ppp_warn("radius: failed to add route %s/%hhu %s %u\n",
+ 						    u_ip6str(&fr6->prefix, nbuf), fr6->plen,
+ 						    u_ip6str(&fr6->gw, gwbuf), fr6->prio);
+@@ -655,11 +651,7 @@ static void ses_started(struct ap_session *ses)
+ 	}
+ 
+ 	for (fr = rpd->fr; fr; fr = fr->next) {
+-#ifdef HAVE_VRF
+ 		if (iproute_add(fr->gw ? 0 : rpd->ses->ifindex, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio, rpd->ses->vrf_name)) {
+-#else
+-		if (iproute_add(fr->gw ? 0 : rpd->ses->ifindex, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio)) {
+-#endif
+ 			char dst[17], gw[17];
+ 			u_inet_ntoa(fr->dst, dst);
+ 			u_inet_ntoa(fr->gw, gw);
+@@ -698,20 +690,12 @@ static void ses_finishing(struct ap_session *ses)
+ 		 * when the interface is removed.
+ 		 */
+ 		if (!IN6_IS_ADDR_UNSPECIFIED(&fr6->gw))
+-#ifdef HAVE_VRF
+ 			ip6route_del(0, &fr6->prefix, fr6->plen, &fr6->gw, 3, fr6->prio, rpd->ses->vrf_name);
+-#else
+-			ip6route_del(0, &fr6->prefix, fr6->plen, &fr6->gw, 3, fr6->prio);
+-#endif
+ 	}
+ 
+ 	for (fr = rpd->fr; fr; fr = fr->next) {
+ 		if (fr->gw)
+-#ifdef HAVE_VRF
+ 			iproute_del(0, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio, rpd->ses->vrf_name);
+-#else
+-			iproute_del(0, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio);
+-#endif
+ 	}
+ 
+ 	if (rpd->acct_started || rpd->acct_req)
+diff --git a/accel-pppd/session.c b/accel-pppd/session.c
+index c01417f..fedb6f5 100644
+--- a/accel-pppd/session.c
++++ b/accel-pppd/session.c
+@@ -68,6 +68,7 @@ void __export ap_session_init(struct ap_session *ses)
+ 	ses->ifindex = -1;
+ 	ses->unit_idx = -1;
+ 	ses->net = net;
++	ses->vrf_name = NULL;
+ }
+ 
+ void __export ap_session_set_ifindex(struct ap_session *ses)
+-- 
+2.39.5
+

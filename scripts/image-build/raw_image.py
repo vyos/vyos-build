@@ -63,22 +63,38 @@ class BuildContext:
 
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    def __exit__(self, exc_type, exc_value, traceback):
         print(f"I: Tearing down the raw image build environment in {self.work_dir}")
-        cmd(f"""umount {self.squash_dir}/dev/""")
-        cmd(f"""umount {self.squash_dir}/proc/""")
-        cmd(f"""umount {self.squash_dir}/sys/""")
 
-        cmd(f"umount {self.squash_dir}/boot/efi")
-        cmd(f"umount {self.squash_dir}/boot")
+        for mount in [
+            f"{self.squash_dir}/dev/",
+            f"{self.squash_dir}/proc/",
+            f"{self.squash_dir}/sys/",
+            f"{self.squash_dir}/boot/efi",
+            f"{self.squash_dir}/boot",
+            f"{self.squash_dir}",
+            f"{self.iso_dir}",
+            f"{self.raw_dir}",
+            f"{self.efi_dir}"
+        ]:
+            if os.path.ismount(mount):
+                try:
+                    cmd(f"umount {mount}")
+                except Exception as e:
+                    print(f"W: Failed to umount {mount}: {e}")
 
-        cmd(f"""umount {self.squash_dir}""")
-        cmd(f"""umount {self.iso_dir}""")
-        cmd(f"""umount {self.raw_dir}""")
-        cmd(f"""umount {self.efi_dir}""")
-
+        # Remove kpartx mappings
         if self.loop_device:
-            cmd(f"""losetup -d {self.loop_device}""")
+            mapper_base = os.path.basename(self.loop_device)
+            try:
+                cmd(f"kpartx -d {self.loop_device}")
+            except Exception as e:
+                print(f"W: Failed to remove kpartx mappings for {mapper_base}: {e}")
+
+            try:
+                cmd(f"losetup -d {self.loop_device}")
+            except Exception as e:
+                print(f"W: Failed to detach loop device {self.loop_device}: {e}")
 
 def create_disk(path, size):
     cmd(f"""qemu-img create -f raw "{path}" {size}G""")
@@ -106,14 +122,23 @@ def setup_loop_device(con, raw_file):
 def mount_image(con):
     import vyos.system.disk
 
-    from subprocess import Popen, PIPE, STDOUT
-    from re import match
+    try:
+        root = con.disk_details.partition['root']
+        efi = con.disk_details.partition['efi']
+    except (AttributeError, KeyError):
+        raise RuntimeError("E: No valid root or EFI partition found in disk details")
 
-    vyos.system.disk.filesystem_create(con.disk_details.partition['efi'], 'efi')
-    vyos.system.disk.filesystem_create(con.disk_details.partition['root'], 'ext4')
+    vyos.system.disk.filesystem_create(efi, 'efi')
+    vyos.system.disk.filesystem_create(root, 'ext4')
 
-    cmd(f"mount -t ext4 {con.disk_details.partition['root']} {con.raw_dir}")
-    cmd(f"mount -t vfat {con.disk_details.partition['efi']} {con.efi_dir}")
+    print(f"I: Mounting root: {root} to {con.raw_dir}")
+    cmd(f"mount -t ext4 {root} {con.raw_dir}")
+    cmd(f"mount -t vfat {efi} {con.efi_dir}")
+
+    if not os.path.ismount(con.efi_dir):
+        cmd(f"mount -t vfat {con.disk_details.partition['efi']} {con.efi_dir}")
+    else:
+        print(f"I: {con.disk_details.partition['efi']} already mounted on {con.efi_dir}")
 
 def install_image(con, version):
     from glob import glob
@@ -205,6 +230,36 @@ def create_raw_image(build_config, iso_file, work_dir):
         create_disk(raw_file, build_config["disk_size"])
         setup_loop_device(con, raw_file)
         disk_details = parttable_create(con.loop_device, (int(build_config["disk_size"]) - 1) * 1024 * 1024)
+
+        # Map partitions using kpartx
+        print("I: Mapping partitions using kpartx...")
+        cmd(f"kpartx -av {con.loop_device}")
+        cmd("udevadm settle")
+
+
+        # Detect mapped partitions
+        from glob import glob
+        import time
+
+        mapper_base = os.path.basename(con.loop_device).replace("/dev/", "")
+        mapped_parts = sorted(glob(f"/dev/mapper/{mapper_base}p*"))
+
+        if not mapped_parts:
+            raise RuntimeError(f"E: No partitions were found in /dev/mapper for {mapper_base}")
+
+        print(f"I: Found mapped partitions: {mapped_parts}")
+
+        if len(mapped_parts) == 2:
+            # Assume [0] = EFI, [1] = root
+            disk_details.partition['efi'] = mapped_parts[0]
+            disk_details.partition['root'] = mapped_parts[1]
+        elif len(mapped_parts) >= 3:
+            # Common layout: [1] = EFI, [2] = root (skip 0 if it's BIOS boot)
+            disk_details.partition['efi'] = mapped_parts[1]
+            disk_details.partition['root'] = mapped_parts[2]
+        else:
+            raise RuntimeError(f"E: Unexpected partition layout: {mapped_parts}")
+
         con.disk_details = disk_details
         mount_image(con)
         install_image(con, version)

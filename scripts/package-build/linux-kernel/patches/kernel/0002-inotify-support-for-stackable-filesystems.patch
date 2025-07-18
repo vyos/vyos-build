@@ -19,6 +19,7 @@ for bug #303, and will allow that commit to be reverted.
 Bug #425 http://bugzilla.vyos.net/show_bug.cgi?id=425
 
 (cherry picked from commit a93f1128bc83b5a6628da242e71c18ef05e81ea2)
+
 ---
  fs/notify/inotify/Kconfig        |   9 +++
  fs/notify/inotify/inotify_user.c | 114 ++++++++++++++++++++++++++++++-
@@ -190,7 +191,7 @@ index 1c4bfdab008d..cf567cc33679 100644
  			      struct inotify_inode_mark *i_mark)
  {
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 2c056d737c27..2cb1f0024e70 100644
+index 93ee57bc82ad..5f4f886d011e 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -15,6 +15,7 @@
@@ -201,7 +202,7 @@ index 2c056d737c27..2cb1f0024e70 100644
  #include <linux/file.h>
  #include <linux/fs_context.h>
  #include <linux/fs_parser.h>
-@@ -1528,6 +1529,18 @@ static void ovl_inode_init_once(void *foo)
+@@ -1533,6 +1534,18 @@ static void ovl_inode_init_once(void *foo)
  	inode_init_once(&oi->vfs_inode);
  }
  
@@ -220,7 +221,7 @@ index 2c056d737c27..2cb1f0024e70 100644
  static int __init ovl_init(void)
  {
  	int err;
-@@ -1543,18 +1556,24 @@ static int __init ovl_init(void)
+@@ -1548,18 +1561,24 @@ static int __init ovl_init(void)
  	err = ovl_aio_request_cache_init();
  	if (!err) {
  		err = register_filesystem(&ovl_fs_type);
@@ -294,5 +295,5 @@ index 8d20caa1b268..c126e2f93a73 100644
 +
  #endif	/* _LINUX_INOTIFY_H */
 -- 
-2.39.2
+2.39.5
 

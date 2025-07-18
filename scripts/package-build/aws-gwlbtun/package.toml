@@ -57,3 +57,8 @@ chmod +x debian/rules
 debuild -us -uc -b
 '''
 ## Build cmd end
+
+[dependencies]
+packages = [
+    "cmake"
+]

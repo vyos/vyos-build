@@ -6,6 +6,7 @@ Subject: [PATCH] VyOS: Add linkstate IP device attribute
 Backport of earlier Vyatta patch.
 
 (cherry picked from commit 7c5a851086686be14ae937c80d6cee34814dbefc)
+
 ---
  Documentation/networking/ip-sysctl.rst | 11 +++++++++++
  include/linux/inetdevice.h             |  1 +
@@ -100,10 +101,10 @@ index c33b1ecc591e..7576d51cd16d 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8360939acf85..b13832a08d28 100644
+index 231fa4dc6cde..8d8a8ee9c4fe 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5674,6 +5674,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+@@ -5677,6 +5677,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
  	array[DEVCONF_NDISC_EVICT_NOCARRIER] = cnf->ndisc_evict_nocarrier;
  	array[DEVCONF_ACCEPT_UNTRACKED_NA] = cnf->accept_untracked_na;
  	array[DEVCONF_ACCEPT_RA_MIN_LFT] = cnf->accept_ra_min_lft;
@@ -111,7 +112,7 @@ index 8360939acf85..b13832a08d28 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7103,6 +7104,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7119,6 +7120,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
@@ -126,10 +127,10 @@ index 8360939acf85..b13832a08d28 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5715d54f3d0b..e88971b512ba 100644
+index 53197087353a..4fed0253cf83 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -682,6 +682,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
+@@ -716,6 +716,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
  }
  #endif
  
@@ -144,7 +145,7 @@ index 5715d54f3d0b..e88971b512ba 100644
  /*
   * Default Router Selection (RFC 2461 6.3.6)
   */
-@@ -723,6 +731,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
+@@ -757,6 +765,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
  
  	if (!m && (strict & RT6_LOOKUP_F_IFACE))
  		return RT6_NUD_FAIL_HARD;

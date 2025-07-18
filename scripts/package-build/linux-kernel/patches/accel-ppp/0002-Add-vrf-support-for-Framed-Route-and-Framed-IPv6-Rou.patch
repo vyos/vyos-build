@@ -1,0 +1,639 @@
+From 5587c45d9e3264f45eba636941cf80b90f2f6186 Mon Sep 17 00:00:00 2001
+From: Chris Hills <chris@brsk.co.uk>
+Date: Thu, 29 Jun 2023 09:24:36 +0100
+Subject: [PATCH 2/4] Add vrf support for Framed-Route and Framed-IPv6-Route
+
+(cherry picked from commit 899dc375fe01672a5eae2d7f7db81edc0d2a4440)
+---
+ accel-pppd/CMakeLists.txt        |   4 +
+ accel-pppd/ctrl/ipoe/ipoe.c      |  20 ++++
+ accel-pppd/ifcfg.c               |   6 +-
+ accel-pppd/ipv6/dhcpv6.c         |   8 ++
+ accel-pppd/libnetlink/iputils.c  | 110 ++++++++++++++++-
+ accel-pppd/libnetlink/iputils.h  |  11 ++
+ accel-pppd/libnetlink/rt_names.c | 196 +++++++++++++++++++++++++++++++
+ accel-pppd/libnetlink/rt_names.h |  14 +++
+ accel-pppd/radius/radius.c       |  21 +++-
+ 9 files changed, 384 insertions(+), 6 deletions(-)
+ create mode 100644 accel-pppd/libnetlink/rt_names.c
+ create mode 100644 accel-pppd/libnetlink/rt_names.h
+
+diff --git a/accel-pppd/CMakeLists.txt b/accel-pppd/CMakeLists.txt
+index ab8a350..c3995ea 100644
+--- a/accel-pppd/CMakeLists.txt
++++ b/accel-pppd/CMakeLists.txt
+@@ -123,6 +123,10 @@ ADD_EXECUTABLE(accel-pppd
+ 	main.c
+ )
+ 
++IF (DEFINED HAVE_VRF)
++	target_sources(accel-pppd PRIVATE libnetlink/rt_names.c)
++ENDIF (DEFINED HAVE_VRF)
++
+ TARGET_LINK_LIBRARIES(accel-pppd triton rt pthread ${crypto_lib} pcre)
+ set_property(TARGET accel-pppd PROPERTY CMAKE_SKIP_BUILD_RPATH FALSE)
+ set_property(TARGET accel-pppd PROPERTY CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+diff --git a/accel-pppd/ctrl/ipoe/ipoe.c b/accel-pppd/ctrl/ipoe/ipoe.c
+index 61b7c23..6f23fd6 100644
+--- a/accel-pppd/ctrl/ipoe/ipoe.c
++++ b/accel-pppd/ctrl/ipoe/ipoe.c
+@@ -1067,9 +1067,17 @@ static void __ipoe_session_activate(struct ipoe_session *ses)
+ 
+ 	if (ses->ifindex == -1 && !serv->opt_ifcfg) {
+ 		if (!serv->opt_ip_unnumbered)
++#ifdef HAVE_VRF
++			iproute_add(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0, NULL);
++#else
+ 			iproute_add(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0);
++#endif
+ 		else
++#ifdef HAVE_VRF
++			iproute_add(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0, NULL);
++#else
+ 			iproute_add(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0);
++#endif
+ 	}
+ 
+ 	if (ses->l4_redirect)
+@@ -1170,7 +1178,11 @@ static void ipoe_session_started(struct ap_session *s)
+ 
+ 	if (ses->ses.ipv4->peer_addr != ses->yiaddr)
+ 		//ipaddr_add_peer(ses->ses.ifindex, ses->router, ses->yiaddr); // breaks quagga
++#ifdef HAVE_VRF
++		iproute_add(ses->ses.ifindex, ses->router, ses->yiaddr, 0, conf_proto, 32, 0, NULL);
++#else
+ 		iproute_add(ses->ses.ifindex, ses->router, ses->yiaddr, 0, conf_proto, 32, 0);
++#endif
+ 
+ 	if (ses->ifindex != -1 && ses->xid) {
+ 		ses->dhcpv4 = dhcpv4_create(ses->ctrl.ctx, ses->ses.ifname, "");
+@@ -1254,9 +1266,17 @@ static void ipoe_session_finished(struct ap_session *s)
+ 	} else if (ses->started) {
+ 		if (!serv->opt_ifcfg) {
+ 			if (!serv->opt_ip_unnumbered)
++#ifdef HAVE_VRF
++				iproute_del(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0, NULL);
++#else
+ 				iproute_del(serv->ifindex, ses->router, ses->yiaddr, 0, conf_proto, ses->mask, 0);
++#endif
+ 			else
++#ifdef HAVE_VRF
++				iproute_del(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0, NULL);
++#else
+ 				iproute_del(serv->ifindex, serv->opt_src ?: ses->router, ses->yiaddr, 0, conf_proto, 32, 0);
++#endif
+ 		}
+ 	}
+ 
+diff --git a/accel-pppd/ifcfg.c b/accel-pppd/ifcfg.c
+index 3750060..3b1848e 100644
+--- a/accel-pppd/ifcfg.c
++++ b/accel-pppd/ifcfg.c
+@@ -234,7 +234,11 @@ void __export ap_session_ifdown(struct ap_session *ses)
+ 			if (!a->installed)
+ 				continue;
+ 			if (a->prefix_len > 64)
++#ifdef HAVE_VRF
++				ip6route_del(ses->ifindex, &a->addr, a->prefix_len, NULL, 0, 0, ses->vrf_name);
++#else
+ 				ip6route_del(ses->ifindex, &a->addr, a->prefix_len, NULL, 0, 0);
++#endif
+ 			else {
+ 				struct in6_addr addr;
+ 				memcpy(addr.s6_addr, &a->addr, 8);
+@@ -376,4 +380,4 @@ int __export ap_session_vrf(struct ap_session *ses, const char *vrf_name, int le
+ 
+ 	return 0;
+ }
+-#endif
+\ No newline at end of file
++#endif
+diff --git a/accel-pppd/ipv6/dhcpv6.c b/accel-pppd/ipv6/dhcpv6.c
+index 158771b..41e6c3f 100644
+--- a/accel-pppd/ipv6/dhcpv6.c
++++ b/accel-pppd/ipv6/dhcpv6.c
+@@ -159,7 +159,11 @@ static void ev_ses_finished(struct ap_session *ses)
+ 		if (pd->dp_active) {
+ 			struct ipv6db_addr_t *p;
+ 			list_for_each_entry(p, &ses->ipv6_dp->prefix_list, entry)
++#ifdef HAVE_VRF
++				ip6route_del(0, &p->addr, p->prefix_len, NULL, 0, 0, ses->vrf_name);
++#else
+ 				ip6route_del(0, &p->addr, p->prefix_len, NULL, 0, 0);
++#endif
+ 		}
+ 
+ 		ipdb_put_ipv6_prefix(ses, ses->ipv6_dp);
+@@ -181,7 +185,11 @@ static void insert_dp_routes(struct ap_session *ses, struct dhcpv6_pd *pd, struc
+ 		addr = NULL;
+ 
+ 	list_for_each_entry(p, &ses->ipv6_dp->prefix_list, entry) {
++#ifdef HAVE_VRF
++		if (ip6route_add(ses->ifindex, &p->addr, p->prefix_len, addr, 0, 0, ses->vrf_name)) {
++#else
+ 		if (ip6route_add(ses->ifindex, &p->addr, p->prefix_len, addr, 0, 0)) {
++#endif
+ 			err = errno;
+ 			inet_ntop(AF_INET6, &p->addr, str1, sizeof(str1));
+ 			if (addr)
+diff --git a/accel-pppd/libnetlink/iputils.c b/accel-pppd/libnetlink/iputils.c
+index 23325fc..6c61fc2 100644
+--- a/accel-pppd/libnetlink/iputils.c
++++ b/accel-pppd/libnetlink/iputils.c
+@@ -11,7 +11,9 @@
+ #include <errno.h>
+ #include <time.h>
+ #include <sys/uio.h>
+-//#include <linux/if_link.h>
++#ifdef HAVE_VRF
++#include <linux/if_link.h>
++#endif
+ //#include <linux/if_addr.h>
+ //#include <linux/rtnetlink.h>
+ #include <linux/fib_rules.h>
+@@ -21,6 +23,9 @@
+ #include "libnetlink.h"
+ #include "iputils.h"
+ #include "ap_net.h"
++#ifdef HAVE_VRF
++#include "rt_names.h"
++#endif
+ 
+ #ifdef ACCEL_DP
+ #define _malloc(x) malloc(x)
+@@ -457,7 +462,82 @@ int __export ipaddr_del_peer(int ifindex, in_addr_t addr, in_addr_t peer)
+ 	return r;
+ }
+ 
++#ifdef HAVE_VRF
++__u32 ipvrf_get_table(const char *vrf_name)
++{
++	struct iplink_req {
++		struct nlmsghdr n;
++		struct ifinfomsg i;
++		char buf[4096];
++	} req;
++	struct rtnl_handle *rth = net->rtnl_get();
++	struct rtattr *tb[IFLA_MAX+1];
++	struct rtattr *li[IFLA_INFO_MAX+1];
++	struct rtattr *vrf_attr[IFLA_VRF_MAX + 1];
++	struct ifinfomsg *ifi;
++	int len;
++	__u32 tb_id = RT_TABLE_MAIN;
++
++	log_ppp_info2("utils: getting route table for %s\n", vrf_name);
++
++	if (!vrf_name)
++		return tb_id;
++
++	memset(&req, 0, sizeof(req) - 4096);
++
++	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	req.n.nlmsg_flags = NLM_F_REQUEST;
++	req.n.nlmsg_type = RTM_GETLINK;
++	req.i.ifi_family = AF_UNSPEC;
++
++	addattr_l(&req.n, 4096, IFLA_IFNAME, vrf_name, strlen(vrf_name));
++
++	if (rtnl_talk(rth, &req.n, 0, 0, &req.n, NULL, NULL, 0) < 0) {
++    if (errno == ENODEV && !strcmp(vrf_name, "default"))
++			if (rtnl_rttable_a2n(&tb_id, "main"))
++				log_ppp_error(
++					"BUG: route table \"main\" not found.\n");
++		return tb_id;
++	}
++
++	ifi = NLMSG_DATA(&req.n);
++
++	len = req.n.nlmsg_len;
++
++	len -= NLMSG_LENGTH(sizeof(*ifi));
++	if (len < 0)
++		goto out;
++
++	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
++
++	if (!tb[IFLA_LINKINFO])
++		goto out;
++
++	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
++
++	if (!li[IFLA_INFO_KIND] || !li[IFLA_INFO_DATA])
++		goto out;
++
++	if (strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf"))
++		goto out;
++
++	parse_rtattr_nested(vrf_attr, IFLA_VRF_MAX, li[IFLA_INFO_DATA]);
++	if (vrf_attr[IFLA_VRF_TABLE])
++		tb_id = *(__u32 *)RTA_DATA(vrf_attr[IFLA_VRF_TABLE]);
++
++	if (!tb_id)
++		log_ppp_error("BUG: VRF %s is missing table id\n", vrf_name);
++
++out:
++	return tb_id;
++}
++#endif
++
++#ifdef HAVE_VRF
++int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name)
++#else
+ int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio)
++#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+@@ -472,11 +552,17 @@ int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw
+ 
+ 	memset(&req, 0, sizeof(req) - 4096);
+ 
++#ifdef HAVE_VRF
++	__u32 rt_table = ipvrf_get_table(vrf_name);
++#else
++  __u32 rt_table = RT_TABLE_MAIN;
++#endif
++
+ 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+ 	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
+ 	req.n.nlmsg_type = RTM_NEWROUTE;
+ 	req.i.rtm_family = AF_INET;
+-	req.i.rtm_table = RT_TABLE_MAIN;
++	req.i.rtm_table = rt_table;
+ 	req.i.rtm_scope = gw ? RT_SCOPE_UNIVERSE : RT_SCOPE_LINK;
+ 	req.i.rtm_protocol = proto;
+ 	req.i.rtm_type = RTN_UNICAST;
+@@ -500,7 +586,11 @@ int __export iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw
+ 	return r;
+ }
+ 
++#ifdef HAVE_VRF
++int __export iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name)
++#else
+ int __export iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio)
++#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+@@ -543,7 +633,11 @@ int __export iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw
+ 	return r;
+ }
+ 
++#ifdef HAVE_VRF
++int __export ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio, const char *vrf_name)
++#else
+ int __export ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio)
++#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+@@ -558,11 +652,17 @@ int __export ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len,
+ 
+ 	memset(&req, 0, sizeof(req) - 4096);
+ 
++#ifdef HAVE_VRF
++	__u32 rt_table = ipvrf_get_table(vrf_name);
++#else
++	__u32 rt_table = RT_TABLE_MAIN;
++#endif
++
+ 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+ 	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
+ 	req.n.nlmsg_type = RTM_NEWROUTE;
+ 	req.i.rtm_family = AF_INET6;
+-	req.i.rtm_table = RT_TABLE_MAIN;
++	req.i.rtm_table = rt_table;
+ 	req.i.rtm_scope = RT_SCOPE_UNIVERSE;
+ 	req.i.rtm_protocol = proto;
+ 	req.i.rtm_type = RTN_UNICAST;
+@@ -584,7 +684,11 @@ int __export ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len,
+ 	return r;
+ }
+ 
++#ifdef HAVE_VRF
++int __export ip6route_del(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio, const char *vrf_name)
++#else
+ int __export ip6route_del(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio)
++#endif
+ {
+ 	struct ipaddr_req {
+ 		struct nlmsghdr n;
+diff --git a/accel-pppd/libnetlink/iputils.h b/accel-pppd/libnetlink/iputils.h
+index 9292cea..c3063f4 100644
+--- a/accel-pppd/libnetlink/iputils.h
++++ b/accel-pppd/libnetlink/iputils.h
+@@ -4,6 +4,7 @@
+ #include <linux/if_link.h>
+ #include <netinet/in.h>
+ #include <stdint.h>
++#include <config.h>
+ 
+ typedef int (*iplink_list_func)(int index, int flags, const char *name, int iflink, int vid, void *arg);
+ 
+@@ -20,12 +21,22 @@ int ipaddr_add_peer(int ifindex, in_addr_t addr, in_addr_t peer_addr);
+ int ipaddr_del(int ifindex, in_addr_t addr, int mask);
+ int ipaddr_del_peer(int ifindex, in_addr_t addr, in_addr_t peer);
+ 
++#ifdef HAVE_VRF
++int iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name);
++int iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio, const char *vrf_name);
++#else
+ int iproute_add(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio);
+ int iproute_del(int ifindex, in_addr_t src, in_addr_t dst, in_addr_t gw, int proto, int mask, uint32_t prio);
++#endif
+ in_addr_t iproute_get(in_addr_t dst, in_addr_t *gw);
+ 
++#ifdef HAVE_VRF
++int ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio, const char *vrf_name);
++int ip6route_del(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio, const char *vrf_name);
++#else
+ int ip6route_add(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio);
+ int ip6route_del(int ifindex, const struct in6_addr *dst, int pref_len, const struct in6_addr *gw, int proto, uint32_t prio);
++#endif
+ int ip6addr_add(int ifindex, struct in6_addr *addr, int prefix_len);
+ int ip6addr_add_peer(int ifindex, struct in6_addr *addr, struct in6_addr *peer_addr);
+ int ip6addr_del(int ifindex, struct in6_addr *addr, int prefix_len);
+diff --git a/accel-pppd/libnetlink/rt_names.c b/accel-pppd/libnetlink/rt_names.c
+new file mode 100644
+index 0000000..5591a67
+--- /dev/null
++++ b/accel-pppd/libnetlink/rt_names.c
+@@ -0,0 +1,196 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/*
++ * rt_names.c		rtnetlink names DB.
++ *
++ * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <string.h>
++#include <sys/time.h>
++#include <sys/socket.h>
++#include <dirent.h>
++#include <limits.h>
++
++#include <asm/types.h>
++#include <linux/rtnetlink.h>
++
++#include "rt_names.h"
++#include "utils.h"
++
++#define NAME_MAX_LEN 512
++#define CONFDIR "/etc/iproute2"
++
++int numeric;
++
++struct rtnl_hash_entry {
++	struct rtnl_hash_entry	*next;
++	const char		*name;
++	unsigned int		id;
++};
++
++static int fread_id_name(FILE *fp, int *id, char *namebuf)
++{
++	char buf[NAME_MAX_LEN];
++
++	while (fgets(buf, sizeof(buf), fp)) {
++		char *p = buf;
++
++		while (*p == ' ' || *p == '\t')
++			p++;
++
++		if (*p == '#' || *p == '\n' || *p == 0)
++			continue;
++
++		if (sscanf(p, "0x%x %s\n", id, namebuf) != 2 &&
++				sscanf(p, "0x%x %s #", id, namebuf) != 2 &&
++				sscanf(p, "%d %s\n", id, namebuf) != 2 &&
++				sscanf(p, "%d %s #", id, namebuf) != 2) {
++			strcpy(namebuf, p);
++			return -1;
++		}
++		return 1;
++	}
++	return 0;
++}
++
++static void
++rtnl_hash_initialize(const char *file, struct rtnl_hash_entry **hash, int size)
++{
++	struct rtnl_hash_entry *entry;
++	FILE *fp;
++	int id;
++	char namebuf[NAME_MAX_LEN] = {0};
++	int ret;
++
++	fp = fopen(file, "r");
++	if (!fp)
++		return;
++
++	while ((ret = fread_id_name(fp, &id, &namebuf[0]))) {
++		if (ret == -1) {
++			fprintf(stderr, "Database %s is corrupted at %s\n",
++					file, namebuf);
++			fclose(fp);
++			return;
++		}
++
++		if (id < 0)
++			continue;
++
++		entry = malloc(sizeof(*entry));
++		if (entry == NULL) {
++			fprintf(stderr, "malloc error: for entry\n");
++			break;
++		}
++		entry->id   = id;
++		entry->name = strdup(namebuf);
++		entry->next = hash[id & (size - 1)];
++		hash[id & (size - 1)] = entry;
++	}
++	fclose(fp);
++}
++
++static struct rtnl_hash_entry dflt_table_entry  = { .name = "default" };
++static struct rtnl_hash_entry main_table_entry  = { .name = "main" };
++static struct rtnl_hash_entry local_table_entry = { .name = "local" };
++
++static struct rtnl_hash_entry *rtnl_rttable_hash[256] = {
++	[RT_TABLE_DEFAULT] = &dflt_table_entry,
++	[RT_TABLE_MAIN]    = &main_table_entry,
++	[RT_TABLE_LOCAL]   = &local_table_entry,
++};
++
++static int rtnl_rttable_init;
++
++static void rtnl_rttable_initialize(void)
++{
++	struct dirent *de;
++	DIR *d;
++	int i;
++
++	rtnl_rttable_init = 1;
++	for (i = 0; i < 256; i++) {
++		if (rtnl_rttable_hash[i])
++			rtnl_rttable_hash[i]->id = i;
++	}
++	rtnl_hash_initialize(CONFDIR "/rt_tables",
++			     rtnl_rttable_hash, 256);
++
++	d = opendir(CONFDIR "/rt_tables.d");
++	if (!d)
++		return;
++
++	while ((de = readdir(d)) != NULL) {
++		char path[PATH_MAX];
++		size_t len;
++
++		if (*de->d_name == '.')
++			continue;
++
++		/* only consider filenames ending in '.conf' */
++		len = strlen(de->d_name);
++		if (len <= 5)
++			continue;
++		if (strcmp(de->d_name + len - 5, ".conf"))
++			continue;
++
++		snprintf(path, sizeof(path),
++			 CONFDIR "/rt_tables.d/%s", de->d_name);
++		rtnl_hash_initialize(path, rtnl_rttable_hash, 256);
++	}
++	closedir(d);
++}
++
++const char *rtnl_rttable_n2a(__u32 id, char *buf, int len)
++{
++	struct rtnl_hash_entry *entry;
++
++	if (!rtnl_rttable_init)
++		rtnl_rttable_initialize();
++	entry = rtnl_rttable_hash[id & 255];
++	while (entry && entry->id != id)
++		entry = entry->next;
++	if (!numeric && entry)
++		return entry->name;
++	snprintf(buf, len, "%u", id);
++	return buf;
++}
++
++int rtnl_rttable_a2n(__u32 *id, const char *arg)
++{
++	static const char *cache;
++	static unsigned long res;
++	struct rtnl_hash_entry *entry;
++	char *end;
++	unsigned long i;
++
++	if (cache && strcmp(cache, arg) == 0) {
++		*id = res;
++		return 0;
++	}
++
++	if (!rtnl_rttable_init)
++		rtnl_rttable_initialize();
++
++	for (i = 0; i < 256; i++) {
++		entry = rtnl_rttable_hash[i];
++		while (entry && strcmp(entry->name, arg))
++			entry = entry->next;
++		if (entry) {
++			cache = entry->name;
++			res = entry->id;
++			*id = res;
++			return 0;
++		}
++	}
++
++	i = strtoul(arg, &end, 0);
++	if (!end || end == arg || *end || i > RT_TABLE_MAX)
++		return -1;
++	*id = i;
++	return 0;
++}
+diff --git a/accel-pppd/libnetlink/rt_names.h b/accel-pppd/libnetlink/rt_names.h
+new file mode 100644
+index 0000000..2ba6fe9
+--- /dev/null
++++ b/accel-pppd/libnetlink/rt_names.h
+@@ -0,0 +1,14 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef RT_NAMES_H_
++#define RT_NAMES_H_ 1
++
++#include <asm/types.h>
++
++const char *rtnl_rttable_n2a(__u32 id, char *buf, int len);
++const char *rtnl_dsfield_get_name(int id);
++
++int rtnl_rttable_a2n(__u32 *id, const char *arg);
++
++extern int numeric;
++
++#endif
+diff --git a/accel-pppd/radius/radius.c b/accel-pppd/radius/radius.c
+index 2406ba0..a45666f 100644
+--- a/accel-pppd/radius/radius.c
++++ b/accel-pppd/radius/radius.c
+@@ -313,6 +313,7 @@ int rad_proc_attrs(struct rad_req_t *req)
+ 			} else if (attr->vendor->id == VENDOR_Accel_PPP) {
+ 				switch (attr->attr->id) {
+ 					case Accel_VRF_Name:
++						log_ppp_info2("radius: setting vrf_name to %s\n", attr->val.string);
+ 						if (rpd->ses->vrf_name)
+ 							_free(rpd->ses->vrf_name);
+ 						rpd->ses->vrf_name = _malloc(attr->len + 1);
+@@ -642,15 +643,23 @@ static void ses_started(struct ap_session *ses)
+ 		char nbuf[INET6_ADDRSTRLEN];
+ 		char gwbuf[INET6_ADDRSTRLEN];
+ 
++#ifdef HAVE_VRF
++		if (ip6route_add(gw_spec ? 0 : rpd->ses->ifindex, &fr6->prefix, fr6->plen, gw_spec ? &fr6->gw : NULL, 3, fr6->prio, rpd->ses->vrf_name)) {
++#else
+ 		if (ip6route_add(gw_spec ? 0 : rpd->ses->ifindex, &fr6->prefix, fr6->plen, gw_spec ? &fr6->gw : NULL, 3, fr6->prio)) {
++#endif
+ 			log_ppp_warn("radius: failed to add route %s/%hhu %s %u\n",
+-				     u_ip6str(&fr6->prefix, nbuf), fr6->plen,
+-				     u_ip6str(&fr6->gw, gwbuf), fr6->prio);
++						    u_ip6str(&fr6->prefix, nbuf), fr6->plen,
++						    u_ip6str(&fr6->gw, gwbuf), fr6->prio);
+ 		}
+ 	}
+ 
+ 	for (fr = rpd->fr; fr; fr = fr->next) {
++#ifdef HAVE_VRF
++		if (iproute_add(fr->gw ? 0 : rpd->ses->ifindex, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio, rpd->ses->vrf_name)) {
++#else
+ 		if (iproute_add(fr->gw ? 0 : rpd->ses->ifindex, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio)) {
++#endif
+ 			char dst[17], gw[17];
+ 			u_inet_ntoa(fr->dst, dst);
+ 			u_inet_ntoa(fr->gw, gw);
+@@ -689,12 +698,20 @@ static void ses_finishing(struct ap_session *ses)
+ 		 * when the interface is removed.
+ 		 */
+ 		if (!IN6_IS_ADDR_UNSPECIFIED(&fr6->gw))
++#ifdef HAVE_VRF
++			ip6route_del(0, &fr6->prefix, fr6->plen, &fr6->gw, 3, fr6->prio, rpd->ses->vrf_name);
++#else
+ 			ip6route_del(0, &fr6->prefix, fr6->plen, &fr6->gw, 3, fr6->prio);
++#endif
+ 	}
+ 
+ 	for (fr = rpd->fr; fr; fr = fr->next) {
+ 		if (fr->gw)
++#ifdef HAVE_VRF
++			iproute_del(0, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio, rpd->ses->vrf_name);
++#else
+ 			iproute_del(0, 0, fr->dst, fr->gw, 3, fr->mask, fr->prio);
++#endif
+ 	}
+ 
+ 	if (rpd->acct_started || rpd->acct_req)
+-- 
+2.39.5
+

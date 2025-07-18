@@ -1,0 +1,21 @@
+[[packages]]
+name = "udp-broadcast-relay"
+commit_id = "9a0f13b4b5938bfe0af0d0d4e99dfc127c068e28"
+scm_url = "https://github.com/nomeata/udp-broadcast-relay"
+
+apply_patches = false
+
+build_cmd = """
+for patch in ../patches/udp-broadcast-relay/*.patch; do
+    echo "I: build_cmd applying patch $patch..."
+    git -c user.email=maintainers@vyos.net -c user.name=vyos am "$patch" || { echo "Failed to apply patch $patch"; exit 1; }
+done
+
+dpkg-buildpackage -uc -us -tc -b -d
+"""
+
+[dependencies]
+packages = [
+    "debhelper-compat",
+    "dpkg-dev",
+]

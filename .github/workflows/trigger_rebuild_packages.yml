@@ -88,6 +88,8 @@ jobs:
               - 'scripts/package-build/tacacs/**'
             telegraf:
               - 'scripts/package-build/telegraf/**'
+            udp-broadcast-relay:
+              - 'scripts/package-build/udp-broadcast-relay/**'
             vpp:
               - 'scripts/package-build/vpp/**'
             waagent:
@@ -239,6 +241,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.telegraf }}" == "true" ]; then
             trigger_build "telegraf"
+          fi
+
+          if [ "${{ steps.changes.outputs.udp-broadcast-relay }}" == "true" ]; then
+            trigger_build "udp-broadcast-relay"
           fi
 
           if [ "${{ steps.changes.outputs.vpp }}" == "true" ]; then

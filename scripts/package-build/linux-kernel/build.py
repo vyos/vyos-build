@@ -18,6 +18,7 @@
 import datetime
 import glob
 import shutil
+import sys
 import toml
 import os
 import subprocess
@@ -37,6 +38,7 @@ def ensure_dependencies(dependencies: list) -> None:
         return
 
     print("I: Ensure Debian build dependencies are met")
+    run(['sudo', 'apt-get', 'update'], check=True)
     run(['sudo', 'apt-get', 'install', '-y'] + dependencies, check=True)
 
 
@@ -59,8 +61,12 @@ def clone_or_update_repo(repo_dir: Path, scm_url: str, commit_id: str) -> None:
         run(['git', 'checkout', commit_id], cwd=repo_dir, check=True)
         #run(['git', 'pull'], cwd=repo_dir, check=True)
     else:
-        run(['git', 'clone', scm_url, str(repo_dir)], check=True)
-        run(['git', 'checkout', commit_id], cwd=repo_dir, check=True)
+        try:
+            run(['git', 'clone', scm_url, str(repo_dir)], check=True)
+            run(['git', 'checkout', commit_id], cwd=repo_dir, check=True)
+        except CalledProcessError as e:
+            print(f"Failed to clone or checkout: {e}")
+            sys.exit(1)
 
 
 def create_tarball(package_name, source_dir=None):
@@ -111,9 +117,6 @@ def build_package(package: dict, dependencies: list) -> None:
     try:
         # Clone or update the repository
         #clone_or_update_repo(repo_dir, package['scm_url'], package['commit_id'])
-
-        # Ensure dependencies
-        #ensure_dependencies(dependencies)
 
         # Prepare the package if required
         #if package.get('prepare_package', False):
@@ -265,6 +268,7 @@ if __name__ == '__main__':
     arg_parser = ArgumentParser()
     arg_parser.add_argument('--config', default='package.toml', help='Path to the package configuration file')
     arg_parser.add_argument('--packages', nargs='+', help='Names of packages to build (default: all)', default=[])
+    arg_parser.add_argument('--install-dependencies', '-i', help='Only install build dependencies', action='store_true')
     args = arg_parser.parse_args()
 
     # Load package configuration
@@ -274,6 +278,13 @@ if __name__ == '__main__':
     # Extract defaults and packages
     with open(defaults_path, 'r') as file:
         defaults = toml.load(file)
+
+    # Load global dependencies
+    global_dependencies = config.get('dependencies', {}).get('packages', [])
+    if global_dependencies:
+        ensure_dependencies(global_dependencies)
+        if args.install_dependencies:
+            exit(0)
 
     packages = config['packages']
 

@@ -17,6 +17,7 @@
 
 import glob
 import shutil
+import sys
 import toml
 import os
 
@@ -91,7 +92,11 @@ def build_package(package: list, patch_dir: Path) -> None:
 
         # Check out the specific commit
         run(['git', 'checkout', package['commit_id']], cwd=repo_dir, check=True)
+    except CalledProcessError as e:
+        print(f"Failed to clone or checkout for package '{repo_name}': {e}")
+        sys.exit(1)
 
+    try:
         # The `pre_build_hook` is an optional configuration defined in `package.toml`.
         # It executes after the repository is checked out and before the build process begins.
         # This hook allows you to perform preparatory tasks, such as creating directories,

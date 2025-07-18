@@ -1,0 +1,10 @@
+# VyOS 1.3.x image upgrade scipt checked if an image file was a valid ISO file
+# by grepping it for "ISO9660".
+# (The correct way to do that would be to use file/libmagic,
+#  but we cannot change the past).
+# At some point something has changed in xorriso or some other tool
+# and images no longer include that string.
+# so the image validity check fails.
+# To allow direct upgrades from older versions,
+# we artificially include that string to make the old check pass.
+ISO9660
