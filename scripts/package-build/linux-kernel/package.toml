@@ -23,6 +23,12 @@ scm_url = "https://github.com/accel-ppp/accel-ppp.git"
 build_cmd = "build_accel_ppp"
 
 [[packages]]
+name = "accel-ppp-ng"
+commit_id = "5bcc6dd"
+scm_url = "https://github.com/accel-ppp/accel-ppp-ng.git"
+build_cmd = "build_accel_ppp_ng"
+
+[[packages]]
 name = "ovpn-dco"
 commit_id = "v0.2.20231117"
 scm_url = "https://github.com/OpenVPN/ovpn-dco"

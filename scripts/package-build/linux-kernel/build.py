@@ -132,6 +132,9 @@ def build_package(package: dict, dependencies: list) -> None:
         elif package['build_cmd'] == 'build_accel_ppp':
             build_accel_ppp(package['commit_id'], package['scm_url'])
             create_tarball(f'{package["name"]}-{package["commit_id"]}', f'{package["name"]}')
+        elif package['build_cmd'] == 'build_accel_ppp_ng':
+            build_accel_ppp_ng(package['commit_id'], package['scm_url'])
+            create_tarball(f'{package["name"]}-{package["commit_id"]}', f'{package["name"]}')
         elif package['build_cmd'] == 'build_intel_qat':
             build_intel_qat()
         elif package['build_cmd'] == 'build_intel_igb':
@@ -215,6 +218,13 @@ def build_accel_ppp(commit_id, scm_url):
     repo_dir = Path('accel-ppp')
     clone_or_update_repo(repo_dir, scm_url, commit_id)
     run(['./build-accel-ppp.sh'], check=True)
+
+
+def build_accel_ppp_ng(commit_id, scm_url):
+    """Build accel-ppp-ng"""
+    repo_dir = Path('accel-ppp-ng')
+    clone_or_update_repo(repo_dir, scm_url, commit_id)
+    run(['./build-accel-ppp-ng.sh'], check=True)
 
 
 def build_intel_qat():
