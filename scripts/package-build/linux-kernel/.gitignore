@@ -2,6 +2,7 @@
 /wireguard
 /wireguard-linux-compat
 /accel-ppp
+/accel-ppp-ng
 /intel-qat
 /linux-firmware
 /vyos-drivers-intel*
