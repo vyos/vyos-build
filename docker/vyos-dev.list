@@ -1,1 +1,1 @@
-deb https://packages.vyos.net/repositories/current current main
+deb [signed-by=/usr/share/keyrings/vyos-dev-archive-keyring.gpg] https://packages.vyos.net/repositories/current current main

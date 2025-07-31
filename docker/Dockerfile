@@ -190,7 +190,6 @@ RUN gem install --no-document fpm
 # Add vyos package repo
 COPY vyos-dev.list /etc/apt/sources.list.d/vyos-dev.list
 COPY vyos-dev.key /usr/share/keyrings/vyos-dev-archive-keyring.gpg
-RUN apt-key add /usr/share/keyrings/vyos-dev-archive-keyring.gpg
 
 # Packages needed for vyos-1x
 RUN pip --no-cache --no-cache-dir install --break-system-packages \
