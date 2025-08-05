@@ -1,0 +1,1098 @@
+From ba3ce1d5fd6c81a72ed51d4c66b98bc5cb95b062 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Wed, 30 Jul 2025 15:00:29 +0300
+Subject: [PATCH] staticd: add routes via dhcp-gateway of interface
+
+Add possibility to add static routes via dhcp-gateway of interface:
+
+ip route 10.1.2.0/24 dhcp-gateway eth0
+
+Adds route to 10.1.2.0/24 via dhcp gateway of eth0.
+
+Added options:
+
+static-route-dhcp-gateway poll-period PERIOD-SECONDS
+static-route-dhcp-gateway dhclient-lease-path-prefix LEASEPREFIX
+static-route-dhcp-gateway dhclient-lease-path-suffix LEASESUFFIX
+
+Added command:
+
+static-route-dhcp-gateway update
+
+Watching dhcp gateway changes are possible by two methods:
+
+1. Polling: just poll periodically all lease files.
+2. External command, sample dhclient hook is provided in
+staticd/sample-dhclient-hook
+
+To support this change new nexthop type STATIC_IPV4_IFNAME_DHCP_GATEWAY
+was added.
+
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+---
+ staticd/sample-dhclient-hook |  13 +
+ staticd/static_bfd.c         |  11 +-
+ staticd/static_dhcpgw.c      | 479 +++++++++++++++++++++++++++++++++++
+ staticd/static_dhcpgw.h      | 115 +++++++++
+ staticd/static_main.c        |   5 +
+ staticd/static_nht.c         |   3 +-
+ staticd/static_routes.c      |  14 +-
+ staticd/static_routes.h      |   4 +
+ staticd/static_vty.c         |  88 ++++++-
+ staticd/static_zebra.c       |   2 +
+ staticd/subdir.am            |   2 +
+ yang/frr-nexthop.yang        |   8 +-
+ yang/frr-staticd.yang        |   3 +-
+ 13 files changed, 732 insertions(+), 15 deletions(-)
+ create mode 100644 staticd/sample-dhclient-hook
+ create mode 100644 staticd/static_dhcpgw.c
+ create mode 100644 staticd/static_dhcpgw.h
+
+diff --git a/staticd/sample-dhclient-hook b/staticd/sample-dhclient-hook
+new file mode 100644
+index 0000000000..64d44462bd
+--- /dev/null
++++ b/staticd/sample-dhclient-hook
+@@ -0,0 +1,13 @@
++#!/bin/bash
++# SPDX-License-Identifier: GPL-2.0-or-later
++#
++# DHCP gateway related functions
++# Copyright (C) 2025 VyOS Inc.
++# Kyrylo Yatsenko
++
++# Try to inform FRR of any events that can change ip or DHCP state
++case "${reason}" in
++    BOUND|RENEW|REBIND|REBOOT|EXPIRE|FAIL|STOP|RELEASE)
++        vtysh -c 'static-route-dhcp-gateway update'
++        ;;
++esac
+diff --git a/staticd/static_bfd.c b/staticd/static_bfd.c
+index c35751f397..fb8dd0f222 100644
+--- a/staticd/static_bfd.c
++++ b/staticd/static_bfd.c
+@@ -58,16 +58,13 @@ static inline int
+ static_next_hop_type_to_family(const struct static_nexthop *sn)
+ {
+ 	switch (sn->type) {
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+ 	case STATIC_IPV4_GATEWAY_IFNAME:
+-	case STATIC_IPV6_GATEWAY_IFNAME:
+ 	case STATIC_IPV4_GATEWAY:
++		return AF_INET;
++	case STATIC_IPV6_GATEWAY_IFNAME:
+ 	case STATIC_IPV6_GATEWAY:
+-		if (sn->type == STATIC_IPV4_GATEWAY ||
+-		    sn->type == STATIC_IPV4_GATEWAY_IFNAME)
+-			return AF_INET;
+-		else
+-			return AF_INET6;
+-		break;
++		return AF_INET6;
+ 	case STATIC_IFNAME:
+ 	case STATIC_BLACKHOLE:
+ 	default:
+diff --git a/staticd/static_dhcpgw.c b/staticd/static_dhcpgw.c
+new file mode 100644
+index 0000000000..c6c8c2ce3c
+--- /dev/null
++++ b/staticd/static_dhcpgw.c
+@@ -0,0 +1,479 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * DHCP gateway related functions
++ * Copyright (C) 2025 VyOS Inc.
++ * Kyrylo Yatsenko
++ */
++
++#include <zebra.h>
++
++#include <sys/stat.h>
++#include <time.h>
++
++#include "lib/command.h"
++#include "lib/debug.h"
++#include "lib/bfd.h"
++
++#include "static_dhcpgw.h"
++
++DEFINE_MGROUP(STATIC_DHCPGW, "staticd-dhcp-gateway");
++
++DEFINE_MTYPE_STATIC(STATIC_DHCPGW, STATIC_DHCPGW_NEXTHOP,   "Static DHCP Gateway Nexthop");
++DEFINE_MTYPE_STATIC(STATIC_DHCPGW, STATIC_DHCPGW_INTERFACE, "Static DHCP Gateway Interface");
++
++/* Default values */
++#define DHCLIENT_DEFAULT_LEASE_PATH_PREFIX "/var/run/dhclient/dhclient_"
++#define DHCLIENT_DEFAULT_LEASE_PATH_SUFFIX ".lease"
++#define DHCLIENT_DEFAULT_UPDATE_PERIOD_S 0L
++
++/* Options */
++static unsigned long poll_period_seconds = DHCLIENT_DEFAULT_UPDATE_PERIOD_S;
++static char lease_path_prefix[MAXPATHLEN] = DHCLIENT_DEFAULT_LEASE_PATH_PREFIX;
++static char lease_path_suffix[MAXPATHLEN] = DHCLIENT_DEFAULT_LEASE_PATH_SUFFIX;
++
++/* Master event loop, used to create events */
++static struct event_loop *master;
++
++
++/*
++ * List of nexthops to watch
++ */
++PREDECL_SORTLIST_UNIQ(static_dhcpgw_nexthop_list);
++
++/* List of nexthops to watch */
++struct static_dhcpgw_nexthop {
++	/* For linked list. */
++	struct static_dhcpgw_nexthop_list_item list;
++
++	struct static_nexthop* nh;
++};
++
++static int cmp_static_dhcpgw_nexthop(
++	const struct static_dhcpgw_nexthop *a,
++	const struct static_dhcpgw_nexthop *b)
++{
++	return (int)(a->nh - b->nh);
++}
++
++DECLARE_SORTLIST_UNIQ(
++	static_dhcpgw_nexthop_list,
++	struct static_dhcpgw_nexthop,
++	list,
++	cmp_static_dhcpgw_nexthop);
++
++
++/*
++ * List of interface lease files to watch
++ */
++PREDECL_SORTLIST_UNIQ(static_dhcpgw_interface_list);
++
++/* List of interfaces with cached data to watch */
++struct static_dhcpgw_interface {
++	/* For linked list. */
++	struct static_dhcpgw_interface_list_item list;
++
++	char ifname[IFNAMSIZ + 1]; /* Main key of item - which interface is watched */
++	char lease_path[MAXPATHLEN]; /* Cached path to lease file */
++	struct timespec last_st_mtim; /* Last seen modification time of lease file */
++	bool last_valid; /* Last cached is interface valid */
++	struct in_addr last_addr; /* Last cached address for interface */
++	int nh_count; /* Counter of nexthops that use this interface */
++};
++
++static int cmp_static_dhcpgw_interface(
++	const struct static_dhcpgw_interface *a,
++	const struct static_dhcpgw_interface *b)
++{
++	return strcmp(a->ifname, b->ifname);
++}
++
++DECLARE_SORTLIST_UNIQ(
++	static_dhcpgw_interface_list,
++	struct static_dhcpgw_interface,
++	list,
++	cmp_static_dhcpgw_interface);
++
++
++/*
++ * Basic functionality section
++ */
++
++/* List of watched nexthops */
++static struct static_dhcpgw_nexthop_list_head nexthops_list_head;
++
++/* Helper when lease path prefix or suffix updated */
++void static_dhcpgw_update_lease_path_helper(void);
++
++/* Update all watched nexthops */
++static void static_dhcpgw_update_nexthops(void);
++/*
++ * Updates one static_nexthop IP and nh_valid values
++ *
++ * Uses cached values from interfaces_list_head
++ *
++ * nh
++ *      Nexthop to update
++ *
++ * install
++ *      If true, make call of static_install_path to install nexthop, if any
++ *      change took place
++ *
++ * force_update
++ *      Ignore interfaces_list_head `has_updates` field - compare
++ *      address/valid anyway
++ */
++static void static_dhcpgw_update_nexthop(struct static_nexthop *nh, bool install, bool force_update);
++
++/*
++ * Dhclient specific - reads lease data from lease file
++ */
++
++/*
++ * Get DHCP gateway ipv4 address by lease path
++ * Reads dhclient lease file
++ *
++ * out_addr
++ *    Parsed IP address. 0.0.0.0 if no DHCP gateway
++ *
++ * out_valid
++ *    Is there gateway for this lease file
++ *
++ * leasepath
++ *    Path to dhclient lease file
++ */
++static void get_dhcpgw_dhclient_ipv4_address(struct in_addr *out_addr, bool *out_valid, const char* lease_path);
++
++/*
++ * Lease files cache functions
++ *
++ * We store list of static_dhcpgw_interface, one per each interface
++ * that is used in any of watched nexthops.
++ *
++ * Each list item stores path, last modification date, last address
++ * and last valid. Also it stores counter of nexthops with the interface
++ * to remove item from list when there are none.
++ */
++
++/* List of interfaces */
++static struct static_dhcpgw_interface_list_head interfaces_list_head;
++
++/* Initialize interface after allocation */
++static void static_dhcpgw_interface_init(struct static_dhcpgw_interface* pif, struct static_nexthop *nh);
++/* Update interface lease path using prefix and suffix, call static_dhcpgw_interface_update */
++static void static_dhcpgw_interface_update_path(struct static_dhcpgw_interface* pif);
++/* Update interface data - reread lease file if it is modified */
++static void static_dhcpgw_interface_update(struct static_dhcpgw_interface* pif);
++/* Helper - return interface from list by ifname as key */
++static struct static_dhcpgw_interface* get_dhcpgw_interface_by_ifname(const char* ifname);
++/* Create interface item if needed, increment counter */
++static void static_dhcpgw_interfaces_on_add_nexthop(struct static_nexthop *nh);
++/* Delete interface item if needed, decrement counter */
++static void static_dhcpgw_interfaces_on_del_nexthop(struct static_nexthop *nh);
++
++
++/*
++ * Polling timer section
++ */
++struct event *dhcpgw_timer;
++
++static void static_dhcpgw_start_timer_if_needed(void);
++static void static_dhcpgw_timer_event_cb(struct event *);
++
++
++/*
++ * IMPLEMENTATION
++ */
++
++extern void static_dhcpgw_init(struct event_loop *m)
++{
++	master = m;
++	static_dhcpgw_nexthop_list_init(&nexthops_list_head);
++	static_dhcpgw_interface_list_init(&interfaces_list_head);
++}
++
++extern void static_dhcpgw_close(void)
++{
++	static_dhcpgw_set_poll_period_seconds(0);
++	/* lists should be emptied by calls of static_dhcpgw_del_nexthop_watch for
++	 * each nexthop*/
++}
++
++extern void static_dhcpgw_add_nexthop_watch(struct static_nexthop *nh)
++{
++	struct static_dhcpgw_nexthop dgnh;
++	dgnh.nh = nh;
++	// Check if there is this nexthop already not
++	// to do extra alloc
++	if (!static_dhcpgw_nexthop_list_find(&nexthops_list_head, &dgnh)) {
++		struct static_dhcpgw_nexthop* p = XCALLOC(
++			MTYPE_STATIC_DHCPGW_NEXTHOP,
++			sizeof(struct static_dhcpgw_nexthop));
++		p->nh = nh;
++		static_dhcpgw_nexthop_list_add(
++			&nexthops_list_head,
++			p);
++		static_dhcpgw_interfaces_on_add_nexthop(nh);
++		static_dhcpgw_update_nexthop(nh, false, true);
++		static_dhcpgw_start_timer_if_needed();
++	}
++}
++
++extern void static_dhcpgw_del_nexthop_watch(struct static_nexthop *nh)
++{
++	struct static_dhcpgw_nexthop dgnh;
++	dgnh.nh = nh;
++	struct static_dhcpgw_nexthop* p =
++		static_dhcpgw_nexthop_list_find(
++			&nexthops_list_head,
++			&dgnh);
++	if (!p) {
++		return;
++	}
++	static_dhcpgw_nexthop_list_del(
++		&nexthops_list_head,
++		&dgnh);
++	static_dhcpgw_interfaces_on_del_nexthop(nh);
++	XFREE(MTYPE_STATIC_DHCPGW_NEXTHOP, p);
++}
++
++extern void static_dhcpgw_set_poll_period_seconds(unsigned long seconds)
++{
++	poll_period_seconds = seconds;
++
++	// If previous poll period was bigger than current and time left till
++	// event is bigger than new poll period, cancel previous event
++	// Also cancels event if poll_period_seconds == 0 with meaning that polling is disabled
++	if (dhcpgw_timer && event_timer_remain_second(dhcpgw_timer) > poll_period_seconds) {
++		event_cancel(&dhcpgw_timer);
++	}
++	static_dhcpgw_start_timer_if_needed();
++}
++
++extern void static_dhcpgw_set_lease_path_prefix(const char* prefix)
++{
++	strlcpy(lease_path_prefix, prefix, sizeof(lease_path_prefix));
++
++	static_dhcpgw_update_lease_path_helper();
++}
++
++extern void static_dhcpgw_set_lease_path_suffix(const char* suffix)
++{
++	strlcpy(lease_path_suffix, suffix, sizeof(lease_path_suffix));
++
++	static_dhcpgw_update_lease_path_helper();
++}
++
++extern void static_dhcpgw_update(void)
++{
++	struct static_dhcpgw_interface *dgif;
++
++	static_dhcpgw_update_nexthops();
++}
++
++void static_dhcpgw_update_lease_path_helper(void)
++{
++	struct static_dhcpgw_interface *dgif;
++	frr_each (static_dhcpgw_interface_list, &interfaces_list_head, dgif) {
++		static_dhcpgw_interface_update_path(dgif);
++	}
++	static_dhcpgw_update();
++}
++
++static void static_dhcpgw_update_nexthops(void)
++{
++	struct static_dhcpgw_interface *dgif;
++	frr_each (static_dhcpgw_interface_list, &interfaces_list_head, dgif) {
++		static_dhcpgw_interface_update(dgif);
++	}
++
++	struct static_dhcpgw_nexthop *dgnh;
++	frr_each (static_dhcpgw_nexthop_list, &nexthops_list_head, dgnh) {
++		static_dhcpgw_update_nexthop(dgnh->nh, true, false);
++	}
++}
++
++static void static_dhcpgw_update_nexthop(struct static_nexthop *nh, bool install, bool force_update)
++{
++	struct static_dhcpgw_interface dgif;
++	strlcpy(dgif.ifname, nh->ifname, sizeof(dgif.ifname));
++
++	struct static_dhcpgw_interface* pif = get_dhcpgw_interface_by_ifname(nh->ifname);
++	if (!pif) {
++	    zlog_warn("static_dhcpgw_update_nexthop couldn't get interface data for interface %s", nh->ifname);
++		return;
++	}
++
++	if (force_update) {
++		static_dhcpgw_interface_update(pif);
++	}
++
++	/* TODO some better comparison?.. */
++    /* Is update needed? */
++	if (nh->nh_valid == pif->last_valid && nh->addr.ipv4.s_addr == pif->last_addr.s_addr)
++		return;
++
++    /* Yes */
++	nh->nh_valid = pif->last_valid;
++	nh->addr.ipv4 = pif->last_addr;
++	if (install) {
++		static_install_path(nh->pn);
++	}
++}
++
++static void get_dhcpgw_dhclient_ipv4_address(struct in_addr *out_addr, bool *out_valid, const char* leasepath)
++{
++
++#define DHCLIENT_LEASE_NEW_ROUTERS_PREFIX "new_routers='"
++
++	out_addr->s_addr = 0;
++	*out_valid = false;
++
++	char buf[BUFSIZ];
++	char *ip = NULL;
++	char *ipend = NULL;
++
++	FILE *fp = fopen(leasepath, "r");
++	if (!fp) {
++		zlog_warn("get_dhcpgw_dhclient_ipv4_address, couldn't open lease file %s", leasepath);
++		return;
++	}
++
++	while (fgets(buf, BUFSIZ, fp)) {
++		/*
++		 * Line format in case of available gateway IP:
++		 * new_routers='10.1.1.1'
++		 * In case of no working DHCP:
++		 * new_routers=''
++		 */
++		if (strncmp(
++				buf,
++				DHCLIENT_LEASE_NEW_ROUTERS_PREFIX,
++				sizeof(DHCLIENT_LEASE_NEW_ROUTERS_PREFIX) - 1)) {
++			continue;
++		}
++
++
++		ip = buf + sizeof(DHCLIENT_LEASE_NEW_ROUTERS_PREFIX) - 1;
++
++		ipend = strchr(ip, '\'');
++		if (!ipend) {
++			continue;
++		}
++		*ipend = '\0';
++
++		break;
++	}
++	fclose(fp);
++
++	if (!ip) {
++		zlog_warn("get_dhcpgw_dhclient_ipv4_address couldn't find ip in lease file %s", leasepath);
++		return;
++	}
++
++	if (strlen(ip) == 0) {
++		// no lease, normal situation
++		return;
++	}
++
++	if (inet_pton(AF_INET, ip, out_addr) != 1) {
++		zlog_warn("get_dhcpgw_dhclient_ipv4_address couldn't parse ip '%s' with inet_pton, from lease file '%s'", ip, leasepath);
++		return;
++	}
++
++	*out_valid = true;
++}
++
++static void static_dhcpgw_interface_init(struct static_dhcpgw_interface* pif, struct static_nexthop *nh)
++{
++	strlcpy(pif->ifname, nh->ifname, sizeof(pif->ifname));
++	static_dhcpgw_interface_update_path(pif);
++	pif->nh_count = 0;
++}
++
++static void static_dhcpgw_interface_update_path(struct static_dhcpgw_interface* pif)
++{
++	strlcpy(pif->lease_path, lease_path_prefix, sizeof(pif->lease_path));
++	strlcat(pif->lease_path, pif->ifname, sizeof(pif->lease_path));
++	strlcat(pif->lease_path, lease_path_suffix, sizeof(pif->lease_path));
++	pif->last_st_mtim.tv_sec = 0;
++	pif->last_st_mtim.tv_nsec = 0;
++	static_dhcpgw_interface_update(pif);
++}
++
++static void static_dhcpgw_interface_update(struct static_dhcpgw_interface* pif)
++{
++	struct stat statbuf;
++	if (stat(pif->lease_path, &statbuf)) {
++		zlog_warn("static_dhcpgw_interface_update calling stat for %s failed", pif->lease_path);
++		return;
++	}
++
++	/* Compare modification time. No standard function seems to exist for this */
++	if (statbuf.st_mtim.tv_sec < pif->last_st_mtim.tv_sec)
++		return;
++
++	if (statbuf.st_mtim.tv_sec == pif->last_st_mtim.tv_sec)
++		if (statbuf.st_mtim.tv_nsec <= pif->last_st_mtim.tv_nsec)
++			return;
++
++	pif->last_st_mtim = statbuf.st_mtim;
++
++	get_dhcpgw_dhclient_ipv4_address(&pif->last_addr, &pif->last_valid, pif->lease_path);
++}
++
++static struct static_dhcpgw_interface* get_dhcpgw_interface_by_ifname(const char* ifname)
++{
++	struct static_dhcpgw_interface dgif;
++	strlcpy(dgif.ifname, ifname, sizeof(dgif.ifname));
++
++	return static_dhcpgw_interface_list_find(&interfaces_list_head, &dgif);
++}
++
++static void static_dhcpgw_interfaces_on_add_nexthop(struct static_nexthop *nh)
++{
++	struct static_dhcpgw_interface* pif = get_dhcpgw_interface_by_ifname(nh->ifname);
++	if (!pif) {
++		pif = XCALLOC(
++			MTYPE_STATIC_DHCPGW_INTERFACE,
++			sizeof(struct static_dhcpgw_interface));
++
++		static_dhcpgw_interface_init(pif, nh);
++
++		static_dhcpgw_interface_list_add(
++			&interfaces_list_head,
++			pif);
++	}
++	pif->nh_count++;
++}
++
++static void static_dhcpgw_interfaces_on_del_nexthop(struct static_nexthop *nh)
++{
++	struct static_dhcpgw_interface* pif = get_dhcpgw_interface_by_ifname(nh->ifname);
++	if (!pif) {
++	    zlog_warn("static_dhcpgw_interfaces_on_del_nexthop couldn't get interface data for interface %s", nh->ifname);
++		return;
++	}
++	pif->nh_count--;
++	if (!pif->nh_count) {
++		static_dhcpgw_interface_list_del(
++		        &interfaces_list_head,
++		        pif);
++		XFREE(MTYPE_STATIC_DHCPGW_INTERFACE, pif);
++	}
++}
++
++static void static_dhcpgw_start_timer_if_needed(void)
++{
++	if (poll_period_seconds
++	       && !dhcpgw_timer
++	       && static_dhcpgw_nexthop_list_first(&nexthops_list_head)) {
++		event_add_timer(master, static_dhcpgw_timer_event_cb, NULL,
++				poll_period_seconds, &dhcpgw_timer);
++	}
++}
++
++static void static_dhcpgw_timer_event_cb(struct event *)
++{
++	static_dhcpgw_update_nexthops();
++	static_dhcpgw_start_timer_if_needed();
++}
+diff --git a/staticd/static_dhcpgw.h b/staticd/static_dhcpgw.h
+new file mode 100644
+index 0000000000..41d1e8ec70
+--- /dev/null
++++ b/staticd/static_dhcpgw.h
+@@ -0,0 +1,115 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * DHCP gateway related functions
++ * Copyright (C) 2025 VyOS Inc.
++ * Kyrylo Yatsenko
++ */
++/*
++ * static_dhcpgw.h provides functionality of static routes with
++ * dhcp-gateway as gateway e.g.
++ * ip route 10.1.2.7 dhcp-gateway eth0
++ * This command adds route to 10.1.2.7 via whatever gateway on interface eth0
++ * was received by DHCP.
++ *
++ * Currently only dhclient is supported.
++ *
++ * For this to work first static_dhcpgw_init must be called
++ * and for each nexthop of type
++ *		STATIC_IPV4_IFNAME_DHCP_GATEWAY
++ * static_dhcpgw_add_nexthop_watch must be called on creation
++ * and static_dhcpgw_del_nexthop_watch on deletion
++ *
++ * There are two options of updates of DHCP leases: polling and by external command.
++ *
++ * Command
++ * `static-route-dhcp-gateway update`
++ * Rereads leases, it can be used in external scripts e.g. dhclient hook.
++ * See  staticd/sample-dhclient-hook
++ *
++ * If polling is desired, set polling period via
++ * `static-route-dhcp-gateway poll-period PERIOD-SECONDS`
++ * Setting PERIOD-SECONDS to 0 disables polling, this is default.
++ *
++ * You can setup lease path by options:
++ * `static-route-dhcp-gateway dhclient-lease-path-prefix LEASEPREFIX`
++ * `static-route-dhcp-gateway dhclient-lease-path-suffix LEASESUFFIX`
++ * 
++ * Lease path will be LEASEPREFIX{interface}LEASESUFFIX.
++ * Default prefix is "/var/run/dhclient/dhclient_", default suffix ".lease"
++ */
++
++#ifndef _STATIC_DHCP_GATEWAY_H
++#define _STATIC_DHCP_GATEWAY_H
++
++#include <zebra.h>
++
++#include "staticd/static_routes.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/*
++ * Initialize static_dhcpgw
++ *
++ * master
++ *    Needs event_loop to add reaction to events (timer)
++ */
++void static_dhcpgw_init(struct event_loop *master);
++
++/*
++ * Free all resources
++ */
++void static_dhcpgw_close(void);
++
++/*
++ * Start watching nexthop
++ *
++ * nh
++ *      DHCP Gateway nexthop
++ */
++void static_dhcpgw_add_nexthop_watch(struct static_nexthop *nh);
++
++/*
++ * Stop watching nexthop
++ *
++ * nh
++ *      DHCP Gateway nexthop
++ */
++void static_dhcpgw_del_nexthop_watch(struct static_nexthop *nh);
++
++/*
++ * Set poll period or disable polling
++ *
++ * seconds
++ *      Poll period in seconds, 0 - disabled
++ */
++void static_dhcpgw_set_poll_period_seconds(unsigned long seconds);
++
++/*
++ * Set prefix of path to dhclient lease file
++ *
++ * prefi
++ *      prefix
++ */
++void static_dhcpgw_set_lease_path_prefix(const char* prefix);
++
++/*
++ * Set suffix of path to dhclient lease file
++ *
++ * prefi
++ *      suffix
++ */
++void static_dhcpgw_set_lease_path_suffix(const char* suffix);
++
++/*
++ * Check current addresses of DHCP gateways,
++ * update routes accordingly
++ */
++void static_dhcpgw_update(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* _STATIC_DHCP_GATEWAY_H */
+diff --git a/staticd/static_main.c b/staticd/static_main.c
+index 9468a98b83..4c23b7549a 100644
+--- a/staticd/static_main.c
++++ b/staticd/static_main.c
+@@ -25,6 +25,7 @@
+ #include "static_routes.h"
+ #include "static_zebra.h"
+ #include "static_debug.h"
++#include "static_dhcpgw.h"
+ #include "static_nb.h"
+ 
+ #include "mgmt_be_client.h"
+@@ -73,6 +74,8 @@ static void sigint(void)
+ 
+ 	mgmt_be_client_destroy(mgmt_be_client);
+ 
++	static_dhcpgw_close();
++
+ 	static_vrf_terminate();
+ 
+ 	static_zebra_stop();
+@@ -173,6 +176,8 @@ int main(int argc, char **argv, char **envp)
+ 	hook_register(routing_destroy,
+ 		      routing_control_plane_protocols_staticd_destroy);
+ 
++	static_dhcpgw_init(master);
++
+ 	/*
+ 	 * We set FRR_NO_SPLIT_CONFIG flag to avoid reading our config, but we
+ 	 * still need to write one if vtysh tells us to. Setting the host
+diff --git a/staticd/static_nht.c b/staticd/static_nht.c
+index 6be598434d..34764bb785 100644
+--- a/staticd/static_nht.c
++++ b/staticd/static_nht.c
+@@ -29,7 +29,8 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
+ 		if (nh->type != STATIC_IPV4_GATEWAY
+ 		    && nh->type != STATIC_IPV4_GATEWAY_IFNAME
+ 		    && nh->type != STATIC_IPV6_GATEWAY
+-		    && nh->type != STATIC_IPV6_GATEWAY_IFNAME)
++		    && nh->type != STATIC_IPV6_GATEWAY_IFNAME
++		    && nh->type != STATIC_IPV4_IFNAME_DHCP_GATEWAY)
+ 			continue;
+ 
+ 		if (nhp->family == AF_INET
+diff --git a/staticd/static_routes.c b/staticd/static_routes.c
+index cba38183bb..af2fba131f 100644
+--- a/staticd/static_routes.c
++++ b/staticd/static_routes.c
+@@ -20,6 +20,7 @@
+ #include "static_routes.h"
+ #include "static_zebra.h"
+ #include "static_debug.h"
++#include "static_dhcpgw.h"
+ 
+ DEFINE_MGROUP(STATIC, "staticd");
+ 
+@@ -181,6 +182,7 @@ bool static_add_nexthop_validate(const char *nh_vrf_name,
+ 	switch (type) {
+ 	case STATIC_IPV4_GATEWAY:
+ 	case STATIC_IPV4_GATEWAY_IFNAME:
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+ 		if (if_address_is_local(&ipaddr->ipaddr_v4, AF_INET,
+ 					vrf->vrf_id))
+ 			return false;
+@@ -284,6 +286,9 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
+ 	case STATIC_IPV6_GATEWAY_IFNAME:
+ 		nh->addr.ipv6 = ipaddr->ipaddr_v6;
+ 		break;
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
++		static_dhcpgw_add_nexthop_watch(nh);
++		break;
+ 	case STATIC_IFNAME:
+ 	case STATIC_BLACKHOLE:
+ 		break;
+@@ -318,6 +323,7 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
+ 	case STATIC_IPV6_GATEWAY:
+ 	case STATIC_BLACKHOLE:
+ 		break;
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+ 	case STATIC_IPV4_GATEWAY_IFNAME:
+ 	case STATIC_IPV6_GATEWAY_IFNAME:
+ 	case STATIC_IFNAME:
+@@ -358,6 +364,7 @@ void static_install_nexthop(struct static_nexthop *nh)
+ 		break;
+ 	case STATIC_IPV4_GATEWAY_IFNAME:
+ 	case STATIC_IPV6_GATEWAY_IFNAME:
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+ 		static_zebra_nht_register(nh, true);
+ 		break;
+ 	case STATIC_BLACKHOLE:
+@@ -367,7 +374,6 @@ void static_install_nexthop(struct static_nexthop *nh)
+ 		ifp = if_lookup_by_name(nh->ifname, nh->nh_vrf_id);
+ 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
+ 			static_install_path(pn);
+-
+ 		break;
+ 	}
+ }
+@@ -388,6 +394,9 @@ void static_delete_nexthop(struct static_nexthop *nh)
+ 	struct static_path *pn = nh->pn;
+ 	struct route_node *rn = pn->rn;
+ 
++	if (nh->type == STATIC_IPV4_IFNAME_DHCP_GATEWAY)
++		static_dhcpgw_del_nexthop_watch(nh);
++
+ 	static_nexthop_list_del(&(pn->nexthop_list), nh);
+ 	/* Remove BFD session/configuration if any. */
+ 	bfd_sess_free(&nh->bsp);
+@@ -689,5 +698,8 @@ void static_get_nh_str(struct static_nexthop *nh, char *nexthop, size_t size)
+ 		snprintfrr(nexthop, size, "ip6-ifindex : %pI6 : %s",
+ 			   &nh->addr.ipv6, nh->ifname);
+ 		break;
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
++		snprintfrr(nexthop, size, "ip4-dhcp-gateway : %s", nh->ifname);
++		break;
+ 	};
+ }
+diff --git a/staticd/static_routes.h b/staticd/static_routes.h
+index 2e2e4986c3..ec999d5308 100644
+--- a/staticd/static_routes.h
++++ b/staticd/static_routes.h
+@@ -51,6 +51,7 @@ enum static_nh_type {
+ 	STATIC_IPV6_GATEWAY,
+ 	STATIC_IPV6_GATEWAY_IFNAME,
+ 	STATIC_BLACKHOLE,
++	STATIC_IPV4_IFNAME_DHCP_GATEWAY,
+ };
+ 
+ /*
+@@ -191,6 +192,9 @@ static inline void static_get_nh_type(enum static_nh_type stype, char *type,
+ 	case STATIC_IPV6_GATEWAY_IFNAME:
+ 		strlcpy(type, "ip6-ifindex", size);
+ 		break;
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
++		strlcpy(type, "ip4-dhcp-gateway", size);
++		break;
+ 	};
+ }
+ 
+diff --git a/staticd/static_vty.c b/staticd/static_vty.c
+index 07b8bc3d28..08b8c8b3a5 100644
+--- a/staticd/static_vty.c
++++ b/staticd/static_vty.c
+@@ -27,6 +27,7 @@
+ #include "static_debug.h"
+ #include "staticd/static_vty_clippy.c"
+ #include "static_nb.h"
++#include "static_dhcpgw.h"
+ 
+ #define STATICD_STR "Static route daemon\n"
+ 
+@@ -60,6 +61,8 @@ struct static_route_args {
+ 	bool bfd_multi_hop;
+ 	const char *bfd_source;
+ 	const char *bfd_profile;
++
++	bool dhcp_gateway;
+ };
+ 
+ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
+@@ -159,7 +162,15 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
+ 		else
+ 			type = STATIC_IPV6_GATEWAY_IFNAME;
+ 	} else if (args->interface_name)
+-		type = STATIC_IFNAME;
++		if (args->dhcp_gateway) {
++			if (args->afi == AFI_IP)
++				type = STATIC_IPV4_IFNAME_DHCP_GATEWAY;
++			else {
++				vty_out(vty, "%% dhcp-gateway supports only IPv4\n");
++				return CMD_WARNING_CONFIG_FAILED;
++			}
++		} else
++			type = STATIC_IFNAME;
+ 	else {
+ 		if (args->afi == AFI_IP)
+ 			type = STATIC_IPV4_GATEWAY;
+@@ -280,7 +291,8 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
+ 			}
+ 		}
+ 		if (type == STATIC_IPV4_GATEWAY_IFNAME
+-		    || type == STATIC_IPV6_GATEWAY_IFNAME) {
++		    || type == STATIC_IPV6_GATEWAY_IFNAME
++		    || type == STATIC_IPV4_IFNAME_DHCP_GATEWAY) {
+ 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
+ 			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_ONLINK_XPATH,
+ 				sizeof(ab_xpath));
+@@ -295,7 +307,8 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
+ 		if (type == STATIC_IPV4_GATEWAY ||
+ 		    type == STATIC_IPV6_GATEWAY ||
+ 		    type == STATIC_IPV4_GATEWAY_IFNAME ||
+-		    type == STATIC_IPV6_GATEWAY_IFNAME) {
++		    type == STATIC_IPV6_GATEWAY_IFNAME ||
++		    type == STATIC_IPV4_IFNAME_DHCP_GATEWAY) {
+ 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
+ 			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_COLOR_XPATH,
+ 				sizeof(ab_xpath));
+@@ -744,7 +757,7 @@ DEFPY_YANG(ip_route,
+       ip_route_cmd,
+       "[no] ip route\
+ 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
+-	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
++	<A.B.C.D$gate|<[dhcp-gateway$dhcp_gateway] INTERFACE|Null0>$ifname>   \
+ 	[{                                             \
+ 	  tag (1-4294967295)                           \
+ 	  |(1-255)$distance                            \
+@@ -760,6 +773,7 @@ DEFPY_YANG(ip_route,
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "IP destination prefix\n"
+       "IP destination prefix mask\n"
++      "Use DHCP gateway for the interface\n"
+       "IP gateway address\n"
+       "IP gateway interface name\n"
+       "Null interface\n"
+@@ -799,6 +813,7 @@ DEFPY_YANG(ip_route,
+ 		.bfd_multi_hop = !!bfd_multi_hop,
+ 		.bfd_source = bfd_source_str,
+ 		.bfd_profile = bfd_profile,
++		.dhcp_gateway = !!dhcp_gateway,
+ 	};
+ 
+ 	return static_route_nb_run(vty, &args);
+@@ -1321,6 +1336,10 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
+ 
+ 	nh_type = yang_dnode_get_enum(nexthop, "nh-type");
+ 	switch (nh_type) {
++    case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
++		vty_out(vty, " dhcp-gateway %s",
++			yang_dnode_get_string(nexthop, "interface"));
++		break;
+ 	case STATIC_IFNAME:
+ 		vty_out(vty, " %s",
+ 			yang_dnode_get_string(nexthop, "interface"));
+@@ -1450,6 +1469,7 @@ static int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
+ 		return (int)nh_type1 - (int)nh_type2;
+ 
+ 	switch (nh_type1) {
++    case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+ 	case STATIC_IFNAME:
+ 		ret = if_cmp_name_func(
+ 			yang_dnode_get_string(dnode1, "interface"),
+@@ -1646,6 +1666,61 @@ DEFUN_NOSH (show_debugging_static,
+ 
+ #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
+ 
++#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
++#define STATIC_ROUTE_DHCPGWSTR "Static routes via DHCP gateway configuration\n"
++
++DEFPY(static_route_dhcp_gateway_poll_period,
++      static_route_dhcp_gateway_poll_period_cmd,
++      "static-route-dhcp-gateway poll-period (0-86400)",
++      STATIC_ROUTE_DHCPGWSTR
++      "Set poll period\n"
++      "DHCP gateway poll period in seconds, 0 - disabled\n"
++      )
++{
++	static_dhcpgw_set_poll_period_seconds(poll_period);
++
++	return CMD_SUCCESS;
++}
++
++DEFPY(static_route_dhcp_gateway_lease_prefix,
++      static_route_dhcp_gateway_lease_prefix_cmd,
++      "static-route-dhcp-gateway dhclient-lease-path-prefix LEASEPREFIX",
++      STATIC_ROUTE_DHCPGWSTR
++      "Set dhclient lease path prefix\n"
++      "dhclient lease path prefix e.g. /var/run/dhclient/dhclient_\n"
++      )
++{
++	static_dhcpgw_set_lease_path_prefix(leaseprefix);
++
++	return CMD_SUCCESS;
++}
++
++DEFPY(static_route_dhcp_gateway_lease_suffix,
++      static_route_dhcp_gateway_lease_suffix_cmd,
++      "static-route-dhcp-gateway dhclient-lease-path-suffix LEASESUFFIX",
++      STATIC_ROUTE_DHCPGWSTR
++      "Set dhclient lease path suffix\n"
++      "dhclient lease path suffix e.g. .lease\n"
++      )
++{
++	static_dhcpgw_set_lease_path_suffix(leasesuffix);
++
++	return CMD_SUCCESS;
++}
++
++DEFPY(static_route_dhcp_gateway_update,
++      static_route_dhcp_gateway_update_cmd,
++      "static-route-dhcp-gateway update",
++      STATIC_ROUTE_DHCPGWSTR
++      "Reread dhclient lease IP addresses\n"
++      )
++{
++	static_dhcpgw_update();
++
++	return CMD_SUCCESS;
++}
++#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
++
+ void static_vty_init(void)
+ {
+ #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
+@@ -1653,6 +1728,11 @@ void static_vty_init(void)
+ 	install_element(CONFIG_NODE, &debug_staticd_cmd);
+ 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
+ 	install_element(ENABLE_NODE, &staticd_show_bfd_routes_cmd);
++
++	install_element(CONFIG_NODE, &static_route_dhcp_gateway_poll_period_cmd);
++	install_element(CONFIG_NODE, &static_route_dhcp_gateway_lease_prefix_cmd);
++	install_element(CONFIG_NODE, &static_route_dhcp_gateway_lease_suffix_cmd);
++	install_element(ENABLE_NODE, &static_route_dhcp_gateway_update_cmd);
+ #else /* else INCLUDE_MGMTD_CMDDEFS_ONLY */
+ 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
+ 
+diff --git a/staticd/static_zebra.c b/staticd/static_zebra.c
+index 420ed7903b..133ce2e0de 100644
+--- a/staticd/static_zebra.c
++++ b/staticd/static_zebra.c
+@@ -284,6 +284,7 @@ static bool static_zebra_nht_get_prefix(const struct static_nexthop *nh,
+ 
+ 	case STATIC_IPV4_GATEWAY:
+ 	case STATIC_IPV4_GATEWAY_IFNAME:
++	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+ 		p->family = AF_INET;
+ 		p->prefixlen = IPV4_MAX_BITLEN;
+ 		p->u.prefix4 = nh->addr.ipv4;
+@@ -451,6 +452,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
+ 			api_nh->ifindex = nh->ifindex;
+ 			api_nh->type = NEXTHOP_TYPE_IFINDEX;
+ 			break;
++		case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+ 		case STATIC_IPV4_GATEWAY:
+ 			if (!nh->nh_valid)
+ 				continue;
+diff --git a/staticd/subdir.am b/staticd/subdir.am
+index 07ebe3c02c..04c58c8fb9 100644
+--- a/staticd/subdir.am
++++ b/staticd/subdir.am
+@@ -12,6 +12,7 @@ endif
+ staticd_libstatic_a_SOURCES = \
+ 	staticd/static_bfd.c \
+ 	staticd/static_debug.c \
++	staticd/static_dhcpgw.c \
+ 	staticd/static_nht.c \
+ 	staticd/static_routes.c \
+ 	staticd/static_zebra.c \
+@@ -23,6 +24,7 @@ staticd_libstatic_a_SOURCES = \
+ 
+ noinst_HEADERS += \
+ 	staticd/static_debug.h \
++	staticd/static_dhcpgw.h \
+ 	staticd/static_nht.h \
+ 	staticd/static_zebra.h \
+ 	staticd/static_routes.h \
+diff --git a/yang/frr-nexthop.yang b/yang/frr-nexthop.yang
+index 175487d78b..2f7942bdc5 100644
+--- a/yang/frr-nexthop.yang
++++ b/yang/frr-nexthop.yang
+@@ -102,6 +102,11 @@ module frr-nexthop {
+         description
+           "Unreachable or prohibited.";
+       }
++      enum "ip4-dhcp-gateway" {
++        value 7;
++        description
++          "IPv4 interfaces with dhcp gateway";
++      }
+     }
+     description
+       "Nexthop types.";
+@@ -191,7 +196,8 @@ module frr-nexthop {
+       when "../nh-type = 'ip4' or
+             ../nh-type = 'ip6' or
+             ../nh-type = 'ip4-ifindex' or
+-            ../nh-type = 'ip6-ifindex'";
++            ../nh-type = 'ip6-ifindex' or
++            ../nh-type = 'ip4-dhcp-gateway'";
+       type uint32;
+       description
+         "The nexthop SR-TE color";
+diff --git a/yang/frr-staticd.yang b/yang/frr-staticd.yang
+index 1e6c54c006..b23881934c 100644
+--- a/yang/frr-staticd.yang
++++ b/yang/frr-staticd.yang
+@@ -127,7 +127,8 @@ module frr-staticd {
+                 "Present if BFD configuration is available.";
+ 
+               when "../nh-type = 'ip4' or ../nh-type = 'ip4-ifindex' or
+-                    ../nh-type = 'ip6' or ../nh-type = 'ip6-ifindex'";
++                    ../nh-type = 'ip6' or ../nh-type = 'ip6-ifindex' or
++                    ../nh-type = 'ip4-dhcp-gateway'";
+               uses frr-bfdd:bfd-monitoring;
+             }
+           }
+-- 
+2.49.0
+
