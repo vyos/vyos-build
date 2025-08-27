@@ -92,7 +92,8 @@ RUN apt-get update && apt-get install -y \
       jq \
       socat \
       python-is-python3 \
-      apt-transport-https
+      apt-transport-https \
+      clang
 
 # Packages needed for vyos-build
 RUN apt-get update && apt-get install -y \
