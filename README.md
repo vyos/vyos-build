@@ -47,6 +47,15 @@ In order to have a single manual and not maintining multiple copies the
 instructions on how to build VyOS either in a Docker container or natively can
 be found in our [Documentation - Build VyOS](https://docs.vyos.io/en/latest/contributing/build-vyos.html).
 
+## Building VyOS with VM agents
+
+- VyOS removed VM agents from the live release (https://vyos.dev/T6942) (qemu, xen, etc.)
+- this fork restores the agents to a new build flavor "vmagents"
+- to make a standard build
+  - `sudo ./build-vyos-image --architecture amd64 --build-by "j.randomhacker@vyos.io" generic`
+- to make a build with vm agents
+  - `sudo ./build-vyos-image --architecture amd64 --build-by "j.randomhacker@vyos.io" vmagents`
+
 # Development Branches
 
 The default branch that contains the most recent VyOS code is called `current`.
