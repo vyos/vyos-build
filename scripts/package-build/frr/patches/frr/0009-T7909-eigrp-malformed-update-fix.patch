@@ -1,0 +1,101 @@
+From d5777f8c38a9c61d8992d6ede9a6ea9697fd5ba0 Mon Sep 17 00:00:00 2001
+From: Ritika Chopra <ritika0313@gmail.com>
+Date: Sun, 5 Oct 2025 21:41:46 -0700
+Subject: [PATCH] eigrpd: Handling for malformed update packets
+
+-EIGRP daemon was crashing when the code was attempting to read more data from EIGRP update malformed packets than is available in the packets stream.
+-Safety checks have been added before reading from the stream to prevent any crashes
+-This patch addresses the Update packets carrying routes other than IPv4 Internal routes
+
+Signed-off-by: Ritika Chopra <ritika0313@gmail.com>
+---
+ eigrpd/eigrp_packet.c |  6 ++++++
+ eigrpd/eigrp_update.c | 46 ++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 49 insertions(+), 3 deletions(-)
+
+diff --git a/eigrpd/eigrp_packet.c b/eigrpd/eigrp_packet.c
+index e930e8f3c1..f4c16efca5 100644
+--- a/eigrpd/eigrp_packet.c
++++ b/eigrpd/eigrp_packet.c
+@@ -551,6 +551,12 @@ void eigrp_read(struct event *thread)
+ 	/* Advance from IP header to EIGRP header (iph->ip_hl has been verified
+ 	   by eigrp_recv_packet() to be correct). */
+ 
++	if ((iph->ip_hl * 4) + EIGRP_HEADER_LEN > stream_get_endp(ibuf)) {
++		zlog_warn("Malformed packet: IP header extends beyond packet data. IP header len = %u endp = %zu",
++				 iph->ip_hl * 4, stream_get_endp(ibuf));
++		return;
++	}
++
+ 	stream_forward_getp(ibuf, (iph->ip_hl * 4));
+ 	eigrph = (struct eigrp_header *)stream_pnt(ibuf);
+ 
+diff --git a/eigrpd/eigrp_update.c b/eigrpd/eigrp_update.c
+index 7348231c3b..df03ee2d90 100644
+--- a/eigrpd/eigrp_update.c
++++ b/eigrpd/eigrp_update.c
+@@ -279,6 +279,13 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
+ 
+ 	/*If there is topology information*/
+ 	while (s->endp > s->getp) {
++		/* Ensure we have at least 4 bytes for TLV header */
++		if (STREAM_READABLE(s) < 4) {
++			zlog_warn("Malformed packet: Unexpected early end of packet reached, stopping TLV processing");
++			stream_forward_getp(s, STREAM_READABLE(s));
++			break;
++		}
++
+ 		type = stream_getw(s);
+ 		switch (type) {
+ 		case EIGRP_TLV_IPv4_INT:
+@@ -369,11 +376,44 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
+ 		 *      for now, lets just not creash the box
+ 		 */
+ 		default:
++			/* Handle unknown TLV types gracefully */
++			zlog_warn("Unknown TLV type: 0x%04x", type);
++
++			/* Validate we have enough data for TLV length */
++			if (STREAM_READABLE(s) < 2) {
++				zlog_warn("Malformed packet: insufficient data for TLV length, skipping to end");
++				stream_forward_getp(s, STREAM_READABLE(s));
++				break;
++			}
++
+ 			length = stream_getw(s);
+-			// -2 for type, -2 for len
+-			for (length -= 4; length; length--) {
+-				(void)stream_getc(s);
++
++			/* Validate TLV length */
++			if (length < 4) {
++				zlog_warn("Malformed packet: TLV length too small (%u), skipping to end", length);
++				stream_forward_getp(s, STREAM_READABLE(s));
++				break;
+ 			}
++
++			/* Check for reasonable TLV length */
++			if (length > 1024) {
++				zlog_warn("Malformed packet: TLV length too large (%u), skipping to end", length);
++				stream_forward_getp(s, STREAM_READABLE(s));
++				break;
++			}
++
++			/* Check if TLV extends beyond packet */
++			if (length > STREAM_READABLE(s) + 4) {
++				zlog_warn("Malformed packet: TLV length (%u) exceeds remaining data (%zu) + 4, skipping to end",
++						length, STREAM_READABLE(s));
++				break;
++		}
++		/* Skip current TLV data safely to move on to next TLV */
++		if (IS_DEBUG_EIGRP_PACKET(0, RECV))
++			zlog_debug("Skipping unknown TLV: type=0x%04x, length=%u", type, length);
++		stream_forward_getp(s, length - 4);
++
++
+ 		}
+ 	}
+ 
+-- 
+2.47.3
+
