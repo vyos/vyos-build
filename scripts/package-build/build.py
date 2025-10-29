@@ -18,7 +18,7 @@
 import glob
 import shutil
 import sys
-import toml
+import tomli
 import os
 
 from argparse import ArgumentParser
@@ -207,8 +207,8 @@ if __name__ == '__main__':
     args = arg_parser.parse_args()
 
     # Load package configuration
-    with open(args.config, 'r') as file:
-        config = toml.load(file)
+    with open(args.config, 'rb') as file:
+        config = tomli.load(file)
 
     packages = config['packages']
     patch_dir = Path(args.patch_dir)

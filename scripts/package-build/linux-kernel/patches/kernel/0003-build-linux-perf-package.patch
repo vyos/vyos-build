@@ -50,7 +50,7 @@ index 5044224cf671..21f98ae50be0 100755
 +Package: linux-perf-$version
 +Section: devel
 +Architecture: $debarch
-+Depends: \${shlibs:Depends}
++Depends: libpfm4, libslang2, libtraceevent1
 +Description: Performance analysis tools for Linux $version
 + This package contains the 'perf' performance analysis tools for Linux
 + kernel version $version .

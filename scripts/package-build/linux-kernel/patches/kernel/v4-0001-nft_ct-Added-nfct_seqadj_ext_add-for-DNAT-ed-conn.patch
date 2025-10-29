@@ -1,0 +1,212 @@
+From 0b00219cbd0e942dc2a2d86ecda52b7de4617227 Mon Sep 17 00:00:00 2001
+From: Andrii Melnychenko <a.melnychenko@vyos.io>
+Date: Tue, 14 Oct 2025 12:36:55 +0200
+Subject: [PATCH v4 1/1] nft_ct: Added nfct_seqadj_ext_add() for DNAT'ed
+ conntrack.
+
+There is an issue with the missed seqadj extension for NAT'ed
+conntrack setup with nft. Sequence adjustment may be required
+for FTP traffic with PASV/EPSV modes.
+
+The easiest way to reproduce this issue is with PASV mode.
+Topoloy:
+```
+ +-------------------+     +----------------------------------+
+ | FTP: 192.168.13.2 | <-> | NAT: 192.168.13.3, 192.168.100.1 |
+ +-------------------+     +----------------------------------+
+                                      |
+                         +-----------------------+
+                         | Client: 192.168.100.2 |
+                         +-----------------------+
+```
+
+nft ruleset:
+```
+table inet ftp_nat {
+        ct helper ftp_helper {
+                type "ftp" protocol tcp
+                l3proto inet
+        }
+
+        chain prerouting {
+                type filter hook prerouting priority filter; policy
+accept;
+                tcp dport 21 ct state new ct helper set "ftp_helper"
+        }
+}
+table ip nat {
+        chain prerouting {
+                type nat hook prerouting priority dstnat; policy accept;
+                tcp dport 21 dnat ip prefix to ip daddr map {
+192.168.100.1 : 192.168.13.2/32 }
+        }
+
+        chain postrouting {
+                type nat hook postrouting priority srcnat; policy
+accept;
+                tcp sport 21 snat ip prefix to ip saddr map {
+192.168.13.2 : 192.168.100.1/32 }
+        }
+}
+
+```
+
+Connecting the client:
+```
+Connected to 192.168.100.1.
+220 Welcome to my FTP server.
+Name (192.168.100.1:dev): user
+331 Username ok, send password.
+Password:
+230 Login successful.
+Remote system type is UNIX.
+Using binary mode to transfer files.
+ftp> epsv
+EPSV/EPRT on IPv4 off.
+EPSV/EPRT on IPv6 off.
+ftp> ls
+227 Entering passive mode (192,168,100,1,209,129).
+421 Service not available, remote server has closed connection.
+```
+
+Kernel logs:
+```
+Oct 16 10:24:44 vyos kernel: Missing nfct_seqadj_ext_add() setup call
+Oct 16 10:24:44 vyos kernel: WARNING: CPU: 1 PID: 0 at
+net/netfilter/nf_conntrack_seqadj.c:41 nf_ct_seqadj_set+0xbf/0xe0
+[nf_conntrack]
+Oct 16 10:24:44 vyos kernel: Modules linked in: nf_nat_ftp(E) nft_nat(E)
+nf_conntrack_ftp(E) af_packet(E) nft_ct(E) nft_chain_nat(E) nf_nat(E)
+nf_tables(E) nfnetlink_cthelper(E) nf_conntrack(E) nf_defrag_ipv6(E)
+nf_defrag_ipv4(E) nfnetlink(E) binfmt_misc(E) intel_rapl_common(E)
+crct10dif_pclmul(E) crc32_pclmul(E) ghash_clmulni_intel(E)
+sha512_ssse3(E) sha256_ssse3(E) sha1_ssse3(E) aesni_intel(E)
+crypto_simd(E) cryptd(E) rapl(E) iTCO_wdt(E) iTCO_vendor_support(E)
+button(E) virtio_console(E) virtio_balloon(E) pcspkr(E) evdev(E)
+tcp_bbr(E) sch_fq_codel(E) mpls_iptunnel(E) mpls_router(E) ip_tunnel(E)
+br_netfilter(E) bridge(E) stp(E) llc(E) fuse(E) efi_pstore(E)
+configfs(E) virtio_rng(E) rng_core(E) ip_tables(E) x_tables(E)
+autofs4(E) usb_storage(E) ohci_hcd(E) uhci_hcd(E) ehci_hcd(E) sd_mod(E)
+squashfs(E) lz4_decompress(E) loop(E) overlay(E) ext4(E) crc16(E)
+mbcache(E) jbd2(E) nls_cp437(E) vfat(E) fat(E) efivarfs(E) nls_ascii(E)
+hid_generic(E) usbhid(E) hid(E) virtio_net(E) net_failover(E)
+virtio_blk(E) failover(E) ahci(E) libahci(E)
+Oct 16 10:24:44 vyos kernel:  crc32c_intel(E) i2c_i801(E) i2c_smbus(E)
+libata(E) lpc_ich(E) scsi_mod(E) scsi_common(E) xhci_pci(E) xhci_hcd(E)
+virtio_pci(E) virtio_pci_legacy_dev(E) virtio_pci_modern_dev(E)
+virtio(E) virtio_ring(E)
+Oct 16 10:24:44 vyos kernel: CPU: 1 PID: 0 Comm: swapper/1 Tainted: G
+E      6.6.108-vyos #1
+Oct 16 10:24:44 vyos kernel: Hardware name: QEMU Standard PC (Q35 +
+ICH9, 2009), BIOS Arch Linux 1.17.0-2-2 04/01/2014
+Oct 16 10:24:44 vyos kernel: RIP: 0010:nf_ct_seqadj_set+0xbf/0xe0
+[nf_conntrack]
+Oct 16 10:24:44 vyos kernel: Code: ea 44 89 20 89 50 08 eb db 45 85 ed
+74 de 80 3d 51 6d 00 00 00 75 d5 48 c7 c7 68 57 ad c0 c6 05 41 6d 00 00
+01 e8 71 28 dd dc <0f> 0b eb be be 02 00 00 00 e8 63 fc ff ff 48 89 c3
+e9 66 ff ff ff
+Oct 16 10:24:44 vyos kernel: RSP: 0018:ffff9a66c00e8910 EFLAGS: 00010286
+Oct 16 10:24:44 vyos kernel: RAX: 0000000000000000 RBX: 0000000000000014
+RCX: 000000000000083f
+Oct 16 10:24:44 vyos kernel: RDX: 0000000000000000 RSI: 00000000000000f6
+RDI: 000000000000083f
+Oct 16 10:24:44 vyos kernel: RBP: ffff89387978fb00 R08: 0000000000000000
+R09: ffff9a66c00e87a8
+Oct 16 10:24:44 vyos kernel: R10: 0000000000000003 R11: ffffffff9ecbab08
+R12: ffff89387978fb00
+Oct 16 10:24:44 vyos kernel: R13: 0000000000000001 R14: ffff893872e18862
+R15: ffff893842f8c700
+Oct 16 10:24:44 vyos kernel: FS:  0000000000000000(0000)
+GS:ffff893bafc80000(0000) knlGS:0000000000000000
+Oct 16 10:24:44 vyos kernel: CS:  0010 DS: 0000 ES: 0000 CR0:
+0000000080050033
+Oct 16 10:24:44 vyos kernel: CR2: 000055fbc64ec690 CR3: 000000011de22001
+CR4: 0000000000370ee0
+Oct 16 10:24:44 vyos kernel: Call Trace:
+Oct 16 10:24:44 vyos kernel:  <IRQ>
+Oct 16 10:24:44 vyos kernel:  __nf_nat_mangle_tcp_packet+0x100/0x160
+[nf_nat]
+Oct 16 10:24:44 vyos kernel:  nf_nat_ftp+0x142/0x280 [nf_nat_ftp]
+Oct 16 10:24:44 vyos kernel:  ? kmem_cache_alloc+0x157/0x290
+Oct 16 10:24:44 vyos kernel:  ? help+0x4d1/0x880 [nf_conntrack_ftp]
+Oct 16 10:24:44 vyos kernel:  help+0x4d1/0x880 [nf_conntrack_ftp]
+Oct 16 10:24:44 vyos kernel:  ? nf_confirm+0x122/0x2e0 [nf_conntrack]
+Oct 16 10:24:44 vyos kernel:  nf_confirm+0x122/0x2e0 [nf_conntrack]
+Oct 16 10:24:44 vyos kernel:  nf_hook_slow+0x3c/0xb0
+Oct 16 10:24:44 vyos kernel:  ip_output+0xb6/0xf0
+Oct 16 10:24:44 vyos kernel:  ? __pfx_ip_finish_output+0x10/0x10
+Oct 16 10:24:44 vyos kernel:  ip_sublist_rcv_finish+0x90/0xa0
+Oct 16 10:24:44 vyos kernel:  ip_sublist_rcv+0x190/0x220
+Oct 16 10:24:44 vyos kernel:  ? __pfx_ip_rcv_finish+0x10/0x10
+Oct 16 10:24:44 vyos kernel:  ip_list_rcv+0x134/0x160
+Oct 16 10:24:44 vyos kernel:  __netif_receive_skb_list_core+0x299/0x2c0
+Oct 16 10:24:44 vyos kernel:
+netif_receive_skb_list_internal+0x1a7/0x2d0
+Oct 16 10:24:44 vyos kernel:  napi_complete_done+0x69/0x1a0
+Oct 16 10:24:44 vyos kernel:  virtnet_poll+0x3c0/0x540 [virtio_net]
+Oct 16 10:24:44 vyos kernel:  __napi_poll+0x26/0x1a0
+Oct 16 10:24:44 vyos kernel:  net_rx_action+0x141/0x2c0
+Oct 16 10:24:44 vyos kernel:  ? lock_timer_base+0x5c/0x80
+Oct 16 10:24:44 vyos kernel:  handle_softirqs+0xd5/0x280
+Oct 16 10:24:44 vyos kernel:  __irq_exit_rcu+0x95/0xb0
+Oct 16 10:24:44 vyos kernel:  common_interrupt+0x7a/0xa0
+Oct 16 10:24:44 vyos kernel:  </IRQ>
+Oct 16 10:24:44 vyos kernel:  <TASK>
+Oct 16 10:24:44 vyos kernel:  asm_common_interrupt+0x22/0x40
+Oct 16 10:24:44 vyos kernel: RIP: 0010:pv_native_safe_halt+0xb/0x10
+Oct 16 10:24:44 vyos kernel: Code: 0b 66 66 2e 0f 1f 84 00 00 00 00 00
+0f 1f 00 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 66 90 0f 00 2d
+29 9a 3e 00 fb f4 <c3> cc cc cc cc 90 90 90 90 90 90 90 90 90 90 90 90
+90 90 90 90 8b
+Oct 16 10:24:44 vyos kernel: RSP: 0018:ffff9a66c009bed8 EFLAGS: 00000252
+Oct 16 10:24:44 vyos kernel: RAX: ffff893bafcaaca8 RBX: 0000000000000001
+RCX: 0000000000000001
+Oct 16 10:24:44 vyos kernel: RDX: 0000000000000000 RSI: 0000000000000083
+RDI: 0000000000064cec
+Oct 16 10:24:44 vyos kernel: RBP: ffff8938401f2200 R08: 0000000000000001
+R09: 0000000000000000
+Oct 16 10:24:44 vyos kernel: R10: 000000000001ffc0 R11: 0000000000000000
+R12: 0000000000000000
+Oct 16 10:24:44 vyos kernel: R13: 0000000000000000 R14: ffff8938401f2200
+R15: 0000000000000000
+Oct 16 10:24:44 vyos kernel:  default_idle+0x5/0x20
+Oct 16 10:24:44 vyos kernel:  default_idle_call+0x28/0xb0
+Oct 16 10:24:44 vyos kernel:  do_idle+0x1ec/0x230
+Oct 16 10:24:44 vyos kernel:  cpu_startup_entry+0x21/0x30
+Oct 16 10:24:44 vyos kernel:  start_secondary+0x11a/0x140
+Oct 16 10:24:44 vyos kernel:  secondary_startup_64_no_verify+0x178/0x17b
+Oct 16 10:24:44 vyos kernel:  </TASK>
+```
+
+Fixes: 1a64edf54f55 ("netfilter: nft_ct: add helper set support")
+Signed-off-by: Andrii Melnychenko <a.melnychenko@vyos.io>
+---
+ net/netfilter/nft_ct.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index d526e69a2..f358cdc5e 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -22,6 +22,7 @@
+ #include <net/netfilter/nf_conntrack_timeout.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_expect.h>
++#include <net/netfilter/nf_conntrack_seqadj.h>
+ 
+ struct nft_ct_helper_obj  {
+ 	struct nf_conntrack_helper *helper4;
+@@ -1173,6 +1174,10 @@ static void nft_ct_helper_obj_eval(struct nft_object *obj,
+ 	if (help) {
+ 		rcu_assign_pointer(help->helper, to_assign);
+ 		set_bit(IPS_HELPER_BIT, &ct->status);
++
++		if ((ct->status & IPS_NAT_MASK) && !nfct_seqadj(ct))
++			if (!nfct_seqadj_ext_add(ct))
++				regs->verdict.code = NF_DROP;
+ 	}
+ }
+ 
+-- 
+2.43.0
+

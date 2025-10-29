@@ -6,13 +6,6 @@ build_cmd = "/bin/true"
 apply_patches = false
 
 [[packages]]
-name = "vpp-sflow"
-commit_id = "v0.9.02-2"
-scm_url = "https://github.com/sflow/vpp-sflow"
-build_cmd = "/bin/true"
-apply_patches = false
-
-[[packages]]
 name = "vpp"
 commit_id = "stable/2506"
 scm_url = "https://github.com/FDio/vpp"
@@ -22,7 +15,6 @@ apply_patches = false
 pre_build_hook = """
 mkdir -p ../patches/vpp/
 rsync -av ../vyos-vpp-patches/patches/vpp/ ../patches/vpp/
-rsync -av ../vpp-sflow/sflow ../vpp/src/plugins
 """
 
 build_cmd = """
