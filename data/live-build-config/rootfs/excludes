@@ -45,6 +45,7 @@ usr/local/games/*
 
 # T5511: We do not need any caches on the system (will be recreated when needed).
 # T7278: We need directory created by python3-cracklib for password checks
+# T7926: VyOS GeoIP database location
 var/cache/!(cracklib|vyos)
 
 # T5511: We do not need any log-files on the system (will be recreated when needed).
