@@ -1,0 +1,95 @@
+From b088ee5c1c0bbf62b7cffb6d4d1039560b80348f Mon Sep 17 00:00:00 2001
+From: Soumya Roy <souroy@nvidia.com>
+Date: Wed, 29 Oct 2025 05:41:54 +0000
+Subject: [PATCH] bgpd: Crash due to usage of freed up evpn_overlay attr
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Reason:
+Use-after-free in evpn_overlay due to incorrect reference counting when storing
+routes in Adj-RIB-In.
+
+1) In bgp_update_receive, we parse the attributes first in bgp_attr_parse_ret
+   and it will intern those attributes, so refcnt for them would become 0->1. We
+   can't do evpn_overlay attribute processing here, as it requires NLRI/EVPN
+   knowledge, which happens via bgp_nlri_parse later. So we don't know yet if
+   evpn_overlay attribute would be created or not.
+
+2) Later in bgp_update, the evpn_overlay is created with refcnt=0 and assigned to
+   attr, stored in adj_in via bgp_adj_in_set(), then interned (refcnt→1). For all
+   other used attributes, the refcnt goes to 1->2.
+
+3) At the end of bgp_update_receive(), bgp_attr_unintern_sub(attr) is called, which
+   causes evpn_overlay attribute to have refcnt 1->0, so it frees it up, leaving
+   adj_in->attr->evpn_overlay with a dangling pointer. Any other attributes that are
+   used have refcnt 2->1, so they are not freed up.
+
+4) On next call to bgp_update, in bgp_adj_in_set(), when we try to lookup attr from
+   adj_in->attr, it doesn't find a match as the old attr in adj_in->attr has freed
+   up evpn_overlay. So in bgp_adj_in_set, we try to unintern the corrupted attr,
+   causing hash lookup failure (the key has changed as attr->evpn_overlay is freed
+   up, and that is part of hash generation) and assert.
+
+Fix:
+Intern evpn_overlay immediately before assigning to attr in the Adj-RIB-In path.
+This implements the double-refcount pattern used by other attributes like ecommunity:
+evpn_overlay_intern() sets refcnt=1, bgp_attr_intern() increments to refcnt=2,
+bgp_attr_unintern_sub() decrements to refcnt=1, leaving adj_in->attr with a
+valid reference.
+
+Signed-off-by: Soumya Roy <souroy@nvidia.com>
+
+(cherry picked from commit 8b087b2a4392a2fdc4645f9c31bb33402f53d3e7)
+---
+ bgpd/bgp_attr.c  | 2 +-
+ bgpd/bgp_attr.h  | 1 +
+ bgpd/bgp_route.c | 6 ++++--
+ 3 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/bgpd/bgp_attr.c b/bgpd/bgp_attr.c
+index 1a2fa8318..4c552f7fc 100644
+--- a/bgpd/bgp_attr.c
++++ b/bgpd/bgp_attr.c
+@@ -549,7 +549,7 @@ void evpn_overlay_free(struct bgp_route_evpn *bre)
+ 	XFREE(MTYPE_BGP_EVPN_OVERLAY, bre);
+ }
+ 
+-static struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre)
++struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre)
+ {
+ 	struct bgp_route_evpn *find;
+ 
+diff --git a/bgpd/bgp_attr.h b/bgpd/bgp_attr.h
+index 087c3f35e..6aa9c61ee 100644
+--- a/bgpd/bgp_attr.h
++++ b/bgpd/bgp_attr.h
+@@ -660,5 +660,6 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
+ 
+ extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
+ extern void evpn_overlay_free(struct bgp_route_evpn *bre);
++extern struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre);
+ 
+ #endif /* _QUAGGA_BGP_ATTR_H */
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 85cad8897..55b2fb388 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -4641,10 +4641,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
+ 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
+ 		 */
+ 		if (evpn) {
+-			if (afi == AFI_L2VPN)
++			if (afi == AFI_L2VPN) {
++				evpn = evpn_overlay_intern(evpn);
+ 				bgp_attr_set_evpn_overlay(attr, evpn);
+-			else
++			} else {
+ 				evpn_overlay_free(evpn);
++			}
+ 		}
+ 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
+ 	}
+-- 
+2.39.5
+
