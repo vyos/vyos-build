@@ -55,6 +55,20 @@ now = datetime.now()
 tpm_folder = '/tmp/vyos_tpm_test'
 qemu_name = 'VyOS-QEMU'
 
+# Map QEMU arch
+QEMU_CONFIG = {
+    "amd64": {
+        "bin": "qemu-system-x86_64",
+        "machine": "pc",
+        "bios": "/usr/share/OVMF/OVMF_CODE.fd",
+    },
+    "arm64": {
+        "bin": "qemu-system-aarch64",
+        "machine": "virt",
+        "bios": "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd",
+    },
+}
+
 # getch.py
 KEY_F2 = chr(27) + chr(91) + chr(49) + chr(50) + chr(126)
 KEY_F10 = chr(27) + chr(91) + chr(50) + chr(49) + chr(126)
@@ -97,6 +111,7 @@ parser.add_argument('--sbtest', help='Execute Secure Boot tests',
 parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
                 action='store_true', default=False)
 parser.add_argument('--cpu', help='Set QEMU CPU', type=int, default=2)
+parser.add_argument('--cpu-type', help='Set QEMU CPU type', type=str, default='host')
 parser.add_argument('--memory', help='Set QEMU memory', type=int, default=4)
 parser.add_argument('--vyconf', help='Execute testsuite with vyconfd', action='store_true',
                     default=False)
@@ -104,6 +119,7 @@ parser.add_argument('--no-vpp', help='Execute testsuite without VPP tests',
                 action='store_true', default=False)
 parser.add_argument('--huge-page-size', help='Huge page size (e.g., 2M, 1G)', type=str)
 parser.add_argument('--huge-page-count', help='Number of huge pages to allocate', type=int)
+parser.add_argument('--arch', help='Architecture')
 
 args = parser.parse_args()
 
@@ -146,18 +162,31 @@ OVMF_VARS_TMP = args.disk.replace('.img', '.efivars')
 if args.sbtest:
     shutil.copy('/usr/share/OVMF/OVMF_VARS_4M.ms.fd', OVMF_VARS_TMP)
 
+
+def _kvm_exists():
+    return os.path.exists("/dev/kvm")
+
+
 def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False, vnc_enabled=False, secure_boot=False):
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
-    machine = 'pc'
+    arch = getattr(args, 'arch', 'amd64')
+    qemu_arch_config = QEMU_CONFIG.get(arch, QEMU_CONFIG["amd64"])
+    qemu_bin = qemu_arch_config['bin']
+    bios = qemu_arch_config['bios']
+    cpu_type = args.cpu_type
+    machine = qemu_arch_config['machine']
+    accel = ',accel=kvm' if _kvm_exists() else ''
+    enable_kvm = '-enable-kvm' if _kvm_exists() else ''
     vga = '-vga none'
     vnc = ''
+
     if vnc_enabled:
         vga = '-vga virtio'
         vnc = '-vnc :0'
 
     if enable_uefi:
-        uefi = '-bios /usr/share/OVMF/OVMF_CODE.fd'
+        uefi = f'-bios {bios}'
         name = f'{name}-UEFI'
 
         if secure_boot:
@@ -171,26 +200,25 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
 
     cdrom = ""
     if iso_img:
-        cdrom = f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on' \
-                f' -device ahci,id=achi0' \
-                f' -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex=10'
+        cdrom = (
+            f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on'
+            f' -device scsi-cd,bus=scsi0.0,drive=drive-cd1,id=cd1,bootindex=10'
+        )
 
     # RFC7042 section 2.1.2 MAC addresses used for documentation
     macbase = '00:00:5E:00:53'
-    cmd = f'qemu-system-x86_64 \
+    cmd = f'{qemu_bin} \
         -name "{name}" \
         -smp {args.cpu},sockets=1,cores={args.cpu},threads=1 \
-        -cpu host \
-        -machine {machine},accel=kvm \
+        -cpu {cpu_type} \
+        -machine {machine}{accel} \
         {uefi} \
         -m {args.memory}G \
         -vga none \
         -nographic \
         {vga} {vnc}\
         -uuid {uuid} \
-        -cpu host \
-        {cdrom} \
-        -enable-kvm \
+        {enable_kvm} \
         -monitor unix:/tmp/qemu-monitor-socket-{disk_img},server,nowait \
         -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="",host_mtu=1500 \
         -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="",host_mtu=1500 \
@@ -201,6 +229,7 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06,romfile="" \
         -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07,romfile="" \
         -device virtio-scsi-pci,id=scsi0 \
+        {cdrom} \
         -drive format=raw,file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
         -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex=1'
 
@@ -283,7 +312,8 @@ if not os.path.isfile(args.iso):
 
 if not os.path.exists('/dev/kvm'):
     log.error('KVM not enabled on host, proceeding with software emulation')
-    sys.exit(1)
+    # Some arm platforms do not have kvm, for example Mac arm devices
+    # sys.exit(1)
 
 # Creating diskimage!!
 diskname_raid = None
