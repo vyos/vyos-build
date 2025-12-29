@@ -1,0 +1,115 @@
+From c307c29be458961e18e38b84f5ea8480e1e8faa5 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Mon, 29 Dec 2025 13:55:39 +0200
+Subject: [PATCH] Fix declaration-after-statement errors
+
+After SNMP update somewhy declaration-after-statement errors
+appeared. Fix them.
+---
+ isisd/isis_snmp.c |  6 ++++--
+ ldpd/ldp_snmp.c   | 13 ++++++++-----
+ 2 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/isisd/isis_snmp.c b/isisd/isis_snmp.c
+index 83a06b6998..2815d64761 100644
+--- a/isisd/isis_snmp.c
++++ b/isisd/isis_snmp.c
+@@ -841,6 +841,7 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
+ 	struct iso_address *addr = NULL;
+ 	struct listnode *addr_node;
+ 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
++	int res;
+ 
+ 	if (isis == NULL)
+ 		return 0;
+@@ -852,7 +853,7 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
+ 
+ 	area = listgetdata(listhead(isis->area_list));
+ 
+-	int res = isis_snmp_conv_exact(cmp_buf, sizeof(cmp_buf), &addr_len,
++	res = isis_snmp_conv_exact(cmp_buf, sizeof(cmp_buf), &addr_len,
+ 				       oid_idx, oid_idx_len);
+ 
+ 
+@@ -891,6 +892,7 @@ static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
+ 	struct iso_address *addr = NULL;
+ 	struct listnode *addr_node;
+ 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
++	int res;
+ 
+ 	if (isis == NULL)
+ 		return 0;
+@@ -902,7 +904,7 @@ static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
+ 
+ 	area = listgetdata(listhead(isis->area_list));
+ 
+-	int res = isis_snmp_conv_next(cmp_buf, sizeof(cmp_buf), &addr_len,
++	res = isis_snmp_conv_next(cmp_buf, sizeof(cmp_buf), &addr_len,
+ 				      &try_exact, oid_idx, oid_idx_len);
+ 
+ 	if (!res)
+diff --git a/ldpd/ldp_snmp.c b/ldpd/ldp_snmp.c
+index ed391ac600..294e0f6c78 100644
+--- a/ldpd/ldp_snmp.c
++++ b/ldpd/ldp_snmp.c
+@@ -602,12 +602,13 @@ static uint8_t *ldpHelloAdjacencyTable(struct variable *v, oid name[], size_t *l
+ 	uint32_t entityIndex = 0;
+ 	struct in_addr peerLdpId = {.s_addr = 0};
+ 	uint32_t adjacencyIndex = 0;
++	struct ctl_adj *ctl_adj;
+ 
+ 	if (smux_header_table(v, name, length, exact, var_len, write_method)
+ 	    == MATCH_FAILED)
+ 		return NULL;
+ 
+-	struct ctl_adj *ctl_adj = ldpHelloAdjacencyTable_lookup(v, name,
++	ctl_adj = ldpHelloAdjacencyTable_lookup(v, name,
+ 		length, exact,
+ 		&entityLdpId, &entityIndex, &peerLdpId, &adjacencyIndex);
+ 
+@@ -615,15 +616,16 @@ static uint8_t *ldpHelloAdjacencyTable(struct variable *v, oid name[], size_t *l
+ 		return NULL;
+ 
+ 	if (!exact) {
++		struct in_addr entityLdpId = {.s_addr = 0};
++		struct in_addr peerLdpId;
+ 
+ 		/* Copy the name out */
+ 		memcpy(name, v->name, v->namelen * sizeof(oid));
+ 
+ 		/* Append index */
+-		struct in_addr entityLdpId = {.s_addr = 0};
+ 		entityLdpId.s_addr = ldp_rtr_id_get(leconf);
+ 
+-		struct in_addr peerLdpId = ctl_adj->id;
++		peerLdpId = ctl_adj->id;
+ 
+ 		oid_copy_in_addr(name + v->namelen, &entityLdpId);
+ 		name[v->namelen + 4] = 0;
+@@ -703,7 +705,7 @@ ldpPeerTable_lookup_next(int first,
+ 	struct in_addr peerLdpId)
+ {
+ 	struct nbr *nbr = NULL;
+-        struct ctl_nbr *ctl_nbr = NULL;;
++	struct ctl_nbr *ctl_nbr = NULL;;
+ 
+ 	if (first)
+ 		nbr = nbr_get_first_ldpid();
+@@ -920,12 +922,13 @@ static uint8_t *ldpSessionStatsTable(struct variable *v, oid name[],
+ 	struct in_addr entityLdpId = {.s_addr = 0};
+ 	uint32_t entityIndex = 0;
+ 	struct in_addr peerLdpId = {.s_addr = 0};
++	struct ctl_nbr *ctl_nbr;
+ 
+ 	if (smux_header_table(v, name, length, exact, var_len, write_method)
+ 	    == MATCH_FAILED)
+ 		return NULL;
+ 
+-	struct ctl_nbr *ctl_nbr = ldpPeerTable_lookup(v, name, length, exact,
++	ctl_nbr = ldpPeerTable_lookup(v, name, length, exact,
+ 		&entityLdpId, &entityIndex, &peerLdpId);
+ 
+ 	if (!ctl_nbr)
+-- 
+2.50.1
+

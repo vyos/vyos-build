@@ -19,6 +19,7 @@ packages = [
     "libc-ares-dev",
     "libjson-c-dev",
     "libnl-3-dev",
+    "libnl-route-3-dev",
     "librtr-dev",
     "libpam-dev",
     "libpcre3-dev",
