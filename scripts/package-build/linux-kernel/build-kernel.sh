@@ -1,7 +1,6 @@
 #!/bin/bash
 CWD=$(pwd)
 KERNEL_SRC=linux
-ARCH=$(dpkg --print-architecture)
 
 set -e
 
@@ -18,9 +17,6 @@ if [ -d .git ]; then
     git clean --force -d -x
 fi
 
-echo "I: Copy Kernel config (x86_64_vyos_defconfig) to Kernel Source"
-cp -rv ${CWD}/arch/ .
-
 if [ -d /usr/lib/ccache/ ]; then
     export PATH=/usr/lib/ccache:$PATH
 fi
@@ -28,13 +24,24 @@ fi
 KERNEL_VERSION=$(make kernelversion)
 KERNEL_SUFFIX=-$(awk -F "= " '/kernel_flavor/ {print $2}' ../../../../data/defaults.toml | tr -d \")
 
+echo "I: Generate Kernel config"
+ARCH=$(dpkg --print-architecture)
 if [ "${ARCH}" = "arm64" ]; then
     KERNEL_CONFIG=arch/arm64/configs/vyos_defconfig
-else
+    cp ${CWD}/config/arm64/vyos_defconfig ${KERNEL_CONFIG}
+elif [ "${ARCH}" = "amd64" ]; then
     KERNEL_CONFIG=arch/x86/configs/vyos_defconfig
+    cp ${CWD}/config/x86/vyos_defconfig ${KERNEL_CONFIG}
+else
+    echo "E: unsupported architecture"
+    exit 1
 fi
 
-echo "KERNEL_CONFIG: ${KERNEL_CONFIG}"
+for KRN_CONF_SNIPPET in $(ls ${CWD}/config/*.config)
+do
+    echo "I: adding configuration snippet ${KRN_CONF_SNIPPET}"
+    cat ${KRN_CONF_SNIPPET} >> ${KERNEL_CONFIG}
+done
 
 # VyOS requires some small Kernel Patches - apply them here
 # It's easier to habe them here and make use of the upstream
