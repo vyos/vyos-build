@@ -126,6 +126,8 @@ packages = [
     "liblua5.3-dev",
     "libssl3",
     "libssl-dev",
+    "libsnmp-dev",
+    "snmpd",
     "libpcre3-dev",
     "libnl-genl-3-dev",
     "libxtables-dev",
