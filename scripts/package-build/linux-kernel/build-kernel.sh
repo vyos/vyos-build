@@ -21,6 +21,10 @@ fi
 echo "I: Copy Kernel config (x86_64_vyos_defconfig) to Kernel Source"
 cp -rv ${CWD}/arch/ .
 
+if [ -d /usr/lib/ccache/ ]; then
+    export PATH=/usr/lib/ccache:$PATH
+fi
+
 KERNEL_VERSION=$(make kernelversion)
 KERNEL_SUFFIX=-$(awk -F "= " '/kernel_flavor/ {print $2}' ../../../../data/defaults.toml | tr -d \")
 
