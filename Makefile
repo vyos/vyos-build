@@ -56,17 +56,17 @@ testcvpp: checkiso
 .PHONY: testraid
 .ONESHELL:
 testraid: checkiso
-	scripts/check-qemu-install --debug --configd --raid build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --configd --raid --iso build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testsb
 .ONESHELL:
 testsb: checkiso
-	scripts/check-qemu-install --debug --uefi --sbtest build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --uefi --sbtest --iso build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testtpm
 .ONESHELL:
 testtpm: checkiso
-	scripts/check-qemu-install --debug --tpmtest build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --tpmtest --iso build/live-image-amd64.hybrid.iso $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-ci-qcow2
 .ONESHELL:
