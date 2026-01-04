@@ -6,6 +6,8 @@ on:
       - closed
     branches:
       - current
+      - circinus
+      - sagitta
 
 permissions:
   packages: write
