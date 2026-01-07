@@ -9,9 +9,6 @@ systemctl disable isc-kea-dhcp4-server.service
 systemctl disable isc-kea-dhcp6-server.service
 systemctl disable isc-kea-dhcp-ddns-server.service
 systemctl disable isc-dhcp-relay.service
-systemctl disable nfacctd.service
-systemctl disable sfacctd.service
-systemctl disable uacctd.service
 systemctl disable ssh.service
 systemctl disable sshguard.service
 systemctl disable openvpn.service
