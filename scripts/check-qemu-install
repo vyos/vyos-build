@@ -961,6 +961,8 @@ try:
         c.sendline('y')
         c.expect('Enter key: ')
         c.sendline(test_recovery_key)
+        c.expect('Confirm key:')
+        c.sendline(test_recovery_key)
         c.expect('Enter size of encrypted config partition.*', timeout=30)
         c.sendline('32')
         c.expect('Encrypted config volume has been enabled', timeout=tpm_timeout)
