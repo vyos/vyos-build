@@ -84,8 +84,8 @@ build_cmd = "build_realtek_r8152"
 
 [[packages]]
 name = "ipt-netflow"
-commit_id = "0eb2092e93"
-scm_url = "https://github.com/aabc/ipt-netflow"
+commit_id = "6135551"
+scm_url = "https://github.com/nuclearcat/ipt-netflow"
 build_cmd = "build_ipt_netflow"
 
 [dependencies]
