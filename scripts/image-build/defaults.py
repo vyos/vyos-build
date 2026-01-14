@@ -43,6 +43,14 @@ HARDCODED_BUILD = {
     'build_comment': '',
 }
 
+# Architecture mapping
+ARCH_MAP = {
+    "x86_64": "amd64",
+    "aarch64": "arm64",
+}
+
+ARCH = ARCH_MAP.get(platform.machine(), 'amd64')
+
 # Relative to the repository directory
 
 BUILD_DIR = 'build'
@@ -52,7 +60,7 @@ DEFAULTS_FILE = 'data/defaults.toml'
 
 BUILD_TYPES_DIR = 'data/build-types'
 BUILD_ARCHES_DIR = 'data/architectures'
-BUILD_FLAVORS_DIR = 'data/build-flavors'
+BUILD_FLAVORS_DIR = f'data/build-flavors/{ARCH}'
 
 # Relative to the build directory
 
