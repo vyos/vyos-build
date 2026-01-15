@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 
+arch ?= $(shell dpkg --print-architecture 2>/dev/null || echo amd64)
 build_dir := build
 
 .PHONY: all
@@ -13,8 +14,8 @@ all:
 .PHONY: checkiso
 .ONESHELL:
 checkiso:
-	if [ ! -f build/live-image-amd64.hybrid.iso ]; then
-		echo "Could not find build/live-image-amd64.hybrid.iso"
+	if [ ! -f build/live-image-$(arch).hybrid.iso ]; then
+		echo "Could not find build/live-image-$(arch).hybrid.iso"
 		exit 1
 	fi
 
@@ -31,7 +32,7 @@ test-no-interfaces: checkiso
 .PHONY: test-no-interfaces-no-vpp
 .ONESHELL:
 test-no-interfaces-no-vpp: checkiso
-	scripts/check-qemu-install --debug --configd --smoketest --uefi --no-interfaces --no-vpp --iso build/live-image-amd64.hybrid.iso
+	scripts/check-qemu-install --debug --configd --smoketest --uefi --no-interfaces --no-vpp --arch $(arch) --iso build/live-image-$(arch).hybrid.iso
 
 .PHONY: test-interfaces
 .ONESHELL:
