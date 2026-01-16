@@ -586,7 +586,17 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         ## Create includes
         if has_nonempty_key(build_config, "includes_chroot"):
             for i in build_config["includes_chroot"]:
-                file_path = os.path.join(chroot_includes_dir, i["path"])
+                check_path = i["path"]
+                # T8185: flavor definition files containing a default config
+                # under [[includes_chroot]] may need corrected install path
+                if check_path == 'opt/vyatta/etc/config.boot.default':
+                    file_path = os.path.join(
+                        chroot_includes_dir,
+                        directories['data'].lstrip(os.sep),
+                        'config.boot.default'
+                    )
+                else:
+                    file_path = os.path.join(chroot_includes_dir, check_path)
                 if debug:
                     print(f"D: Creating chroot include file: {file_path}")
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
