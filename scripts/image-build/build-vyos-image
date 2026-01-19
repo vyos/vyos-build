@@ -282,11 +282,19 @@ def build():
     build_config = merge_defaults(build_defaults, defaults=build_config)
 
     ## Load correct mix-ins
-    with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'rb') as f:
+    build_type_path = make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"])
+    if not os.path.exists(build_type_path):
+        raise ImageBuildError(f'Build type "{pre_build_config["build_type"]}" does not exist')
+
+    with open(build_type_path, 'rb') as f:
         build_type_config = tomli.load(f)
         build_config = merge_defaults(build_type_config, defaults=build_config)
 
-    with open(make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"]), 'rb') as f:
+    build_arch_path = make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"])
+    if not os.path.exists(build_arch_path):
+        raise ImageBuildError(f'Architecture "{pre_build_config["architecture"]}" is not supported')
+
+    with open(build_arch_path, 'rb') as f:
         build_arch_config = tomli.load(f)
         build_config = merge_defaults(build_arch_config, defaults=build_config)
 
