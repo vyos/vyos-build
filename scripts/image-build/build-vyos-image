@@ -81,7 +81,7 @@ def make_toml_path(dir, file_basename):
 
 
 def build():
-    ## Check if the script is running wirh root permissions
+    ## Check if the script is running with root permissions
     ## Since live-build requires privileged calls such as chroot(),
     ## there's no real way around it.
     if os.getuid() != 0:
