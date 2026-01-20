@@ -1,0 +1,30 @@
+From 307d1856a8d0ac0d32633ea79dd2bd368887f876 Mon Sep 17 00:00:00 2001
+From: Daniil Baturin <daniil@baturin.org>
+Date: Tue, 20 Jan 2026 14:57:10 +0000
+Subject: [PATCH] snmptrapd: Fix out-of-bounds trapOid[] accesses
+
+Based on the original patch for newer net-snmp by Bart Van Assche
+---
+ apps/snmptrapd_handlers.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/apps/snmptrapd_handlers.c b/apps/snmptrapd_handlers.c
+index 9496d31..bd4cc17 100644
+--- a/apps/snmptrapd_handlers.c
++++ b/apps/snmptrapd_handlers.c
+@@ -1112,6 +1112,13 @@ snmp_input(int op, netsnmp_session *session,
+ 	     */
+             if (pdu->trap_type == SNMP_TRAP_ENTERPRISESPECIFIC) {
+                 trapOidLen = pdu->enterprise_length;
++                /*
++                 * Drop packets that would trigger an out-of-bounds trapOid[]
++                 * access.
++                 */
++                if (trapOidLen < 1 || trapOidLen > OID_LENGTH(trapOid) - 2)
++                    return 1;
++
+                 memcpy(trapOid, pdu->enterprise, sizeof(oid) * trapOidLen);
+                 if (trapOid[trapOidLen - 1] != 0) {
+                     trapOid[trapOidLen++] = 0;
+-- 
+2.52.0
