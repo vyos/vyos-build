@@ -1,4 +1,4 @@
-From 2fc836b3a2f7778d311e385966e3b2f00eebba1b Mon Sep 17 00:00:00 2001
+From 60664bb4d86102f4786ce3882e686d6dfd6c998a Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Fri, 31 Oct 2025 21:20:20 +0200
 Subject: [PATCH] bgpd: Support multiple labels in BGP-LU
@@ -16,26 +16,23 @@ One of uses of multiple labels is SR-TE with BGP-LU.
 
 Resolves #19506
 
-cherry-picked-from: 17a082ee3a5d1295c27323773c523c945af12c3d
-
 Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+(cherry picked from commit 17a082ee3a5d1295c27323773c523c945af12c3d)
 ---
- bgpd/bgp_attr.c          |  13 +++-
+ bgpd/bgp_attr.c          |  13 ++++-
  bgpd/bgp_debug.c         |   6 +-
- bgpd/bgp_label.c         | 142 ++++++++++++++++++++++++++++++---------
- bgpd/bgp_label.h         |  30 +++++++--
- bgpd/bgp_mplsvpn.c       |  25 -------
- bgpd/bgp_mplsvpn.h       |   2 -
- bgpd/bgp_route.c         |  56 +++++++++------
- bgpd/bgp_updgrp_packet.c |  14 ++--
- bgpd/bgp_zebra.c         |  47 +++++++++----
- 9 files changed, 223 insertions(+), 112 deletions(-)
+ bgpd/bgp_label.c         | 120 ++++++++++++++++++++++++++++-----------
+ bgpd/bgp_label.h         |  28 +++++++--
+ bgpd/bgp_route.c         |  56 +++++++++++-------
+ bgpd/bgp_updgrp_packet.c |  14 ++---
+ bgpd/bgp_zebra.c         |  47 +++++++++++----
+ 7 files changed, 197 insertions(+), 87 deletions(-)
 
 diff --git a/bgpd/bgp_attr.c b/bgpd/bgp_attr.c
-index 1a2fa8318e..53e54b9c12 100644
+index 3b154c28a3..0af57bfae2 100644
 --- a/bgpd/bgp_attr.c
 +++ b/bgpd/bgp_attr.c
-@@ -4280,6 +4280,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
+@@ -4721,6 +4721,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
  			      uint8_t num_labels, bool addpath_capable,
  			      uint32_t addpath_tx_id, struct attr *attr)
  {
@@ -44,7 +41,7 @@ index 1a2fa8318e..53e54b9c12 100644
  	switch (safi) {
  	case SAFI_UNSPEC:
  	case SAFI_MAX:
-@@ -4304,9 +4306,16 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
+@@ -4745,9 +4747,16 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
  			assert(!"Add encoding bits here for other AFI's");
  		break;
  	case SAFI_LABELED_UNICAST:
@@ -64,10 +61,10 @@ index 1a2fa8318e..53e54b9c12 100644
  	case SAFI_FLOWSPEC:
  		stream_putc(s, p->u.prefix_flowspec.prefixlen);
 diff --git a/bgpd/bgp_debug.c b/bgpd/bgp_debug.c
-index 97c3e5740f..06b9543114 100644
+index 530203d860..aaabd26ee0 100644
 --- a/bgpd/bgp_debug.c
 +++ b/bgpd/bgp_debug.c
-@@ -2767,11 +2767,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
+@@ -2924,11 +2924,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
  			snprintf(tag_buf, sizeof(tag_buf), " label %s",
  				 tag_buf2);
  		} else {
@@ -81,7 +78,7 @@ index 97c3e5740f..06b9543114 100644
  	}
  
 diff --git a/bgpd/bgp_label.c b/bgpd/bgp_label.c
-index 8ed9584b0a..fc2ab78371 100644
+index ae521a5db6..4a13d4b395 100644
 --- a/bgpd/bgp_label.c
 +++ b/bgpd/bgp_label.c
 @@ -198,19 +198,20 @@ int bgp_parse_fec_update(void)
@@ -186,15 +183,15 @@ index 8ed9584b0a..fc2ab78371 100644
 -		zlog_info("%pBP rcvd UPDATE with label stack %d deep", peer,
 -			  label_depth);
 +	*num_labels = label_depth;
- 
--	if (!(bgp_is_withdraw_label(label) || label_bos(label)))
++
 +	if (label_depth > BGP_MAX_LABELS) {
 +		*num_labels = BGP_MAX_LABELS;
 +		label_set_bos(&labels[*num_labels - 1]);
 +		zlog_info("%pBP rcvd UPDATE with label stack %d deep, using only first %d labels",
 +			  peer, label_depth, BGP_MAX_LABELS);
 +	}
-+
+ 
+-	if (!(bgp_is_withdraw_label(label) || label_bos(label)))
 +	if (!(bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt)))
  		flog_warn(
  			EC_BGP_INVALID_LABEL_STACK,
@@ -236,47 +233,32 @@ index 8ed9584b0a..fc2ab78371 100644
  		}
  	}
  
-@@ -596,6 +618,37 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
- 	return BGP_NLRI_PARSE_OK;
+@@ -607,7 +629,7 @@ uint32_t decode_label(mpls_label_t *label_pnt)
+ 	return l;
  }
  
-+uint32_t decode_label(mpls_label_t *label_pnt)
-+{
-+	uint32_t l;
-+	uint8_t *pnt = (uint8_t *)label_pnt;
-+
-+	l = ((uint32_t)*pnt++ << 12);
-+	l |= (uint32_t)*pnt++ << 4;
-+	l |= (uint32_t)((*pnt & 0xf0) >> 4);
-+	return l;
-+}
-+
+-void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
 +void encode_label_bos(mpls_label_t label, mpls_label_t *label_pnt, bool bos)
-+{
-+	uint8_t *pnt = (uint8_t *)label_pnt;
-+
-+	if (pnt == NULL)
-+		return;
-+	if (label == BGP_PREVENT_VRF_2_VRF_LEAK) {
-+		*label_pnt = label;
-+		return;
-+	}
-+	*pnt++ = (label >> 12) & 0xff;
-+	*pnt++ = (label >> 4) & 0xff;
+ {
+ 	uint8_t *pnt = (uint8_t *)label_pnt;
+ 
+@@ -619,7 +641,12 @@ void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
+ 	}
+ 	*pnt++ = (label >> 12) & 0xff;
+ 	*pnt++ = (label >> 4) & 0xff;
+-	*pnt++ = ((label << 4) + 1) & 0xff; /* S=1 */
 +	*pnt++ = ((label << 4) + (bos ? 1 : 0)) & 0xff;
 +}
 +
 +void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
 +{
 +	encode_label_bos(label, label_pnt, true);
-+}
-+
+ }
+ 
  bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
- 		     const mpls_label_t *tbl_b, const uint8_t num_labels_b)
- {
-@@ -612,3 +665,30 @@ bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
- 	}
- 	return true;
+@@ -647,3 +674,30 @@ bool bgp_labels_is_implicit_null(struct bgp_path_info *pi)
+ 		return true;
+ 	return false;
  }
 +
 +char *mpls_labels2str(mpls_label_t *labels, uint8_t num_labels, const char *prefix, char *buf,
@@ -306,10 +288,10 @@ index 8ed9584b0a..fc2ab78371 100644
 +	return buf;
 +}
 diff --git a/bgpd/bgp_label.h b/bgpd/bgp_label.h
-index 2ffd5b699d..ab972c4830 100644
+index a467bc1130..2793aef1c8 100644
 --- a/bgpd/bgp_label.h
 +++ b/bgpd/bgp_label.h
-@@ -16,9 +16,15 @@ struct bgp_path_info;
+@@ -14,9 +14,15 @@ struct bgp_path_info;
  struct peer;
  
  /* Maximum number of labels we can process or send with a prefix. We
@@ -327,7 +309,7 @@ index 2ffd5b699d..ab972c4830 100644
  
  /* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
  struct bgp_labels {
-@@ -40,16 +46,21 @@ extern int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
+@@ -38,19 +44,22 @@ extern int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
  extern void bgp_reg_dereg_for_label(struct bgp_dest *dest,
  				    struct bgp_path_info *pi, bool reg);
  extern int bgp_parse_fec_update(void);
@@ -339,20 +321,21 @@ index 2ffd5b699d..ab972c4830 100644
  
  extern int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
  				struct bgp_nlri *packet);
-+extern uint32_t decode_label(mpls_label_t *label);
+ extern uint32_t decode_label(mpls_label_t *label);
 +extern void encode_label_bos(mpls_label_t label_in, mpls_label_t *label_out, bool bos);
-+extern void encode_label(mpls_label_t label_in, mpls_label_t *label_out);
+ extern void encode_label(mpls_label_t label_in, mpls_label_t *label_out);
  extern bool bgp_labels_same(const mpls_label_t *tbl_a,
  			    const uint8_t num_labels_a,
  			    const mpls_label_t *tbl_b,
  			    const uint8_t num_labels_b);
+ extern bool bgp_labels_is_implicit_null(struct bgp_path_info *pi);
 +/* Write labels to str of format "prefixLABEL1/LABEL2/.../LABELN", prefix may be NULL */
 +extern char *mpls_labels2str(mpls_label_t *labels, uint8_t num_labels, const char *prefix,
 +			     char *buf, int size);
  
  static inline int bgp_labeled_safi(safi_t safi)
  {
-@@ -114,4 +125,13 @@ static inline uint8_t label_bos(mpls_label_t *label)
+@@ -115,4 +124,13 @@ static inline uint8_t label_bos(mpls_label_t *label)
  	return (t[2] & 0x01);
  };
  
@@ -366,60 +349,11 @@ index 2ffd5b699d..ab972c4830 100644
 +}
 +
  #endif /* _BGP_LABEL_H */
-diff --git a/bgpd/bgp_mplsvpn.c b/bgpd/bgp_mplsvpn.c
-index a35b4037bb..057ecb318e 100644
---- a/bgpd/bgp_mplsvpn.c
-+++ b/bgpd/bgp_mplsvpn.c
-@@ -64,31 +64,6 @@ extern int argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc,
- 	return ret;
- }
- 
--uint32_t decode_label(mpls_label_t *label_pnt)
--{
--	uint32_t l;
--	uint8_t *pnt = (uint8_t *)label_pnt;
--
--	l = ((uint32_t)*pnt++ << 12);
--	l |= (uint32_t)*pnt++ << 4;
--	l |= (uint32_t)((*pnt & 0xf0) >> 4);
--	return l;
--}
--
--void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
--{
--	uint8_t *pnt = (uint8_t *)label_pnt;
--	if (pnt == NULL)
--		return;
--	if (label == BGP_PREVENT_VRF_2_VRF_LEAK) {
--		*label_pnt = label;
--		return;
--	}
--	*pnt++ = (label >> 12) & 0xff;
--	*pnt++ = (label >> 4) & 0xff;
--	*pnt++ = ((label << 4) + 1) & 0xff; /* S=1 */
--}
--
- int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
- 		       struct bgp_nlri *packet)
- {
-diff --git a/bgpd/bgp_mplsvpn.h b/bgpd/bgp_mplsvpn.h
-index 3b036d2167..ab84cc2118 100644
---- a/bgpd/bgp_mplsvpn.h
-+++ b/bgpd/bgp_mplsvpn.h
-@@ -34,8 +34,6 @@
- extern void bgp_mplsvpn_init(void);
- extern void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi);
- extern int bgp_nlri_parse_vpn(struct peer *, struct attr *, struct bgp_nlri *);
--extern uint32_t decode_label(mpls_label_t *);
--extern void encode_label(mpls_label_t, mpls_label_t *);
- 
- extern int argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc,
- 				     int *index, afi_t *afi);
 diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
-index 85cad88979..867b4a7cea 100644
+index 307e6fe94d..1857e2f2c0 100644
 --- a/bgpd/bgp_route.c
 +++ b/bgpd/bgp_route.c
-@@ -2145,8 +2145,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
+@@ -2170,8 +2170,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
  	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
  	bool nh_reset = false;
  	uint64_t cum_bw;
@@ -430,7 +364,7 @@ index 85cad88979..867b4a7cea 100644
  
  	if (DISABLE_BGP_ANNOUNCE)
  		return false;
-@@ -2231,13 +2232,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
+@@ -2256,13 +2257,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
  
  	/* If it's labeled safi, make sure the route has a valid label. */
  	if (safi == SAFI_LABELED_UNICAST) {
@@ -448,7 +382,7 @@ index 85cad88979..867b4a7cea 100644
  			return false;
  		}
  	} else if (safi == SAFI_MPLS_VPN &&
-@@ -2254,8 +2253,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
+@@ -2279,8 +2278,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
  		 * then get appropriate mpls local label
  		 * and check its validity
  		 */
@@ -459,15 +393,15 @@ index 85cad88979..867b4a7cea 100644
  			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
  				zlog_debug("u%" PRIu64 ":s%" PRIu64
  					   " %pFX is filtered - no valid label",
-@@ -10493,6 +10492,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
- 			  json_object *json_paths)
+@@ -11553,6 +11552,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
+ 			  struct attr *pattr, uint16_t show_opts)
  {
  	char buf[INET6_ADDRSTRLEN];
 +	char labels_buf[9 * BGP_MAX_LABELS]; /* 8 per label + / or \0 for each */
  	char vni_buf[30] = {};
- 	struct attr *attr = path->attr;
+ 	struct attr *attr = pattr ? pattr : path->attr;
  	time_t tbuf;
-@@ -10500,6 +10500,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
+@@ -11560,6 +11560,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
  	json_object *json_bestpath = NULL;
  	json_object *json_cluster_list = NULL;
  	json_object *json_cluster_list_list = NULL;
@@ -475,7 +409,7 @@ index 85cad88979..867b4a7cea 100644
  	json_object *json_ext_community = NULL;
  	json_object *json_ext_ipv6_community = NULL;
  	json_object *json_last_update = NULL;
-@@ -10510,6 +10511,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
+@@ -11570,6 +11571,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
  	json_object *json_path = NULL;
  	json_object *json_peer = NULL;
  	json_object *json_string = NULL;
@@ -483,7 +417,7 @@ index 85cad88979..867b4a7cea 100644
  	json_object *json_adv_to = NULL;
  	int first = 0;
  	struct listnode *node, *nnode;
-@@ -10520,12 +10522,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
+@@ -11580,12 +11582,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
  	bool nexthop_self =
  		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
  	int i;
@@ -497,7 +431,7 @@ index 85cad88979..867b4a7cea 100644
  	struct bgp_path_info *bpi_ultimate =
  		bgp_get_imported_bpi_ultimate(path);
  	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
-@@ -11338,13 +11335,28 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
+@@ -12418,13 +12415,28 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
  	/* Remote Label */
  	if (bgp_path_info_has_valid_label(path) &&
  	    (safi != SAFI_EVPN && !is_route_parent_evpn(path))) {
@@ -534,10 +468,10 @@ index 85cad88979..867b4a7cea 100644
  
  	/* Remote SID */
 diff --git a/bgpd/bgp_updgrp_packet.c b/bgpd/bgp_updgrp_packet.c
-index 3ce136ef87..4e0702aeb4 100644
+index 141cb81efc..449173d93f 100644
 --- a/bgpd/bgp_updgrp_packet.c
 +++ b/bgpd/bgp_updgrp_packet.c
-@@ -664,7 +664,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
+@@ -681,7 +681,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
  	int addpath_overhead = 0;
  	uint32_t addpath_tx_id = 0;
  	struct prefix_rd *prd = NULL;
@@ -547,7 +481,7 @@ index 3ce136ef87..4e0702aeb4 100644
  	uint8_t num_labels = 0;
  
  	if (!subgrp)
-@@ -785,10 +786,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
+@@ -804,10 +805,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
  					dest->pdest);
  
  			if (safi == SAFI_LABELED_UNICAST) {
@@ -560,7 +494,7 @@ index 3ce136ef87..4e0702aeb4 100644
  			} else if (safi == SAFI_MPLS_VPN && path &&
  				   CHECK_FLAG(path->flags,
  					      BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
-@@ -808,9 +807,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
+@@ -827,9 +826,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
  				 * called here, 'get_label()' returns a valid
  				 * label.
  				 */
@@ -573,10 +507,10 @@ index 3ce136ef87..4e0702aeb4 100644
  			} else {
  				num_labels = BGP_PATH_INFO_NUM_LABELS(path);
 diff --git a/bgpd/bgp_zebra.c b/bgpd/bgp_zebra.c
-index 51af57ac68..ecfc278f2c 100644
+index 0658beffa6..1d33883e87 100644
 --- a/bgpd/bgp_zebra.c
 +++ b/bgpd/bgp_zebra.c
-@@ -1328,11 +1328,10 @@ static void bgp_zebra_announce_parse_nexthop(
+@@ -1314,11 +1314,10 @@ static void bgp_zebra_announce_parse_nexthop(
  
  		if (bgp_debug_zebra(&api->prefix)) {
  			if (BGP_PATH_INFO_NUM_LABELS(mpinfo)) {
@@ -591,7 +525,7 @@ index 51af57ac68..ecfc278f2c 100644
  			} else {
  				zlog_debug("%s: p=%pFX, no label", __func__, p);
  			}
-@@ -1411,15 +1410,28 @@ static void bgp_zebra_announce_parse_nexthop(
+@@ -1397,15 +1396,28 @@ static void bgp_zebra_announce_parse_nexthop(
  				nh_label = *bgp_evpn_path_info_labels_get_l3vni(
  					labels, num_labels);
  				nh_label_type = ZEBRA_LSP_EVPN;
@@ -624,7 +558,7 @@ index 51af57ac68..ecfc278f2c 100644
  		}
  
  		if (is_evpn && !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP))
-@@ -1475,7 +1487,8 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
+@@ -1462,7 +1474,8 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
  	char nh_buf[INET6_ADDRSTRLEN];
  	char eth_buf[ETHER_ADDR_STRLEN + 7] = { '\0' };
  	char buf1[ETHER_ADDR_STRLEN];
@@ -634,7 +568,7 @@ index 51af57ac68..ecfc278f2c 100644
  	char sid_buf[20];
  	char segs_buf[256];
  	struct zapi_nexthop *api_nh;
-@@ -1513,9 +1526,19 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
+@@ -1500,9 +1513,19 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
  		eth_buf[0] = '\0';
  		segs_buf[0] = '\0';
  		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL) &&
