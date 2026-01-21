@@ -1,0 +1,60 @@
+From 5962cfb671440dd5609c43f50cd78375aa068821 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Mon, 19 Jan 2026 20:45:02 +0200
+Subject: [PATCH] zebra: fix crash on inactive VRF and import table
+
+When configuration has inactive VRF and import-table zebra crashes
+`zebra_router_get_table` because NULL is passed as `zvrf`.
+
+Fix this in two places:
+
+* In case `vrf_info_lookup` in `zebra_vrf_get_table_with_table_id`
+  returns NULL don't call `zebra_router_get_table` - just return NULL.
+* As optimization just ignore inactive VRFs in `zebra_import_table_rm_update`.
+---
+ zebra/redistribute.c | 7 +++++--
+ zebra/zebra_vrf.c    | 3 +++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/zebra/redistribute.c b/zebra/redistribute.c
+index 5dcf578c4e..dee61ceed8 100644
+--- a/zebra/redistribute.c
++++ b/zebra/redistribute.c
+@@ -917,8 +917,8 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf, afi_t a
+ 	table = zebra_vrf_get_table_with_table_id(afi, safi, zvrf->vrf->vrf_id, table_id);
+ 	if (!table) {
+ 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+-			zlog_debug("%s: Table id=%d not found", __func__,
+-				   table_id);
++			zlog_debug("%s: Table id=%d not found for vrf %u", __func__, table_id,
++				   zvrf->vrf->vrf_id);
+ 		return;
+ 	}
+ 
+@@ -975,6 +975,9 @@ void zebra_import_table_rm_update(const char *rmap)
+ 		if (!zvrf)
+ 			continue;
+ 
++		if (!CHECK_FLAG(vrf->status, VRF_ACTIVE))
++			continue;
++
+ 		zebra_import_table_rm_update_vrf(zvrf, rmap);
+ 	}
+ }
+diff --git a/zebra/zebra_vrf.c b/zebra/zebra_vrf.c
+index 374a460bbd..00b9a5f519 100644
+--- a/zebra/zebra_vrf.c
++++ b/zebra/zebra_vrf.c
+@@ -389,6 +389,9 @@ struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi, safi_t safi,
+ 	struct other_route_table *otable;
+ 	struct route_table *table;
+ 
++	if (!zvrf)
++		return NULL;
++
+ 	table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id,
+ 						     table_id);
+ 
+-- 
+2.50.1
+
