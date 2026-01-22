@@ -16,6 +16,3 @@ packages = [
   architecture = "amd64"
   url = "https://packages.vyos.net/saltproject/debian/11/amd64/3005"
   distribution = "bullseye"
-
-[additional_repositories.zabbix]
-  url = "https://repo.zabbix.com/zabbix/6.0/debian"
