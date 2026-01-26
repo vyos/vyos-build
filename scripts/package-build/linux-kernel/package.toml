@@ -12,7 +12,7 @@ build_cmd = "build_kernel"
 
 [[packages]]
 name = "linux-firmware"
-commit_id = "20240610"
+commit_id = "20260110"
 scm_url = "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
 build_cmd = "build_linux_firmware"
 
@@ -110,8 +110,10 @@ packages = [
     "ruby-dev",
     "rubygems",
     "build-essential",
+    "binutils-dev",
     "libdw-dev",
     "libunwind-dev",
+    "libdebuginfod-dev",
     "systemtap-sdt-dev",
     "libslang2-dev",
     "python-dev-is-python3",
