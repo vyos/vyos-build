@@ -11,8 +11,3 @@ packages = [
   "intel-microcode",
   "amd64-microcode"
 ]
-
-[additional_repositories.salt]
-  architecture = "amd64"
-  url = "https://packages.vyos.net/saltproject/debian/11/amd64/3005"
-  distribution = "bullseye"

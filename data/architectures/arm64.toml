@@ -4,8 +4,3 @@ packages = [
 ]
 bootloaders = "grub-efi"
 squashfs_compression_type = "xz -b 256k -always-use-fragments -no-recovery"
-
-[additional_repositories.salt]
-  architecture = "arm64"
-  url =	"https://packages.vyos.net/saltproject/debian/11/arm64/3005"
-  distribution = "bullseye"

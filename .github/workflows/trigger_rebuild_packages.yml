@@ -80,6 +80,8 @@ jobs:
               - 'scripts/package-build/pyhumps/**'
             radvd:
               - 'scripts/package-build/radvd/**'
+            salt:
+              - 'scripts/package-build/salt/**'
             strongswan:
               - 'scripts/package-build/strongswan/**'
             tacacs:
@@ -227,6 +229,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.radvd }}" == "true" ]; then
             trigger_build "radvd"
+          fi
+
+          if [ "${{ steps.changes.outputs.salt }}" == "true" ]; then
+            trigger_build "salt"
           fi
 
           if [ "${{ steps.changes.outputs.strongswan }}" == "true" ]; then
