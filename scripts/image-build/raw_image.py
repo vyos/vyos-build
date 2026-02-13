@@ -19,6 +19,8 @@ import os
 import sys
 import shutil
 
+from pathlib import Path
+
 import vyos.utils.process
 
 import vyos.template
@@ -29,6 +31,7 @@ SQUASHFS_FILE = 'live/filesystem.squashfs'
 VERSION_FILE = 'version.json'
 
 from utils import cmd
+from utils import directories as vyos_dirs
 
 def mkdir(path):
     os.makedirs(path, exist_ok=True)
@@ -156,6 +159,13 @@ def install_image(con, version):
     for f in boot_files:
         print(f"I: Copying file {f}")
         shutil.copy(f, vyos_dir)
+
+    # Leave hint in config directory, to be found by subsequent
+    # installations searching for previous config data.
+    # This step is explicitly performed by image_installer.py.
+    config_path = Path(vyos_dir).joinpath(f'rw{vyos_dirs["config"]}')
+    Path(config_path).mkdir(parents=True, exist_ok=True)
+    Path(config_path).joinpath('.vyatta_config').touch()
 
     with open(f"{con.raw_dir}/persistence.conf", 'w') as f:
         f.write("/ union\n")
