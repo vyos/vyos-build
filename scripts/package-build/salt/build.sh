@@ -17,7 +17,7 @@ TOOLS_REPO="https://github.com/saltstack/python-tools-scripts"
 
 # Check this page to find a correct relenv/python combination.
 # https://github.com/saltstack/relenv/releases
-RELENV_VERSION="0.22.2"
+RELENV_VERSION="0.22.3"
 RELENV_PYTHON_VERSION="3.11.14"
 
 # Specify the platform parameter, use x86_64 for amd64, arm64 for arm64
