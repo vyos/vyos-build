@@ -1,6 +1,6 @@
 [[packages]]
 name = "salt"
-commit_id = "v3006.19"
+commit_id = "v3006.21"
 scm_url = "https://github.com/saltstack/salt.git"
 build_cmd = "cd ..; ./build.sh"
 
