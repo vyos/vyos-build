@@ -1,0 +1,464 @@
+From 40c51e9fad7b698475cb8332d2a278d17cb4749c Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Thu, 29 Jan 2026 17:11:06 +0200
+Subject: [PATCH] pathd: support no traffic-eng command + fixes
+
+* Add 'segment-routing/no traffic-eng' command, add hook
+  pathd_srte_no_srte to clear configuration in modules
+* Move logic of turning off mpls-te to separate function
+  'path_ted_mpls_te_off' to call it in 'no traffic-eng'
+* Don't output 'segment-routing/traffic-eng' if there is no
+  configuration - add hook pathd_srte_check_config_not_empty
+  to check whether there is configuration in modules
+* path_pcep: implement new hooks
+* Fix wrong output of `write terminal`:
+
+index 0 mpls label 1000 nai adjacency 192.168.0.1 192.168.0.2
+
+for configuration
+
+segment-routing
+ traffic-eng
+  segment-list testing-segment-list
+   index 0 mpls label 1000
+   index 0 nai adjacency 192.168.0.1 192.168.0.2
+  exit
+ exit
+exit
+
+* frr-reload: allow no traffic-eng and no pcep
+
+As 'no traffic-eng' is now supported, allow it.
+
+Fixes that when no 'segment-routing/traffic-eng' was present, command
+`no mpls-te` was not issued, so switch from
+
+segment-routing
+ traffic-eng
+  mpls-te on
+ end
+end
+
+to configuration without this part didn't work.
+
+* fix memory leak on finalization
+
+pcep_g->config_group_opts[*] was not freed during finalization, added
+deallocation to pcep_module_finish
+
+* pathd: fix leak with timer data
+
+schedule_thread_timer_with_cb allocates data that is passed to timer.
+
+Timer callback frees the data. Function `pcep_thread_cancel_timer`
+cancels timer and frees this data.
+
+Replace simple `event_cancel` calls in `pcep_pcc_finalize` with calls
+of `pcep_thread_cancel_timer` to free the data on shutdown.
+---
+ pathd/path_cli.c      | 38 ++++++++++++++++++--
+ pathd/path_pcep.c     |  4 +++
+ pathd/path_pcep_cli.c | 80 +++++++++++++++++++++++++++++++------------
+ pathd/path_pcep_pcc.c | 17 ++-------
+ pathd/path_ted.c      | 35 +++++++++++++------
+ pathd/path_ted.h      | 12 +++++++
+ pathd/pathd.h         |  9 +++++
+ tools/frr-reload.py   | 12 ++-----
+ 8 files changed, 149 insertions(+), 58 deletions(-)
+
+diff --git a/pathd/path_cli.c b/pathd/path_cli.c
+index 254e4d7f03..7eeec7b40e 100644
+--- a/pathd/path_cli.c
++++ b/pathd/path_cli.c
+@@ -45,7 +45,9 @@ static int segment_list_has_prefix(
+ 
+ DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
+ 
++DEFINE_HOOK(pathd_srte_check_config_not_empty, (), ());
+ DEFINE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
++DEFINE_HOOK(pathd_srte_no_srte, (), ());
+ 
+ /* Vty node structures. */
+ static struct cmd_node segment_routing_node = {
+@@ -231,6 +233,26 @@ DEFPY_NOSH(
+ 	return CMD_SUCCESS;
+ }
+ 
++/*
++ * XPath: /frr-pathd:pathd/srte
++ */
++DEFPY_YANG(
++      sr_no_traffic_eng_list,
++      sr_no_traffic_eng_cmd,
++      "no traffic-eng",
++      NO_STR
++      "Configure SR traffic engineering\n")
++{
++	const char *xpath = "/frr-pathd:pathd/srte";
++
++	path_ted_mpls_te_off();
++	hook_call(pathd_srte_no_srte);
++
++	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
++
++	return nb_cli_apply_changes(vty, NULL);
++}
++
+ /*
+  * XPath: /frr-pathd:pathd/srte/segment-list
+  */
+@@ -546,15 +568,17 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
+ 					const struct lyd_node *dnode,
+ 					bool show_defaults)
+ {
+-	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
+ 	if (yang_dnode_exists(dnode, "sid-value")) {
++		vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
+ 		vty_out(vty, " mpls label %s",
+ 			yang_dnode_get_string(dnode, "sid-value"));
++		vty_out(vty, "\n");
+ 	}
+ 	if (yang_dnode_exists(dnode, "nai")) {
+ 		struct ipaddr addr;
+ 		struct ipaddr addr_rmt;
+ 
++		vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
+ 		switch (yang_dnode_get_enum(dnode, "nai/type")) {
+ 		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+ 		case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+@@ -600,8 +624,8 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
+ 				yang_dnode_get_string(dnode,
+ 						      "./nai/algorithm"));
+ 		}
++		vty_out(vty, "\n");
+ 	}
+-	vty_out(vty, "\n");
+ }
+ 
+ /*
+@@ -1286,6 +1310,15 @@ static int config_write_dnode(const struct lyd_node *dnode, void *arg)
+ 
+ int config_write_segment_routing(struct vty *vty)
+ {
++	/**
++	 * If no mpls-te, no children of srte node (currently 'segment-list' and 'policy'),
++	 * no modules with configuration - don't output anything
++	 */
++	if (!path_is_ted_enabled() &&
++	    !yang_dnode_exists(running_config->dnode, "/frr-pathd:pathd/srte/*") &&
++	    !hook_call(pathd_srte_check_config_not_empty))
++		return 1;
++
+ 	vty_out(vty, "segment-routing\n");
+ 	vty_out(vty, " traffic-eng\n");
+ 
+@@ -1328,6 +1361,7 @@ void path_cli_init(void)
+ 
+ 	install_element(CONFIG_NODE, &segment_routing_cmd);
+ 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
++	install_element(SEGMENT_ROUTING_NODE, &sr_no_traffic_eng_cmd);
+ 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
+ 	install_element(SR_TRAFFIC_ENG_NODE, &srte_no_segment_list_cmd);
+ 	install_element(SR_SEGMENT_LIST_NODE,
+diff --git a/pathd/path_pcep.c b/pathd/path_pcep.c
+index a0a53b0d84..fbceb411c1 100644
+--- a/pathd/path_pcep.c
++++ b/pathd/path_pcep.c
+@@ -357,6 +357,10 @@ int pcep_module_finish(void)
+ 		if (pcep_g->pce_opts_cli[i] != NULL)
+ 			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
+ 
++	for (int i = 0; i < MAX_PCE; i++)
++		if (pcep_g->config_group_opts[i] != NULL)
++			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
++
+ 	return 0;
+ }
+ 
+diff --git a/pathd/path_pcep_cli.c b/pathd/path_pcep_cli.c
+index 8ceadb3e60..61428d0dec 100644
+--- a/pathd/path_pcep_cli.c
++++ b/pathd/path_pcep_cli.c
+@@ -50,6 +50,8 @@ static int pcep_cli_pcep_config_write(struct vty *vty);
+ static int pcep_cli_pcc_config_write(struct vty *vty);
+ static int pcep_cli_pce_config_write(struct vty *vty);
+ static int pcep_cli_pcep_pce_config_write(struct vty *vty);
++static int pcep_cli_pcep_check_config_not_empty(void);
++static int pcep_cli_pcep_no_srte(void);
+ 
+ /* Internal Util Function declarations */
+ static void reset_pcc_peer(const char *peer_name);
+@@ -997,7 +999,7 @@ static int path_pcep_cli_pcc(struct vty *vty)
+ 	return CMD_SUCCESS;
+ }
+ 
+-static int path_pcep_cli_pcc_delete(struct vty *vty)
++static int path_pcep_cli_pcc_delete(void)
+ {
+ 	/* Clear the pce_connections */
+ 	memset(&pce_connections_g, 0, sizeof(pce_connections_g));
+@@ -1696,6 +1698,9 @@ static int path_pcep_cli_clear_srte_pcep_session(struct vty *vty,
+ 
+ int pcep_cli_pcep_config_write(struct vty *vty)
+ {
++	if (!pcep_cli_pcep_check_config_not_empty())
++		return 1;
++
+ 	vty_out(vty, "  pcep\n");
+ 	pcep_cli_pcep_pce_config_write(vty);
+ 	pcep_cli_pce_config_write(vty);
+@@ -1874,6 +1879,55 @@ static int pcep_cli_print_pce_config(struct pcep_config_group_opts *group_opts,
+ 	return lines;
+ }
+ 
++static int pcep_cli_pcep_check_config_not_empty(void)
++{
++	/* pcep_cli_pcep_pce_config_write */
++	for (int i = 0; i < MAX_PCE; i++) {
++		struct pcep_config_group_opts *group_opts = pcep_g->config_group_opts[i];
++
++		if (group_opts != NULL)
++			return 1;
++	}
++
++	/* pcep_cli_pce_config_write */
++	for (int i = 0; i < MAX_PCE; i++) {
++		struct pce_opts_cli *pce_opts_cli = pcep_g->pce_opts_cli[i];
++
++		if (pce_opts_cli != NULL)
++			return 1;
++	}
++
++	/* pcep_cli_pcc_config_write */
++	if (!(!pcc_msd_configured_g && pce_connections_g.num_connections == 0))
++		return 1;
++
++	/* Nothing to output */
++	return 0;
++}
++
++static int pcep_cli_pcep_no_srte(void)
++{
++	/* Delete PCCs */
++	path_pcep_cli_pcc_delete();
++
++	for (int i = 0; i < MAX_PCE; i++) {
++		/* Delete PCEs */
++		if (pcep_g->pce_opts_cli[i] != NULL) {
++			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
++			pcep_g->pce_opts_cli[i] = NULL;
++			pcep_g->num_pce_opts_cli--;
++		}
++
++		/* Delete PCE-CONFIGs */
++		if (pcep_g->config_group_opts[i] != NULL) {
++			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
++			pcep_g->config_group_opts[i] = NULL;
++			pcep_g->num_config_group_opts--;
++		}
++	}
++	return 0;
++}
++
+ int pcep_cli_pce_config_write(struct vty *vty)
+ {
+ 	int lines = 0;
+@@ -1998,25 +2052,7 @@ DEFPY(
+       NO_STR
+       "PCEP configuration\n")
+ {
+-	/* Delete PCCs */
+-	path_pcep_cli_pcc_delete(vty);
+-
+-	for (int i = 0; i < MAX_PCE; i++) {
+-		/* Delete PCEs */
+-		if (pcep_g->pce_opts_cli[i] != NULL) {
+-			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
+-			pcep_g->pce_opts_cli[i] = NULL;
+-			pcep_g->num_pce_opts_cli--;
+-		}
+-
+-		/* Delete PCE-CONFIGs */
+-		if (pcep_g->config_group_opts[i] != NULL) {
+-			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
+-			pcep_g->config_group_opts[i] = NULL;
+-			pcep_g->num_config_group_opts--;
+-		}
+-	}
+-
++	pcep_cli_pcep_no_srte();
+ 	return CMD_SUCCESS;
+ }
+ 
+@@ -2204,7 +2240,7 @@ DEFPY(pcep_cli_no_pcc,
+       NO_STR
+       "PCC configuration\n")
+ {
+-	return path_pcep_cli_pcc_delete(vty);
++	return path_pcep_cli_pcc_delete();
+ }
+ 
+ DEFPY(pcep_cli_pcc_pcc_msd,
+@@ -2294,7 +2330,9 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
+ 
+ void pcep_cli_init(void)
+ {
++	hook_register(pathd_srte_check_config_not_empty, pcep_cli_pcep_check_config_not_empty);
+ 	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
++	hook_register(pathd_srte_no_srte, pcep_cli_pcep_no_srte);
+ 
+ 	debug_install(&pcep_g->dbg_basic);
+ 	debug_install(&pcep_g->dbg_path);
+diff --git a/pathd/path_pcep_pcc.c b/pathd/path_pcep_pcc.c
+index 82c39ca868..f77d773a58 100644
+--- a/pathd/path_pcep_pcc.c
++++ b/pathd/path_pcep_pcc.c
+@@ -193,20 +193,9 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
+ 		pcc_state->originator = NULL;
+ 	}
+ 
+-	if (pcc_state->t_reconnect != NULL) {
+-		event_cancel(&pcc_state->t_reconnect);
+-		pcc_state->t_reconnect = NULL;
+-	}
+-
+-	if (pcc_state->t_update_best != NULL) {
+-		event_cancel(&pcc_state->t_update_best);
+-		pcc_state->t_update_best = NULL;
+-	}
+-
+-	if (pcc_state->t_session_timeout != NULL) {
+-		event_cancel(&pcc_state->t_session_timeout);
+-		pcc_state->t_session_timeout = NULL;
+-	}
++	pcep_thread_cancel_timer(&pcc_state->t_reconnect);
++	pcep_thread_cancel_timer(&pcc_state->t_update_best);
++	pcep_thread_cancel_timer(&pcc_state->t_session_timeout);
+ 
+ 	XFREE(MTYPE_PCEP, pcc_state);
+ }
+diff --git a/pathd/path_ted.c b/pathd/path_ted.c
+index f9dff1f019..a7442e7080 100644
+--- a/pathd/path_ted.c
++++ b/pathd/path_ted.c
+@@ -325,6 +325,29 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
+ 	return sid;
+ }
+ 
++bool path_is_ted_enabled(void)
++{
++	return ted_state_g.enabled;
++}
++
++uint32_t path_ted_mpls_te_off(void)
++{
++	if (!ted_state_g.enabled) {
++		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
++		return 0;
++	}
++
++	/* Remove TED */
++	ls_ted_del_all(&ted_state_g.ted);
++	ted_state_g.enabled = false;
++	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
++	ted_state_g.import = IMPORT_UNKNOWN;
++	if (ls_unregister(pathd_zclient, false /*client*/) != 0)
++		return 1;
++
++	return 0;
++}
++
+ DEFPY (debug_path_ted,
+        debug_path_ted_cmd,
+        "[no] debug pathd mpls-te",
+@@ -372,17 +395,7 @@ DEFUN (no_path_ted,
+        "Disable the TE Database functionality\n")
+ /* clang-format on */
+ {
+-	if (!ted_state_g.enabled) {
+-		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
+-		return CMD_SUCCESS;
+-	}
+-
+-	/* Remove TED */
+-	ls_ted_del_all(&ted_state_g.ted);
+-	ted_state_g.enabled = false;
+-	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
+-	ted_state_g.import = IMPORT_UNKNOWN;
+-	if (ls_unregister(pathd_zclient, false /*client*/) != 0) {
++	if (path_ted_mpls_te_off() == 1) {
+ 		vty_out(vty, "Unable to unregister Link State\n");
+ 		return CMD_WARNING;
+ 	}
+diff --git a/pathd/path_ted.h b/pathd/path_ted.h
+index 7f3b3f590f..f51fdaa81b 100644
+--- a/pathd/path_ted.h
++++ b/pathd/path_ted.h
+@@ -151,6 +151,18 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote);
+  */
+ uint32_t path_ted_rcvd_message(struct ls_message *msg);
+ 
++/**
++ * @return		is ted enabled
++ */
++bool path_is_ted_enabled(void);
++
++/**
++ * Turn mpls_te off
++ *
++ * @return		0 on success, 1 if could not unregister Link state
++ */
++uint32_t path_ted_mpls_te_off(void);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/pathd/pathd.h b/pathd/pathd.h
+index 75e7eff920..97070871e1 100644
+--- a/pathd/pathd.h
++++ b/pathd/pathd.h
+@@ -21,7 +21,16 @@
+ 
+ DECLARE_MGROUP(PATHD);
+ 
++/*
++ * If config is not empty, pathd_srte_check_config_not_empty must
++ * return 1, otherwise - 0. If no hook subscribers return 1 and there is no
++ * configuration in pathd, headers `segment-routing/traffic-eng` won't be
++ * output for `write` command and `pathd_srte_config_write` won't be called.
++ */
++DECLARE_HOOK(pathd_srte_check_config_not_empty, (), ());
+ DECLARE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
++/* Sent when user requests 'no traffic-eng', please clean configuration */
++DECLARE_HOOK(pathd_srte_no_srte, (), ());
+ 
+ enum srte_protocol_origin {
+ 	SRTE_ORIGIN_UNDEFINED = 0,
+diff --git a/tools/frr-reload.py b/tools/frr-reload.py
+index fcd64bae3e..4fa47d94e0 100755
+--- a/tools/frr-reload.py
++++ b/tools/frr-reload.py
+@@ -1882,18 +1882,10 @@ def compare_context_objects(newconf, running):
+             ):
+                 continue
+ 
+-            # Segment routing and traffic engineering never need to be deleted
++            # Segment routing never needs to be deleted
+             elif (
+                 running_ctx_keys[0].startswith("segment-routing")
+-                and len(running_ctx_keys) < 3
+-            ):
+-                continue
+-
+-            # Neither the pcep command
+-            elif (
+-                len(running_ctx_keys) == 3
+-                and running_ctx_keys[0].startswith("segment-routing")
+-                and running_ctx_keys[2].startswith("pcep")
++                and len(running_ctx_keys) == 1
+             ):
+                 continue
+ 
+-- 
+2.51.2
+
