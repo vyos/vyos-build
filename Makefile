@@ -113,3 +113,26 @@ clean:
 .PHONY: purge
 purge:
 	rm -rf build packer_build packer_cache testinstall-*.raw ci_data ci_seed.iso
+
+.PHONY: ansible-install ansible-check ansible-clean
+.ONESHELL:
+
+ANSIBLE_SCRIPT := ./scripts/ansible-install
+VENV_DIR := .venv
+
+ansible-install:
+	@test -x $(ANSIBLE_SCRIPT) || chmod +x $(ANSIBLE_SCRIPT)
+	$(ANSIBLE_SCRIPT)
+
+ansible-check:
+	@if [ -d $(VENV_DIR) ]; then
+		. $(VENV_DIR)/bin/activate
+		ansible --version
+	else
+		echo "Virtual environment not found. Run 'make ansible-install' first."
+	fi
+
+ansible-clean:
+	@echo "Cleaning Ansible installation..."
+	@rm -rf $(VENV_DIR)
+	@echo "Done."
