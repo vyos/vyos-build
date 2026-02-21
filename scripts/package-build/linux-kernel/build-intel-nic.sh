@@ -76,3 +76,6 @@ fpm --input-type dir --output-type deb --name vyos-intel-${DRIVER_NAME} \
     --description "Vendor based driver for Intel ${DRIVER_NAME}" \
     --depends linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} \
     --license "GPL2" -C ${DEBIAN_DIR} --after-install ${DEBIAN_POSTINST}
+
+# cleanup
+rm -rf ${DEBIAN_DIR}

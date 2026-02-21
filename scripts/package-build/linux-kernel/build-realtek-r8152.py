@@ -32,10 +32,10 @@ KERNEL_FLAVOR: str = toml_loads(defaults_file).get('kernel_flavor')
 KERNEL_SRC: str = Path.cwd().as_posix() + '/linux'
 # define variables
 PACKAGE_NAME: str = 'vyos-drivers-realtek-r8152'
-PACKAGE_VERSION: str = '2.18.1'
+PACKAGE_VERSION: str = '2.21.4'
 PACKAGE_DIR: str = f'{PACKAGE_NAME}-{PACKAGE_VERSION}'
-SOURCES_ARCHIVE: str = 'r8152-2.18.1.tar.bz2'
-SOURCES_URL: str = f'https://packages.vyos.net/source-mirror/r8152-2.18.1.tar.bz2'
+SOURCES_ARCHIVE: str = f'r8152-{PACKAGE_VERSION}.tar.bz2'
+SOURCES_URL: str = f'https://packages.vyos.net/source-mirror/{SOURCES_ARCHIVE}'
 
 # download sources
 sources_archive = Path(SOURCES_ARCHIVE)

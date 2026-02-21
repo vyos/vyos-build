@@ -8,6 +8,15 @@ VPP_LIBRARY_PATH="${CWD}/../vpp/vpp/build-root/build-vpp-native/vpp/CMakeFiles/d
 VPP_LIB_CHECK_PATH="${CWD}/../vpp/vpp/build-root/build-vpp-native/vpp/CMakeFiles/debian/libvppinfra/usr/lib/${ARCH_TRIPLET}"
 
 ACCEL_SRC=${CWD}/accel-ppp-ng
+if [ ! -d ${ACCEL_SRC} ]; then
+    echo "Accel-PPP source not found"
+    exit 1
+fi
+
+if [ ! -f ${KERNEL_VAR_FILE} ]; then
+    echo "Kernel variable file '${KERNEL_VAR_FILE}' does not exist, run ./build_kernel.sh first"
+    exit 1
+fi
 
 # Build VPP as we need VPP libraries
 cd ../vpp/
@@ -16,16 +25,6 @@ cd ${CWD}
 
 if [ ! -d ${VPP_LIB_CHECK_PATH} ]; then
     echo "VPP source libraries not found"
-    exit 1
-fi
-
-if [ ! -d ${ACCEL_SRC} ]; then
-    echo "Accel-PPP source not found"
-    exit 1
-fi
-
-if [ ! -f ${KERNEL_VAR_FILE} ]; then
-    echo "Kernel variable file '${KERNEL_VAR_FILE}' does not exist, run ./build_kernel.sh first"
     exit 1
 fi
 
