@@ -43,6 +43,7 @@ import logging
 import re
 import shutil
 import json
+import platform
 
 from io import BytesIO
 from datetime import datetime
@@ -84,21 +85,20 @@ mok_password = '1234'
 
 # Map QEMU arch
 QEMU_CONFIG = {
-    "amd64": {
-        "bin": "qemu-system-x86_64",
-        "machine": "pc",
-        "bios": "/usr/share/OVMF/OVMF_CODE.fd",
+    'amd64': {
+        'bin' : 'qemu-system-x86_64',
+        'machine' : 'pc',
+        'bios' : '/usr/share/OVMF/OVMF_CODE.fd',
     },
     "arm64": {
-        "bin": "qemu-system-aarch64",
-        "machine": "virt",
-        "bios": "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd",
+        'bin': 'qemu-system-aarch64',
+        'machine': 'virt,highmem=on',
+        'bios': '/usr/share/qemu-efi-aarch64/QEMU_EFI.fd',
     },
 }
 
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
 parser.add_argument('--iso', help='ISO file to install')
-parser.add_argument('--arch', help='Architecture')
 parser.add_argument('--disk', help='name of disk image file', nargs='?')
 parser.add_argument('--keep', help='Do not remove disk-image after installation',
                               action='store_true', default=False)
@@ -188,10 +188,18 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
     accel = ',accel=kvm' if _kvm_exists() else ''
-    arch = getattr(args, 'arch', 'amd64')
-    qemu_arch_config = QEMU_CONFIG.get(arch, QEMU_CONFIG['amd64'])
+
+    if platform.machine() in ['amd64', 'x86_64']:
+        architecture = 'amd64'
+    elif platform.machine() in ['arm64', 'aarch64']:
+        architecture = 'arm64'
+    else:
+        raise ValueError('Unsupported architecture!')
+
+    qemu_arch_config = QEMU_CONFIG[architecture]
     qemu_bin = qemu_arch_config['bin']
     bios = qemu_arch_config['bios']
+
     cpu_type = args.cpu_type
     enable_kvm = '-enable-kvm' if _kvm_exists() else ''
     machine = qemu_arch_config['machine']
@@ -216,15 +224,11 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
 
     cdrom = ""
     if iso_img:
-        cdrom = f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on' \
-                f' -device ahci,id=achi0' \
-                f' -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex=10'
-
-        if arch == 'arm64':
-            cdrom = (
-                f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on'
-                f' -device scsi-cd,bus=scsi0.0,drive=drive-cd1,id=cd1,bootindex=10'
-            )
+        cdrom = f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on'
+        if architecture == 'arm64':
+            cdrom = f' {cdrom} -device scsi-cd,bus=scsi0.0,drive=drive-cd1,id=cd1,bootindex=10'
+        else:
+            cdrom = f' {cdrom} -device ahci,id=achi0 -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex=10'
 
     # RFC7042 section 2.1.2 MAC addresses used for documentation
     macbase = '00:00:5E:00:53'
