@@ -21,3 +21,9 @@ fpm --input-type dir --output-type deb --name radvd \
     --description "RADVD router advertisement daemon" \
     --license "RADVD" -C debian --package ..
 """
+
+[dependencies]
+packages = [
+    "bison",
+    "flex"
+]
