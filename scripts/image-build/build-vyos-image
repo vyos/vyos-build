@@ -637,7 +637,7 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
                 --checksums "sha256" \
                 --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \
                 --debian-installer none \
-                --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2,linux-kbuild-6.1" \
+                --debootstrap-options "--variant=minbase --exclude=isc-dhcp-client,isc-dhcp-common,ifupdown --include=apt-utils,ca-certificates,gnupg2,linux-kbuild-6.1,dpkg-dev" \
                 --distribution "{{debian_distribution}}" \
                 --firmware-binary false \
                 --firmware-chroot false \
