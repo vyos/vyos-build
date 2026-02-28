@@ -1,6 +1,6 @@
 #!/bin/sh
 
-MULTIARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+MULTIARCH="$(uname -m)-linux-gnu"
 PREREQ=""
 prereqs()
 {
