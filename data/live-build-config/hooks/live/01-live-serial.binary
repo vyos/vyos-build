@@ -3,8 +3,15 @@
 GRUB_PATH=boot/grub/grub.cfg
 ISOLINUX_PATH=isolinux/live.cfg
 
-KVM_CONSOLE="console=ttyS0,115200 console=tty0"
-SERIAL_CONSOLE="console=tty0 console=ttyS0,115200"
+# Detect serial console type from existing GRUB config
+if grep -q "console=ttyAMA" "${GRUB_PATH}"; then
+    SERIAL_TTY="ttyAMA0"
+else
+    SERIAL_TTY="ttyS0"
+fi
+
+KVM_CONSOLE="console=${SERIAL_TTY},115200 console=tty0"
+SERIAL_CONSOLE="console=tty0 console=${SERIAL_TTY},115200"
 
 # Grub.cfg Update
 GRUB_MENUENTRY=$(sed -e '/menuentry.*hotkey.*/,/^}/!d' -e 's/--hotkey=l//g' $GRUB_PATH)

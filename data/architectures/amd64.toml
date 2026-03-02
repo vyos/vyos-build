@@ -11,3 +11,5 @@ packages = [
   "intel-microcode",
   "amd64-microcode"
 ]
+
+serial_interface = "ttyS0,115200"

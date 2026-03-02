@@ -4,3 +4,4 @@ packages = [
 ]
 bootloaders = "grub-efi"
 squashfs_compression_type = "xz -b 256k -always-use-fragments -no-recovery"
+serial_interface = "ttyAMA0,115200"
