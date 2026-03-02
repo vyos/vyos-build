@@ -9,7 +9,7 @@
 #
 
 # Set variables.
-MULTIARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+MULTIARCH="$(uname -m)-linux-gnu"
 STRIPCMD_REGULAR="strip --remove-section=.comment --remove-section=.note --preserve-dates"
 STRIPCMD_DEBUG="strip --strip-debug --remove-section=.comment --remove-section=.note --preserve-dates"
 STRIPCMD_UNNEEDED="strip --strip-unneeded --remove-section=.comment --remove-section=.note --preserve-dates"
