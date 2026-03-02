@@ -1,6 +1,7 @@
 # Packages included in ARM64 images by default
 packages = [
   "grub-efi-arm64",
+  "vyos-ipt-netflow"
 ]
 bootloaders = "grub-efi"
 squashfs_compression_type = "xz -b 256k -always-use-fragments -no-recovery"
