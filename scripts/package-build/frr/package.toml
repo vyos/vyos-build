@@ -6,7 +6,7 @@ build_cmd = "pipx run apkg build -i && find pkg/pkgs -type f -name *.deb -exec m
 
 [[packages]]
 name = "frr"
-commit_id = "stable/10.5"
+commit_id = "168ade7da9" # from stable/10.5 branch
 scm_url = "https://github.com/FRRouting/frr.git"
 build_cmd = "sudo dpkg -i ../*.deb; dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib,pkg.frr.lua"
 
