@@ -48,6 +48,15 @@ rm -rf $UNSQUASHFS/usr/lib/x86_64-linux-gnu/libwireshark.so*
 rm -rf $UNSQUASHFS/lib/modules/*amd64-vyos
 rm -rf $UNSQUASHFS/root/.gnupg
 
+# delete features not supported in container - only remove the node.def files,
+# this is sufficient to not make the feature pop up on the CLI
+rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/container
+rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/kernel
+rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/startup-beep
+rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/root-partition-auto-resize
+rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/reboot-on-panic
+rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/performance
+
 # create a symbolic link to the configuration
 ln -s /opt/vyatta/etc/config $UNSQUASHFS/config
 
