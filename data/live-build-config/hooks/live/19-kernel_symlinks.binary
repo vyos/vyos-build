@@ -1,0 +1,12 @@
+#!/bin/sh
+
+echo I: Creating Linux Kernel symbolic links for Live image
+
+cd live
+if [ ! -f initrd.img ]; then
+    cp -l initrd.img-* initrd.img
+fi
+
+if [ ! -f vmlinuz ]; then
+    cp -l vmlinuz-* vmlinuz
+fi
