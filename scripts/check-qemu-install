@@ -436,7 +436,7 @@ def BOOTLOADERchooseSerialConsole(c, live: bool) -> None:
     """ Select GRUB boot entry that uses the serial console. This differs
         between a LIVE ISO image and an already installed system. """
     BOOTLOADER_TMO = 20
-    BOOTLOADER_SLEEP = 0.5
+    BOOTLOADER_SLEEP = 1.5
     BOOTLOADER_LOAD_TMO = 5 # let GRUB screen load
 
     UEFI_STRING = r'BdsDxe.*'
