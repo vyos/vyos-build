@@ -1,0 +1,59 @@
+From 7d4662a0e26fae27583883a8c8138b62792fc3cf Mon Sep 17 00:00:00 2001
+From: sarthurdev <965089+sarthurdev@users.noreply.github.com>
+Date: Sat, 20 Sep 2025 23:00:20 +0200
+Subject: [PATCH] [#3162] Check all interface addresses for matching subnet
+
+---
+ src/lib/dhcpsrv/cfg_subnets4.cc | 31 +++++++++++++++++++------------
+ 1 file changed, 19 insertions(+), 12 deletions(-)
+
+diff --git a/src/lib/dhcpsrv/cfg_subnets4.cc b/src/lib/dhcpsrv/cfg_subnets4.cc
+index 13286bb6d4..f25349f63a 100644
+--- a/src/lib/dhcpsrv/cfg_subnets4.cc
++++ b/src/lib/dhcpsrv/cfg_subnets4.cc
+@@ -393,23 +393,30 @@ CfgSubnets4::selectSubnet(const SubnetSelector& selector) const {
+         if (subnet) {
+             return (subnet);
+         } else {
+-            // Let's try to get an address from the local interface and
+-            // try to match it to defined subnet.
+-            iface->getAddress4(address);
++            // Let's try to get addresses from the local interface and
++            // try to match one to a defined subnet.
++            for (auto const& addr : iface->getAddresses()) {
++
++                // We only care about IPv4 here
++                if (!addr.get().isV4()) {
++                    continue;
++                }
++
++                address = addr.get();
++                subnet = selectSubnet(address, selector.client_classes_);
++
++                if (subnet) {
++                    return (subnet);
++                }
++            }
+         }
+     }
+ 
+     // Unable to find a suitable address to use for subnet selection.
+-    if (address.isV4Zero()) {
+-        LOG_DEBUG(dhcpsrv_logger, DHCPSRV_DBG_TRACE,
+-                  DHCPSRV_SUBNET4_SELECT_NO_USABLE_ADDRESS);
+-
+-        return (ConstSubnet4Ptr());
+-    }
++    LOG_DEBUG(dhcpsrv_logger, DHCPSRV_DBG_TRACE,
++              DHCPSRV_SUBNET4_SELECT_NO_USABLE_ADDRESS);
+ 
+-    // We have identified an address in the client's packet that can be
+-    // used for subnet selection. Match this packet with the subnets.
+-    return (selectSubnet(address, selector.client_classes_));
++    return (ConstSubnet4Ptr());
+ }
+ 
+ ConstSubnet4Ptr
+-- 
+2.50.1 (Apple Git-155)
+
