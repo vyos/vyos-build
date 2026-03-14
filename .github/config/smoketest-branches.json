@@ -1,0 +1,34 @@
+{
+  "branches": {
+    "current": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/current/",
+      "container_image": "vyos/vyos-build:current",
+      "vyos_1x_repo": "vyos/vyos-1x",
+      "use_pat": false,
+      "build_runner": ["ubuntu-24.04"],
+      "build_version_format": "%Y.%m.%d-%H%M-integration",
+      "install_build_deps": false,
+      "mirror_enabled": true
+    },
+    "circinus": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/circinus/",
+      "container_image": "vyos/vyos-build:circinus",
+      "vyos_1x_repo": "VyOS-Networks/vyos-1x",
+      "use_pat": true,
+      "build_runner": ["self-hosted", "azure"],
+      "build_version_format": "1.5-integration-%Y%m%d%H%M",
+      "install_build_deps": true,
+      "mirror_enabled": false
+    },
+    "sagitta": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/sagitta/",
+      "container_image": "vyos/vyos-build:sagitta",
+      "vyos_1x_repo": "VyOS-Networks/vyos-1x",
+      "use_pat": true,
+      "build_runner": ["self-hosted", "azure"],
+      "build_version_format": "1.4-integration-%Y%m%d%H%M",
+      "install_build_deps": true,
+      "mirror_enabled": false
+    }
+  }
+}
