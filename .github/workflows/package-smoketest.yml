@@ -172,7 +172,7 @@ jobs:
             echo "exit_code=success" >> $GITHUB_OUTPUT
           else
             echo "exit_code=fail" >> $GITHUB_OUTPUT
-            exit 1 # dummay failure to check final report and PR comment
+            exit 1
           fi
 
   result:
