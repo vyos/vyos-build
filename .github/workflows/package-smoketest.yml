@@ -45,7 +45,7 @@ jobs:
       use_pat: ${{ steps.config.outputs.use_pat }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set branch-specific configuration
         id: config
