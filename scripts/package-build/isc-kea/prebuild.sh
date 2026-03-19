@@ -25,6 +25,3 @@ sed -i '/usr\/share\/doc\/kea/d' debian/*.install
 echo "usr/share/doc/kea/*" >> debian/not-installed
 echo "usr/share/kea/meson-info/*" >> debian/not-installed
 rm -rf debian/isc-kea-doc.install debian/isc-kea-subscriber* debian/isc-kea-premium*
-
-sudo mk-build-deps --install --tool 'apt-get --yes --no-install-recommends'
-dpkg-buildpackage -uc -us -tc -b
