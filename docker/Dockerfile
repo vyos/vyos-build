@@ -312,7 +312,7 @@ RUN apt-get update && apt-get install -y \
       python3-pytest-cov \
       cloud-utils
 
-# Install utillities for building grub and u-boot images
+# Install utilities for building grub and u-boot images
 RUN if dpkg-architecture -iarm64; then \
     apt-get update && apt-get install -y \
       dosfstools \
@@ -353,10 +353,10 @@ RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     chmod a+s /usr/sbin/useradd /usr/sbin/groupadd
 
-# Ensure sure all users have access to Go
+# Ensure all users have access to Go
 RUN echo "export PATH=/opt/go/bin:\$PATH" >> /etc/skel/.bashrc
 
-# Rise upper limit for UID when working in an Active Direcotry integrated
+# Raise upper limit for UID when working in an Active Directory integrated
 # environment. This solves the warning: vyos_bld's uid 1632000007 outside of the
 # UID_MIN 1000 and UID_MAX 60000 range.
 RUN sed -i 's/UID_MAX\t\t\t60000/UID_MAX\t\t\t2000000000/g' /etc/login.defs

@@ -1,4 +1,4 @@
-# VyOS 1.3.x image upgrade scipt checked if an image file was a valid ISO file
+# VyOS 1.3.x image upgrade script checked if an image file was a valid ISO file
 # by grepping it for "ISO9660".
 # (The correct way to do that would be to use file/libmagic,
 #  but we cannot change the past).

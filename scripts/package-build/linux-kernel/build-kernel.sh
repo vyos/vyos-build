@@ -44,7 +44,7 @@ do
 done
 
 # VyOS requires some small Kernel Patches - apply them here
-# It's easier to habe them here and make use of the upstream
+# It's easier to have them here and make use of the upstream
 # repository instead of maintaining a full Kernel Fork.
 # Saving time/resources is essential :-)
 PATCH_DIR=${CWD}/patches/kernel
