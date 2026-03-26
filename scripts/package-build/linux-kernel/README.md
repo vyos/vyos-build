@@ -22,8 +22,8 @@ folder.
 ### Config
 
 The Kernel configuration used is [x86_64_vyos_defconfig](x86_64_vyos_defconfig)
-which will be copied on demand during the Pipeline run into the `arch/x86/configs`i
-direcotry of the Kernel source tree.
+which will be copied on demand during the Pipeline run into the `arch/x86/configs`
+directory of the Kernel source tree.
 
 Other configurations can be added in the future easily.
 

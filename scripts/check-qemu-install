@@ -102,7 +102,7 @@ parser.add_argument('--iso', help='ISO file to install')
 parser.add_argument('--disk', help='name of disk image file', nargs='?')
 parser.add_argument('--keep', help='Do not remove disk-image after installation',
                               action='store_true', default=False)
-parser.add_argument('--silent', help='Do not show output on stdout unless an error has occured',
+parser.add_argument('--silent', help='Do not show output on stdout unless an error has occurred',
                               action='store_true', default=False)
 parser.add_argument('--debug', help='Send all debug output to stdout',
                                action='store_true', default=False)
@@ -1244,13 +1244,13 @@ except pexpect.exceptions.TIMEOUT:
     EXCEPTION = 1
 
 except pexpect.exceptions.ExceptionPexpect:
-    log.error('Exeption while executing QEMU')
+    log.error('Exception while executing QEMU')
     log.error('Is qemu working on this system?')
     log.error(traceback.format_exc())
     EXCEPTION = 1
 
 except Exception:
-    log.error('Unknown error occured!')
+    log.error('Unknown error occurred!')
     traceback.print_exc()
     EXCEPTION = 1
 
