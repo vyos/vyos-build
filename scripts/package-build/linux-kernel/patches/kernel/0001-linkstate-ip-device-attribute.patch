@@ -19,10 +19,10 @@ Backport of earlier Vyatta patch.
  8 files changed, 34 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
-index a66054d0763a..53440098fa98 100644
+index 531a070df2a6..d455a01b91e9 100644
 --- a/Documentation/networking/ip-sysctl.rst
 +++ b/Documentation/networking/ip-sysctl.rst
-@@ -1734,6 +1734,17 @@ src_valid_mark - BOOLEAN
+@@ -1754,6 +1754,17 @@ src_valid_mark - BOOLEAN
  
  	Default value is 0.
  
@@ -41,7 +41,7 @@ index a66054d0763a..53440098fa98 100644
  	- 1 - Allows you to have multiple network interfaces on the same
  	  subnet, and have the ARPs for each interface be answered
 diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index ddb27fc0ee8c..8ee3191d9558 100644
+index b157ff4f727f..0cbab4c57b8b 100644
 --- a/include/linux/inetdevice.h
 +++ b/include/linux/inetdevice.h
 @@ -137,6 +137,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
@@ -101,7 +101,7 @@ index 798497c8b192..0b4510b06ab5 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2737bb4751e4..dcf32b532598 100644
+index 4958452cd332..608ad0b164e3 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -5699,6 +5699,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
@@ -127,7 +127,7 @@ index 2737bb4751e4..dcf32b532598 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ad452a04d729..b45e5e0fe8c4 100644
+index 5a6cc828855d..00f98d4f3860 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -716,6 +716,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
