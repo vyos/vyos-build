@@ -12,4 +12,6 @@ packages = [
   "amd64-microcode"
 ]
 
-serial_interface = "ttyS0,115200"
+console_type = "ttyS"
+console_num = "0"
+console_speed = "115200"
