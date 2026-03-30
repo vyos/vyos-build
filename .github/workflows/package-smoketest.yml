@@ -82,7 +82,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.ref }}
+          ref: ${{ needs.set_config.outputs.branch }}
 
       - name: Generate ISO version string
         id: version
@@ -125,7 +125,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.ref }}
+          ref: ${{ needs.set_config.outputs.branch }}
 
       - uses: actions/download-artifact@v8
         with:
