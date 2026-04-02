@@ -67,7 +67,7 @@ systemctl disable zabbix-agent2.service
 systemctl disable suricata.service
 systemctl disable vyconfd.service
 systemctl disable vpp.service
-systemctl disable netplug.service
+systemctl disable vyos-netlinkd.service
 
 echo I: Enabling services
 systemctl enable vyos-hostsd.service
