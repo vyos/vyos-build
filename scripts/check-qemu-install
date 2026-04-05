@@ -528,7 +528,7 @@ def basic_cli_tests(c):
     c.expect(op_mode_prompt)
     c.sendline('show system memory detail | no-more')
     c.expect(op_mode_prompt)
-    c.sendline('show configuration commands | match kernel')
+    c.sendline('show configuration commands | match "option kernel"')
     c.expect(op_mode_prompt)
     c.sendline('cat /proc/cmdline')
     c.expect(op_mode_prompt)
