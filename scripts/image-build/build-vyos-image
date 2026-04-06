@@ -142,6 +142,7 @@ def build():
     from utils import cmd, rc_cmd
     from utils import directories
     from utils import activation_hint
+    from utils import activation_init
 
     ## Check if there are missing build dependencies
     deps = {
@@ -635,6 +636,16 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, 'w') as f:
                 f.write(build_config["default_config"])
+
+        ## Allow override of which activation scripts are enabled at boot
+        if has_nonempty_key(build_config, "activation_init"):
+            file_path = os.path.join(
+                chroot_includes_dir,
+                activation_init.lstrip(os.sep)
+            )
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write(build_config["activation_init"])
 
         ## Configure live-build
         lb_config_tmpl = jinja2.Template("""
