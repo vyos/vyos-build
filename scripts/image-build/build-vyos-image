@@ -141,6 +141,7 @@ def build():
 
     from utils import cmd, rc_cmd
     from utils import directories
+    from utils import activation_hint
 
     ## Check if there are missing build dependencies
     deps = {
@@ -489,6 +490,13 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
             json.dump(flavor_data, f)
         with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
+
+        # For initialization of activation scripts, we need to know if we
+        # are building with create_raw_image
+        if build_config["image_format"] != ["iso"]:
+            raw_build_hint = os.path.join(vyos_data_dir, os.path.basename(activation_hint))
+            with open(raw_build_hint, 'w') as f:
+                pass
 
         # For backwards compatibility with 'add system image' script from older versions
         # we need a file in the old format so that script can find out the version of the image
