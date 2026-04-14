@@ -136,6 +136,7 @@ parser.add_argument('--no-vpp', help='Execute testsuite without VPP tests',
                 action='store_true', default=False)
 parser.add_argument('--huge-page-size', help='Huge page size (e.g., 2M, 1G)', type=str)
 parser.add_argument('--huge-page-count', help='Number of huge pages to allocate', type=int)
+parser.add_argument('--isolate-cpus', help='CPU cores to isolate (e.g., 1,3-4', type=str)
 
 args = parser.parse_args()
 
@@ -681,6 +682,9 @@ try:
         c.expect(cfg_mode_prompt)
         c.sendline(f'set system option kernel memory hugepage-size {args.huge_page_size} hugepage-count {args.huge_page_count}')
         c.expect(cfg_mode_prompt)
+        if args.isolate_cpus:
+            c.sendline(f'set system option kernel cpu isolate-cpus {args.isolate_cpus}')
+            c.expect(cfg_mode_prompt)
         c.sendline('set system option kernel disable-mitigations')
         c.expect(cfg_mode_prompt)
         c.sendline('commit')

@@ -28,7 +28,7 @@ test: checkiso
 .PHONY: test-no-interfaces
 .ONESHELL:
 test-no-interfaces: checkiso
-	scripts/check-qemu-install --debug --configd --smoketest --uefi --no-interfaces --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --configd --smoketest --uefi --no-interfaces --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-no-interfaces-no-vpp
 .ONESHELL:
@@ -43,7 +43,7 @@ test-interfaces: checkiso
 .PHONY: test-vpp
 .ONESHELL:
 test-vpp: checkiso
-	scripts/check-qemu-install --debug --configd --match="vpp" --smoketest --uefi --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --configd --match="vpp" --smoketest --uefi --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testc
 .ONESHELL:
@@ -53,7 +53,7 @@ testc: checkiso
 .PHONY: testcvpp
 .ONESHELL:
 testcvpp: checkiso
-	scripts/check-qemu-install --debug --configd --match="vpp" --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --configd --match="vpp" --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testraid
 .ONESHELL:
