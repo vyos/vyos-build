@@ -6,6 +6,5 @@ packages = [
 bootloaders = "grub-efi"
 squashfs_compression_type = "xz -b 256k -always-use-fragments -no-recovery"
 
-console_type = "ttyAMA"
-console_num = "0"
-console_speed = "115200"
+[boot_settings]
+  console_type = "ttyAMA"

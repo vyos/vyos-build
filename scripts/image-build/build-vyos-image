@@ -440,9 +440,10 @@ def build():
             build_config['version'] = version
 
         flavor_data = {
-            'console_type': build_config["console_type"],
-            'console_num': build_config["console_num"],
-            'console_speed': build_config["console_speed"]
+            'flavor': build_config["build_flavor"],
+            'console_type': build_config["boot_settings"]["console_type"],
+            'console_num': build_config["boot_settings"]["console_num"],
+            'console_speed': build_config["boot_settings"]["console_speed"]
         }
 
         version_data = {
@@ -639,8 +640,8 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
                 --archive-areas "{{debian_archive_areas}}" \
                 --backports true \
                 --binary-image iso-hybrid \
-                --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console="{{console_type}}{{console_num}},{{console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
-                --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console="{{console_type}}{{console_num}},{{console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console="{{boot_settings.console_type}}{{boot_settings.console_num}},{{boot_settings.console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console="{{boot_settings.console_type}}{{boot_settings.console_num}},{{boot_settings.console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
                 --bootloaders "{{bootloaders}}" \
                 --checksums "sha256" \
                 --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \

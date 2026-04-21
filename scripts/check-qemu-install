@@ -542,6 +542,11 @@ def basic_cli_tests(c):
     lines = [l.strip() for l in c.before.splitlines() if l.strip()]
     console_type = lines[-1].decode('utf-8').strip() # e.g. ttyS
 
+    # We do only care for ttyS or ttyAMA console types, exit early
+    # for VGA consoles
+    if console_type == 'tty':
+        return
+
     c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_num"')
     c.expect(op_mode_prompt)
     lines = [l.strip() for l in c.before.splitlines() if l.strip()]
