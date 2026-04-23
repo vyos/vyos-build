@@ -7,7 +7,7 @@ apply_patches = false
 
 [[packages]]
 name = "vpp"
-commit_id = "stable/2506"
+commit_id = "stable/2510"
 scm_url = "https://github.com/FDio/vpp"
 # Skip apply patches by build.py as we use them in build_cmd
 apply_patches = false
@@ -24,8 +24,8 @@ for patch in ../patches/vpp/*.patch; do
     git -c user.email=maintainers@vyos.net -c user.name=vyos am "$patch" || { echo "Failed to apply patch $patch"; exit 1; }
 done
 
-make UNATTENDED=yes install-dep
-make pkg-deb
+make UNATTENDED=yes VPP_ENABLE_SYSTEMD_NOTIFY=ON install-dep
+make VPP_EXTRA_CMAKE_ARGS="-DVPP_ENABLE_SYSTEMD_NOTIFY=ON" pkg-deb
 cp build-root/*.deb ../
 """
 

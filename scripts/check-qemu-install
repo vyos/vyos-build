@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2025, VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -32,7 +32,6 @@
 #    [--silent]     only print on errors
 #    [--debug]      print all communication with the device
 
-import pexpect
 import sys
 import os
 import time
@@ -42,21 +41,40 @@ import random
 import traceback
 import logging
 import re
-import tomli
 import shutil
 import json
+import platform
 
 from io import BytesIO
 from datetime import datetime
 
+import tomli
+import pexpect
+
 EXCEPTION = 0
-now = datetime.now()
+DISK_IMAGE_EXTENSION = '.raw'
+CI_CONFIG_ARGS = {
+    'hostname': 'vyos-CLOUD-INIT',
+    'eth0_ipv4': '192.0.2.1/25',
+    'eth0_ipv6': '2001:db8::1/64',
+    'default_nexthop' : '192.0.2.126',
+    'default_nexthop6' : '2001:db8::ffff',
+    }
+
 tpm_folder = '/tmp/vyos_tpm_test'
 qemu_name = 'VyOS-QEMU'
+
+test_timeout = 5 *3600 # 5 hours (in seconds) to complete individual testcases
+
+op_mode_prompt = r'vyos@vyos:~\$'
+cfg_mode_prompt = r'vyos@vyos#'
+default_user = 'vyos'
+default_password = 'vyos'
 
 # getch.py
 KEY_F2 = chr(27) + chr(91) + chr(49) + chr(50) + chr(126)
 KEY_F10 = chr(27) + chr(91) + chr(50) + chr(49) + chr(126)
+KEY_UP = chr(27) + chr(91) + chr(65)
 KEY_DOWN = chr(27) + chr(91) + chr(66)
 KEY_SPACE = chr(32)
 KEY_RETURN = chr(13)
@@ -65,14 +83,26 @@ KEY_Y = chr(121)
 
 mok_password = '1234'
 
+# Map QEMU arch
+QEMU_CONFIG = {
+    'amd64': {
+        'bin' : 'qemu-system-x86_64',
+        'machine' : 'pc',
+        'bios' : '/usr/share/OVMF/OVMF_CODE.fd',
+    },
+    "arm64": {
+        'bin': 'qemu-system-aarch64',
+        'machine': 'virt,highmem=on',
+        'bios': '/usr/share/qemu-efi-aarch64/QEMU_EFI.fd',
+    },
+}
+
 parser = argparse.ArgumentParser(description='Install and start a test VyOS vm.')
-parser.add_argument('iso', help='ISO file to install')
-parser.add_argument('disk', help='name of disk image file', nargs='?',
-                            default='testinstall-{}-{}.img'.format(now.strftime('%Y%m%d-%H%M%S'),
-                                                                   "%04x" % random.randint(0,65535)))
+parser.add_argument('--iso', help='ISO file to install')
+parser.add_argument('--disk', help='name of disk image file', nargs='?')
 parser.add_argument('--keep', help='Do not remove disk-image after installation',
                               action='store_true', default=False)
-parser.add_argument('--silent', help='Do not show output on stdout unless an error has occured',
+parser.add_argument('--silent', help='Do not show output on stdout unless an error has occurred',
                               action='store_true', default=False)
 parser.add_argument('--debug', help='Send all debug output to stdout',
                                action='store_true', default=False)
@@ -93,9 +123,12 @@ parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
                 action='store_true', default=False)
 parser.add_argument('--sbtest', help='Execute Secure Boot tests',
                 action='store_true', default=False)
+parser.add_argument('--cloud-init', help='Execute cloud-init tests',
+                action='store_true', default=False)
 parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
                 action='store_true', default=False)
 parser.add_argument('--cpu', help='Set QEMU CPU', type=int, default=2)
+parser.add_argument('--cpu-type', help='Set QEMU CPU type', type=str, default='host')
 parser.add_argument('--memory', help='Set QEMU memory', type=int, default=4)
 parser.add_argument('--vyconf', help='Execute testsuite with vyconfd', action='store_true',
                     default=False)
@@ -103,8 +136,14 @@ parser.add_argument('--no-vpp', help='Execute testsuite without VPP tests',
                 action='store_true', default=False)
 parser.add_argument('--huge-page-size', help='Huge page size (e.g., 2M, 1G)', type=str)
 parser.add_argument('--huge-page-count', help='Number of huge pages to allocate', type=int)
+parser.add_argument('--isolate-cpus', help='CPU cores to isolate (e.g., 1,3-4', type=str)
 
 args = parser.parse_args()
+
+if args.cloud_init:
+    hostname = CI_CONFIG_ARGS['hostname']
+    op_mode_prompt = rf'vyos@{hostname}:~\$'
+    cfg_mode_prompt = rf'vyos@{hostname}#'
 
 # This is what we requested the build to contain
 with open('data/defaults.toml', 'rb') as f:
@@ -140,15 +179,31 @@ class StreamToLogger(object):
     def flush(self):
         pass
 
-OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.secboot.fd'
-OVMF_VARS_TMP = args.disk.replace('.img', '.efivars')
-if args.sbtest:
-    shutil.copy('/usr/share/OVMF/OVMF_VARS_4M.ms.fd', OVMF_VARS_TMP)
+class EarlyExit(Exception):
+    pass
+
+def _kvm_exists():
+    return os.path.exists("/dev/kvm")
 
 def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False, vnc_enabled=False, secure_boot=False):
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
-    machine = 'pc'
+    accel = ',accel=kvm' if _kvm_exists() else ''
+
+    if platform.machine() in ['amd64', 'x86_64']:
+        architecture = 'amd64'
+    elif platform.machine() in ['arm64', 'aarch64']:
+        architecture = 'arm64'
+    else:
+        raise ValueError('Unsupported architecture!')
+
+    qemu_arch_config = QEMU_CONFIG[architecture]
+    qemu_bin = qemu_arch_config['bin']
+    bios = qemu_arch_config['bios']
+
+    cpu_type = args.cpu_type
+    enable_kvm = '-enable-kvm' if _kvm_exists() else ''
+    machine = qemu_arch_config['machine']
     vga = '-vga none'
     vnc = ''
     if vnc_enabled:
@@ -156,7 +211,7 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         vnc = '-vnc :0'
 
     if enable_uefi:
-        uefi = '-bios /usr/share/OVMF/OVMF_CODE.fd'
+        uefi = f'-bios {bios}'
         name = f'{name}-UEFI'
 
         if secure_boot:
@@ -170,41 +225,45 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
 
     cdrom = ""
     if iso_img:
-        cdrom = f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on' \
-                f' -device ahci,id=achi0' \
-                f' -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex=10'
+        cdrom = f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on'
+        if architecture == 'arm64':
+            cdrom = f' {cdrom} -device scsi-cd,bus=scsi0.0,drive=drive-cd1,id=cd1,bootindex=10'
+        else:
+            cdrom = f' {cdrom} -device ahci,id=achi0 -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex=10'
 
     # RFC7042 section 2.1.2 MAC addresses used for documentation
     macbase = '00:00:5E:00:53'
-    cmd = f'qemu-system-x86_64 \
+
+    # Set QEmu disk image format - this differs if VyOS was installed via smoketest
+    # or we use an already ewxisting image
+    disk_format = 'qcow2' if args.disk.endswith('.qcow2') else 'raw'
+    cmd = f'{qemu_bin} \
         -name "{name}" \
         -smp {args.cpu},sockets=1,cores={args.cpu},threads=1 \
-        -cpu host \
-        -machine {machine},accel=kvm \
+        -cpu {cpu_type} \
+        -machine {machine}{accel} \
         {uefi} \
         -m {args.memory}G \
-        -vga none \
         -nographic \
         {vga} {vnc}\
         -uuid {uuid} \
-        -cpu host \
-        {cdrom} \
-        -enable-kvm \
+        {enable_kvm} \
         -monitor unix:/tmp/qemu-monitor-socket-{disk_img},server,nowait \
-        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="" \
-        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="" \
-        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="" \
-        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="" \
+        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="",host_mtu=1500 \
+        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="",host_mtu=1500 \
+        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="",host_mtu=1500 \
+        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="",host_mtu=1500 \
         -netdev user,id=n4 -device virtio-net-pci,netdev=n4,mac={macbase}:04,romfile="" \
         -netdev user,id=n5 -device virtio-net-pci,netdev=n5,mac={macbase}:05,romfile="" \
         -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06,romfile="" \
         -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07,romfile="" \
         -device virtio-scsi-pci,id=scsi0 \
-        -drive format=raw,file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
+        {cdrom} \
+        -drive format={disk_format},file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
         -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex=1'
 
     if raid:
-        cmd += f' -drive format=raw,file={raid},if=none,media=disk,id=drive-hd2,readonly=off' \
+        cmd += f' -drive format={disk_format},file={raid},if=none,media=disk,id=drive-hd2,readonly=off' \
                f' -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex=2'
 
     if tpm:
@@ -276,13 +335,25 @@ if args.silent:
 else:
     output = sys.stdout.buffer
 
-if not os.path.isfile(args.iso):
-    log.error('Unable to find iso image to install')
-    sys.exit(1)
-
 if not os.path.exists('/dev/kvm'):
     log.error('KVM not enabled on host, proceeding with software emulation')
+
+if not args.iso and not args.disk:
+    log.error('Neither ISO not QCOW2 disk image supplied - error!')
     sys.exit(1)
+
+if not args.disk:
+    tmp_disk_time = datetime.now().strftime('%Y%m%d-%H%M%S')
+    tmp_disk_random = "%04x" % random.randint(0,65535)
+    args.disk = f'testinstall-{tmp_disk_time}-{tmp_disk_random}{DISK_IMAGE_EXTENSION}'
+
+if not args.iso or not os.path.isfile(args.iso):
+    log.debug('Unable to find ISO image to install ...')
+
+OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.secboot.fd'
+OVMF_VARS_TMP = args.disk.replace(DISK_IMAGE_EXTENSION, '.efivars')
+if args.sbtest:
+    shutil.copy('/usr/share/OVMF/OVMF_VARS_4M.ms.fd', OVMF_VARS_TMP)
 
 # Creating diskimage!!
 diskname_raid = None
@@ -292,7 +363,7 @@ def gen_disk(name):
         c = subprocess.check_output(['qemu-img', 'create', name, '2G'])
         log.debug(c.decode())
     else:
-        log.info(f'Diskimage "{name}" already exists, using the existing one.')
+        log.info(f'Re-using already existing disk image "{name}".')
 
 if args.raid:
     filename, ext = os.path.splitext(args.disk)
@@ -310,10 +381,10 @@ def start_swtpm():
         os.mkdir(tpm_folder)
 
     def swtpm_thread():
-        c = subprocess.check_output([
-                'swtpm', 'socket', '--tpmstate', f'dir={tpm_folder}',
-                '--ctrl', f'type=unixio,path={tpm_folder}/swtpm-sock', '--tpm2', '--log', 'level=1'
-            ])
+        subprocess.check_output([
+            'swtpm', 'socket', '--tpmstate', f'dir={tpm_folder}',
+            '--ctrl', f'type=unixio,path={tpm_folder}/swtpm-sock', '--tpm2', '--log', 'level=1'
+        ])
 
     from multiprocessing import Process
     tpm_process = Process(target=swtpm_thread)
@@ -362,12 +433,189 @@ def toggleUEFISecureBoot(c):
     UEFIKeyPress(c, KEY_DOWN)
     UEFIKeyPress(c, KEY_RETURN)
 
+def BOOTLOADERchooseSerialConsole(c, live: bool) -> None:
+    """ Select GRUB boot entry that uses the serial console. This differs
+        between a LIVE ISO image and an already installed system. """
+    BOOTLOADER_TMO = 20
+    BOOTLOADER_SLEEP = 1.5
+    BOOTLOADER_LOAD_TMO = 5 # let GRUB screen load
+
+    UEFI_STRING = r'BdsDxe.*'
+    GRUB_STRING = r'GNU GRUB.*'
+    ISOLINUX_STRING = r'ISOLINUX.*'
+
+    # XXX: UEFI systems directly load GRUB, BIOS systems fallback to ISOLINUX
+    if live and args.uefi:
+        # Let UEFI start before GRUB
+        c.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
+        # Wait for GRUB
+        c.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
+        time.sleep(BOOTLOADER_LOAD_TMO)
+
+        # Select GRUB serial console
+        # Key DOWN -> fail-safe mode
+        c.send(KEY_DOWN)
+        time.sleep(BOOTLOADER_SLEEP)
+        # Key DOWN -> Serial Console boot
+        c.send(KEY_DOWN)
+        time.sleep(BOOTLOADER_SLEEP)
+        # Boot
+        c.send(KEY_RETURN)
+    elif live and not args.uefi:
+        # Wait for ISOLINUX
+        c.expect(ISOLINUX_STRING, timeout=BOOTLOADER_TMO)
+        time.sleep(BOOTLOADER_LOAD_TMO)
+
+        # Boot Menu starts at Live system (vyos) - KVM console
+        c.send(KEY_DOWN)
+        time.sleep(BOOTLOADER_SLEEP)
+        # Live system (vyos fail-safe mode)
+        c.send(KEY_DOWN)
+        time.sleep(BOOTLOADER_SLEEP)
+        # Live system (vyos) - Serial console - boot it up
+        c.send(KEY_RETURN)
+    else:
+        # Let UEFI start before GRUB
+        if args.uefi:
+            c.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
+
+        # Wait for GRUB
+        c.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
+        time.sleep(BOOTLOADER_LOAD_TMO)
+
+        # Select GRUB serial console
+        # Boot options
+        c.send(KEY_DOWN)
+        time.sleep(BOOTLOADER_SLEEP)
+        c.send(KEY_RETURN)
+        time.sleep(BOOTLOADER_SLEEP)
+        # Select console type
+        c.send(KEY_DOWN)
+        time.sleep(BOOTLOADER_SLEEP)
+        c.send(KEY_RETURN)
+        time.sleep(BOOTLOADER_SLEEP)
+        # *ttyS (serial)
+        c.send(KEY_DOWN)
+        time.sleep(BOOTLOADER_SLEEP)
+        c.send(KEY_RETURN)
+        time.sleep(BOOTLOADER_SLEEP)
+        # Boot
+        c.send(KEY_RETURN)
+
+    return None
+
+def basic_cli_tests(c):
+    # Repeating / shared basic CLI test between installed images and the
+    # cloud-init test-case
+    c.sendline('configure')
+    c.expect(cfg_mode_prompt)
+    c.sendline('exit')
+    c.expect(op_mode_prompt)
+    c.sendline('show version')
+    c.expect(op_mode_prompt)
+    c.sendline('show version kernel')
+    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["kernel_flavor"]}')
+    c.expect(op_mode_prompt)
+    c.sendline('show version frr')
+    c.expect(op_mode_prompt)
+    c.sendline('show interfaces')
+    c.expect(op_mode_prompt)
+    # c.sendline('systemd-detect-virt')
+    # c.expect('kvm')
+    # c.expect(op_mode_prompt)
+    c.sendline('show system cpu')
+    c.expect(op_mode_prompt)
+    c.sendline('show system memory')
+    c.expect(op_mode_prompt)
+    c.sendline('show system memory detail | no-more')
+    c.expect(op_mode_prompt)
+    c.sendline('show configuration commands | match "option kernel"')
+    c.expect(op_mode_prompt)
+    c.sendline('cat /proc/cmdline')
+    c.expect(op_mode_prompt)
+    c.sendline('show version all | grep -e "vpp" -e "vyos-1x"')
+    c.expect(op_mode_prompt)
+
+    # Get serial console interface name from flavor definition
+    c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_type"')
+    c.expect(op_mode_prompt)
+    lines = [l.strip() for l in c.before.splitlines() if l.strip()]
+    console_type = lines[-1].decode('utf-8').strip() # e.g. ttyS
+
+    # We do only care for ttyS or ttyAMA console types, exit early
+    # for VGA consoles
+    if console_type == 'tty':
+        return
+
+    c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_num"')
+    c.expect(op_mode_prompt)
+    lines = [l.strip() for l in c.before.splitlines() if l.strip()]
+    console_num = lines[-1].decode('utf-8').strip() # e.g. 0
+
+    # Get serial console speed from flavor definition
+    c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_speed"')
+    c.expect(op_mode_prompt)
+    lines = [l.strip() for l in c.before.splitlines() if l.strip()]
+    console_speed = lines[-1].decode('utf-8').strip() # e.g. 115200
+
+    # Ensure serial console with kernel option is set in CLI, done automatically by image installer
+    c.sendline('show configuration commands | match "system console"')
+    c.expect(rf'set system console device {console_type}{console_num} kernel\r\r\nset system console device {console_type}{console_num} speed \'{console_speed}\'')
+    c.expect(op_mode_prompt)
+
+    # Validate GRUB has the right console_type defined
+    c.sendline('cat /boot/grub/grub.cfg.d/20-vyos-defaults-autoload.cfg | grep "set console_type"')
+    c.expect(f'set console_type="{console_type}"')
+    c.expect(op_mode_prompt)
+
 if args.qemu_cmd:
     tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
     os.system(tmp)
     exit(0)
 
-test_timeout = 5 *3600 # 3 hours (in seconds)
+if args.cloud_init:
+    # Build cloud-init seed iso
+    CI_ISO = 'ci_seed.iso'
+    CI_DATA_DIR = 'ci_data'
+    # Insert cloud-init ISO into CD-ROM
+    args.iso = CI_ISO
+
+    if not os.path.exists(CI_DATA_DIR):
+        os.makedirs(CI_DATA_DIR)
+
+    # create "empty" meta-data file
+    open(f'{CI_DATA_DIR}/meta-data', mode='w').close()
+
+    network_config = """version: 2
+ethernets:
+  eth0:
+    dhcp4: false
+    dhcp6: false
+"""
+
+    user_data = """#cloud-config
+vyos_config_commands:
+  - set system host-name '{hostname}'
+  - set service ntp server 1.pool.ntp.org
+  - set service ntp server 2.pool.ntp.org
+  - delete interfaces ethernet eth0 address 'dhcp'
+  - set interfaces ethernet eth0 address '{eth0_ipv4}'
+  - set interfaces ethernet eth0 address '{eth0_ipv6}'
+  - set protocols static route 0.0.0.0/0 next-hop '{default_nexthop}'
+  - set protocols static route6 ::/0 next-hop '{default_nexthop6}'
+""".format(**CI_CONFIG_ARGS)
+
+    with open(f'{CI_DATA_DIR}/network-config', mode='w') as f:
+        f.writelines(network_config)
+
+    with open(f'{CI_DATA_DIR}/user-data', mode='w') as f:
+        f.writelines(user_data)
+
+    # Assemble cloud-init ISO file
+    if os.path.exists(CI_ISO):
+        os.unlink(CI_ISO)
+    os.system(f'mkisofs -joliet -rock -volid "cidata" -output {CI_ISO} {CI_DATA_DIR}')
+
 tpm_process = None
 try:
     # Start TPM emulator
@@ -385,24 +633,41 @@ try:
     #################################################
     # Logging into VyOS system
     #################################################
-    op_mode_prompt = r'vyos@vyos:~\$'
-    cfg_mode_prompt = r'vyos@vyos#'
-    default_user = 'vyos'
-    default_password = 'vyos'
-
     if args.sbtest:
         log.info('Disable UEFI Secure Boot for initial installation')
         toggleUEFISecureBoot(c)
 
-    try:
-        c.expect('Welcome to GRUB', timeout=10)
-        c.send(KEY_DOWN)
-        c.send(KEY_DOWN)
-        c.send(KEY_RETURN)
-    except pexpect.TIMEOUT:
-        log.warning('Did not find GRUB countdown window, ignoring')
-
+    BOOTLOADERchooseSerialConsole(c, live=(not args.cloud_init))
     loginVM(c, log)
+
+    #################################################
+    # Cloud-Init comes with a pre-assembled ISO - just boot and test it
+    #################################################
+    if args.cloud_init:
+        log.info('Perform basic CLI configuration mode tests from cloud-init...')
+        basic_cli_tests(c)
+
+        # Valida assigned IPv4 and IPv6 addresses
+        c.sendline('ip --json addr show dev eth0 | jq -r \'.[0].addr_info[] | select(.family=="inet") | "\(.local)/\(.prefixlen)"\'')
+        c.expect(CI_CONFIG_ARGS['eth0_ipv4'])
+        c.expect(op_mode_prompt)
+
+        c.sendline('ip --json addr show dev eth0 | jq -r \'.[0].addr_info[] | select(.family=="inet6" and .scope=="global" and (.temporary|not)) | "\(.local)/\(.prefixlen)"\'')
+        c.expect(CI_CONFIG_ARGS['eth0_ipv6'])
+        c.expect(op_mode_prompt)
+
+        # Valida default route nexthops
+        c.sendline('ip -4 --json route show default | jq -r ".[0].gateway"')
+        c.expect(CI_CONFIG_ARGS['default_nexthop'])
+        c.expect(op_mode_prompt)
+
+        c.sendline('ip -6 --json route show default | jq -r ".[0].gateway"')
+        c.expect(CI_CONFIG_ARGS['default_nexthop6'])
+        c.expect(op_mode_prompt)
+
+        shutdownVM(c, log, 'Powering off system')
+        c.close()
+        raise EarlyExit
 
     #################################################
     # Check for no private key contents within the image
@@ -422,6 +687,9 @@ try:
         c.expect(cfg_mode_prompt)
         c.sendline(f'set system option kernel memory hugepage-size {args.huge_page_size} hugepage-count {args.huge_page_count}')
         c.expect(cfg_mode_prompt)
+        if args.isolate_cpus:
+            c.sendline(f'set system option kernel cpu isolate-cpus {args.isolate_cpus}')
+            c.expect(cfg_mode_prompt)
         c.sendline('set system option kernel disable-mitigations')
         c.expect(cfg_mode_prompt)
         c.sendline('commit')
@@ -430,6 +698,7 @@ try:
         c.expect(cfg_mode_prompt)
         c.sendline('exit')
         c.expect(op_mode_prompt)
+
     #################################################
     # Installing into VyOS system
     #################################################
@@ -534,6 +803,7 @@ try:
     # Booting installed system
     #################################################
     log.info('Booting installed system')
+    BOOTLOADERchooseSerialConsole(c, live=False)
 
     #################################################
     # Logging into VyOS system
@@ -577,35 +847,7 @@ try:
     # Basic Configmode/Opmode switch
     #################################################
     log.info('Basic CLI configuration mode test')
-
-    c.sendline('configure')
-    c.expect(cfg_mode_prompt)
-    c.sendline('exit')
-    c.expect(op_mode_prompt)
-    c.sendline('show version')
-    c.expect(op_mode_prompt)
-    c.sendline('show version kernel')
-    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["kernel_flavor"]}')
-    c.expect(op_mode_prompt)
-    c.sendline('show version frr')
-    c.expect(op_mode_prompt)
-    c.sendline('show interfaces')
-    c.expect(op_mode_prompt)
-    c.sendline('systemd-detect-virt')
-    c.expect('kvm')
-    c.expect(op_mode_prompt)
-    c.sendline('show system cpu')
-    c.expect(op_mode_prompt)
-    c.sendline('show system memory')
-    c.expect(op_mode_prompt)
-    c.sendline('show system memory detail | no-more')
-    c.expect(op_mode_prompt)
-    c.sendline('show configuration commands | match kernel')
-    c.expect(op_mode_prompt)
-    c.sendline('cat /proc/cmdline')
-    c.expect(op_mode_prompt)
-    c.sendline('show version all | grep -e "vpp" -e "vyos-1x"')
-    c.expect(op_mode_prompt)
+    basic_cli_tests(c)
 
     #################################################
     # Verify /etc/os-release via lsb_release
@@ -790,6 +1032,8 @@ try:
         c.sendline('y')
         c.expect('Enter key: ')
         c.sendline(test_recovery_key)
+        c.expect('Confirm key:')
+        c.sendline(test_recovery_key)
         c.expect('Enter size of encrypted config partition.*', timeout=30)
         c.sendline('32')
         c.expect('Encrypted config volume has been enabled', timeout=tpm_timeout)
@@ -913,18 +1157,19 @@ try:
 
     elif args.smoketest:
         # run default smoketest suite
+        smoketests_path = '/usr/libexec/vyos/tests/smoke'
         if args.match:
             # Remove tests that we don't want to run
             match_str = '-o '.join([f'-name "test_*{name}*.py" ' for name in args.match.split("|")]).strip()
-            c.sendline(f'sudo find /usr/libexec/vyos/tests/smoke -maxdepth 2 -type f -name test_* ! \( {match_str} \) -delete')
+            c.sendline(f'sudo find {smoketests_path} -maxdepth 2 -type f -name test_* ! \( {match_str} \) -delete')
             c.expect(op_mode_prompt)
         if args.no_interfaces:
             # remove interface tests as they consume a lot of time
-            c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_interfaces_*')
+            c.sendline(f'sudo rm -f {smoketests_path}/cli/test_interfaces_*')
             c.expect(op_mode_prompt)
         if args.no_vpp:
             # remove VPP tests
-            c.sendline('sudo rm -f /usr/libexec/vyos/tests/smoke/cli/test_vpp*')
+            c.sendline(f'sudo rm -f {smoketests_path}/cli/test_vpp*')
             c.expect(op_mode_prompt)
 
         if args.vyconf:
@@ -939,9 +1184,9 @@ try:
 
         if i == 0:
             raise Exception('Invalid command detected')
-        elif i == 1:
+        if i == 1:
             raise Exception('Set syntax failed :/')
-        elif i == 2:
+        if i == 2:
             tmp = '(W)hy (T)he (F)ace? VyOS smoketest not found!'
             log.error(tmp)
             raise Exception(tmp)
@@ -959,23 +1204,25 @@ try:
     elif args.configtest:
         # Remove config-tests that we don't want to run
         if args.match:
+            configs_path = '/usr/libexec/vyos/tests/configs'
             if args.match.startswith("!"):
                 # Exclude mode — delete only the matched names
                 names = args.match[1:].split("|")
                 match_str = '-o '.join([f'-name "{name}"' for name in names])
-                cleanup_config_dir_cmd = f'sudo find /usr/libexec/vyos/tests/config -mindepth 1 -maxdepth 1 \\( {match_str} \\) -exec rm -rf {{}} +'
-                cleanup_config_tests_dir_cmd = f'sudo find /usr/libexec/vyos/tests/config-tests -mindepth 1 -maxdepth 1 \\( {match_str} \\) -exec rm -rf {{}} +'
+                cleanup_config_dir_cmd = f'sudo find {configs_path} -mindepth 1 -maxdepth 1 -type f \\( {match_str} \\) -exec rm -rf {{}} +'
+                cleanup_config_tests_dir_cmd = f'sudo find {configs_path}/assert -mindepth 1 -maxdepth 1 -type f \\( {match_str} \\) -exec rm -rf {{}} +'
             else:
                 # Include mode — keep only the matched names, delete the rest
                 names = args.match.split("|")
                 match_str = '-o '.join([f'-name "{name}"' for name in names])
-                cleanup_config_dir_cmd = f'sudo find /usr/libexec/vyos/tests/config -mindepth 1 -maxdepth 1 ! \\( {match_str} \\) -exec rm -rf {{}} +'
-                cleanup_config_tests_dir_cmd = f'sudo find /usr/libexec/vyos/tests/config-tests -mindepth 1 -maxdepth 1 ! \\( {match_str} \\) -exec rm -rf {{}} +'
+                cleanup_config_dir_cmd = f'sudo find {configs_path} -mindepth 1 -maxdepth 1 -type f ! \\( {match_str} \\) -exec rm -rf {{}} +'
+                cleanup_config_tests_dir_cmd = f'sudo find {configs_path}/assert -mindepth 1 -maxdepth 1 -type f ! \\( {match_str} \\) -exec rm -rf {{}} +'
 
             c.sendline(cleanup_config_dir_cmd)
             c.expect(op_mode_prompt)
             c.sendline(cleanup_config_tests_dir_cmd)
             c.expect(op_mode_prompt)
+
 
         log.info('Adding a legacy WireGuard default keypair for migrations')
         c.sendline('sudo mkdir -p /config/auth/wireguard/default')
@@ -986,7 +1233,7 @@ try:
         c.expect(op_mode_prompt)
 
         log.info('Generating PKI objects')
-        c.sendline(f'/usr/bin/vyos-configtest-pki')
+        c.sendline('/usr/bin/vyos-configtest-pki')
         c.expect(op_mode_prompt, timeout=900)
 
         script_file = '/config/scripts/vyos-foo-update.script'
@@ -1024,19 +1271,22 @@ try:
     shutdownVM(c, log, 'Powering off system')
     c.close()
 
+except EarlyExit:
+    pass
+
 except pexpect.exceptions.TIMEOUT:
     log.error('Timeout waiting for VyOS system')
     log.error(traceback.format_exc())
     EXCEPTION = 1
 
 except pexpect.exceptions.ExceptionPexpect:
-    log.error('Exeption while executing QEMU')
+    log.error('Exception while executing QEMU')
     log.error('Is qemu working on this system?')
     log.error(traceback.format_exc())
     EXCEPTION = 1
 
 except Exception:
-    log.error('Unknown error occured!')
+    log.error('Unknown error occurred!')
     traceback.print_exc()
     EXCEPTION = 1
 

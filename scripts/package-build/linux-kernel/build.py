@@ -134,8 +134,8 @@ def build_package(package: dict, dependencies: list) -> None:
 
         # Execute the build command
         if package['build_cmd'] == 'build_kernel':
-            build_kernel(package['kernel_version'])
-            create_tarball(f'{package["name"]}-{package["kernel_version"]}', f'linux-{package["kernel_version"]}')
+            source_dir = build_kernel(package['kernel_version'])
+            create_tarball(f'{package["name"]}-{package["kernel_version"]}', source_dir)
         elif package['build_cmd'] == 'build_linux_firmware':
             build_linux_firmware(package['commit_id'], package['scm_url'])
             create_tarball(f'{package["name"]}-{package["commit_id"]}', f'{package["name"]}')
@@ -191,17 +191,22 @@ def merge_dicts(defaults, package):
     return {**defaults, **package}
 
 
-def build_kernel(kernel_version):
+def build_kernel(kernel_version) -> str:
     """Build the Linux kernel"""
-    run(['gpg2', '--locate-keys', 'torvalds@kernel.org', 'gregkh@kernel.org'], check=True)
-    run(['curl', '-OL', f'https://www.kernel.org/pub/linux/kernel/v6.x/linux-{kernel_version}.tar.xz'], check=True)
-    run(['curl', '-OL', f'https://www.kernel.org/pub/linux/kernel/v6.x/linux-{kernel_version}.tar.sign'], check=True)
-    # Using pipes to handle decompression and verification
-    with subprocess.Popen(['xz', '-cd', f'linux-{kernel_version}.tar.xz'], stdout=subprocess.PIPE) as proc_xz:
-        run(['gpg2', '--verify', f'linux-{kernel_version}.tar.sign', '-'], stdin=proc_xz.stdout, check=True)
-    run(['tar', 'xf', f'linux-{kernel_version}.tar.xz'], check=True)
-    os.symlink(f'linux-{kernel_version}', 'linux')
+    source_dir = 'linux' # Git source repo name - preferred over TAR
+    if not os.path.exists(source_dir):
+        run(['gpg2', '--locate-keys', 'torvalds@kernel.org', 'gregkh@kernel.org'], check=True)
+        run(['curl', '-OL', f'https://www.kernel.org/pub/linux/kernel/v6.x/linux-{kernel_version}.tar.xz'], check=True)
+        run(['curl', '-OL', f'https://www.kernel.org/pub/linux/kernel/v6.x/linux-{kernel_version}.tar.sign'], check=True)
+        # Using pipes to handle decompression and verification
+        with subprocess.Popen(['xz', '-cd', f'linux-{kernel_version}.tar.xz'], stdout=subprocess.PIPE) as proc_xz:
+            run(['gpg2', '--verify', f'linux-{kernel_version}.tar.sign', '-'], stdin=proc_xz.stdout, check=True)
+        run(['tar', 'xf', f'linux-{kernel_version}.tar.xz'], check=True)
+        source_dir = f'linux-{kernel_version}'
+        os.symlink(source_dir, 'linux')
+
     run(['./build-kernel.sh'], check=True)
+    return(source_dir)
 
 
 def build_linux_firmware(commit_id, scm_url):
@@ -237,12 +242,12 @@ def build_mellanox_ofed():
 
 def build_realtek_r8126():
     """Build Realtek r8126"""
-    run(['sudo', './build-realtek-r8126.py'], check=True)
+    run(['./build-realtek-r8126.py'], check=True)
 
 
 def build_realtek_r8152():
     """Build Realtek r8152"""
-    run(['sudo', './build-realtek-r8152.py'], check=True)
+    run(['./build-realtek-r8152.py'], check=True)
 
 
 def build_jool():

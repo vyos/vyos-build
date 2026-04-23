@@ -1,0 +1,169 @@
+name: VyOS ISO Integration Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - current
+      - circinus
+      - sagitta
+    paths:
+      - '**'
+      - '!.github/**'
+      - '!**/*.md'
+      - '!scripts/package-build/**'
+      - '!docker-vyos/**'
+  pull_request_target:
+    branches:
+      - current
+      - circinus
+      - sagitta
+    paths:
+      - '**'
+      - '!.github/**'
+      - '!**/*.md'
+      - '!scripts/package-build/**'
+      - '!docker-vyos/**'
+
+permissions:
+  pull-requests: write
+  contents: read
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BUILD_BY: autobuild@vyos.net
+  DEBIAN_MIRROR: http://deb.debian.org/debian/
+  DEBIAN_SECURITY_MIRROR: http://deb.debian.org/debian-security
+
+jobs:
+  set_config:
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.config.outputs.branch }}
+      vyos_mirror: ${{ steps.config.outputs.vyos_mirror }}
+      container_image: ${{ steps.config.outputs.container_image }}
+      use_pat: ${{ steps.config.outputs.use_pat }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set branch-specific configuration
+        id: config
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
+            BRANCH="${{ github.event.pull_request.base.ref }}"
+          else
+            BRANCH="${{ github.ref_name }}"
+          fi
+
+          CONFIG=$(jq ".branches[\"${BRANCH}\"]" .github/config/smoketest-branches.json)
+
+          if [ "$CONFIG" = "null" ] || [ -z "$CONFIG" ]; then
+            echo "::error::No smoketest configuration found for branch '${BRANCH}' in .github/config/smoketest-branches.json"
+            exit 1
+          fi
+
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+          echo "vyos_mirror=$(echo $CONFIG | jq -r .vyos_mirror)" >> $GITHUB_OUTPUT
+          echo "container_image=$(echo $CONFIG | jq -r .container_image)" >> $GITHUB_OUTPUT
+          echo "use_pat=$(echo $CONFIG | jq -r .use_pat)" >> $GITHUB_OUTPUT
+
+  build_iso:
+    needs: set_config
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ${{ needs.set_config.outputs.container_image }}
+      options: --sysctl net.ipv6.conf.lo.disable_ipv6=0 --privileged
+    outputs:
+      build_version: ${{ steps.version.outputs.build_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ needs.set_config.outputs.branch }}
+
+      - name: Generate ISO version string
+        id: version
+        run: |
+          echo "build_version=$(date -u +'%Y.%m.%d-%H%M-integration')" >> $GITHUB_OUTPUT
+
+      - name: Build custom ISO image
+        shell: bash
+        run: |
+          sudo --preserve-env ./build-vyos-image \
+          --architecture amd64 \
+          --build-by autobuild@vyos.net \
+          --build-type release \
+          --custom-package vyos-1x-smoketest \
+          --debian-mirror http://deb.debian.org/debian/ \
+          --debian-security-mirror http://deb.debian.org/debian-security \
+          --version ${{ steps.version.outputs.build_version }} \
+          --vyos-mirror ${{ needs.set_config.outputs.vyos_mirror }} \
+          generic
+
+      - uses: actions/upload-artifact@v6
+        with:
+          retention-days: 2
+          name: vyos-${{ steps.version.outputs.build_version }}
+          path: |
+            build/live-image-amd64.hybrid.iso
+            build/manifest.json
+
+  test_config_load:
+    needs: [build_iso, set_config]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: ${{ needs.set_config.outputs.container_image }}
+      options: --sysctl net.ipv6.conf.lo.disable_ipv6=0 --privileged
+    outputs:
+      exit_code: ${{ steps.test.outputs.exit_code }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ needs.set_config.outputs.branch }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: vyos-${{ needs.build_iso.outputs.build_version }}
+          path: build
+
+      - name: VyOS config load tests
+        id: test
+        shell: bash
+        run: |
+          if sudo make testc; then
+            echo "exit_code=success" >> $GITHUB_OUTPUT
+          else
+            echo "exit_code=fail" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  result:
+    needs:
+      - set_config
+      - test_config_load
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: always() && github.event_name == 'pull_request_target'
+    steps:
+      - name: Add PR comment
+        if: always() && github.event_name == 'pull_request_target'
+        uses: mshick/add-pr-comment@v3
+        with:
+          message: |
+            CI integration ${{ (needs.test_config_load.outputs.exit_code == 'success' && '👍 passed!') || '❌ failed!' }}
+
+            ### Details
+
+            [CI logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            * Config tests ${{ needs.test_config_load.outputs.exit_code == 'success' && '👍 passed' || '❌ failed' }}
+
+          message-id: "SMOKETEST_RESULTS"
+          allow-repeats: false
+          refresh-message-position: true

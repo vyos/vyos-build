@@ -49,6 +49,8 @@ jobs:
               - 'scripts/package-build/hsflowd/**'
             isc-dhcp:
               - 'scripts/package-build/isc-dhcp/**'
+            isc-kea:
+              - 'scripts/package-build/isc-kea/**'
             keepalived:
               - 'scripts/package-build/keepalived/**'
             libnss-mapuser:
@@ -78,6 +80,8 @@ jobs:
               - 'scripts/package-build/pyhumps/**'
             radvd:
               - 'scripts/package-build/radvd/**'
+            salt:
+              - 'scripts/package-build/salt/**'
             strongswan:
               - 'scripts/package-build/strongswan/**'
             tacacs:
@@ -167,6 +171,10 @@ jobs:
             trigger_build "isc-dhcp"
           fi
 
+          if [ "${{ steps.changes.outputs.isc-kea }}" == "true" ]; then
+            trigger_build "isc-kea"
+          fi
+
           if [ "${{ steps.changes.outputs.keepalived }}" == "true" ]; then
             trigger_build "keepalived"
           fi
@@ -221,6 +229,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.radvd }}" == "true" ]; then
             trigger_build "radvd"
+          fi
+
+          if [ "${{ steps.changes.outputs.salt }}" == "true" ]; then
+            trigger_build "salt"
           fi
 
           if [ "${{ steps.changes.outputs.strongswan }}" == "true" ]; then

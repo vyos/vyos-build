@@ -12,15 +12,5 @@ packages = [
   "amd64-microcode"
 ]
 
-[additional_repositories.salt]
-  architecture = "amd64"
-  url = "https://packages.vyos.net/saltproject/debian/11/amd64/3005"
-  distribution = "bullseye"
-
-[additional_repositories.zabbix]
-  url = "https://repo.zabbix.com/zabbix/6.0/debian"
-
-[additional_repositories.kea]
-  architecture = "amd64"
-  url = "https://dl.cloudsmith.io/public/isc/kea-3-0/deb/debian"
-  distribution = "bookworm"
+[boot_settings]
+  console_type = "ttyS"

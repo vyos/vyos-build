@@ -9,9 +9,6 @@ systemctl disable isc-kea-dhcp4-server.service
 systemctl disable isc-kea-dhcp6-server.service
 systemctl disable isc-kea-dhcp-ddns-server.service
 systemctl disable isc-dhcp-relay.service
-systemctl disable nfacctd.service
-systemctl disable sfacctd.service
-systemctl disable uacctd.service
 systemctl disable ssh.service
 systemctl disable sshguard.service
 systemctl disable openvpn.service
@@ -70,7 +67,7 @@ systemctl disable zabbix-agent2.service
 systemctl disable suricata.service
 systemctl disable vyconfd.service
 systemctl disable vpp.service
-systemctl disable netplug.service
+systemctl disable vyos-netlinkd.service
 
 echo I: Enabling services
 systemctl enable vyos-hostsd.service

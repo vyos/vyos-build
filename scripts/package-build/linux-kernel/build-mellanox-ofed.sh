@@ -53,7 +53,7 @@ fi
 # Verify integrity
 echo "${DRIVER_SHA1} ${DRIVER_FILE}" | sha1sum -c -
 if [ $? != 0 ]; then
-    echo SHA1 checksum missmatch
+    echo SHA1 checksum mismatch
     exit 1
 fi
 

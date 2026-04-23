@@ -1,4 +1,6 @@
 #!/bin/sh
+
+MULTIARCH="$(uname -m)-linux-gnu"
 PREREQ=""
 prereqs()
 {
@@ -23,7 +25,7 @@ manual_add_modules igb ixgbe ixgbevf i40e i40evf
 # force_load xxx
 
 # executable to copy to initramfs, with library dependencies
-copy_exec /usr/lib/x86_64-linux-gnu/libnss_dns.so.2
+copy_exec /usr/lib/${MULTIARCH}/libnss_dns.so.2
 
 # missing fsck in initramfs
 copy_exec /usr/sbin/fsck

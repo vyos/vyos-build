@@ -24,6 +24,23 @@ the box, please use [x]
 ## Related PR(s)
 <!-- Link here any PRs in other repositories that are required by this PR -->
 
+## How to test / Smoketest result
+<!---
+Please describe in detail how you tested your changes. Include details of your testing
+environment, and the tests you ran. When pasting configs, logs, shell output, backtraces,
+and other large chunks of text, surround this text with triple backtics
+```
+like this
+```
+
+Or provide the output of the smoketest
+
+```
+$ /usr/libexec/vyos/tests/smoke/cli/test_xxx_feature.py
+test_01_simple_options (__main__.TestFeature.test_01_simple_options) ... ok
+```
+-->
+
 ## Checklist:
 <!--- Go over all the following points, and put an `x` in all the boxes that apply. -->
 <!--- If you're unsure about any of these, don't hesitate to ask. We're here to help! -->

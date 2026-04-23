@@ -14,3 +14,6 @@ if [ $? -ne 0 ]; then
     echo "Failed to download GeoIP database"
     rm $OUT_PATH
 fi
+
+# Generate sqlite database
+python3 /usr/libexec/vyos/geoip-update.py --init

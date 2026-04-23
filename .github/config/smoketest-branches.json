@@ -1,0 +1,19 @@
+{
+  "branches": {
+    "current": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/current/",
+      "container_image": "vyos/vyos-build:current",
+      "use_pat": false
+    },
+    "circinus": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/circinus/",
+      "container_image": "vyos/vyos-build:circinus",
+      "use_pat": true
+    },
+    "sagitta": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/sagitta/",
+      "container_image": "vyos/vyos-build:sagitta",
+      "use_pat": true
+    }
+  }
+}

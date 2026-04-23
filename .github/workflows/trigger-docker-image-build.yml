@@ -6,6 +6,8 @@ on:
       - closed
     branches:
       - current
+      - circinus
+      - sagitta
 
 permissions:
   packages: write
@@ -26,7 +28,7 @@ jobs:
       - name: Checkout vyos/vyos-build repo
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - uses: dorny/paths-filter@v3
         id: changes
@@ -35,7 +37,7 @@ jobs:
             docker-dir:
               - 'docker/**'
 
-      - name: "Trigger Docker image build for ${{ github.ref_name }}"
+      - name: "Trigger Docker image build for ${{ github.event.pull_request.base.ref }}"
         if: ${{ steps.changes.outputs.docker-dir == 'true' }}
         run: |
           curl -L \
@@ -44,4 +46,4 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.PAT }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/${{ secrets.REMOTE_OWNER }}/${{ secrets.REMOTE_REUSE_REPO }}/actions/workflows/build-docker-image.yml/dispatches \
-            -d '{"ref": "${{ env.REF }}", "inputs":{"branch":"${{ github.ref_name }}", "environment":"production"}}'
+            -d '{"ref": "${{ env.REF }}", "inputs":{"branch":"${{ github.event.pull_request.base.ref }}", "environment":"production"}}'

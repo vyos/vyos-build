@@ -266,7 +266,7 @@ RUN GO_VERSION_INSTALL="1.23.2" ; \
 RUN echo "export PATH=/opt/go/bin:$PATH" >> /etc/bash.bashrc
 
 # Packages needed for Qemu test-suite
-# This is for now only supported on i386 and amd64 platforms
+# Packages for i386 and amd64 platforms
 RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
       apt-get update && apt-get install -y \
         python3-pexpect \
@@ -274,6 +274,15 @@ RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
         qemu-system-x86 \
         qemu-utils \
         qemu-kvm; \
+    fi
+
+# Packages for arm64 platform
+RUN if dpkg-architecture -iarm64; then \
+      apt-get update && apt-get install -y \
+        python3-pexpect \
+        ipxe-qemu \
+        qemu-system-aarch64 \
+        qemu-efi-aarch64; \
     fi
 
 # Packages needed for building vmware and GCE images
@@ -303,7 +312,7 @@ RUN apt-get update && apt-get install -y \
       python3-pytest-cov \
       cloud-utils
 
-# Install utillities for building grub and u-boot images
+# Install utilities for building grub and u-boot images
 RUN if dpkg-architecture -iarm64; then \
     apt-get update && apt-get install -y \
       dosfstools \
@@ -322,6 +331,12 @@ RUN git clone -b 4.4.6 https://github.com/perfsonar/i2util.git /tmp/i2util && \
       dpkg-buildpackage -uc -us -tc -b && \
       dpkg -i /tmp/*i2util*_$(dpkg-architecture -qDEB_HOST_ARCH).deb
 
+# Package needed for building Kea
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" \
+      > /etc/apt/sources.list.d/bookworm-backports.list \
+      && apt-get update \
+      && apt install -y -t bookworm-backports meson
+
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
       parted \
@@ -338,10 +353,10 @@ RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     chmod a+s /usr/sbin/useradd /usr/sbin/groupadd
 
-# Ensure sure all users have access to Go
+# Ensure all users have access to Go
 RUN echo "export PATH=/opt/go/bin:\$PATH" >> /etc/skel/.bashrc
 
-# Rise upper limit for UID when working in an Active Direcotry integrated
+# Raise upper limit for UID when working in an Active Directory integrated
 # environment. This solves the warning: vyos_bld's uid 1632000007 outside of the
 # UID_MIN 1000 and UID_MAX 60000 range.
 RUN sed -i 's/UID_MAX\t\t\t60000/UID_MAX\t\t\t2000000000/g' /etc/login.defs

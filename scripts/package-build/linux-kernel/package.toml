@@ -12,13 +12,13 @@ build_cmd = "build_kernel"
 
 [[packages]]
 name = "linux-firmware"
-commit_id = "20240610"
+commit_id = "20260110"
 scm_url = "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
 build_cmd = "build_linux_firmware"
 
 [[packages]]
 name = "accel-ppp-ng"
-commit_id = "a9ceadc"
+commit_id = "64e351d"
 scm_url = "https://github.com/accel-ppp/accel-ppp-ng.git"
 build_cmd = "build_accel_ppp_ng"
 
@@ -84,8 +84,8 @@ build_cmd = "build_realtek_r8152"
 
 [[packages]]
 name = "ipt-netflow"
-commit_id = "0eb2092e93"
-scm_url = "https://github.com/aabc/ipt-netflow"
+commit_id = "6135551"
+scm_url = "https://github.com/nuclearcat/ipt-netflow"
 build_cmd = "build_ipt_netflow"
 
 [dependencies]
@@ -100,6 +100,7 @@ packages = [
     "bc",
     "kmod",
     "cpio",
+    "ccache",
     "dwarves",
     "nasm",
     "rdfind",
@@ -110,8 +111,10 @@ packages = [
     "ruby-dev",
     "rubygems",
     "build-essential",
+    "binutils-dev",
     "libdw-dev",
     "libunwind-dev",
+    "libdebuginfod-dev",
     "systemtap-sdt-dev",
     "libslang2-dev",
     "python-dev-is-python3",
@@ -124,6 +127,8 @@ packages = [
     "liblua5.3-dev",
     "libssl3",
     "libssl-dev",
+    "libsnmp-dev",
+    "snmpd",
     "libpcre3-dev",
     "libnl-genl-3-dev",
     "libxtables-dev",

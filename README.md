@@ -34,9 +34,9 @@ There are several directories with their own purpose:
  * `build/`    Used for temporary files used for the build and for build artifacts
  * `data/`     Data required for building the ISO (e.g. boot splash/configs)
  * `packages/` This directory can hold arbitrary *.deb
-               packages which will be embeded into the resulting ISO.
+               packages which will be embedded into the resulting ISO.
                Among other things those packages will be: Linux Kernel, FRR,
-               Netfiler...
+               Netfilter...
  * `scripts/`  Scripts that are used for the build process
  * `tools/`    Scripts that are used for maintainer's tasks automation and other
                purposes, but not during ISO build process

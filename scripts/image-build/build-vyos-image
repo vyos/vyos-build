@@ -32,96 +32,9 @@ import datetime
 import functools
 import string
 
-## Check if the script is running wirh root permissions
-## Since live-build requires privileged calls such as chroot(),
-## there's no real way around it.
-if os.getuid() != 0:
-    print("E: this script requires root privileges")
-    sys.exit(1)
+class ImageBuildError(Exception):
+    pass
 
-# Import third-party modules
-try:
-    import tomli
-    import jinja2
-    import git
-except ModuleNotFoundError as e:
-    print(f"E: Cannot load required library {e}")
-    print("E: Please make sure the following Python3 modules are installed: tomli jinja2 git")
-    sys.exit(1)
-
-# Import local defaults
-import defaults
-
-## Load the file with default build configuration options
-try:
-    with open(defaults.DEFAULTS_FILE, 'rb') as f:
-        build_defaults = tomli.load(f)
-except Exception as e:
-    print("E: Failed to open the defaults file {0}: {1}".format(defaults.DEFAULTS_FILE, e))
-    sys.exit(1)
-
-# Checkout vyos-1x under build directory
-try:
-    branch_name = build_defaults['vyos_branch']
-    url_vyos_1x = os.getenv('VYOS1X_REPO_URL', default='https://github.com/vyos/vyos-1x')
-    path_vyos_1x = os.path.join(defaults.BUILD_DIR, 'vyos-1x')
-    try:
-        repo_vyos_1x = git.Repo.clone_from(url_vyos_1x, path_vyos_1x, no_checkout=True)
-    except git.GitCommandError:
-        if os.path.exists(path_vyos_1x):
-            try:
-                repo_vyos_1x = git.Repo(path_vyos_1x)
-            except git.GitError:
-                print(f'E: Corrupted vyos-1x git repo: {path_vyos_1x}; remove')
-                sys.exit(1)
-        else:
-            raise
-    # alternatively, pass commit hash or tag as arg:
-    repo_vyos_1x.git.checkout(branch_name)
-except Exception as e:
-    print(f'E: Could not retrieve vyos-1x from branch {branch_name}: {repr(e)}')
-    sys.exit(1)
-
-# Add the vyos-1x directory to the Python path so that
-# we can import modules from it.
-VYOS1X_DIR = os.path.join(os.getcwd(), defaults.BUILD_DIR, 'vyos-1x/python')
-if not os.path.exists(VYOS1X_DIR):
-    print("E: vyos-1x subdirectory does not exist, did git checkout fail?")
-    sys.exit(1)
-else:
-    sys.path.append(VYOS1X_DIR)
-
-# Import local modules from scripts/image-build
-# They rely on modules from vyos-1x
-import utils
-import raw_image
-
-from utils import cmd, rc_cmd
-
-## Check if there are missing build dependencies
-deps = {
-    'packages': [
-       'sudo',
-       'make',
-       'live-build',
-       'pbuilder',
-       'devscripts',
-       'python3-pystache',
-       'python3-git',
-       'qemu-utils',
-       'gdisk',
-       'kpartx',
-       'dosfstools'
-    ],
-   'binaries': []
-}
-
-print("I: Checking if packages required for VyOS image build are installed")
-try:
-    utils.check_system_dependencies(deps)
-except OSError as e:
-    print(f"E: {e}")
-    sys.exit(1)
 
 # argparse converts hyphens to underscores,
 # so for lookups in the original options hash we have to convert them back
@@ -167,7 +80,92 @@ def make_toml_path(dir, file_basename):
     return os.path.join(dir, file_basename + ".toml")
 
 
-if __name__ == "__main__":
+def build():
+    ## Check if the script is running with root permissions
+    ## Since live-build requires privileged calls such as chroot(),
+    ## there's no real way around it.
+    if os.getuid() != 0:
+        raise ImageBuildError('This script requires root privileges')
+
+    # Import third-party modules
+    try:
+        import tomli
+        import jinja2
+        import git
+    except ModuleNotFoundError as e:
+        raise ImageBuildError(f'Cannot load required library {e}. ' \
+                'Please make sure the following Python3 modules are installed: tomli jinja2 git')
+
+    # Import local defaults
+    import defaults
+
+    ## Load the file with default build configuration options
+    try:
+        with open(defaults.DEFAULTS_FILE, 'rb') as f:
+            build_defaults = tomli.load(f)
+    except Exception as e:
+        raise ImageBuildError(f'Failed to open the defaults file {defaults.DEFAULTS_FILE}: {e}')
+
+    # Checkout vyos-1x under build directory
+    try:
+        branch_name = build_defaults['vyos_branch']
+        url_vyos_1x = os.getenv('VYOS1X_REPO_URL', default='https://github.com/vyos/vyos-1x')
+        path_vyos_1x = os.path.join(defaults.BUILD_DIR, 'vyos-1x')
+        try:
+            repo_vyos_1x = git.Repo.clone_from(url_vyos_1x, path_vyos_1x, no_checkout=True)
+        except git.GitCommandError:
+            if os.path.exists(path_vyos_1x):
+                try:
+                    repo_vyos_1x = git.Repo(path_vyos_1x)
+                except git.GitError:
+                    raise ImageBuildError(f'Corrupted vyos-1x git repo: {path_vyos_1x}; remove')
+            else:
+                raise
+        # alternatively, pass commit hash or tag as arg:
+        repo_vyos_1x.git.checkout(branch_name)
+    except Exception as e:
+        raise ImageBuildError(f'Could not retrieve vyos-1x from branch {branch_name}: {repr(e)}')
+
+    # Add the vyos-1x directory to the Python path so that
+    # we can import modules from it.
+    VYOS1X_DIR = os.path.join(os.getcwd(), defaults.BUILD_DIR, 'vyos-1x/python')
+    if not os.path.exists(VYOS1X_DIR):
+        raise ImageBuildError('vyos-1x subdirectory does not exist, did git checkout fail?')
+    else:
+        sys.path.append(VYOS1X_DIR)
+
+    # Import local modules from scripts/image-build
+    # They rely on modules from vyos-1x
+    import utils
+    import raw_image
+
+    from utils import cmd, rc_cmd
+    from utils import directories
+
+    ## Check if there are missing build dependencies
+    deps = {
+        'packages': [
+           'sudo',
+           'make',
+           'live-build',
+           'pbuilder',
+           'devscripts',
+           'python3-pystache',
+           'python3-git',
+           'qemu-utils',
+           'gdisk',
+           'kpartx',
+           'dosfstools'
+        ],
+       'binaries': []
+    }
+
+    print("I: Checking if packages required for VyOS image build are installed")
+    try:
+        utils.check_system_dependencies(deps)
+    except OSError as e:
+        raise ImageBuildError(f'{e}')
+
     ## Get a list of available build flavors
     flavor_dir_env = os.getenv("VYOS_BUILD_FLAVORS_DIR")
     if flavor_dir_env:
@@ -230,15 +228,12 @@ if __name__ == "__main__":
         func = get_validator(options, k)
         if func is not None:
             if not func(v):
-                print("E: {v} is not a valid value for --{o} option".format(o=key, v=v))
-                sys.exit(1)
+                raise ImageBuildError(f'{v} is not a valid value for --{key} option')
 
     if not args["build_flavor"]:
-        print("E: Build flavor is not specified!")
-        print("E: For example, to build the generic ISO, run {} iso".format(sys.argv[0]))
-        print("Available build flavors:\n")
-        print("\n".join(build_flavors))
-        sys.exit(1)
+        raise ImageBuildError("Build flavor is not specified!\n" \
+                              'Available build flavors: ' +
+                              ', '.join(build_flavors))
 
     ## Try to get correct architecture and build type from build flavor and CLI arguments
     pre_build_config = copy.deepcopy(build_defaults)
@@ -251,11 +246,9 @@ if __name__ == "__main__":
             flavor_config = tomli.load(f)
             pre_build_config = merge_defaults(flavor_config, defaults=pre_build_config)
     except FileNotFoundError:
-        print(f"E: Flavor '{build_flavor}' does not exist")
-        sys.exit(1)
+        raise ImageBuildError(f'Build flavor "{build_flavor}" does not exist!')
     except tomli.TOMLDecodeError as e:
-        print(f"E: Failed to parse TOML file for flavor '{build_flavor}': {e}")
-        sys.exit(1)
+        raise ImageBuildError(f'Failed to parse TOML file for flavor "{build_flavor}": {e}')
 
     ## Combine configs args > flavor > defaults
     pre_build_config = merge_defaults(args, defaults=pre_build_config, skip_none=True)
@@ -265,8 +258,7 @@ if __name__ == "__main__":
     # but --pbuilder-debian-mirror or --debian-security-mirror are not,
     # use the --debian-mirror value for those
     if pre_build_config['debian_mirror'] is None:
-        print("E: debian_mirror must be specified")
-        sys.exit(1)
+        raise ImageBuildError('debian_mirror must be specified')
 
     if pre_build_config['pbuilder_debian_mirror'] is None:
         pre_build_config['pbuilder_debian_mirror'] = pre_build_config['debian_mirror']
@@ -278,8 +270,7 @@ if __name__ == "__main__":
     if args.get('version'):
         allowed = string.ascii_letters + string.digits + '.' + '-' + '+'
         if not set(args['version']) <= set(allowed):
-            print(f'Version string contains illegal character(s), allowed: {allowed}')
-            sys.exit(1)
+            raise ImageBuildError(f'Version string contains illegal character(s), allowed: {allowed}')
 
     ## Inject some useful hardcoded options
     args['build_dir'] = defaults.BUILD_DIR
@@ -292,11 +283,19 @@ if __name__ == "__main__":
     build_config = merge_defaults(build_defaults, defaults=build_config)
 
     ## Load correct mix-ins
-    with open(make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"]), 'rb') as f:
+    build_type_path = make_toml_path(defaults.BUILD_TYPES_DIR, pre_build_config["build_type"])
+    if not os.path.exists(build_type_path):
+        raise ImageBuildError(f'Build type "{pre_build_config["build_type"]}" does not exist')
+
+    with open(build_type_path, 'rb') as f:
         build_type_config = tomli.load(f)
         build_config = merge_defaults(build_type_config, defaults=build_config)
 
-    with open(make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"]), 'rb') as f:
+    build_arch_path = make_toml_path(defaults.BUILD_ARCHES_DIR, pre_build_config["architecture"])
+    if not os.path.exists(build_arch_path):
+        raise ImageBuildError(f'Architecture "{pre_build_config["architecture"]}" is not supported')
+
+    with open(build_arch_path, 'rb') as f:
         build_arch_config = tomli.load(f)
         build_config = merge_defaults(build_arch_config, defaults=build_config)
 
@@ -326,8 +325,7 @@ if __name__ == "__main__":
     ## Check if image format is specified,
     ## else we have no idea what we are actually supposed to build.
     if not has_nonempty_key(build_config, "image_format"):
-        print("E: image format is not specified in the build flavor file")
-        sys.exit(1)
+        raise ImageBuildError('Image format is not specified in the build flavor file')
 
     ## Override bootloaders if specified
     if args['bootloaders'] is not None:
@@ -357,7 +355,6 @@ if __name__ == "__main__":
 
     ## Dump the complete config if the user enabled debug mode
     if debug:
-        import json
         print("D: Effective build config:\n")
         print(json.dumps(build_config, indent=4))
 
@@ -373,7 +370,7 @@ if __name__ == "__main__":
         shutil.copytree(sb_certs, f'{lb_config_dir}/includes.chroot/var/lib/shim-signed/mok')
 
     # Switch to the build directory, this is crucial for the live-build work
-    # because the efective build config files etc. are there.
+    # because the effective build config files etc. are there.
     #
     # All directory paths from this point must be relative to BUILD_DIR,
     # not to the vyos-build repository root.
@@ -407,7 +404,7 @@ if __name__ == "__main__":
         # Initialize Git object from our repository
         try:
             repo = git.Repo('.', search_parent_directories=True)
-            # Retrieve the Git commit ID of the repository, 14 charaters will be sufficient
+            # Retrieve the Git commit ID of the repository, 14 characters will be sufficient
             build_git = repo.head.object.hexsha[:14]
 
             # Retrieve git branch name or current tag
@@ -441,6 +438,13 @@ if __name__ == "__main__":
                 version = "999.{0}".format(build_timestamp)
 
             build_config['version'] = version
+
+        flavor_data = {
+            'flavor': build_config["build_flavor"],
+            'console_type': build_config["boot_settings"]["console_type"],
+            'console_num': build_config["boot_settings"]["console_num"],
+            'console_speed': build_config["boot_settings"]["console_speed"]
+        }
 
         version_data = {
             'version': version,
@@ -482,6 +486,8 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         os.makedirs(vyos_data_dir, exist_ok=True)
         with open(os.path.join(vyos_data_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
+        with open(os.path.join(vyos_data_dir, 'flavor.json'), 'w') as f:
+            json.dump(flavor_data, f)
         with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
 
@@ -538,8 +544,7 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
                 components = repo_data.get('components', 'main')
 
                 if not url:
-                    print(f'E: repository {r} does not specify URL')
-                    sys.exit(1)
+                    raise ImageBuildError(f'Repository {r} does not specify URL')
 
                 if arch:
                     arch_string = f'[arch={arch}]'
@@ -585,7 +590,17 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         ## Create includes
         if has_nonempty_key(build_config, "includes_chroot"):
             for i in build_config["includes_chroot"]:
-                file_path = os.path.join(chroot_includes_dir, i["path"])
+                check_path = i["path"]
+                # T8185: flavor definition files containing a default config
+                # under [[includes_chroot]] may need corrected install path
+                if check_path == 'opt/vyatta/etc/config.boot.default':
+                    file_path = os.path.join(
+                        chroot_includes_dir,
+                        directories['data'].lstrip(os.sep),
+                        'config.boot.default'
+                    )
+                else:
+                    file_path = os.path.join(chroot_includes_dir, check_path)
                 if debug:
                     print(f"D: Creating chroot include file: {file_path}")
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -605,7 +620,11 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         ## Technically it's just another includes.chroot entry,
         ## but it's special enough to warrant making it easier for flavor writers
         if has_nonempty_key(build_config, "default_config"):
-            file_path = os.path.join(chroot_includes_dir, "opt/vyatta/etc/config.boot.default")
+            file_path = os.path.join(
+                chroot_includes_dir,
+                directories['data'].lstrip(os.sep),
+                'config.boot.default'
+            )
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, 'w') as f:
                 f.write(build_config["default_config"])
@@ -621,8 +640,8 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
                 --archive-areas "{{debian_archive_areas}}" \
                 --backports true \
                 --binary-image iso-hybrid \
-                --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
-                --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console=ttyS0,115200 console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console="{{boot_settings.console_type}}{{boot_settings.console_num}},{{boot_settings.console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console="{{boot_settings.console_type}}{{boot_settings.console_num}},{{boot_settings.console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
                 --bootloaders "{{bootloaders}}" \
                 --checksums "sha256" \
                 --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \
@@ -744,3 +763,10 @@ Pin-Priority: 600
 
     with open('manifest.json', 'w') as f:
         f.write(json.dumps(manifest))
+
+if __name__ == '__main__':
+    try:
+        build()
+    except ImageBuildError as e:
+        print(f"E: {e}")
+        sys.exit(1)

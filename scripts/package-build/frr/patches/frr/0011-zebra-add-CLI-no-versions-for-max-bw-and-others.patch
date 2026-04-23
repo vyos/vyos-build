@@ -1,0 +1,222 @@
+From 31a0930f89c6de17e8dcc83543f75dab96cd99cf Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Fri, 19 Dec 2025 10:40:46 +0200
+Subject: [PATCH] zebra: add CLI 'no' versions for max-bw and others
+
+Add '[no]' versions for commands:
+
+* max-bw
+* max-rsv-bw
+* unrsv-bw
+
+Without these frr-reload failed after deletion of link-params with these commands.
+
+For them to work update:
+
+* lib_interface_zebra_link_params_max_bandwidth_destroy
+* lib_interface_zebra_link_params_max_reservable_bandwidth_destroy
+* lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy
+
+All three forbid to destroy these parameters. New code allows it and
+sets value of these parameters to default_bw on removal.
+
+Fixes: #20310
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+---
+ zebra/zebra_cli.c       | 66 +++++++++++++++++++++++++----------------
+ zebra/zebra_nb_config.c | 49 ++++++++++++++++++++----------
+ 2 files changed, 75 insertions(+), 40 deletions(-)
+
+diff --git a/zebra/zebra_cli.c b/zebra/zebra_cli.c
+index befb3ec6be..3d04c1513d 100644
+--- a/zebra/zebra_cli.c
++++ b/zebra/zebra_cli.c
+@@ -379,21 +379,25 @@ static void lib_interface_zebra_link_params_metric_cli_write(
+ 
+ DEFPY_YANG (link_params_maxbw,
+ 	link_params_maxbw_cmd,
+-	"max-bw BANDWIDTH",
++	"[no] max-bw BANDWIDTH",
++	NO_STR
+ 	"Maximum bandwidth that can be used\n"
+ 	"Bytes/second (IEEE floating point format)\n")
+ {
+ 	char value[YANG_VALUE_MAXLEN];
+ 	float bw;
+ 
+-	if (sscanf(bandwidth, "%g", &bw) != 1) {
+-		vty_out(vty, "Invalid bandwidth value\n");
+-		return CMD_WARNING_CONFIG_FAILED;
+-	}
++	if (!no) {
++		if (sscanf(bandwidth, "%g", &bw) != 1) {
++			vty_out(vty, "Invalid bandwidth value\n");
++			return CMD_WARNING_CONFIG_FAILED;
++		}
+ 
+-	snprintf(value, sizeof(value), "%a", bw);
++		snprintf(value, sizeof(value), "%a", bw);
+ 
+-	nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_MODIFY, value);
++		nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_MODIFY, value);
++	} else
++		nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_DESTROY, NULL);
+ 
+ 	return nb_cli_apply_changes(vty, NULL);
+ }
+@@ -408,22 +412,25 @@ static void lib_interface_zebra_link_params_max_bandwidth_cli_write(
+ 
+ DEFPY_YANG (link_params_max_rsv_bw,
+ 	link_params_max_rsv_bw_cmd,
+-	"max-rsv-bw BANDWIDTH",
++	"[no] max-rsv-bw BANDWIDTH",
++	NO_STR
+ 	"Maximum bandwidth that may be reserved\n"
+ 	"Bytes/second (IEEE floating point format)\n")
+ {
+ 	char value[YANG_VALUE_MAXLEN];
+ 	float bw;
+ 
+-	if (sscanf(bandwidth, "%g", &bw) != 1) {
+-		vty_out(vty, "Invalid bandwidth value\n");
+-		return CMD_WARNING_CONFIG_FAILED;
+-	}
++	if (!no) {
++		if (sscanf(bandwidth, "%g", &bw) != 1) {
++			vty_out(vty, "Invalid bandwidth value\n");
++			return CMD_WARNING_CONFIG_FAILED;
++		}
+ 
+-	snprintf(value, sizeof(value), "%a", bw);
++		snprintf(value, sizeof(value), "%a", bw);
+ 
+-	nb_cli_enqueue_change(vty, "./max-reservable-bandwidth", NB_OP_MODIFY,
+-			      value);
++		nb_cli_enqueue_change(vty, "./max-reservable-bandwidth", NB_OP_MODIFY, value);
++	} else
++		nb_cli_enqueue_change(vty, "./max-reservable-bandwidth", NB_OP_DESTROY, NULL);
+ 
+ 	return nb_cli_apply_changes(vty, NULL);
+ }
+@@ -439,7 +446,8 @@ static void lib_interface_zebra_link_params_max_reservable_bandwidth_cli_write(
+ 
+ DEFPY_YANG (link_params_unrsv_bw,
+ 	link_params_unrsv_bw_cmd,
+-	"unrsv-bw (0-7)$priority BANDWIDTH",
++	"[no] unrsv-bw (0-7)$priority BANDWIDTH",
++	NO_STR
+ 	"Unreserved bandwidth at each priority level\n"
+ 	"Priority\n"
+ 	"Bytes/second (IEEE floating point format)\n")
+@@ -448,17 +456,25 @@ DEFPY_YANG (link_params_unrsv_bw,
+ 	char value[YANG_VALUE_MAXLEN];
+ 	float bw;
+ 
+-	if (sscanf(bandwidth, "%g", &bw) != 1) {
+-		vty_out(vty, "Invalid bandwidth value\n");
+-		return CMD_WARNING_CONFIG_FAILED;
+-	}
++	if (!no) {
++		if (sscanf(bandwidth, "%g", &bw) != 1) {
++			vty_out(vty, "Invalid bandwidth value\n");
++			return CMD_WARNING_CONFIG_FAILED;
++		}
+ 
+-	snprintf(xpath, sizeof(xpath),
+-		 "./unreserved-bandwidths/unreserved-bandwidth[priority='%s']/unreserved-bandwidth",
+-		 priority_str);
+-	snprintf(value, sizeof(value), "%a", bw);
++		snprintf(xpath, sizeof(xpath),
++			 "./unreserved-bandwidths/unreserved-bandwidth[priority='%s']/unreserved-bandwidth",
++			 priority_str);
++		snprintf(value, sizeof(value), "%a", bw);
+ 
+-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value);
++		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value);
++	} else {
++		snprintf(xpath, sizeof(xpath),
++			 "./unreserved-bandwidths/unreserved-bandwidth[priority='%s']",
++			 priority_str);
++
++		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
++	}
+ 
+ 	return nb_cli_apply_changes(vty, NULL);
+ }
+diff --git a/zebra/zebra_nb_config.c b/zebra/zebra_nb_config.c
+index 38533eb24b..5a2e8fe0e7 100644
+--- a/zebra/zebra_nb_config.c
++++ b/zebra/zebra_nb_config.c
+@@ -1459,11 +1459,16 @@ int lib_interface_zebra_link_params_max_bandwidth_modify(
+ int lib_interface_zebra_link_params_max_bandwidth_destroy(
+ 	struct nb_cb_destroy_args *args)
+ {
+-	if (args->event == NB_EV_VALIDATE) {
+-		snprintfrr(args->errmsg, args->errmsg_len,
+-			   "Removing max-bandwidth is not allowed");
+-		return NB_ERR_VALIDATION;
+-	}
++	struct interface *ifp;
++	struct if_link_params *iflp;
++
++	if (args->event != NB_EV_APPLY)
++		return NB_OK;
++
++	ifp = nb_running_get_entry(args->dnode, NULL, true);
++	iflp = if_link_params_get(ifp);
++	if (iflp)
++		link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, iflp->default_bw);
+ 
+ 	return NB_OK;
+ }
+@@ -1494,11 +1499,16 @@ int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
+ int lib_interface_zebra_link_params_max_reservable_bandwidth_destroy(
+ 	struct nb_cb_destroy_args *args)
+ {
+-	if (args->event == NB_EV_VALIDATE) {
+-		snprintfrr(args->errmsg, args->errmsg_len,
+-			   "Removing max-reservable-bandwidth is not allowed");
+-		return NB_ERR_VALIDATION;
+-	}
++	struct interface *ifp;
++	struct if_link_params *iflp;
++
++	if (args->event != NB_EV_APPLY)
++		return NB_OK;
++
++	ifp = nb_running_get_entry(args->dnode, NULL, true);
++	iflp = if_link_params_get(ifp);
++	if (iflp)
++		link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, iflp->default_bw);
+ 
+ 	return NB_OK;
+ }
+@@ -1532,11 +1542,20 @@ int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_c
+ int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy(
+ 	struct nb_cb_destroy_args *args)
+ {
+-	if (args->event == NB_EV_VALIDATE) {
+-		snprintfrr(args->errmsg, args->errmsg_len,
+-			   "Removing unreserved-bandwidth is not allowed");
+-		return NB_ERR_VALIDATION;
+-	}
++	struct interface *ifp;
++	struct if_link_params *iflp;
++	uint8_t priority;
++
++	if (args->event != NB_EV_APPLY)
++		return NB_OK;
++
++	priority = yang_dnode_get_uint8(args->dnode, "priority");
++
++	ifp = nb_running_get_entry(args->dnode, NULL, true);
++	iflp = if_link_params_get(ifp);
++	if (iflp)
++		link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
++					 iflp->default_bw);
+ 
+ 	return NB_OK;
+ }
+-- 
+2.50.1
+
