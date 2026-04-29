@@ -8,3 +8,19 @@ pull_request_rules:
       label:
         toggle:
           - conflicts
+
+commands_restrictions:
+  backport: &allowed
+    conditions:
+      - or:
+        - sender=@vyos/maintainers
+        - sender=vyosbot
+  copy: *allowed
+  dequeue: *allowed
+  queue: *allowed
+  rebase: *allowed
+  refresh: *allowed
+  requeue: *allowed
+  squash: *allowed
+  unqueue: *allowed
+  update: *allowed
