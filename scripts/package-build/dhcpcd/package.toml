@@ -1,0 +1,10 @@
+[[packages]]
+name = "dhcpcd"
+commit_id = "debian/1%10.1.0-11+deb13u2"
+scm_url = "https://salsa.debian.org/debian/dhcpcd.git"
+build_cmd = """
+export DEBEMAIL="maintainers@vyos.net"
+export DEBFULLNAME="VyOS Package Maintainers"
+dch -v "1:10.1.0-11+deb13u2+vyos0" "IPv6-only build with link-local address management disabled"
+dpkg-buildpackage -uc -us -tc -b
+"""

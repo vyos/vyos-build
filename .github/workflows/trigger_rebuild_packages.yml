@@ -35,6 +35,8 @@ jobs:
               - 'scripts/package-build/bash-completion/**'
             ddclient:
               - 'scripts/package-build/ddclient/**'
+            dhcpcd:
+              - 'scripts/package-build/dhcpcd/**'
             dropbear:
               - 'scripts/package-build/dropbear/**'
             ethtool:
@@ -96,8 +98,6 @@ jobs:
               - 'scripts/package-build/vpp/**'
             waagent:
               - 'scripts/package-build/waagent/**'
-            wide-dhcpv6:
-              - 'scripts/package-build/wide-dhcpv6/**'
             xen-guest-agent:
               - 'scripts/package-build/xen-guest-agent/**'
             zerotier-one:
@@ -141,6 +141,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.ddclient }}" == "true" ]; then
             trigger_build "ddclient"
+          fi
+
+          if [ "${{ steps.changes.outputs.dhcpcd }}" == "true" ]; then
+            trigger_build "dhcpcd"
           fi
 
           if [ "${{ steps.changes.outputs.dropbear }}" == "true" ]; then
@@ -261,10 +265,6 @@ jobs:
 
           if [ "${{ steps.changes.outputs.waagent }}" == "true" ]; then
             trigger_build "waagent"
-          fi
-
-          if [ "${{ steps.changes.outputs.wide-dhcpv6 }}" == "true" ]; then
-            trigger_build "ethtool"
           fi
 
           if [ "${{ steps.changes.outputs.xen-guest-agent }}" == "true" ]; then

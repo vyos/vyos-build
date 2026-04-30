@@ -1,0 +1,64 @@
+Description: Add --disable-lladdr configure knob
+ When --disable-lladdr is passed, the IN6_ADDR_GEN_MODE_NONE detection
+ check is skipped, leaving HAVE_IN6_ADDR_GEN_MODE_NONE undefined.
+ The existing #ifdef HAVE_IN6_ADDR_GEN_MODE_NONE / #else structure in
+ src/ipv6.c causes CAN_ADD_LLADDR() to evaluate to 0, so
+ ipv6_tryaddlinklocal() returns early and link-local address management
+ is effectively compiled out. No changes to .c or .h files.
+Author: VyOS Package Maintainers <maintainers@vyos.net>
+Forwarded: not-needed
+Last-Update: 2026-04-29
+
+--- a/configure
++++ b/configure
+@@ -39,6 +39,7 @@ SMALL=
+ SANITIZE=no
+ STATUSARG=
+ OPENSSL=
++LLADDR=
+
+ DHCPCD_DEFS=dhcpcd-definitions.conf
+
+@@ -77,6 +78,8 @@ for x do
+ 	--enable-seccomp) SECCOMP=yes;;
+ 	--disable-ntp) NTP=no;;
+ 	--enable-ntp) NTP=yes;;
++	--disable-lladdr) LLADDR=no;;
++	--enable-lladdr) LLADDR=yes;;
+ 	--privsepuser) PRIVSEP_USER=$var;;
+ 	--prefix) PREFIX=$var;prefix=$var;; # prefix is set for autotools compat
+ 	--sysconfdir) SYSCONFDIR=$var;;
+@@ -700,21 +703,25 @@ EOF
+ 	fi
+ 	rm -f _nl80211.c _nl80211
+
+-	printf "Testing for IN6_ADDR_GEN_MODE_NONE ... "
+-	cat <<EOF >_IN6_ADDR_GEN_MODE_NONE.c
++	if [ "$LLADDR" = no ]; then
++		printf "Skipping IN6_ADDR_GEN_MODE_NONE (--disable-lladdr)\n"
++	else
++		printf "Testing for IN6_ADDR_GEN_MODE_NONE ... "
++		cat <<EOF >_IN6_ADDR_GEN_MODE_NONE.c
+ #include <linux/if_link.h>
+ int main(void) {
+ 	int x = IN6_ADDR_GEN_MODE_NONE;
+ 	return x;
+ }
+ EOF
+-	if $XCC _IN6_ADDR_GEN_MODE_NONE.c -o _IN6_ADDR_GEN_MODE_NONE 2>&3; then
+-		echo "yes"
+-		echo "#define	HAVE_IN6_ADDR_GEN_MODE_NONE" >>$CONFIG_H
+-	else
+-		echo "no"
++		if $XCC _IN6_ADDR_GEN_MODE_NONE.c -o _IN6_ADDR_GEN_MODE_NONE 2>&3; then
++			echo "yes"
++			echo "#define	HAVE_IN6_ADDR_GEN_MODE_NONE" >>$CONFIG_H
++		else
++			echo "no"
++		fi
++		rm -f _IN6_ADDR_GEN_MODE_NONE.c _IN6_ADDR_GEN_MODE_NONE
+ 	fi
+-	rm -f _IN6_ADDR_GEN_MODE_NONE.c _IN6_ADDR_GEN_MODE_NONE
+ else
+ 	printf "Testing for ifam_pid ... "
+ 	cat <<EOF >_ifam_pid.c

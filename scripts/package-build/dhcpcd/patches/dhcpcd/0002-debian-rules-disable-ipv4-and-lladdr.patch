@@ -1,0 +1,25 @@
+Description: Pass --disable-lladdr and IPv4-related flags to configure
+ Extends the debian/rules configure invocation to pass --disable-lladdr,
+ --disable-ipv4, --disable-arp, --disable-arping, and --disable-ipv4ll.
+ The resulting VyOS dhcpcd build is IPv6-only with link-local address
+ management absent from the binary entirely.
+Author: VyOS Package Maintainers <maintainers@vyos.net>
+Forwarded: not-needed
+Last-Update: 2026-04-29
+
+--- a/debian/rules
++++ b/debian/rules
+@@ -13,7 +13,12 @@ override_dh_auto_configure:
+ 		--libexecdir=/usr/lib/dhcpcd \
+ 		--rundir=/run/dhcpcd \
+ 		--with-openssl \
+-		--with-hooks="timesyncd.conf"
++		--with-hooks="timesyncd.conf" \
++		--disable-lladdr \
++		--disable-ipv4 \
++		--disable-arp \
++		--disable-arping \
++		--disable-ipv4ll
+
+ # Avoid starting the unconfigured service as it may break connectivity.
+ override_dh_installinit:

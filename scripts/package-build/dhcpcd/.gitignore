@@ -1,0 +1,6 @@
+dhcpcd/
+*.deb
+*.buildinfo
+*.changes
+*.dsc
+*.tar.*

@@ -31,8 +31,8 @@ systemctl disable apt-daily.timer
 systemctl disable apt-daily-upgrade.timer
 systemctl disable apt-daily-upgrade.service
 systemctl disable chrony.service
+systemctl disable dhcpcd.service
 systemctl disable igmpproxy.service
-systemctl disable wide-dhcpv6-client.service
 systemctl disable lm-sensors.service
 systemctl disable snmpd.service
 systemctl disable conserver-server.service
