@@ -141,6 +141,8 @@ def build():
 
     from utils import cmd, rc_cmd
     from utils import directories
+    from utils import activation_hint
+    from utils import activation_init
 
     ## Check if there are missing build dependencies
     deps = {
@@ -491,6 +493,13 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
 
+        # For initialization of activation scripts, we need to know if we
+        # are building with create_raw_image
+        if build_config["image_format"] != ["iso"]:
+            raw_build_hint = os.path.join(vyos_data_dir, os.path.basename(activation_hint))
+            with open(raw_build_hint, 'w') as f:
+                pass
+
         # For backwards compatibility with 'add system image' script from older versions
         # we need a file in the old format so that script can find out the version of the image
         # for upgrade
@@ -628,6 +637,16 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, 'w') as f:
                 f.write(build_config["default_config"])
+
+        ## Allow override of which activation scripts are enabled at boot
+        if has_nonempty_key(build_config, "activation_init"):
+            file_path = os.path.join(
+                chroot_includes_dir,
+                activation_init.lstrip(os.sep)
+            )
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write(build_config["activation_init"])
 
         ## Configure live-build
         lb_config_tmpl = jinja2.Template("""

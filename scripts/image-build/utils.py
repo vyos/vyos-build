@@ -26,6 +26,8 @@ import defaults
 import vyos
 
 from vyos.defaults import directories
+from vyos.defaults import activation_hint
+from vyos.defaults import activation_init
 
 
 def check_build_config():
