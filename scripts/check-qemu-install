@@ -302,6 +302,14 @@ def shutdownVM(c, log, message=''):
         log.error(tmp)
         raise Exception(tmp)
 
+def waitForLogin(child, log, timeout=20) -> None:
+    try:
+        child.expect('The highlighted entry will be executed automatically in',
+                     timeout=timeout)
+        child.sendline('')
+    except pexpect.TIMEOUT:
+        log.warning('Did not find GRUB countdown window, ignoring')
+
 def loginVM(c, log):
     log.info('Waiting for login prompt')
     c.expect('[Ll]ogin:', timeout=600)
@@ -819,12 +827,7 @@ try:
     #################################################
     # Logging into VyOS system
     #################################################
-    try:
-        c.expect('The highlighted entry will be executed automatically in', timeout=10)
-        c.sendline('')
-    except pexpect.TIMEOUT:
-        log.warning('Did not find GRUB countdown window, ignoring')
-
+    waitForLogin(c, log)
     loginVM(c, log)
 
     #################################################
@@ -940,11 +943,7 @@ try:
         log.info('system installed, rebooting')
         c.sendline('reboot now')
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
+        waitForLogin(c, log)
 
         # Check for vyos-router message
         c.expect('.*Mounted encrypted config volume', timeout=120)
@@ -973,11 +972,7 @@ try:
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
+        waitForLogin(c, log)
 
         c.expect('.*Encrypted config volume has not been mounted', timeout=120)
 
@@ -1019,12 +1014,7 @@ try:
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
-
+        waitForLogin(c, log)
         loginVM(c, log)
 
         # New recovery key
@@ -1055,11 +1045,7 @@ try:
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
+        waitForLogin(c, log)
 
         c.expect('.*encrypted config volume will not be automatically mounted', timeout=120)
 
@@ -1115,12 +1101,7 @@ try:
         #################################################
         # Logging into VyOS system
         #################################################
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
-
+        waitForLogin(c, log)
         loginVM(c, log)
 
         c.sendline('cat /proc/mdstat')
