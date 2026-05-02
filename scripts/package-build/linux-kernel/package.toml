@@ -30,7 +30,7 @@ build_cmd = "build_openvpn_dco"
 
 [[packages]]
 name = "nat-rtsp"
-commit_id = "475af0a"
+commit_id = "5aeee02"
 scm_url = "https://github.com/maru-sama/rtsp-linux.git"
 build_cmd = "build_nat_rtsp"
 
