@@ -142,6 +142,9 @@ parser.add_argument('--isolate-cpus', help='CPU cores to isolate (e.g., 1,3-4', 
 
 args = parser.parse_args()
 
+if os.geteuid() != 0:
+    exit('You need to have root privileges to run this script.')
+
 if args.cloud_init:
     hostname = CI_CONFIG_ARGS['hostname']
     op_mode_prompt = rf'vyos@{hostname}:~\$'
