@@ -1,4 +1,4 @@
-From f53e78b89a08d9dfaeb58789567429b714112470 Mon Sep 17 00:00:00 2001
+From c1a42d7b8774f2ec81a6946f96fa1238b6539115 Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Wed, 22 Apr 2026 09:32:22 +0300
 Subject: [PATCH 2/2] pathd: add optional parameters to `no index` cmd
@@ -10,6 +10,7 @@ Merge `no index` and `index` commands to fix this. `no` version ignores
 all additional parameters, which are made optional in case of `no`.
 
 Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+(cherry picked from commit 7735ca88019a4fc6a9affee9df276b9c99773148)
 ---
  pathd/path_cli.c | 36 ++++++++++++------------------------
  1 file changed, 12 insertions(+), 24 deletions(-)
