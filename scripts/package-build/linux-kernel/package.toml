@@ -42,19 +42,19 @@ build_cmd = "build_intel_qat"
 
 [[packages]]
 name = "igb"
-commit_id = "v5.18.7"
+commit_id = "v5.19.10"
 scm_url = "https://github.com/intel/ethernet-linux-igb"
 build_cmd = "build_intel_igb"
 
 [[packages]]
 name = "ixgbe"
-commit_id = "v6.0.5"
+commit_id = "v6.3.6"
 scm_url = "https://github.com/intel/ethernet-linux-ixgbe"
 build_cmd = "build_intel_ixgbe"
 
 [[packages]]
 name = "ixgbevf"
-commit_id = "v5.0.2"
+commit_id = "v5.2.2"
 scm_url = "http://github.com/intel/ethernet-linux-ixgbevf"
 build_cmd = "build_intel_ixgbevf"
 
