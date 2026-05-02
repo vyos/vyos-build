@@ -453,10 +453,10 @@ def toggleUEFISecureBoot(c):
     UEFIKeyPress(c, KEY_DOWN)
     UEFIKeyPress(c, KEY_RETURN)
 
-def BOOTLOADERchooseSerialConsole(c, live: bool) -> None:
+def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
     """ Select GRUB boot entry that uses the serial console. This differs
         between a LIVE ISO image and an already installed system. """
-    BOOTLOADER_TMO = 20
+    BOOTLOADER_TMO = 40
     BOOTLOADER_SLEEP = 1.5
     BOOTLOADER_LOAD_TMO = 5 # let GRUB screen load
 
@@ -467,60 +467,60 @@ def BOOTLOADERchooseSerialConsole(c, live: bool) -> None:
     # XXX: UEFI systems directly load GRUB, BIOS systems fallback to ISOLINUX
     if live and args.uefi:
         # Let UEFI start before GRUB
-        c.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
         # Wait for GRUB
-        c.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
         time.sleep(BOOTLOADER_LOAD_TMO)
 
         # Select GRUB serial console
         # Key DOWN -> fail-safe mode
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Key DOWN -> Serial Console boot
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Boot
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
     elif live and not args.uefi:
         # Wait for ISOLINUX
-        c.expect(ISOLINUX_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(ISOLINUX_STRING, timeout=BOOTLOADER_TMO)
         time.sleep(BOOTLOADER_LOAD_TMO)
 
         # Boot Menu starts at Live system (vyos) - KVM console
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Live system (vyos fail-safe mode)
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Live system (vyos) - Serial console - boot it up
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
     else:
         # Let UEFI start before GRUB
         if args.uefi:
-            c.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
+            child.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
 
         # Wait for GRUB
-        c.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
         time.sleep(BOOTLOADER_LOAD_TMO)
 
         # Select GRUB serial console
         # Boot options
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
         # Select console type
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
         # *ttyS (serial)
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
         # Boot
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
 
     return None
 
