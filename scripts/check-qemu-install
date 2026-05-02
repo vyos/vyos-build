@@ -301,6 +301,7 @@ def shutdownVM(c, log, message=''):
         tmp = 'VM Did not shut down after 300sec'
         log.error(tmp)
         raise Exception(tmp)
+    c.close()
 
 def waitForLogin(child, log, timeout=20) -> None:
     try:
