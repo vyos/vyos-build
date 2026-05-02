@@ -4,11 +4,12 @@
 # the magic word "UNIQUE_ID_firmware" which identifies firmware files.
 
 CWD=$(pwd)
-LINUX_SRC="linux"
 LINUX_FIRMWARE="linux-firmware"
 KERNEL_VAR_FILE=${CWD}/kernel-vars
 
-if [ ! -d ${LINUX_SRC} ]; then
+. ${KERNEL_VAR_FILE}
+
+if [ ! -d ${KERNEL_DIR} ]; then
     echo "Kernel source missing"
     exit 1
 fi
@@ -18,11 +19,8 @@ if [ ! -d ${LINUX_FIRMWARE} ]; then
     exit 1
 fi
 
-. ${KERNEL_VAR_FILE}
-
-result=()
 # Retrieve firmware blobs from source files
-FW_FILES=$(find ${LINUX_SRC}/debian/linux-image/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/kernel/drivers/net -name *.ko | xargs modinfo | grep "^firmware:" | awk '{print $2}')
+FW_FILES=$(find ${KERNEL_DIR}/debian/linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/kernel/drivers/net -name *.ko | xargs modinfo | grep "^firmware:" | awk '{print $2}')
 
 # Debian package will use the descriptive Git commit as version
 GIT_COMMIT=$(cd ${CWD}/${LINUX_FIRMWARE}; git describe --always)
