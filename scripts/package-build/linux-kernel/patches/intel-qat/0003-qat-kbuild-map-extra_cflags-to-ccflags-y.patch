@@ -1,0 +1,26 @@
+From: Christian Breunig <christian@breunig.cc>
+Subject: [PATCH] qat: map EXTRA_CFLAGS into ccflags-y for Linux 6.x kbuild
+
+Linux kbuild no longer applies EXTRA_CFLAGS for out-of-tree module builds the
+way older kernels did. Intel QAT's build system still funnels include paths and
+defines through EXTRA_CFLAGS (via env_files/linux_2.6_kernel_space.mk), which
+results in missing vendor headers (qae_mem.h, Osal.h, etc.) when building
+against newer kernels.
+
+Mirror EXTRA_CFLAGS into ccflags-y after including OS-specific rules so the
+flags reach the compiler.
+
+--- a/quickassist/build_system/build_files/rules.mk
++++ b/quickassist/build_system/build_files/rules.mk
+@@ -121,3 +121,11 @@
+ 
+ #include specific rules according to $(PROG_ACY)_OS and $(PROG_ACY)_OS_LEVEL
+ include $($(PROG_ACY)_BUILDSYSTEM_PATH)/build_files/OS/$($(PROG_ACY)_OS)_$($(PROG_ACY)_OS_LEVEL)_rules.mk
++
++# Linux kbuild (v6.x+) no longer honors EXTRA_CFLAGS for out-of-tree modules.
++# Intel QAT historically routes include paths and defines through EXTRA_CFLAGS via
++# env_files/linux_2.6_kernel_space.mk. Mirror those flags into ccflags-y so they
++# actually reach the compiler when invoking the kernel build system.
++ifdef KERNELRELEASE
++ccflags-y += $(EXTRA_CFLAGS)
++endif

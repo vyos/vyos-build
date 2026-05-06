@@ -1,62 +1,102 @@
-diff --git c/scripts/package/builddeb i/scripts/package/builddeb
-index d7dd0d04c70c..6f4a9a7c2c62 100755
---- c/scripts/package/builddeb
-+++ i/scripts/package/builddeb
-@@ -182,6 +182,16 @@ install_libc_headers () {
- 	mv $pdir/usr/include/asm $pdir/usr/include/$host_arch/
+From: Christian Breunig <christian@breunig.cc>
+Subject: [PATCH] VyOS: build a linux-perf Debian package alongside the kernel
+
+The upstream "make bindeb-pkg" target stopped emitting a perf package
+quite a while ago. Re-add it by hooking into the new builddeb / mkdebian
+infrastructure:
+
+  * mkdebian: emit a "linux-perf-${KERNELRELEASE}" stanza in
+    debian/control whenever the architecture is not user-mode-linux.
+  * scripts/package/debian/rules: add a "binary-perf" target so the
+    binary build loop processes the new package.
+  * builddeb: add an install_perf() helper that invokes
+    "make -C tools/perf install" with prefix=/usr and DESTDIR pointing
+    at the package staging directory, plus a dispatch case for
+    "linux-perf-*" packages.
+
+Refreshed for Linux 6.18.x: the old patch targeted the previous loop
+based scripts/package/builddeb (one-shot builddeb invocation that
+iterated over every package); since v6.7 the package build is driven
+per-package from debian/rules, so we have to extend that mechanism
+instead.
+---
+ scripts/package/builddeb      | 16 ++++++++++++++++
+ scripts/package/debian/rules  |  3 ++-
+ scripts/package/mkdebian      | 12 ++++++++++++
+ 3 files changed, 30 insertions(+), 1 deletion(-)
+
+diff --git a/scripts/package/builddeb b/scripts/package/builddeb
+--- a/scripts/package/builddeb
++++ b/scripts/package/builddeb
+@@ -156,6 +156,20 @@ install_libc_headers () {
+ 	mv "$pdir/usr/include/asm" "$pdir/usr/include/${DEB_HOST_MULTIARCH}"
  }
  
 +install_perf () {
-+	pdir=$1
++	pdir=debian/$1
 +
-+	rm -rf $pdir
++	rm -rf "$pdir"
++	mkdir -p "$pdir"
 +
-+	$MAKE -C tools/ perf_install prefix=$pdir/usr
-+	mv tools/perf/$pdir/usr $srctree/$pdir
-+
++	# In-source kernel builds export srctree as a relative path (".").
++	# "make -C tools/perf" changes the working directory, which breaks
++	# Makefile.perf's "include $(srctree)/tools/build/Makefile.include"
++	# unless srctree is absolute. Force an absolute path here.
++	$MAKE -C "$srctree/tools/perf" srctree="$(realpath "$srctree")" \
++		prefix=/usr DESTDIR="$(pwd)/$pdir" install
 +}
 +
- rm -f debian/files
+ package=$1
  
- packages_enabled=$(dh_listpackages)
-@@ -199,6 +209,8 @@ do
- 		install_libc_headers debian/linux-libc-dev;;
- 	linux-headers-*)
- 		install_kernel_headers debian/linux-headers ${package#linux-headers-};;
-+	linux-perf-*)
-+		install_perf debian/linux-perf ${package};;
- 	esac
- done
+ case "${package}" in
+@@ -167,4 +181,6 @@ linux-libc-dev)
+ 	install_libc_headers "${package}";;
+ linux-headers-*)
+ 	install_kernel_headers "${package}";;
++linux-perf-*)
++	install_perf "${package}";;
+ esac
+diff --git a/scripts/package/debian/rules b/scripts/package/debian/rules
+--- a/scripts/package/debian/rules
++++ b/scripts/package/debian/rules
+@@ -27,13 +27,14 @@ make-opts = ARCH=$(ARCH) KERNELRELEASE=$(KERNELRELEASE) \
+     $(addprefix KBUILD_BUILD_VERSION=,$(revision)) \
+     $(addprefix CROSS_COMPILE=,$(CROSS_COMPILE))
  
-@@ -213,6 +225,8 @@ do
- 		create_package ${package} debian/linux-libc-dev;;
- 	linux-headers-*)
- 		create_package ${package} debian/linux-headers;;
-+	linux-perf-*)
-+		create_package ${package} debian/linux-perf;;
- 	esac
- done
+-binary-targets := $(addprefix binary-, image image-dbg headers libc-dev)
++binary-targets := $(addprefix binary-, image image-dbg headers libc-dev perf)
  
-diff --git c/scripts/package/mkdebian i/scripts/package/mkdebian
-index 5044224cf671..21f98ae50be0 100755
---- c/scripts/package/mkdebian
-+++ i/scripts/package/mkdebian
-@@ -238,6 +238,18 @@ Description: Linux support headers for userspace development
- Multi-Arch: same
+ all-packages = $(shell dh_listpackages)
+ image-package = $(filter linux-image-% user-%, $(filter-out %-dbg, $(all-packages)))
+ image-dbg-package = $(filter %-dbg, $(all-packages))
+ libc-dev-package = $(filter linux-libc-dev, $(all-packages))
+ headers-package = $(filter linux-headers-%, $(all-packages))
++perf-package = $(filter linux-perf-%, $(all-packages))
+ 
+ mk-files = $(patsubst binary-%,debian/%.files,$1)
+ package = $($(@:binary-%=%-package))
+diff --git a/scripts/package/mkdebian b/scripts/package/mkdebian
+--- a/scripts/package/mkdebian
++++ b/scripts/package/mkdebian
+@@ -247,6 +247,18 @@ Description: Linux kernel headers for ${KERNELRELEASE} on $debarch
+  This is useful for people who need to build external modules
  EOF
- 
+ fi
++
 +cat <<EOF >> debian/control
 +
-+Package: linux-perf-$version
++Package: linux-perf-${KERNELRELEASE}
 +Section: devel
 +Architecture: $debarch
 +Depends: libpfm4, libslang2, libtraceevent1
-+Description: Performance analysis tools for Linux $version
++Description: Performance analysis tools for Linux ${KERNELRELEASE}
 + This package contains the 'perf' performance analysis tools for Linux
-+ kernel version $version .
++ kernel version ${KERNELRELEASE}.
 +Multi-Arch: same
 +EOF
-+
- if is_enabled CONFIG_MODULES; then
- cat <<EOF >> debian/control
+ fi
  
+ if is_enabled CONFIG_DEBUG_INFO; then
+-- 
+2.39.5
+
