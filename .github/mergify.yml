@@ -22,5 +22,4 @@ commands_restrictions:
   refresh: *allowed
   requeue: *allowed
   squash: *allowed
-  unqueue: *allowed
   update: *allowed
