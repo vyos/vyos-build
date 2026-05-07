@@ -1,0 +1,60 @@
+From c58e42c5c9bc2bcbeb8af5c8d259b4d0b500cbde Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Thu, 7 May 2026 15:42:51 +0300
+Subject: [PATCH] ospf6d: Fix command output for default route
+
+Commit 026f24989fd2451975bbf5edffd7d4a443d10a44 introduced a bug:
+
+When entering configuration
+
+----
+route-map foo-bar-3 permit 10
+exit
+router ospf6
+ default-information originate  metric-type 1 route-map foo-bar-3
+exit
+----
+
+Then `write terminal` outputs:
+
+----
+router ospf6
+ redistribute unknown metric-type 1 route-map foo-bar-3
+ default-information originate metric-type 1 route-map foo-bar-3
+exit
+---
+
+`redistribute unknown metric-type 1 route-map foo-bar-3` is invalid
+command, after this `frr-reload.py` is totally ununsable even with
+`--test` option.
+
+Fix by reverting one line of that commit, in output loop it is needed to
+have `< ZEBRA_ROUTE_MAX`, not `<=`.
+
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+---
+ ospf6d/ospf6_asbr.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/ospf6d/ospf6_asbr.c b/ospf6d/ospf6_asbr.c
+index d3806062a8..c0fbe308b7 100644
+--- a/ospf6d/ospf6_asbr.c
++++ b/ospf6d/ospf6_asbr.c
+@@ -1809,7 +1809,13 @@ int ospf6_redistribute_config_write(struct vty *vty, struct ospf6 *ospf6)
+ 	int type;
+ 	struct ospf6_redist *red;
+ 
+-	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
++	/*
++	 * type < ZEBRA_ROUTE_MAX is intentional here: otherwise
++	 * for default routes invalid command
++	 *		no redistribute unknown metric-type 1 route-map foo-bar-baz-0815
++	 * will be output
++	 */
++	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+ 		red = ospf6_redist_lookup(ospf6, type, 0);
+ 		if (!red)
+ 			continue;
+-- 
+2.51.2
+
