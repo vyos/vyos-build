@@ -91,11 +91,6 @@ make generic                            # builds the generic flavor
 - PR conflicts are flagged automatically via `check-pr-conflicts.yml` (reusable
   `check-pr-merge-conflict.yml` from `vyos/.github@current`).
 
-## Mirror relationship
-
-**Live consumer** of the gen-1 PR mirror pipeline (`pr-mirror-repo-sync.yml`).
-Mirror twin: `VyOS-Networks/vyos-build`. Edit canonical side only.
-
 ## Notes for future contributors
 
 - No `git submodule init` needed - packages come from the apt mirror at build
@@ -105,6 +100,6 @@ Mirror twin: `VyOS-Networks/vyos-build`. Edit canonical side only.
   Open a Phorge task and coordinate with maintainers.
 - Reusable workflow `trigger_rebuild_packages.yml` fires REST
   `workflow_dispatch` into `$REMOTE_OWNER/vyos-build-packages` (REMOTE_OWNER =
-  VyOS-Networks). The dispatcher runs as `vyosbot`.
+  the private side). The dispatcher runs as `vyosbot`.
 - For new flavors, add a `data/build-flavors/<flavor>.toml` and document the
   resulting `make <flavor>` target.
