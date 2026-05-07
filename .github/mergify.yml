@@ -13,8 +13,8 @@ commands_restrictions:
   backport: &allowed
     conditions:
       - or:
-        - sender=@vyos/maintainers
-        - sender=vyosbot
+          - sender=@vyos/maintainers
+          - sender=vyosbot
   copy: *allowed
   dequeue: *allowed
   queue: *allowed
@@ -23,3 +23,5 @@ commands_restrictions:
   requeue: *allowed
   squash: *allowed
   update: *allowed
+merge_protections_settings:
+  reporting_method: check-runs
