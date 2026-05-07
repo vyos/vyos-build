@@ -53,6 +53,12 @@ scm_url = "http://github.com/intel/ethernet-linux-ixgbevf"
 build_cmd = "build_intel_ixgbevf"
 
 [[packages]]
+name = "i40e"
+commit_id = "v2.28.16"
+scm_url = "http://github.com/intel/ethernet-linux-i40e"
+build_cmd = "build_intel_i40e"
+
+[[packages]]
 name = "jool"
 commit_id = ""
 scm_url = ""

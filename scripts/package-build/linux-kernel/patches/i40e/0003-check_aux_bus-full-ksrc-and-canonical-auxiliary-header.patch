@@ -1,0 +1,76 @@
+--- a/scripts/check_aux_bus
++++ b/scripts/check_aux_bus
+@@ -58,7 +58,14 @@ exit_not_found_failure() { exit 3; }
+ 
+ find_aux_bus_inc()
+ {
+-	aux_bus_inc=$(find -L ${ksrc} -name "auxiliary_bus.h")
++	# Prefer the main tree include (VyOS/kernel build trees may also contain
++	# packaged headers under debian/; an unbounded `find` then returns multiple
++	# paths and `[ -f "$aux_bus_inc" ]` fails, forcing needless OOT auxiliary).
++	if [ -f "${ksrc}/${LINUX_INCLUDE_DIR}/auxiliary_bus.h" ]; then
++		aux_bus_inc="${ksrc}/${LINUX_INCLUDE_DIR}/auxiliary_bus.h"
++	else
++		aux_bus_inc=$(find -L "${ksrc}" -name "auxiliary_bus.h" -print -quit)
++	fi
+ 	msg "auxiliary_bus.h location: ${aux_bus_inc}"
+ }
+ 
+@@ -101,28 +108,36 @@ find_kernel_source()
+ 
+ find_config_file()
+ {
+-	# only search for kernel .config file if build_kernel is pointing
+-	# in the same tree as ksrc (see not about ksrc and build_kernel
+-	# both set in the scripts header comment)
+-	if [[ "$ksrc" != *"/lib/modules/${build_kernel}"* ]]; then
+-		msg "ksrc=$ksrc not the same as location generated from build_kernel=\"/lib/modules/${build_kernel}\", not searching for kernel .config file"
+-	else
+-		kbuild_dir="/lib/modules/${build_kernel}/build"
++	kconfig=""
+ 
++	# Installed-modules layout: autoconf under /lib/modules/${build_kernel}/build
++	if [ -n "${build_kernel}" ] && [[ "$ksrc" == *"/lib/modules/${build_kernel}"* ]]; then
++		kbuild_dir="/lib/modules/${build_kernel}/build"
+ 		file_locations=(${kbuild_dir}/include/generated/autoconf.h \
+ 				${kbuild_dir}/include/linux/autoconf.h \
+ 				/boot/bmlinux.autoconf.h)
+-
+ 		for file in "${file_locations[@]}"; do
+-			if [ -f ${file} ]; then
++			if [ -f "${file}" ]; then
+ 				kconfig=${file}
+ 				break
+ 			fi
+ 		done
+-
+-		if [ -z ${kconfig} ]; then
++		if [ -z "${kconfig}" ]; then
+ 			msg "Kernel config file not found at any of the expected locations."
+ 		fi
++		return
++	fi
++
++	# Full source tree as --ksrc (e.g. VyOS KERNEL_DIR): read generated autoconf
++	for file in "${ksrc}/include/generated/autoconf.h" "${ksrc}/include/linux/autoconf.h"; do
++		if [ -f "${file}" ]; then
++			kconfig=${file}
++			msg "Using kernel config from ${kconfig}"
++			break
++		fi
++	done
++	if [ -z "${kconfig}" ]; then
++		msg "Kernel config file not found under ${ksrc}; will probe auxiliary_bus.h only."
+ 	fi
+ }
+ 
+@@ -131,7 +146,8 @@ get_config_auxiliary_bus()
+ 	# CONFIG_AUXILIARY_BUS=0 corresponds to CONFIG_AUXILIARY_BUS=n
+ 	# CONFIG_AUXILIARY_BUS=1 corresponds to CONFIG_AUXILIARY_BUS=y
+ 	# CONFIG_AUXILIARY_BUS= corresponds to CONFIG_AUXILIARY_BUS not available in the kernel
+-	CONFIG_AUXILIARY_BUS=$(grep CONFIG_AUXILIARY_BUS ${kconfig} | awk -F" " '{print $3}')
++	# Match the core symbol only (avoid CONFIG_AUXILIARY_BUS_MODULE, etc.)
++	CONFIG_AUXILIARY_BUS=$(grep -E '^#define CONFIG_AUXILIARY_BUS[[:space:]]' "${kconfig}" | awk '{print $3}')
+ 	msg "CONFIG_AUXILIARY_BUS=${CONFIG_AUXILIARY_BUS}"
+ }
+ 
