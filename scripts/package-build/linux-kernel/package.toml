@@ -59,6 +59,12 @@ scm_url = "http://github.com/intel/ethernet-linux-i40e"
 build_cmd = "build_intel_i40e"
 
 [[packages]]
+name = "ice"
+commit_id = "v2.5.4"
+scm_url = "http://github.com/intel/ethernet-linux-ice"
+build_cmd = "build_intel_ice"
+
+[[packages]]
 name = "jool"
 commit_id = ""
 scm_url = ""

@@ -145,7 +145,7 @@ def build_package(package: dict, dependencies: list) -> None:
         elif package['build_cmd'] == 'build_intel_qat':
             build_intel_qat()
         elif package['build_cmd'] in ['build_intel_igb', 'build_intel_ixgbe', 'build_intel_ixgbevf',
-                                      'build_intel_i40e']:
+                                      'build_intel_i40e', 'build_intel_ice']:
             build_intel(package['name'], package['commit_id'], package['scm_url'])
         elif package['build_cmd'] == 'build_mellanox_ofed':
             build_mellanox_ofed()
