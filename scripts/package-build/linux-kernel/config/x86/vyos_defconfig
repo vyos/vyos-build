@@ -1718,8 +1718,7 @@ CONFIG_IGBVF=m
 # CONFIG_IXGBE is not set
 # CONFIG_IXGBEVF is not set
 # CONFIG_I40E is not set
-CONFIG_IAVF=m
-CONFIG_I40EVF=m
+# CONFIG_I40EVF is not set
 # CONFIG_ICE is not set
 # CONFIG_FM10K is not set
 CONFIG_IGC=m
@@ -4627,8 +4626,6 @@ CONFIG_SBITMAP=y
 CONFIG_PARMAN=m
 CONFIG_OBJAGG=m
 # end of Library routines
-
-CONFIG_PLDMFW=y
 
 # CONFIG_DEBUG_MISC is not set
 

@@ -1,0 +1,73 @@
+From: Christian Breunig <christian@breunig.cc>
+Date: Sun, 3 May 2026 19:44:00 +0000
+Subject: [PATCH 3/3] auxiliary: align bus callbacks with kernel prototypes
+
+---
+ src/auxiliary.c |   25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+--- a/src/auxiliary.c
++++ b/src/auxiliary.c
+@@ -7,6 +7,7 @@
+ #include <linux/init.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
++#include <linux/version.h>
+ #include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/string.h>
+@@ -31,7 +32,7 @@ static const struct auxiliary_device_id *auxiliary_match_id(const struct auxilia
+ 	return NULL;
+ }
+ 
+-static int auxiliary_match(struct device *dev, struct device_driver *drv)
++static int auxiliary_match_common(struct device *dev, struct device_driver *drv)
+ {
+ 	struct auxiliary_device *auxdev = to_auxiliary_dev(dev);
+ 	struct auxiliary_driver *auxdrv = to_auxiliary_drv(drv);
+@@ -39,7 +40,23 @@ static int auxiliary_match(struct device *dev, struct device_driver *drv)
+ 	return !!auxiliary_match_id(auxdrv->id_table, auxdev);
+ }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
++static int auxiliary_match(struct device *dev, const struct device_driver *drv)
++{
++	return auxiliary_match_common(dev, (struct device_driver *)drv);
++}
++#else
++static int auxiliary_match(struct device *dev, struct device_driver *drv)
++{
++	return auxiliary_match_common(dev, drv);
++}
++#endif
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
++static int auxiliary_uevent(const struct device *dev, struct kobj_uevent_env *env)
++#else
+ static int auxiliary_uevent(struct device *dev, struct kobj_uevent_env *env)
++#endif
+ {
+ 	const char *name, *p;
+ 
+@@ -78,7 +95,11 @@ static int auxiliary_bus_probe(struct device *dev)
+ 	return ret;
+ }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
++static void auxiliary_bus_remove(struct device *dev)
++#else
+ static int auxiliary_bus_remove(struct device *dev)
++#endif
+ {
+ 	struct auxiliary_driver *auxdrv = to_auxiliary_drv(dev->driver);
+ 	struct auxiliary_device *auxdev = to_auxiliary_dev(dev);
+@@ -87,7 +108,9 @@ static int auxiliary_bus_remove(struct device *dev)
+ 		auxdrv->remove(auxdev);
+ 	dev_pm_domain_detach(dev, true);
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+ 	return 0;
++#endif
+ }
+ 
+ static void auxiliary_bus_shutdown(struct device *dev)

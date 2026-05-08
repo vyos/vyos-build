@@ -9,6 +9,7 @@ packages = [
   "vyos-intel-ixgbevf",
   "vyos-intel-i40e",
   "vyos-intel-ice",
+  "vyos-intel-iavf",
   "vyos-ipt-netflow",
   "intel-microcode",
   "amd64-microcode"

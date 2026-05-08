@@ -65,6 +65,12 @@ scm_url = "http://github.com/intel/ethernet-linux-ice"
 build_cmd = "build_intel_nic"
 
 [[packages]]
+name = "iavf"
+commit_id = "v4.13.20"
+scm_url = "http://github.com/intel/ethernet-linux-iavf"
+build_cmd = "build_intel_nic"
+
+[[packages]]
 name = "jool"
 commit_id = ""
 scm_url = ""
