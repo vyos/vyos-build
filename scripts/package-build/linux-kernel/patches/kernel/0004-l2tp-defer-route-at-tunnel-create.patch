@@ -1,0 +1,326 @@
+From: Christian Breunig <christian@breunig.cc>
+Date: Mon, 14 May 2026 13:11:00 +0200
+Subject: [PATCH] net/l2tp: allow unmanaged tunnel setup without route to peer
+
+Kernel-created L2TPv3 tunnels (genetlink L2TP_CMD_TUNNEL_CREATE without
+L2TP_ATTR_FD) used udp_sock_create() and kernel_connect(), which invoke
+__ip4_datagram_connect() / __ip6_datagram_connect(). Those paths insist on
+a successful FIB lookup at connect time. If no route to the configured
+remote existed yet, tunnel and interface creation failed.
+
+The data path already resolves routes on transmit (e.g. __ip_queue_xmit(),
+inet6_csk_route_socket()). This change defers requiring a route until
+packets are sent.
+
+Details:
+- UDP encapsulation: bind with udp_sock_create() after zeroing peer_udp_port,
+  then l2tp_udp_sk_set_peer() sets daddr/dport and socket "connected" state
+  without caching sk_dst from connect.
+- IPv4 L2TP/IP (l2tp_ip): on -ENETUNREACH / -EHOSTUNREACH from
+  __ip4_datagram_connect(), l2tp_ip_connect_deferred() installs peer and
+  bind-table updates without a connect-time route.
+- IPv6 L2TP/IP (l2tp_ip6): same for __ip6_datagram_connect(), including
+  IPv4-mapped peers and scope / bound-device checks aligned with the normal
+  connect path.
+
+Forwarding still only happens once the FIB can reach the peer. Until then
+outgoing packets follow the existing no-route drop path.
+
+Assisted-by: Cursor:claude-4.8-opus
+Signed-off-by: Christian Breunig <christian@breunig.cc>
+
+---
+diff --git i/net/l2tp/l2tp_core.c w/net/l2tp/l2tp_core.c
+index 9156a937334a..6fd9c1d89533 100644
+--- i/net/l2tp/l2tp_core.c
++++ w/net/l2tp/l2tp_core.c
+@@ -55,6 +55,8 @@
+ #include <net/inet_ecn.h>
+ #include <net/ip6_route.h>
+ #include <net/ip6_checksum.h>
++#include <net/sock_reuseport.h>
++#include <net/transp_v6.h>
+ 
+ #include <asm/byteorder.h>
+ #include <linux/atomic.h>
+@@ -1453,6 +1455,67 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
+  * These sockets are freed when the namespace exits using the pernet
+  * exit hook.
+  */
++
++static int l2tp_udp_sk_set_peer(struct socket *sock, struct udp_port_cfg *cfg)
++{
++	struct sock *sk = sock->sk;
++	struct inet_sock *inet;
++
++	lock_sock(sk);
++	inet = inet_sk(sk);
++	sk_dst_reset(sk);
++
++#if IS_ENABLED(CONFIG_IPV6)
++	if (cfg->family == AF_INET6) {
++		struct ipv6_pinfo *np = inet6_sk(sk);
++
++		sk->sk_v6_daddr = cfg->peer_ip6;
++		np->flow_label = 0;
++		inet->inet_dport = cfg->peer_udp_port;
++	} else
++#endif
++	{
++		inet->inet_daddr = cfg->peer_ip.s_addr;
++		inet->inet_dport = cfg->peer_udp_port;
++	}
++
++	reuseport_has_conns_set(sk);
++	sk->sk_state = TCP_ESTABLISHED;
++	sk_set_txhash(sk);
++	atomic_set(&inet->inet_id, get_random_u16());
++	release_sock(sk);
++	return 0;
++}
++
++static int l2tp_tunnel_udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
++					 struct socket **sockp)
++{
++	struct udp_port_cfg cfg_bind = *cfg;
++	int err;
++	struct socket *sock;
++
++	cfg_bind.peer_udp_port = 0;
++
++	err = udp_sock_create(net, &cfg_bind, &sock);
++	if (err < 0)
++		return err;
++
++	if (!cfg->peer_udp_port) {
++		*sockp = sock;
++		return 0;
++	}
++
++	err = l2tp_udp_sk_set_peer(sock, cfg);
++	if (err < 0) {
++		kernel_sock_shutdown(sock, SHUT_RDWR);
++		sock_release(sock);
++		return err;
++	}
++
++	*sockp = sock;
++	return 0;
++}
++
+ static int l2tp_tunnel_sock_create(struct net *net,
+ 				   u32 tunnel_id,
+ 				   u32 peer_tunnel_id,
+@@ -1490,7 +1553,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 		udp_conf.local_udp_port = htons(cfg->local_udp_port);
+ 		udp_conf.peer_udp_port = htons(cfg->peer_udp_port);
+ 
+-		err = udp_sock_create(net, &udp_conf, &sock);
++		err = l2tp_tunnel_udp_sock_create(net, &udp_conf, &sock);
+ 		if (err < 0)
+ 			goto out;
+ 
+diff --git i/net/l2tp/l2tp_ip.c w/net/l2tp/l2tp_ip.c
+index 29795d2839e8..d63b00f09421 100644
+--- i/net/l2tp/l2tp_ip.c
++++ w/net/l2tp/l2tp_ip.c
+@@ -24,6 +24,7 @@
+ #include <net/xfrm.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
++#include <net/sock_reuseport.h>
+ 
+ #include "l2tp_core.h"
+ 
+@@ -328,6 +329,37 @@ static int l2tp_ip_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	return ret;
+ }
+ 
++/* Install peer address without capturing a route. Outgoing packets resolve
++ * the path in __ip_queue_xmit(); this matches on-demand forwarding once the
++ * FIB can reach the remote.
++ */
++static void __l2tp_ip4_sk_set_peer(struct sock *sk, __be32 daddr, __be16 dport)
++{
++	struct inet_sock *inet = inet_sk(sk);
++
++	sk_dst_reset(sk);
++	inet->inet_daddr = daddr;
++	inet->inet_dport = dport;
++	reuseport_has_conns_set(sk);
++	sk->sk_state = TCP_ESTABLISHED;
++	sk_set_txhash(sk);
++	atomic_set(&inet->inet_id, get_random_u16());
++}
++
++static int l2tp_ip_connect_deferred(struct sock *sk, struct sockaddr_l2tpip *lsa)
++{
++	struct l2tp_ip_net *pn = l2tp_ip_pernet(sock_net(sk));
++
++	__l2tp_ip4_sk_set_peer(sk, lsa->l2tp_addr.s_addr, lsa->l2tp_unused);
++	l2tp_ip_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
++
++	write_lock_bh(&pn->l2tp_ip_lock);
++	hlist_del_init(&sk->sk_bind_node);
++	sk_add_bind_node(sk, &pn->l2tp_ip_bind_table);
++	write_unlock_bh(&pn->l2tp_ip_lock);
++	return 0;
++}
++
+ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ {
+ 	struct sockaddr_l2tpip *lsa = (struct sockaddr_l2tpip *)uaddr;
+@@ -349,6 +381,11 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
+ 	}
+ 
+ 	rc = __ip4_datagram_connect(sk, uaddr, addr_len);
++	if (rc == -ENETUNREACH || rc == -EHOSTUNREACH) {
++		rc = l2tp_ip_connect_deferred(sk, lsa);
++		goto out_sk;
++	}
++
+ 	if (rc < 0)
+ 		goto out_sk;
+ 
+diff --git i/net/l2tp/l2tp_ip6.c w/net/l2tp/l2tp_ip6.c
+index ea232f338dcb..610e666c0a58 100644
+--- i/net/l2tp/l2tp_ip6.c
++++ w/net/l2tp/l2tp_ip6.c
+@@ -28,6 +28,8 @@
+ #include <net/transp_v6.h>
+ #include <net/addrconf.h>
+ #include <net/ip6_route.h>
++#include <net/l3mdev.h>
++#include <net/sock_reuseport.h>
+ 
+ #include "l2tp_core.h"
+ 
+@@ -383,6 +385,116 @@ static int l2tp_ip6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	return err;
+ }
+ 
++static bool l2tp_ipv6_mapped_addr_any(const struct in6_addr *a)
++{
++	return ipv6_addr_v4mapped(a) && a->s6_addr32[3] == 0;
++}
++
++/* Peer address without a cached dst; outbound path resolves the route. */
++static void __l2tp_ip6_sk_set_peer(struct sock *sk, const struct in6_addr *daddr,
++				   __be16 dport, __be32 flowlabel)
++{
++	struct inet_sock *inet = inet_sk(sk);
++	struct ipv6_pinfo *np = inet6_sk(sk);
++
++	sk_dst_reset(sk);
++	sk->sk_v6_daddr = *daddr;
++	np->flow_label = flowlabel;
++	inet->inet_dport = dport;
++	reuseport_has_conns_set(sk);
++	sk->sk_state = TCP_ESTABLISHED;
++	sk_set_txhash(sk);
++}
++
++static int __l2tp_ip6_connect_deferred_mapped(struct sock *sk,
++					      struct sockaddr_l2tpip6 *lsa,
++					      struct sockaddr_in6 *usin)
++{
++	struct inet_sock *inet = inet_sk(sk);
++	struct ipv6_pinfo *np = inet6_sk(sk);
++	struct sockaddr_in sin;
++	struct l2tp_ip6_net *pn;
++	int err;
++
++	memset(&sin, 0, sizeof(sin));
++	sin.sin_family = AF_INET;
++	sin.sin_addr.s_addr = usin->sin6_addr.s6_addr32[3];
++	sin.sin_port = usin->sin6_port;
++
++	err = __ip4_datagram_connect(sk, (struct sockaddr *)&sin, sizeof(sin));
++	if (err == -ENETUNREACH || err == -EHOSTUNREACH) {
++		sk_dst_reset(sk);
++		inet->inet_daddr = sin.sin_addr.s_addr;
++		inet->inet_dport = sin.sin_port;
++		reuseport_has_conns_set(sk);
++		sk->sk_state = TCP_ESTABLISHED;
++		sk_set_txhash(sk);
++		atomic_set(&inet->inet_id, get_random_u16());
++	} else if (err) {
++		return err;
++	}
++
++	ipv6_addr_set_v4mapped(inet->inet_daddr, &sk->sk_v6_daddr);
++	if (ipv6_addr_any(&np->saddr) || l2tp_ipv6_mapped_addr_any(&np->saddr))
++		ipv6_addr_set_v4mapped(inet->inet_saddr, &np->saddr);
++	if (ipv6_addr_any(&sk->sk_v6_rcv_saddr) ||
++	    l2tp_ipv6_mapped_addr_any(&sk->sk_v6_rcv_saddr)) {
++		ipv6_addr_set_v4mapped(inet->inet_rcv_saddr, &sk->sk_v6_rcv_saddr);
++		if (sk->sk_prot->rehash)
++			sk->sk_prot->rehash(sk);
++	}
++
++	l2tp_ip6_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
++	pn = l2tp_ip6_pernet(sock_net(sk));
++	write_lock_bh(&pn->l2tp_ip6_lock);
++	hlist_del_init(&sk->sk_bind_node);
++	sk_add_bind_node(sk, &pn->l2tp_ip6_bind_table);
++	write_unlock_bh(&pn->l2tp_ip6_lock);
++	return 0;
++}
++
++static int l2tp_ip6_connect_deferred(struct sock *sk, struct sockaddr_l2tpip6 *lsa,
++				   struct sockaddr_in6 *usin,
++				   int addr_len)
++{
++	struct ipv6_pinfo *np = inet6_sk(sk);
++	struct l2tp_ip6_net *pn;
++	int addr_type = ipv6_addr_type(&usin->sin6_addr);
++	const struct in6_addr *daddr = &usin->sin6_addr;
++	__be32 fl6_flowlabel = 0;
++
++	if (addr_type & IPV6_ADDR_MAPPED)
++		return __l2tp_ip6_connect_deferred_mapped(sk, lsa, usin);
++
++	if (inet6_test_bit(SNDFLOW, sk))
++		fl6_flowlabel = usin->sin6_flowinfo & IPV6_FLOWINFO_MASK;
++
++	if (__ipv6_addr_needs_scope_id(addr_type)) {
++		if (addr_len >= sizeof(struct sockaddr_in6) &&
++		    usin->sin6_scope_id) {
++			if (!sk_dev_equal_l3scope(sk, usin->sin6_scope_id))
++				return -EINVAL;
++			WRITE_ONCE(sk->sk_bound_dev_if, usin->sin6_scope_id);
++		}
++
++		if (!sk->sk_bound_dev_if && (addr_type & IPV6_ADDR_MULTICAST))
++			WRITE_ONCE(sk->sk_bound_dev_if, READ_ONCE(np->mcast_oif));
++
++		if (!sk->sk_bound_dev_if)
++			return -EINVAL;
++	}
++
++	__l2tp_ip6_sk_set_peer(sk, daddr, usin->sin6_port, fl6_flowlabel);
++	l2tp_ip6_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
++
++	pn = l2tp_ip6_pernet(sock_net(sk));
++	write_lock_bh(&pn->l2tp_ip6_lock);
++	hlist_del_init(&sk->sk_bind_node);
++	sk_add_bind_node(sk, &pn->l2tp_ip6_bind_table);
++	write_unlock_bh(&pn->l2tp_ip6_lock);
++	return 0;
++}
++
+ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 			    int addr_len)
+ {
+@@ -418,6 +530,11 @@ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	}
+ 
+ 	rc = __ip6_datagram_connect(sk, uaddr, addr_len);
++	if (rc == -ENETUNREACH || rc == -EHOSTUNREACH) {
++		rc = l2tp_ip6_connect_deferred(sk, lsa, usin, addr_len);
++		goto out_sk;
++	}
++
+ 	if (rc < 0)
+ 		goto out_sk;
+ 
