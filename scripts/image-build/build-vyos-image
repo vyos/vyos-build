@@ -141,6 +141,8 @@ def build():
 
     from utils import cmd, rc_cmd
     from utils import directories
+    from utils import activation_hint
+    from utils import activation_init
 
     ## Check if there are missing build dependencies
     deps = {
@@ -440,9 +442,10 @@ def build():
             build_config['version'] = version
 
         flavor_data = {
-            'console_type': build_config["console_type"],
-            'console_num': build_config["console_num"],
-            'console_speed': build_config["console_speed"]
+            'flavor': build_config["build_flavor"],
+            'console_type': build_config["boot_settings"]["console_type"],
+            'console_num': build_config["boot_settings"]["console_num"],
+            'console_speed': build_config["boot_settings"]["console_speed"]
         }
 
         version_data = {
@@ -489,6 +492,13 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
             json.dump(flavor_data, f)
         with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
+
+        # For initialization of activation scripts, we need to know if we
+        # are building with create_raw_image
+        if build_config["image_format"] != ["iso"]:
+            raw_build_hint = os.path.join(vyos_data_dir, os.path.basename(activation_hint))
+            with open(raw_build_hint, 'w') as f:
+                pass
 
         # For backwards compatibility with 'add system image' script from older versions
         # we need a file in the old format so that script can find out the version of the image
@@ -628,6 +638,16 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
             with open(file_path, 'w') as f:
                 f.write(build_config["default_config"])
 
+        ## Allow override of which activation scripts are enabled at boot
+        if has_nonempty_key(build_config, "activation_init"):
+            file_path = os.path.join(
+                chroot_includes_dir,
+                activation_init.lstrip(os.sep)
+            )
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write(build_config["activation_init"])
+
         ## Configure live-build
         lb_config_tmpl = jinja2.Template("""
         lb config noauto \
@@ -639,8 +659,8 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
                 --archive-areas "{{debian_archive_areas}}" \
                 --backports true \
                 --binary-image iso-hybrid \
-                --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console="{{console_type}}{{console_num}},{{console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
-                --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console="{{console_type}}{{console_num}},{{console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootappend-live "boot=live components hostname=vyos username=live nopersistence noautologin nonetworking union=overlay console="{{boot_settings.console_type}}{{boot_settings.console_num}},{{boot_settings.console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
+                --bootappend-live-failsafe "live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal console="{{boot_settings.console_type}}{{boot_settings.console_num}},{{boot_settings.console_speed}}" console=tty0 net.ifnames=0 biosdevname=0" \
                 --bootloaders "{{bootloaders}}" \
                 --checksums "sha256" \
                 --chroot-squashfs-compression-type "{{squashfs_compression_type}}" \

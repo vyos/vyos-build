@@ -47,6 +47,7 @@ import platform
 
 from io import BytesIO
 from datetime import datetime
+from glob import glob
 
 import tomli
 import pexpect
@@ -62,6 +63,7 @@ CI_CONFIG_ARGS = {
     }
 
 tpm_folder = '/tmp/vyos_tpm_test'
+tpm_sock = f'{tpm_folder}/swtpm-sock'
 qemu_name = 'VyOS-QEMU'
 
 test_timeout = 5 *3600 # 5 hours (in seconds) to complete individual testcases
@@ -143,6 +145,9 @@ parser.add_argument('--huge-page-count', help='Number of huge pages to allocate'
 parser.add_argument('--isolate-cpus', help='CPU cores to isolate (e.g., 1,3-4', type=str)
 
 args = parser.parse_args()
+
+if os.geteuid() != 0:
+    exit('You need to have root privileges to run this script.')
 
 if args.sbom and not args.sbom_output_dir:
     args.sbom_output_dir = os.getcwd()
@@ -277,7 +282,7 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
                f' -device scsi-hd,bus=scsi0.0,drive=drive-hd2,id=hd2,bootindex=2'
 
     if tpm:
-        cmd += f' -chardev socket,id=chrtpm,path={tpm_folder}/swtpm-sock' \
+        cmd += f' -chardev socket,id=chrtpm,path={tpm_sock}' \
                ' -tpmdev emulator,id=tpm0,chardev=chrtpm' \
                ' -device tpm-tis,tpmdev=tpm0'
 
@@ -310,6 +315,15 @@ def shutdownVM(c, log, message=''):
         tmp = 'VM Did not shut down after 300sec'
         log.error(tmp)
         raise Exception(tmp)
+    c.close()
+
+def waitForLogin(child, log, timeout=20) -> None:
+    try:
+        child.expect('The highlighted entry will be executed automatically in',
+                     timeout=timeout)
+        child.sendline('')
+    except pexpect.TIMEOUT:
+        log.warning('Did not find GRUB countdown window, ignoring')
 
 def loginVM(c, log):
     log.info('Waiting for login prompt')
@@ -319,6 +333,10 @@ def loginVM(c, log):
     c.sendline(default_password)
     c.expect(op_mode_prompt)
     log.info('Logged in!')
+
+def clearTPM():
+    for f in glob(f'{tpm_folder}/*'):
+        os.remove(f)
 
 # Setting up logger
 log = logging.getLogger()
@@ -425,7 +443,9 @@ if args.sbom:
         subprocess.check_output(['umount', setup_mount])
         os.rmdir(setup_mount)
 
-# Create software emulated TPM
+# Create software emulated TPM - clear existing TPM data first - might be a
+# leftover from a previous run
+clearTPM()
 def start_swtpm():
     if not os.path.exists(tpm_folder):
         os.mkdir(tpm_folder)
@@ -433,7 +453,7 @@ def start_swtpm():
     def swtpm_thread():
         subprocess.check_output([
             'swtpm', 'socket', '--tpmstate', f'dir={tpm_folder}',
-            '--ctrl', f'type=unixio,path={tpm_folder}/swtpm-sock', '--tpm2', '--log', 'level=1'
+            '--ctrl', f'type=unixio,path={tpm_sock}', '--tpm2', '--log', 'level=1'
         ])
 
     from multiprocessing import Process
@@ -483,10 +503,10 @@ def toggleUEFISecureBoot(c):
     UEFIKeyPress(c, KEY_DOWN)
     UEFIKeyPress(c, KEY_RETURN)
 
-def BOOTLOADERchooseSerialConsole(c, live: bool) -> None:
+def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
     """ Select GRUB boot entry that uses the serial console. This differs
         between a LIVE ISO image and an already installed system. """
-    BOOTLOADER_TMO = 20
+    BOOTLOADER_TMO = 40
     BOOTLOADER_SLEEP = 1.5
     BOOTLOADER_LOAD_TMO = 5 # let GRUB screen load
 
@@ -497,60 +517,60 @@ def BOOTLOADERchooseSerialConsole(c, live: bool) -> None:
     # XXX: UEFI systems directly load GRUB, BIOS systems fallback to ISOLINUX
     if live and args.uefi:
         # Let UEFI start before GRUB
-        c.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
         # Wait for GRUB
-        c.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
         time.sleep(BOOTLOADER_LOAD_TMO)
 
         # Select GRUB serial console
         # Key DOWN -> fail-safe mode
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Key DOWN -> Serial Console boot
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Boot
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
     elif live and not args.uefi:
         # Wait for ISOLINUX
-        c.expect(ISOLINUX_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(ISOLINUX_STRING, timeout=BOOTLOADER_TMO)
         time.sleep(BOOTLOADER_LOAD_TMO)
 
         # Boot Menu starts at Live system (vyos) - KVM console
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Live system (vyos fail-safe mode)
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         # Live system (vyos) - Serial console - boot it up
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
     else:
         # Let UEFI start before GRUB
         if args.uefi:
-            c.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
+            child.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
 
         # Wait for GRUB
-        c.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
+        child.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
         time.sleep(BOOTLOADER_LOAD_TMO)
 
         # Select GRUB serial console
         # Boot options
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
         # Select console type
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
         # *ttyS (serial)
-        c.send(KEY_DOWN)
+        child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
         # Boot
-        c.send(KEY_RETURN)
+        child.send(KEY_RETURN)
 
     return None
 
@@ -591,6 +611,11 @@ def basic_cli_tests(c):
     c.expect(op_mode_prompt)
     lines = [l.strip() for l in c.before.splitlines() if l.strip()]
     console_type = lines[-1].decode('utf-8').strip() # e.g. ttyS
+
+    # We do only care for ttyS or ttyAMA console types, exit early
+    # for VGA consoles
+    if console_type == 'tty':
+        return
 
     c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_num"')
     c.expect(op_mode_prompt)
@@ -853,12 +878,7 @@ try:
     #################################################
     # Logging into VyOS system
     #################################################
-    try:
-        c.expect('The highlighted entry will be executed automatically in', timeout=10)
-        c.sendline('')
-    except pexpect.TIMEOUT:
-        log.warning('Did not find GRUB countdown window, ignoring')
-
+    waitForLogin(c, log)
     loginVM(c, log)
 
     #################################################
@@ -929,7 +949,6 @@ try:
             c.expect(op_mode_prompt)
 
         log.info('Running TPM encrypted config tests')
-
         tpm_timeout = 600 # Give it 10 mins to encrypt
 
         # Verify TPM is loaded
@@ -975,11 +994,7 @@ try:
         log.info('system installed, rebooting')
         c.sendline('reboot now')
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
+        waitForLogin(c, log)
 
         # Check for vyos-router message
         c.expect('.*Mounted encrypted config volume', timeout=120)
@@ -993,9 +1008,7 @@ try:
         shutdownVM(c, log, 'Shutdown VM for TPM fail test')
 
         # Clear swtpm
-        from glob import glob
-        for f in glob(f'{tpm_folder}/*'):
-            os.remove(f)
+        clearTPM()
 
         # Shutdown kills swtpm
         tpm_process.join()
@@ -1010,11 +1023,7 @@ try:
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
+        waitForLogin(c, log)
 
         c.expect('.*Encrypted config volume has not been mounted', timeout=120)
 
@@ -1043,11 +1052,7 @@ try:
 
         # Shutdown VM
         shutdownVM(c, log, 'Shutdown VM for non-TPM backed test')
-
-        # Clear swtpm
-        from glob import glob
-        for f in glob(f'{tpm_folder}/*'):
-            os.remove(f)
+        clearTPM()
 
         # Shutdown kills swtpm
         tpm_process.join()
@@ -1060,12 +1065,7 @@ try:
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
-
+        waitForLogin(c, log)
         loginVM(c, log)
 
         # New recovery key
@@ -1096,11 +1096,7 @@ try:
         log.debug(f'Executing command: {cmd}')
         c = pexpect.spawn(cmd, logfile=stl)
 
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
+        waitForLogin(c, log)
 
         c.expect('.*encrypted config volume will not be automatically mounted', timeout=120)
 
@@ -1156,12 +1152,7 @@ try:
         #################################################
         # Logging into VyOS system
         #################################################
-        try:
-            c.expect('The highlighted entry will be executed automatically in', timeout=10)
-            c.sendline('')
-        except pexpect.TIMEOUT:
-            log.warning('Did not find GRUB countdown window, ignoring')
-
+        waitForLogin(c, log)
         loginVM(c, log)
 
         c.sendline('cat /proc/mdstat')

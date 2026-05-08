@@ -15,7 +15,7 @@ all:
 .PHONY: checkiso
 .ONESHELL:
 checkiso:
-	if [ ! -f $(ISO_PATH) ]; then
+	if [[ ! -f $(ISO_PATH) ]]; then
 		echo "Could not find $(ISO_PATH)"
 		exit 1
 	fi
@@ -73,7 +73,7 @@ testtpm: checkiso
 .PHONY: test-ci-qcow2
 .ONESHELL:
 test-ci-qcow2:
-	if [ ! -f build/*.qcow2 ]; then
+	if [[ ! -n $$(ls -t build/*.qcow2 | head -n 1) ]]; then
 		echo "Could not find any QCOW2 disk image"
 		exit 1
 	fi

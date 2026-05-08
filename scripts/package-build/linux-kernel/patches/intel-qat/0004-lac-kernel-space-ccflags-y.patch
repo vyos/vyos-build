@@ -1,0 +1,27 @@
+From: Christian Breunig <christian@breunig.cc>
+Subject: [PATCH] lac: mirror EXTRA_CFLAGS into ccflags-y for kernel_space builds
+
+Lookaside Crypto access_layer skips rules.mk when ICP_OS_LEVEL is kernel_space.
+Linux 6.x kbuild ignores EXTRA_CFLAGS for external modules, so compilation of
+linux/icp_qa_module.c fails to find headers such as cpa.h.
+
+Mirror EXTRA_CFLAGS into ccflags-y for kernel-space builds before pulling in
+Core/OS fragments.
+
+--- a/quickassist/lookaside/access_layer/src/Makefile
++++ b/quickassist/lookaside/access_layer/src/Makefile
+@@ -227,6 +227,14 @@
+ include $(ICP_BUILDSYSTEM_PATH)/build_files/rules.mk
+ endif
+ 
++# Kernel-space builds skip rules.mk above. Linux 6.x kbuild ignores EXTRA_CFLAGS for
++# external modules; mirror flags into ccflags-y so headers like cpa.h resolve.
++ifeq ($(ICP_OS_LEVEL),kernel_space)
++ifdef KERNELRELEASE
++ccflags-y += $(EXTRA_CFLAGS)
++endif
++endif
++
+ include $(ICP_BUILDSYSTEM_PATH)/build_files/Core/$(ICP_CORE).mk
+ include $(ICP_BUILDSYSTEM_PATH)/build_files/OS/$(ICP_OS).mk
+ 

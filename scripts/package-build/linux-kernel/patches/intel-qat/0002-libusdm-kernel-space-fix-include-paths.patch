@@ -1,0 +1,23 @@
+From: Christian Breunig <christian@breunig.cc>
+Subject: [PATCH] libusdm_drv: fix EXTRA_CFLAGS include handling for kernel builds
+
+The kernel Makefile incorrectly concatenates "-I" with $(INCLUDES), but
+$(INCLUDES) already contains "-I..." entries from linux_2.6_kernel_space.mk.
+
+That yields broken compiler arguments like "-I-I/path/...", which breaks header
+lookup on newer GCC (observed as missing qae_mem.h / Osal.h during out-of-tree
+module builds against Linux 6.18).
+
+--- a/quickassist/utilities/libusdm_drv/linux/Makefile
++++ b/quickassist/utilities/libusdm_drv/linux/Makefile
+@@ -187,7 +187,9 @@ export OUTPUT_NAME
+ #kernel space rules here 
+ #produce two artefacts: module and static library and copy them
+ ifeq ($(OS),linux)
+-EXTRA_CFLAGS+=-I$(INCLUDES) -Werror -ftree-ter
++# INCLUDES already contains "-I..." entries (see env_files/linux_2.6_kernel_space.mk).
++# Prefixing with "-I" again breaks header lookup on newer toolchains (GCC 14+).
++EXTRA_CFLAGS+=$(INCLUDES) -Werror -ftree-ter
+ obj-m+=$(OUTPUT_NAME).o
+ $(OUTPUT_NAME)-objs :=$(patsubst %.c,%.o, $(MODULE_SOURCES)) $(ADDITIONAL_KERNEL_LIBS)
+ lib-m := $(patsubst %.c,%.o, $(SOURCES)) $(patsubst %.S,%.o, $(ASM_SOURCES))

@@ -1,4 +1,3 @@
-From 81d38c4a32e059ad7835f7dc254e7627642afbe9 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Mon, 29 Apr 2013 18:50:15 -0700
 Subject: [PATCH] VyOS: Add linkstate IP device attribute
@@ -7,6 +6,15 @@ Backport of earlier Vyatta patch.
 
 (cherry picked from commit 7c5a851086686be14ae937c80d6cee34814dbefc)
 
+Refreshed against Linux 6.18.x:
+  * include/uapi/linux/ipv6.h gained DEVCONF_FORCE_FORWARDING; insert
+    DEVCONF_LINK_FILTER after it so the new sentinel keeps a stable value.
+  * include/linux/ipv6.h grew ra_honor_pio_life / ra_honor_pio_pflag
+    members before sysctl_header.
+  * net/ipv6/addrconf.c::ipv6_store_devconf() now uses READ_ONCE() and
+    publishes DEVCONF_FORCE_FORWARDING; use READ_ONCE() for link_filter
+    and append after force_forwarding.
+  * net/ipv6/route.c context shifted; rt6_link_filter() unchanged.
 ---
  Documentation/networking/ip-sysctl.rst | 11 +++++++++++
  include/linux/inetdevice.h             |  1 +
@@ -19,10 +27,9 @@ Backport of earlier Vyatta patch.
  8 files changed, 34 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
-index 531a070df2a6..d455a01b91e9 100644
 --- a/Documentation/networking/ip-sysctl.rst
 +++ b/Documentation/networking/ip-sysctl.rst
-@@ -1754,6 +1754,17 @@ src_valid_mark - BOOLEAN
+@@ -2042,6 +2042,17 @@ src_valid_mark - BOOLEAN
  
  	Default value is 0.
  
@@ -41,34 +48,31 @@ index 531a070df2a6..d455a01b91e9 100644
  	- 1 - Allows you to have multiple network interfaces on the same
  	  subnet, and have the ARPs for each interface be answered
 diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index b157ff4f727f..0cbab4c57b8b 100644
 --- a/include/linux/inetdevice.h
 +++ b/include/linux/inetdevice.h
-@@ -137,6 +137,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+@@ -139,6 +139,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
  #define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
  #define IN_DEV_ARP_EVICT_NOCARRIER(in_dev) IN_DEV_ANDCONF((in_dev), \
  							  ARP_EVICT_NOCARRIER)
 +#define IN_DEV_LINKFILTER(in_dev)	IN_DEV_MAXCONF((in_dev), LINKFILTER)
  
  struct in_ifaddr {
- 	struct hlist_node	hash;
+ 	struct hlist_node	addr_lst;
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index af8a771a053c..ece8ac89d317 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
-@@ -84,6 +84,7 @@ struct ipv6_devconf {
+@@ -91,6 +91,7 @@ struct ipv6_devconf {
  	__u8		ndisc_evict_nocarrier;
+ 	__u8		ra_honor_pio_life;
+ 	__u8		ra_honor_pio_pflag;
++	__s32		link_filter;
  
  	struct ctl_table_header *sysctl_header;
-+	__s32           link_filter;
  };
- 
- struct ipv6_params {
 diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
-index 283dec7e3645..8067941a635e 100644
 --- a/include/uapi/linux/ip.h
 +++ b/include/uapi/linux/ip.h
-@@ -173,6 +173,7 @@ enum
+@@ -189,6 +189,7 @@ enum
  	IPV4_DEVCONF_DROP_GRATUITOUS_ARP,
  	IPV4_DEVCONF_BC_FORWARDING,
  	IPV4_DEVCONF_ARP_EVICT_NOCARRIER,
@@ -77,22 +81,20 @@ index 283dec7e3645..8067941a635e 100644
  };
  
 diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index cf592d7b630f..e8915701aa73 100644
 --- a/include/uapi/linux/ipv6.h
 +++ b/include/uapi/linux/ipv6.h
-@@ -199,6 +199,7 @@ enum {
- 	DEVCONF_NDISC_EVICT_NOCARRIER,
+@@ -200,6 +200,7 @@ enum {
  	DEVCONF_ACCEPT_UNTRACKED_NA,
  	DEVCONF_ACCEPT_RA_MIN_LFT,
+ 	DEVCONF_FORCE_FORWARDING,
 +	DEVCONF_LINK_FILTER,
  	DEVCONF_MAX
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 798497c8b192..0b4510b06ab5 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -2608,6 +2608,7 @@ static struct devinet_sysctl_table {
+@@ -2652,6 +2652,7 @@ static struct devinet_sysctl_table {
  					      "route_localnet"),
  		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
  					      "drop_unicast_in_l2_multicast"),
@@ -101,18 +103,17 @@ index 798497c8b192..0b4510b06ab5 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 4958452cd332..608ad0b164e3 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5699,6 +5699,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_NDISC_EVICT_NOCARRIER] = cnf->ndisc_evict_nocarrier;
- 	array[DEVCONF_ACCEPT_UNTRACKED_NA] = cnf->accept_untracked_na;
- 	array[DEVCONF_ACCEPT_RA_MIN_LFT] = cnf->accept_ra_min_lft;
-+	array[DEVCONF_LINK_FILTER] = cnf->link_filter;
+@@ -5716,6 +5716,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
+ 		READ_ONCE(cnf->accept_untracked_na);
+ 	array[DEVCONF_ACCEPT_RA_MIN_LFT] = READ_ONCE(cnf->accept_ra_min_lft);
+ 	array[DEVCONF_FORCE_FORWARDING] = READ_ONCE(cnf->force_forwarding);
++	array[DEVCONF_LINK_FILTER] = READ_ONCE(cnf->link_filter);
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7143,6 +7144,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7251,6 +7252,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
@@ -127,10 +128,9 @@ index 4958452cd332..608ad0b164e3 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5a6cc828855d..00f98d4f3860 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -716,6 +716,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
+@@ -714,6 +714,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
  }
  #endif
  
@@ -145,7 +145,7 @@ index 5a6cc828855d..00f98d4f3860 100644
  /*
   * Default Router Selection (RFC 2461 6.3.6)
   */
-@@ -757,6 +765,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
+@@ -755,6 +763,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
  
  	if (!m && (strict & RT6_LOOKUP_F_IFACE))
  		return RT6_NUD_FAIL_HARD;

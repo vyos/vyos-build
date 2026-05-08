@@ -103,7 +103,7 @@ jobs:
           --vyos-mirror ${{ needs.set_config.outputs.vyos_mirror }} \
           generic
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           retention-days: 2
           name: vyos-${{ steps.version.outputs.build_version }}

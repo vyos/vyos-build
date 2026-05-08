@@ -1,0 +1,62 @@
+From: Christian Breunig <christian@breunig.cc>
+Date: Tue, 28 Apr 2026 16:21:56 +0200
+Subject: [PATCH] iommu: add LINUX_VERSION_CODE conditional for 6.18
+
+---
+ .../qat/drivers/crypto/qat/qat_common/qdm.c   | 22 ++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/quickassist/qat/drivers/crypto/qat/qat_common/qdm.c b/quickassist/qat/drivers/crypto/qat/qat_common/qdm.c
+index e4ca0e9..36090fb 100644
+--- a/quickassist/qat/drivers/crypto/qat/qat_common/qdm.c
++++ b/quickassist/qat/drivers/crypto/qat/qat_common/qdm.c
+@@ -9,10 +9,12 @@
+ 
+ #include <linux/iommu.h>
+ #include <linux/module.h>
++#include <linux/mutex.h>
+ #include <linux/pci.h>
+ #include "qdm.h"
+ 
+ static struct iommu_domain *domain;
++static DEFINE_MUTEX(qdm_domain_lock);
+ 
+ static bool iommu_configured_passthrough(void)
+ {
+@@ -70,6 +72,18 @@ int qdm_attach_device(struct device *dev)
+ 		return -ENODEV;
+ 	}
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
++	if (!domain && qdm_iommu_present() && !iommu_under_pt()) {
++		mutex_lock(&qdm_domain_lock);
++		if (!domain) {
++			domain = iommu_paging_domain_alloc(dev);
++			if (!domain)
++				pr_err("QAT: Failed to allocate a domain\n");
++		}
++		mutex_unlock(&qdm_domain_lock);
++	}
++#endif
++
+ 	if (!domain) {
+ 		if (iommu_under_pt()) {
+ 			dma_addr_t daddr;
+@@ -202,7 +216,13 @@ int __init qdm_init(void)
+ 	if (!qdm_iommu_present() || iommu_under_pt())
+ 		return 0;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 2, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
++	/*
++	 * Kernel 6.18+ no longer provides the legacy iommu_domain_alloc() API.
++	 * Allocate the paging domain lazily when the first device attaches.
++	 */
++	return 0;
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(3, 2, 0)
+ 	domain = iommu_domain_alloc();
+ #else
+ 	domain = iommu_domain_alloc(&pci_bus_type);
+-- 
+2.39.5
+
