@@ -2,22 +2,28 @@
 
 # We do have different default console configurations per flavor used. We will
 # set the serial console to the default configuration for the flavor.
-WRITE_CONFIG="/usr/libexec/vyos/write-config-file-value.py"
+WRITE_CONFIG=$(python3 -c 'from vyos.defaults import base_dir; print(f"{base_dir}/write-config-file-value.py")')
 if ! test -x $WRITE_CONFIG; then
     echo "E: missing script to implant serial config settings"
     exit 1
 fi
 
 default_config_file=$(python3 -c 'from vyos.defaults import config_default; print(config_default)')
-device=$(jq -r '"\(.console_type)\(.console_num)"' /usr/share/vyos/flavor.json)
-speed=$(jq -r '.console_speed' /usr/share/vyos/flavor.json)
+flavor_file=$(python3 -c 'from vyos.defaults import directories; print(directories["data"] + "flavor.json" )')
+console_type=$(jq -r '.console_type' $flavor_file)
+device=$(jq -r '"\(.console_type)\(.console_num)"' $flavor_file)
+speed=$(jq -r '.console_speed' $flavor_file)
 
-if [ -n "$device" ] && [ -n "$speed" ] && [ -f $default_config_file ]; then
+# Serial console settings apply only to hardware serial (x86) or UART (ARM).
+if [ "$console_type" != ttyS ] && [ "$console_type" != ttyAMA ]; then
+    echo "I: Skipping serial console implant (console_type=$console_type is not ttyS or ttyAMA)"
+elif [ -n "$device" ] && [ -n "$speed" ] && [ -f $default_config_file ]; then
     $WRITE_CONFIG --path "system console device $device speed" \
         --value "$speed" \
         --config-file $default_config_file
     $WRITE_CONFIG --path "system console device $device kernel" \
         --config-file $default_config_file
+    echo "I: Changed serial console settings in: $default_config_file to $device,$speed"
 else
     echo "E: Could not implant serial console settings in: $default_config_file"
     exit 1
