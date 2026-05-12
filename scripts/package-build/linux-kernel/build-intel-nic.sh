@@ -46,7 +46,7 @@ if [ -d $PATCH_DIR ]; then
 fi
 
 echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
-make KSRC=${KERNEL_DIR} INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} -j $(getconf _NPROCESSORS_ONLN) -C src install
+make KSRC=${KERNEL_DIR} BUILD_KERNEL=${KERNEL_VERSION}${KERNEL_SUFFIX} INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} -j $(getconf _NPROCESSORS_ONLN) -C src install
 
 if [ "x$?" != "x0" ]; then
     exit 1
