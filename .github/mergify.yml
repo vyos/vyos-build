@@ -1,25 +1,20 @@
-pull_request_rules:
-  - name: Label conflicting pull requests
-    description: Add a label to a pull request with conflict to spot it easily
-    conditions:
-      - conflict
-      - '-closed'
-    actions:
-      label:
-        toggle:
-          - conflicts
+# yaml-language-server: $schema=https://docs.mergify.com/configuration/file-format/
+# Mergify configuration for vyos/vyos-build.
+#
+# Inherits the central baseline from vyos/mergify:.mergify.yml. The central
+# baseline provides:
+#   - `defaults.actions.backport.ignore_conflicts: false`
+#   - `pull_request_rules` → label conflicting PRs with `conflicts`;
+#     T-ID format checks on PR title and commit messages.
+#   - `commands_restrictions` → restrict @Mergifyio slash commands to the
+#     org Maintainers team + vyosbot. Resolves correctly on both sides of
+#     the cross-org mirror: vyos/mergify uses @vyos/maintainers,
+#     VyOS-Networks/mergify uses @VyOS-Networks/maintainers.
+#
+# Replaces the inline T8531 predecessor config. Rollout context:
+# T8782 (Mergify central-config rollout), T8852 (fleet migration to
+# `extends:`). See https://vyos.dev/T8782, https://vyos.dev/T8852,
+# and the Confluence spec at
+# https://vyos.atlassian.net/wiki/spaces/VYOS/pages/849477640.
 
-commands_restrictions:
-  backport: &allowed
-    conditions:
-      - or:
-        - sender=@vyos/maintainers
-        - sender=vyosbot
-  copy: *allowed
-  dequeue: *allowed
-  queue: *allowed
-  rebase: *allowed
-  refresh: *allowed
-  requeue: *allowed
-  squash: *allowed
-  update: *allowed
+extends: mergify
