@@ -17,4 +17,19 @@
 # and the Confluence spec at
 # https://vyos.atlassian.net/wiki/spaces/VYOS/pages/849477640.
 
-extends: mergify
+commands_restrictions:
+  backport: &allowed
+    conditions:
+      - or:
+          - sender=@vyos/maintainers
+          - sender=vyosbot
+  copy: *allowed
+  dequeue: *allowed
+  queue: *allowed
+  rebase: *allowed
+  refresh: *allowed
+  requeue: *allowed
+  squash: *allowed
+  update: *allowed
+merge_protections_settings:
+  reporting_method: check-runs
