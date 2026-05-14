@@ -17,19 +17,14 @@
 # and the Confluence spec at
 # https://vyos.atlassian.net/wiki/spaces/VYOS/pages/849477640.
 
-commands_restrictions:
-  backport: &allowed
-    conditions:
-      - or:
-          - sender=@vyos/maintainers
-          - sender=vyosbot
-  copy: *allowed
-  dequeue: *allowed
-  queue: *allowed
-  rebase: *allowed
-  refresh: *allowed
-  requeue: *allowed
-  squash: *allowed
-  update: *allowed
+extends: mergify
+
+# ------------------------------------------------------------------
+# Repo-specific overlay: keep the existing `merge_protections_settings`
+# from the T8531-era inline config. This is a Mergify v8 top-level
+# setting that the central baseline does not provide. Preserving it
+# keeps the same reporting behavior (`check-runs`) that vyos-1x has
+# relied on under the inline config.
+# ------------------------------------------------------------------
 merge_protections_settings:
   reporting_method: check-runs
