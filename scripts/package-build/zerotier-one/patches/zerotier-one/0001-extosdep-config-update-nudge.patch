@@ -63,10 +63,10 @@ index d7028902c..c1951239f 100644
  	static bool mgmtRecv(void* cookie, void* data, unsigned long len, std::function<unsigned(unsigned, const std::string&, const std::string&, std::string&)>);
  	static bool mgmtWritable(void*);
 diff --git a/service/OneService.cpp b/service/OneService.cpp
-index 227b575f7..d93758649 100644
+index 41d790516..ea8e4ce3c 100644
 --- a/service/OneService.cpp
 +++ b/service/OneService.cpp
-@@ -3607,6 +3607,9 @@ class OneServiceImpl : public OneService {
+@@ -3599,6 +3599,9 @@ class OneServiceImpl : public OneService {
  #endif
  					syncManagedStuff(n, true, true, true);
  					n.tap()->setMtu(nwc->mtu);
@@ -76,7 +76,7 @@ index 227b575f7..d93758649 100644
  				}
  				else {
  					_nets.erase(nwid);
-@@ -3619,6 +3622,9 @@ class OneServiceImpl : public OneService {
+@@ -3611,6 +3614,9 @@ class OneServiceImpl : public OneService {
  				if (n.tap()) {	 // sanity check
  #if defined(__WINDOWS__) && ! defined(ZT_SDK)
  					std::string winInstanceId(((WindowsEthernetTap*)(n.tap().get()))->instanceId());
