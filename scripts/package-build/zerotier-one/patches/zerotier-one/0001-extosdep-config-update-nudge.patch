@@ -1,5 +1,5 @@
 diff --git a/osdep/ExtOsdep.cpp b/osdep/ExtOsdep.cpp
-index 4efab5a6c..7550cf55a 100644
+index 4efab5a6c..771668d72 100644
 --- a/osdep/ExtOsdep.cpp
 +++ b/osdep/ExtOsdep.cpp
 @@ -256,6 +256,18 @@ bool ExtOsdep::getBindAddrs(std::map<InetAddress, std::string>& ret)
@@ -21,6 +21,14 @@ index 4efab5a6c..7550cf55a 100644
  ExtOsdepTap::ExtOsdepTap(
  	const char* homePath,
  	const MAC& mac,
+@@ -499,6 +511,7 @@ bool ExtOsdepTap::removeIp(const InetAddress& ip)
+ 	for (auto i = allIps.begin(); i != allIps.end(); ++i) {
+ 		if (*i == ip) {
+ 			doRemoveIp(*i);
++			allIps.erase(i);
+ 			return true;
+ 		}
+ 	}
 diff --git a/osdep/ExtOsdep.hpp b/osdep/ExtOsdep.hpp
 index d7028902c..c1951239f 100644
 --- a/osdep/ExtOsdep.hpp
