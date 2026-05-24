@@ -422,22 +422,10 @@ if args.sbom:
     subprocess.check_output(['mount', '-o', 'loop', transfer_disk_path, setup_mount])
     try:
         log.info('Downloading syft to transfer disk')
-        if platform.machine() in ['amd64', 'x86_64']:
-            syft_tar_url = 'https://cdn.vyos.io/tools/syft_1.44.0_linux_amd64.tar.gz'
-        elif platform.machine() in ['arm64', 'aarch64']:
-            syft_tar_url = 'https://cdn.vyos.io/tools/syft_1.44.0_linux_arm64.tar.gz'
-        else:
-            raise ValueError(f'Unsupported architecture for syft download: {platform.machine()}')
-        import tarfile, tempfile
-        with tempfile.TemporaryDirectory() as tar_tmp:
-            tar_path = os.path.join(tar_tmp, 'syft.tar.gz')
-            subprocess.check_call(['curl', '-sSfL', '-o', tar_path, syft_tar_url])
-            with tarfile.open(tar_path) as tf:
-                with tf.extractfile(tf.getmember('syft')) as src:
-                    dest_path = os.path.join(setup_mount, 'syft')
-                    with open(dest_path, 'wb') as dst:
-                        dst.write(src.read())
-            os.chmod(os.path.join(setup_mount, 'syft'), 0o755)
+        subprocess.check_call(
+            f'curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b {setup_mount}',
+            shell=True
+        )
         log.info('Syft downloaded to transfer disk')
     finally:
         subprocess.check_output(['umount', setup_mount])
