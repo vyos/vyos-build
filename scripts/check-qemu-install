@@ -1306,18 +1306,10 @@ try:
             raise Exception('Failed to mount SBOM transfer disk inside VM')
         c.expect(op_mode_prompt)
 
-        # Copy the syft binary from the transfer disk and verify it is available before running the SBOM generation process
-        c.sendline('test -x /mnt/sbom_transfer/syft && echo SYFT_SRC_OK || echo SYFT_SRC_FAIL')
-        i = c.expect(['SYFT_SRC_OK', 'SYFT_SRC_FAIL'])
-        if i != 0:
-            raise Exception('Syft binary is missing or not executable on the SBOM transfer disk')
+        # Copy the syft binary to the transfer disk and check the version to verify it works before running the SBOM generation process
+        c.sendline('sudo cp /mnt/sbom_transfer/syft /tmp/syft && sudo chmod +x /tmp/syft')
         c.expect(op_mode_prompt)
 
-        c.sendline('sudo cp /mnt/sbom_transfer/syft /tmp/syft && sudo chmod +x /tmp/syft && test -x /tmp/syft && echo SYFT_COPY_OK || echo SYFT_COPY_FAIL')
-        i = c.expect(['SYFT_COPY_OK', 'SYFT_COPY_FAIL'])
-        if i != 0:
-            raise Exception('Failed to copy Syft binary from SBOM transfer disk to /tmp/syft')
-        c.expect(op_mode_prompt)
         c.sendline('TERM=dumb /tmp/syft --version')
         c.expect(op_mode_prompt)
         lines = c.before.decode(errors='replace').strip().splitlines()
