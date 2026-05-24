@@ -1319,7 +1319,6 @@ try:
         # Generate SBOMs using the syft util for the whole filesystem with all layers, output both CycloneDX and SPDX formats
         syft_cmd = (
             f'sudo TERM=dumb /tmp/syft / -q'
-            f' --exclude **/mnt/sbom_transfer/**'
             f' --source-name {iso_name}.iso --source-version {iso_name}'
             f' -o cyclonedx-json=/mnt/sbom_transfer/{sbom_file_cdx}'
             f' -o spdx-json=/mnt/sbom_transfer/{sbom_file_spdx}'
