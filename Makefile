@@ -93,7 +93,7 @@ oci: checkiso
 .PHONY: make_sbom
 .ONESHELL:
 make_sbom: checkiso
-	@scripts/check-qemu-install --debug --iso $(ISO_PATH) --sbom --cpu 2 --memory 4 $(if $(SBOM_OUTPUT_DIR),--sbom-output-dir "$(SBOM_OUTPUT_DIR)")
+	@scripts/check-qemu-install --debug --iso $(ISO_PATH) --sbom --cpu 2 --memory 4 $(if $(SBOM_OUTPUT_DIR),--sbom-output-dir $(SBOM_OUTPUT_DIR))
 
 .PHONY: clean
 .ONESHELL:
