@@ -90,11 +90,6 @@ qemu-live: checkiso
 oci: checkiso
 	scripts/iso-to-oci $(ISO_PATH)
 
-.PHONY: make_sbom
-.ONESHELL:
-make_sbom: checkiso
-	@scripts/check-qemu-install --debug --iso $(ISO_PATH) --sbom --cpu 2 --memory 4 $(if $(SBOM_OUTPUT_DIR),--sbom-output-dir $(SBOM_OUTPUT_DIR))
-
 .PHONY: clean
 .ONESHELL:
 clean:
