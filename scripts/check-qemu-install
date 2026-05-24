@@ -125,10 +125,6 @@ parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
                 action='store_true', default=False)
 parser.add_argument('--sbtest', help='Execute Secure Boot tests',
                 action='store_true', default=False)
-parser.add_argument('--sbom', help='Generate SBOM file using syft',
-                action='store_true', default=False)
-parser.add_argument('--sbom-output-dir', help='Host directory to mount and copy SBOM file into',
-                type=str, default=None)
 parser.add_argument('--cloud-init', help='Execute cloud-init tests',
                 action='store_true', default=False)
 parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
@@ -148,12 +144,6 @@ args = parser.parse_args()
 
 if os.geteuid() != 0:
     exit('You need to have root privileges to run this script.')
-
-if args.sbom and not args.sbom_output_dir:
-    args.sbom_output_dir = os.getcwd()
-
-if args.sbom_output_dir:
-    os.makedirs(args.sbom_output_dir, exist_ok=True)
 
 if args.cloud_init:
     hostname = CI_CONFIG_ARGS['hostname']
@@ -200,7 +190,7 @@ class EarlyExit(Exception):
 def _kvm_exists():
     return os.path.exists("/dev/kvm")
 
-def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False, vnc_enabled=False, secure_boot=False, transfer_disk=None):
+def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False, vnc_enabled=False, secure_boot=False):
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
     accel = ',accel=kvm' if _kvm_exists() else ''
@@ -285,10 +275,6 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         cmd += f' -chardev socket,id=chrtpm,path={tpm_sock}' \
                ' -tpmdev emulator,id=tpm0,chardev=chrtpm' \
                ' -device tpm-tis,tpmdev=tpm0'
-
-    if transfer_disk:
-        cmd += f' -drive format=raw,file={transfer_disk},if=none,media=disk,id=drive-transfer,readonly=off' \
-               f' -device scsi-hd,bus=scsi0.0,drive=drive-transfer,id=transfer-disk'
 
     return cmd
 
@@ -407,33 +393,10 @@ if args.raid:
 # must be called after the raid disk as args.disk name is altered in the RAID path
 gen_disk(args.disk)
 
-# Create 512MB transfer disk for SBOM generation if requested, download the syft util to use inside the VM for SBOM generation process.
-# It will be used to copy generated SBOM files from the VM to the host via the mounted transfer disk.
-transfer_disk_path = None
-if args.sbom:
-    _ts = datetime.now().strftime('%Y%m%d-%H%M%S')
-    _rand = '%04x' % random.randint(0, 0xFFFF)
-    transfer_disk_path = f'/tmp/vyos-sbom-transfer-{_ts}-{_rand}.img'
-    subprocess.check_output(['dd', 'if=/dev/zero', f'of={transfer_disk_path}', 'bs=1M', 'count=512'])
-    subprocess.check_output(['mkfs.vfat', '-F', '32', '-n', 'SBOMXFER', transfer_disk_path])
-    log.info(f'Created SBOM transfer disk: {transfer_disk_path}')
-    setup_mount = f'{transfer_disk_path}.setup'
-    os.makedirs(setup_mount, exist_ok=True)
-    subprocess.check_output(['mount', '-o', 'loop', transfer_disk_path, setup_mount])
-    try:
-        log.info('Downloading syft to transfer disk')
-        subprocess.check_call(
-            f'curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b {setup_mount}',
-            shell=True
-        )
-        log.info('Syft downloaded to transfer disk')
-    finally:
-        subprocess.check_output(['umount', setup_mount])
-        os.rmdir(setup_mount)
-
 # Create software emulated TPM - clear existing TPM data first - might be a
 # leftover from a previous run
 clearTPM()
+
 def start_swtpm():
     if not os.path.exists(tpm_folder):
         os.mkdir(tpm_folder)
@@ -684,7 +647,7 @@ try:
     # Installing image to disk
     #################################################
     log.info('Installing system')
-    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest, transfer_disk=transfer_disk_path)
+    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
@@ -1285,59 +1248,6 @@ try:
             tmp = 'Configtest failed :/ - check debug output'
             log.error(tmp)
             raise Exception(tmp)
-    elif args.sbom:
-        # Determine SBOM output file names based on ISO name
-        iso_real = os.path.realpath(args.iso) if args.iso else None
-        iso_name = os.path.splitext(os.path.basename(iso_real))[0] if iso_real else 'vyos'
-        sbom_file_cdx = f'{iso_name}.iso.cdx.json'
-        sbom_file_spdx = f'{iso_name}.iso.spdx.json'
-
-        # Create a mount point for the SBOM transfer disk
-        log.info('Mounting transfer disk in VM')
-        c.sendline('sudo mkdir -p /mnt/sbom_transfer')
-        c.expect(op_mode_prompt)
-
-        c.sendline('sudo mount $(sudo blkid -L SBOMXFER) /mnt/sbom_transfer')
-        c.expect(op_mode_prompt)
-
-        c.sendline('mountpoint -q /mnt/sbom_transfer && echo MOUNT_OK || echo MOUNT_FAIL')
-        i = c.expect(['MOUNT_OK', 'MOUNT_FAIL'])
-        if i != 0:
-            raise Exception('Failed to mount SBOM transfer disk inside VM')
-        c.expect(op_mode_prompt)
-
-        # Copy the syft binary to the transfer disk and check the version to verify it works before running the SBOM generation process
-        c.sendline('sudo cp /mnt/sbom_transfer/syft /tmp/syft && sudo chmod +x /tmp/syft')
-        c.expect(op_mode_prompt)
-
-        c.sendline('TERM=dumb /tmp/syft --version')
-        c.expect(op_mode_prompt)
-        lines = c.before.decode(errors='replace').strip().splitlines()
-        syft_version = next((l.strip() for l in reversed(lines) if l.strip()), 'unknown')
-        log.info(f'syft version: {syft_version}')
-
-        # Generate SBOMs using the syft util for the whole filesystem with all layers, output both CycloneDX and SPDX formats
-        syft_cmd = (
-            f'sudo TERM=dumb /tmp/syft / -q'
-            f' --source-name {iso_name}.iso --source-version {iso_name}'
-            f' -o cyclonedx-json=/mnt/sbom_transfer/{sbom_file_cdx}'
-            f' -o spdx-json=/mnt/sbom_transfer/{sbom_file_spdx}'
-        )
-
-        log.info(f'Generating SBOMs: {sbom_file_cdx} and {sbom_file_spdx}')
-        c.sendline(syft_cmd)
-        c.expect(op_mode_prompt, timeout=1800)
-
-        c.sendline('echo EXITCODE:$\x16?')
-        i = c.expect(['EXITCODE:0', r'EXITCODE:\d+'])
-        if i != 0:
-            raise Exception('syft SBOM generation failed')
-
-        # Unmount transfer disk
-        c.sendline('sudo umount /mnt/sbom_transfer')
-        c.expect(op_mode_prompt)
-        log.info('SBOM files written to transfer disk. The transfer disk was unmounted.')
-
     elif args.sbtest:
         c.sendline('show secure-boot')
         c.expect('SecureBoot enabled')
@@ -1347,20 +1257,6 @@ try:
 
     shutdownVM(c, log, 'Powering off system')
     c.close()
-
-    # Extract SBOM files from transfer disk to host
-    if args.sbom and transfer_disk_path and args.sbom_output_dir:
-        log.info('Extracting SBOM files from transfer disk to host.')
-        mount_point = f'{transfer_disk_path}.mnt'
-        os.makedirs(mount_point, exist_ok=True)
-        subprocess.check_output(['mount', '-o', 'loop', transfer_disk_path, mount_point])
-        for sbom_f in [sbom_file_cdx, sbom_file_spdx]:
-            src = os.path.join(mount_point, sbom_f)
-            if os.path.isfile(src):
-                shutil.copy2(src, args.sbom_output_dir)
-                log.info(f'SBOM file saved to: {args.sbom_output_dir}/{sbom_f}')
-        subprocess.check_output(['umount', mount_point])
-        os.rmdir(mount_point)
 
 except EarlyExit:
     pass
@@ -1398,8 +1294,6 @@ if not args.keep:
             os.remove(diskname_raid)
         if args.sbtest:
             os.remove(OVMF_VARS_TMP)
-        if transfer_disk_path and os.path.isfile(transfer_disk_path):
-            os.remove(transfer_disk_path)
     except Exception:
         log.error('Exception while removing diskimage!')
         log.error(traceback.format_exc())
