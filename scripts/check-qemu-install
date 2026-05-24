@@ -1361,21 +1361,15 @@ try:
     if args.sbom and transfer_disk_path and args.sbom_output_dir:
         log.info('Extracting SBOM files from transfer disk to host.')
         mount_point = f'{transfer_disk_path}.mnt'
-        mounted = False
         os.makedirs(mount_point, exist_ok=True)
-        try:
-            subprocess.check_output(['mount', '-o', 'loop', transfer_disk_path, mount_point])
-            mounted = True
-            for sbom_f in [sbom_file_cdx, sbom_file_spdx]:
-                src = os.path.join(mount_point, sbom_f)
-                if os.path.isfile(src):
-                    shutil.copy2(src, args.sbom_output_dir)
-                    log.info(f'SBOM file saved to: {args.sbom_output_dir}/{sbom_f}')
-        finally:
-            if mounted:
-                subprocess.check_output(['umount', mount_point])
-            if os.path.isdir(mount_point):
-                os.rmdir(mount_point)
+        subprocess.check_output(['mount', '-o', 'loop', transfer_disk_path, mount_point])
+        for sbom_f in [sbom_file_cdx, sbom_file_spdx]:
+            src = os.path.join(mount_point, sbom_f)
+            if os.path.isfile(src):
+                shutil.copy2(src, args.sbom_output_dir)
+                log.info(f'SBOM file saved to: {args.sbom_output_dir}/{sbom_f}')
+        subprocess.check_output(['umount', mount_point])
+        os.rmdir(mount_point)
 
 except EarlyExit:
     pass
