@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Per-repo CodeRabbit override for vyos/vyos-build.
+#
+# Most behavior is inherited from the org-level central baseline at
+# https://github.com/vyos/coderabbit/blob/production/.coderabbit.yaml
+# (loaded automatically because the central repo is named `coderabbit`
+# under the same GitHub org as this repo).
+#
+# When this repo has a VyOS-Networks mirror, this file is propagated by
+# the gen-1 mirror pipeline. CodeRabbit's Atlassian/Jira OAuth grant is
+# attached to the VyOS-Networks org only (one GitHub-org → Jira-tenant
+# link per install), so `usage: auto` self-disables on the public source
+# and activates on the private mirror — one file, both orgs.
+
+# Opt this repo into the inheritance chain. Without this, the file below
+# would entirely REPLACE the central baseline rather than merge per-field
+# on top of it — inheritance is disabled by default per CodeRabbit's
+# schema (https://docs.coderabbit.ai/configuration/configuration-inheritance).
+inheritance: true
+
+knowledge_base:
+  jira:
+    # `auto` is the cross-org-safe value: enabled on private/internal
+    # mirror repos where Jira OAuth is connected, disabled on the public
+    # source where it is not.
+    usage: auto
+    project_keys:
+      - VD
