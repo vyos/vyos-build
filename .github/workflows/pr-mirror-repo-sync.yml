@@ -1,3 +1,6 @@
+# .github/workflows/pr-mirror-repo-sync.yml
+# DO NOT EDIT — managed by mirror-pipeline rollout.
+# To opt out: set vars.MIRROR_ENABLED=false in this repo's Actions variables.
 name: PR Mirror and Repo Sync
 
 on:
@@ -7,29 +10,21 @@ on:
   workflow_dispatch:
     inputs:
       sync_branch:
-        description: 'Branch to mirror'
         required: true
-        default: 'current'
-        type: choice
-        options:
-          - current
+        type: string
 
 permissions:
-  pull-requests: write
   contents: write
+  pull-requests: write
   issues: write
 
 jobs:
-  call-pr-mirror-repo-sync:
+  call:
     if: |
-      github.repository_owner == 'vyos' &&
-      (
-        github.event_name == 'workflow_dispatch' ||
-        (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true)
-      )
+      github.repository_owner == 'vyos'
+      && (github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch')
+      && vars.MIRROR_ENABLED != 'false'
     uses: vyos/.github/.github/workflows/pr-mirror-repo-sync.yml@current
     with:
-      sync_branch: ${{ github.event.inputs.sync_branch || 'current' }}
-    secrets:
-      PAT: ${{ secrets.PAT }}
-      REMOTE_OWNER: ${{ secrets.REMOTE_OWNER }}
+      sync_branch: ${{ inputs.sync_branch || github.event.pull_request.base.ref }}
+    secrets: inherit
