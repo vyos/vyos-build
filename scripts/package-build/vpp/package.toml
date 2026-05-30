@@ -1,6 +1,6 @@
 [[packages]]
 name = "vyos-vpp-patches"
-commit_id = "current"
+commit_id = "rolling"
 scm_url = "https://github.com/vyos/vyos-vpp-patches"
 build_cmd = "/bin/true"
 apply_patches = false

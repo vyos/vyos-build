@@ -1,6 +1,6 @@
 [[packages]]
 name = "libpam-radius-auth"
-commit_id = "current"
+commit_id = "rolling"
 scm_url = "https://github.com/vyos/libpam-radius-auth.git"
 
 [dependencies]
