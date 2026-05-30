@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - current
+      - rolling
       - circinus
       - sagitta
     paths:
@@ -15,7 +15,7 @@ on:
       - '!docker-vyos/**'
   pull_request_target:
     branches:
-      - current
+      - rolling
       - circinus
       - sagitta
     paths:

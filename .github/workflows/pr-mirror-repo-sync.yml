@@ -6,7 +6,7 @@ name: PR Mirror and Repo Sync
 on:
   pull_request_target:
     types: [closed]
-    branches: [current]
+    branches: [rolling]
   workflow_dispatch:
     inputs:
       sync_branch:

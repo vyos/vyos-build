@@ -3,7 +3,7 @@ name: "Perform CodeQL Analysis"
 on:
   push:
     branches:
-      - current
+      - rolling
       - circinus
       - sagitta
     paths:
@@ -13,7 +13,7 @@ on:
   pull_request:
     # The branches below must be a subset of the branches above
     branches:
-      - current
+      - rolling
       - circinus
       - sagitta
     paths:

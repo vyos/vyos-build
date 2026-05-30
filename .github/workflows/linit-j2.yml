@@ -4,7 +4,7 @@ name: J2 Lint
 on:
   pull_request:
     branches:
-      - current
+      - rolling
       - sagitta
       - equuleus
   workflow_dispatch:
