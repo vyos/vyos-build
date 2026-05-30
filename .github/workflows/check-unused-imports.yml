@@ -13,5 +13,5 @@ permissions:
 
 jobs:
   check-unused-imports:
-    uses: vyos/.github/.github/workflows/check-unused-imports.yml@current
+    uses: vyos/.github/.github/workflows/check-unused-imports.yml@production
     secrets: inherit

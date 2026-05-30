@@ -11,5 +11,5 @@ permissions:
 jobs:
   check-pr-conflict:
     if: github.repository_owner == 'vyos'
-    uses: vyos/.github/.github/workflows/check-pr-merge-conflict.yml@current
+    uses: vyos/.github/.github/workflows/check-pr-merge-conflict.yml@production
     secrets: inherit

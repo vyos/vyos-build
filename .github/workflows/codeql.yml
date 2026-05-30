@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   codeql-analysis-call:
-    uses: vyos/.github/.github/workflows/codeql-analysis.yml@current
+    uses: vyos/.github/.github/workflows/codeql-analysis.yml@production
     secrets: inherit
     with:
       languages: "['python']"
