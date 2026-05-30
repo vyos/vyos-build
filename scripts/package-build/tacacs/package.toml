@@ -1,18 +1,18 @@
 [[packages]]
 name = "libtacplus-map"
-commit_id = "master"
+commit_id = "rolling"
 scm_url = "https://github.com/vyos/libtacplus-map.git"
 build_cmd = "dpkg-buildpackage -us -uc -tc -b"
 
 [[packages]]
 name = "libpam-tacplus"
-commit_id = "master"
+commit_id = "rolling"
 scm_url = "https://github.com/vyos/libpam-tacplus.git"
 build_cmd = "sudo dpkg -i ../libtacplus-map*.deb; dpkg-buildpackage -us -uc -tc -b"
 
 [[packages]]
 name = "libnss-tacplus"
-commit_id = "master"
+commit_id = "rolling"
 scm_url = "https://github.com/vyos/libnss-tacplus.git"
 build_cmd = "sudo dpkg -i ../libtac*.deb ../libpam-tacplus*.deb; dpkg-buildpackage -us -uc -tc -b"
 

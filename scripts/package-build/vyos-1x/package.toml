@@ -1,4 +1,4 @@
 [[packages]]
 name = "vyos-1x"
-commit_id = "current"
+commit_id = "rolling"
 scm_url = "https://github.com/vyos/vyos-1x.git"
