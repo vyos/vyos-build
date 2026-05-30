@@ -24,7 +24,7 @@ jobs:
       github.repository_owner == 'vyos'
       && (github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch')
       && vars.MIRROR_ENABLED != 'false'
-    uses: vyos/.github/.github/workflows/pr-mirror-repo-sync.yml@current
+    uses: vyos/.github/.github/workflows/pr-mirror-repo-sync.yml@production
     with:
       sync_branch: ${{ inputs.sync_branch || github.event.pull_request.base.ref }}
     secrets: inherit

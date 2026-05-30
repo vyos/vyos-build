@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   stale:
-    uses: vyos/.github/.github/workflows/check-stale.yml@current
+    uses: vyos/.github/.github/workflows/check-stale.yml@production
     secrets: inherit

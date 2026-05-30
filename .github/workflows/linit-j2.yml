@@ -15,5 +15,5 @@ permissions:
 
 jobs:
   j2lint:
-    uses: vyos/.github/.github/workflows/lint-j2.yml@current
+    uses: vyos/.github/.github/workflows/lint-j2.yml@production
     secrets: inherit
