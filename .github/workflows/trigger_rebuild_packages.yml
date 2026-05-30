@@ -3,7 +3,7 @@ name: Trigger to build package
 on:
   push:
     branches:
-      - current
+      - rolling
 
 jobs:
   changes:
