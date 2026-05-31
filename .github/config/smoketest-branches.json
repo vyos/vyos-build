@@ -1,8 +1,8 @@
 {
   "branches": {
-    "current": {
-      "vyos_mirror": "https://packages.vyos.net/repositories/current/",
-      "container_image": "vyos/vyos-build:current",
+    "rolling": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/rolling/",
+      "container_image": "vyos/vyos-build:rolling",
       "use_pat": false
     },
     "circinus": {
