@@ -49,11 +49,10 @@ be found in our [Documentation - Build VyOS](https://docs.vyos.io/en/latest/cont
 
 # Development Branches
 
-The default branch that contains the most recent VyOS code is called `current`.
-We may or may not eventually switch to `main`.
+The default branch that contains the most recent VyOS code is called `rolling`.
 
-All new code goes to the `current` branch. When a new LTS release is ready for feature freeze, a
-new branch is created for the release, and new code from `current` is backported
+All new code goes to the `rolling` branch. When a new LTS release is ready for feature freeze, a
+new branch is created for the release, and new code from `rolling` is backported
 to the release branch as needed.
 
 Post-1.2.0 branches are named after constellations sorted by area from smallest
