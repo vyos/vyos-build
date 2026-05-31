@@ -6,7 +6,7 @@ name: PR Mirror and Repo Sync
 on:
   pull_request_target:
     types: [closed]
-    branches: [rolling]
+    branches: [rolling, production]
   workflow_dispatch:
     inputs:
       sync_branch:
@@ -14,16 +14,13 @@ on:
         type: string
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 jobs:
   call:
     if: |
       github.repository_owner == 'vyos'
       && (github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch')
-      && vars.MIRROR_ENABLED != 'false'
     uses: vyos/.github/.github/workflows/pr-mirror-repo-sync.yml@production
     with:
       sync_branch: ${{ inputs.sync_branch || github.event.pull_request.base.ref }}
