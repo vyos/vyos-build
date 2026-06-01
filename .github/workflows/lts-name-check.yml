@@ -1,0 +1,21 @@
+# .github/workflows/lts-name-check.yml
+# DO NOT EDIT — managed by mirror-pipeline rollout.
+name: LTS-name advisory check
+
+# pull_request_target (NOT pull_request) so the workflow runs with base-repo
+# secrets even on fork PRs. The reusable workflow does NOT check out PR code
+# (only reads title/body from the event payload), so the standard
+# pull_request_target exploitation vector (running fork code with elevated
+# secrets) does not apply.
+on:
+  pull_request_target:
+    types: [opened, edited]
+    branches: [rolling]
+
+permissions: {}
+
+jobs:
+  call:
+    if: github.repository_owner == 'vyos'
+    uses: vyos/.github/.github/workflows/lts-name-check-reusable.yml@production
+    secrets: inherit
