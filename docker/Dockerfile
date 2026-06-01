@@ -253,29 +253,28 @@ RUN GO_VERSION_INSTALL="1.23.2" ; \
     rm /tmp/go*.tar.gz
 RUN echo "export PATH=/opt/go/bin:$PATH" >> /etc/bash.bashrc
 
-# Packages needed for Qemu test-suite
-# Packages for i386 and amd64 platforms
-RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
-      apt-get update && apt-get install -y \
+# Packages needed for QEMU test-suite
+RUN apt-get update && apt-get install -y \
         python3-pexpect \
-        ovmf \
-        qemu-system-x86 \
         qemu-utils \
-        qemu-kvm; \
+        qemu-kvm
+
+# Packages for amd64 platforms
+RUN if dpkg-architecture -iamd64; then \
+      apt-get update && apt-get install -y \
+        ovmf \
+        qemu-system-x86; \
     fi
 
 # Packages for arm64 platform
 RUN if dpkg-architecture -iarm64; then \
       apt-get update && apt-get install -y \
-        python3-pexpect \
-        ipxe-qemu \
         qemu-system-aarch64 \
         qemu-efi-aarch64; \
     fi
 
-# Packages needed for building vmware and GCE images
-# This is only supported on i386 and amd64 platforms
-RUN if dpkg-architecture -ii386 || dpkg-architecture -iamd64; then \
+# Packages needed for building VMware and GCE images
+RUN if dpkg-architecture -iamd64; then \
      apt-get update && apt-get install -y \
       parted \
       udev \
