@@ -16,7 +16,7 @@
 # Must be run with --privileged flag, recommended to run the container with a
 # volume mapped in order to easy export images
 
-# This Dockerfile is installable on both x86, x86-64, armhf and arm64 systems
+# This Dockerfile is installable on x86-64 (amd64) and aarch64 (amd64) systems
 ARG ARCH=
 FROM ${ARCH}debian:bookworm-slim
 
@@ -27,14 +27,10 @@ RUN grep "VERSION_ID" /etc/os-release || (echo 'VERSION_ID="12"' >> /etc/os-rele
 
 # To install using a non-native cpu instructionset use the `--build-arg ARCH=<ARCH>/`
 # Supported architectures:
-#     arm32v6/
-#     arm32v7/
 #     arm64v8/
-# Example bo byukd natively:
+# Example to build natively:
 #     docker build -t vyos-build:rolling .
-# Example to build on armhf:
-#     docker build -t vyos-build:rolling-armhf --build-arg ARCH=arm32v7/ .
-# Example to build on arm64:
+# Example to build on arm64/aarch64:
 #     docker build -t vyos-build:rolling-arm64 --build-arg ARCH=arm64v8/ .
 
 # On some versions of docker the emulation framework is not installed by default and
@@ -134,13 +130,6 @@ RUN apt-get update && apt-get install -y \
       libpcre2-dev \
       unzip
 
-# Update certificate store to not crash ocaml package install
-# Apply fix for https in curl running on armhf
-RUN dpkg-reconfigure ca-certificates; \
-    if dpkg-architecture -iarmhf; then \
-      echo "cacert=/etc/ssl/certs/ca-certificates.crt" >> ~/.curlrc; \
-    fi
-
 # Installing OCaml needed to compile libvyosconfig
 RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
@@ -187,7 +176,6 @@ RUN git clone https://salsa.debian.org/live-team/live-build.git /tmp/live-build 
     dpkg -i ../live-build*.deb && \
     rm -rf /tmp/live-build
 
-#
 # live-build: building in docker fails with mounting /proc | /sys
 #
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=919659
@@ -318,11 +306,6 @@ RUN if dpkg-architecture -iarm64; then \
       dosfstools \
       u-boot-tools \
       grub-efi-$(dpkg-architecture -qDEB_HOST_ARCH); \
-    elif dpkg-architecture -iarmhf; then \
-    apt-get update && apt-get install -y \
-      dosfstools \
-      u-boot-tools \
-      grub-efi-arm; \
     fi
 
 # Packages needed for OWAMP/TWAMP (service sla)
