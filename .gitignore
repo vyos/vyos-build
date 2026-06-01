@@ -12,6 +12,7 @@ rootfs/*
 /testinstall*.efivars
 /ci_data
 /ci_seed.iso
+/nested_installer_payload.iso
 /*.qcow2
 /*.tar
 .DS_Store

@@ -72,6 +72,11 @@ test-ci-qcow2:
 	rm -f cloud-init-image-$(ARCH).qcow2 ; cp $$(ls -t build/*.qcow2 | head -n 1) cloud-init-image-$(ARCH).qcow2
 	scripts/check-qemu-install --debug --cloud-init --disk cloud-init-image-$(ARCH).qcow2 $(filter-out $@,$(MAKECMDGOALS))
 
+.PHONY: test-image-update
+.ONESHELL:
+test-image-update:
+	scripts/check-qemu-install --debug --test-image-update --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+
 .PHONY: qemu-live
 .ONESHELL:
 qemu-live:
@@ -105,7 +110,7 @@ clean:
 
 .PHONY: purge
 purge:
-	rm -rf build packer_build packer_cache testinstall-*.raw ci_data ci_seed.iso
+	rm -rf build packer_build packer_cache testinstall-*.raw ci_data ci_seed.iso nested_iso_data nested_installer_payload.iso
 
 .PHONY: ansible-install ansible-check ansible-clean
 .ONESHELL:

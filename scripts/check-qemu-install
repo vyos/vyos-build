@@ -54,6 +54,22 @@ import pexpect
 
 EXCEPTION = 0
 DISK_IMAGE_EXTENSION = '.raw'
+
+# Nested installer-ISO QEMU test: mkisofs payload (see --nested-installer-iso-test)
+NESTED_ISO_DATA_DIR = 'nested_iso_data'
+NESTED_INSTALLER_PAYLOAD_ISO = 'nested_installer_payload.iso'
+NESTED_INNER_ISO_NAME = 'vyos-installer.iso'
+
+# Local-only HTTP nested-ISO upgrade test: default VRF (main RIB) then named VRF purple
+NESTED_HTTP_SERV_PORT = 18088
+NESTED_HTTP_IMAGE_NAME = 'test-image-update'
+NESTED_HTTP_VRF_NAME = 'purple'
+NESTED_HTTP_VRF_DUMMY = 'dum8000'
+NESTED_HTTP_VRF_TABLE = '42042'
+NESTED_HTTP_VRF_ADDR = '198.51.100.99'  # RFC 5737 TEST-NET-3: bind address for http.server inside VRF
+NESTED_HTTP_MOUNT_POINT = '/mnt/nested_installer_iso'
+
+# Cloud-Init data
 CI_CONFIG_ARGS = {
     'hostname': 'vyos-CLOUD-INIT',
     'eth0_ipv4': '192.0.2.1/25',
@@ -125,6 +141,8 @@ parser.add_argument('--sbtest', help='Execute Secure Boot tests',
                 action='store_true', default=False)
 parser.add_argument('--cloud-init', help='Execute cloud-init tests',
                 action='store_true', default=False)
+parser.add_argument('--test-image-update', help='Test ISO image update in default VRF and custom VRF',
+                action='store_true', default=False)
 parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
                 action='store_true', default=False)
 parser.add_argument('--cpu', help='Set QEMU CPU', type=int, default=2)
@@ -188,7 +206,8 @@ class EarlyExit(Exception):
 def _kvm_exists():
     return os.path.exists("/dev/kvm")
 
-def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False, vnc_enabled=False, secure_boot=False):
+def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False,
+                 vnc_enabled=False, secure_boot=False, nested_cdrom_iso=None):
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
     accel = ',accel=kvm' if _kvm_exists() else ''
@@ -227,12 +246,27 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
             vga = '-vga virtio'
 
     cdrom = ""
+    nested_cdrom = ""
     if iso_img:
+        bootindex = '10'
         cdrom = f' -drive file={iso_img},format=raw,if=none,media=cdrom,id=drive-cd1,readonly=on'
         if architecture == 'arm64':
-            cdrom = f' {cdrom} -device scsi-cd,bus=scsi0.0,drive=drive-cd1,id=cd1,bootindex=10'
+            cdrom = f' {cdrom} -device scsi-cd,bus=scsi0.0,drive=drive-cd1,id=cd1,bootindex={bootindex}'
         else:
-            cdrom = f' {cdrom} -device ahci,id=achi0 -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex=10'
+            cdrom = f' {cdrom} -device ahci,id=achi0 -device ide-cd,bus=achi0.0,drive=drive-cd1,id=cd1,bootindex={bootindex}'
+
+    if nested_cdrom_iso:
+        drive_settings = 'drive=drive-cd2,id=cd2,bootindex=11'
+        nested_cdrom = f' -drive file={nested_cdrom_iso},format=raw,if=none,media=cdrom,id=drive-cd2,readonly=on'
+        if architecture == 'arm64':
+            nested_cdrom = f' {nested_cdrom} -device scsi-cd,bus=scsi0.0,{drive_settings}'
+        else:
+            if not iso_img:
+                # Second IDE CD on its own AHCI controller (no installer CD in this command)
+                nested_cdrom = f'{nested_cdrom} -device ahci,id=nestedahci' \
+                               f' -device ide-cd,bus=nestedahci.0,{drive_settings}'
+            else:
+                nested_cdrom = f'{nested_cdrom} -device ide-cd,bus=achi0.1,{drive_settings}'
 
     # RFC7042 section 2.1.2 MAC addresses used for documentation
     macbase = '00:00:5E:00:53'
@@ -261,7 +295,7 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06,romfile="" \
         -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07,romfile="" \
         -device virtio-scsi-pci,id=scsi0 \
-        {cdrom} \
+        {cdrom}{nested_cdrom} \
         -drive format={disk_format},file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
         -device scsi-hd,bus=scsi0.0,drive=drive-hd1,id=hd1,bootindex=1'
 
@@ -349,6 +383,8 @@ log.addHandler(handler)
 _primary_modes = []
 if args.cloud_init:
     _primary_modes.append('--cloud-init')
+if args.test_image_update:
+    _primary_modes.append('--test-image-update')
 if args.tpmtest:
     _primary_modes.append('--tpmtest')
 if args.raid:
@@ -361,7 +397,7 @@ if args.sbtest:
     _primary_modes.append('--sbtest')
 if len(_primary_modes) > 1:
     log.error('Incompatible combination of testcase flags (%s): only one of '
-        '--cloud-init, --tpmtest, --raid, --smoketest, '
+        '--cloud-init, --test-image-update, --tpmtest, --raid, --smoketest, '
         '--configtest, --sbtest may be set.', ', '.join(_primary_modes))
     sys.exit(1)
 
@@ -400,6 +436,10 @@ if args.iso and not os.path.isfile(args.iso):
     log.error('Unable to find VyOS ISO image needed by testcases!')
     sys.exit(1)
 
+if args.test_image_update and not args.iso:
+    log.error('--test-image-update requires --iso file!')
+    sys.exit(1)
+
 OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.secboot.fd'
 OVMF_VARS_TMP = args.disk.replace(DISK_IMAGE_EXTENSION, '.efivars')
 if args.sbtest:
@@ -410,7 +450,7 @@ diskname_raid = None
 def gen_disk(name):
     if not os.path.isfile(name):
         log.info(f'Creating Disk image {name}')
-        c = subprocess.check_output(['qemu-img', 'create', name, '2G'])
+        c = subprocess.check_output(['qemu-img', 'create', name, '5G'])
         log.debug(c.decode())
     else:
         log.info(f'Re-using already existing disk image "{name}".')
@@ -424,6 +464,22 @@ if args.raid:
 
 # must be called after the raid disk as args.disk name is altered in the RAID path
 gen_disk(args.disk)
+
+if args.test_image_update:
+    if os.path.isdir(NESTED_ISO_DATA_DIR):
+        shutil.rmtree(NESTED_ISO_DATA_DIR)
+    os.makedirs(NESTED_ISO_DATA_DIR)
+    shutil.copy2(args.iso, os.path.join(NESTED_ISO_DATA_DIR, NESTED_INNER_ISO_NAME))
+    if os.path.isfile(NESTED_INSTALLER_PAYLOAD_ISO):
+        os.unlink(NESTED_INSTALLER_PAYLOAD_ISO)
+    log.info('Assembling nested installer payload ISO (second CD-ROM, drive-cd2)')
+    subprocess.check_call([
+        'mkisofs', '-joliet', '-rock', '-volid', 'VYOSNESTED',
+        '-output', NESTED_INSTALLER_PAYLOAD_ISO, NESTED_ISO_DATA_DIR,
+    ])
+    nested_payload_iso_path = os.path.abspath(NESTED_INSTALLER_PAYLOAD_ISO)
+    log.info('Removing nested ISO staging directory %s', NESTED_ISO_DATA_DIR)
+    shutil.rmtree(NESTED_ISO_DATA_DIR)
 
 # Create software emulated TPM - clear existing TPM data first - might be a
 # leftover from a previous run
@@ -622,8 +678,116 @@ def basic_cli_tests(c):
     c.expect(f'set console_type="{console_type}"')
     c.expect(op_mode_prompt)
 
+def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0.1', use_vrf=False):
+    """One add-system-image/delete cycle for nested ISO over HTTP (optional Linux VRF + VyOS vrf arg)."""
+    url = f'http://{server_bind_host}:{NESTED_HTTP_SERV_PORT}/{NESTED_INNER_ISO_NAME}'
+
+    vrf_exec = ''
+    if use_vrf:
+        log.info(f'Configure VRF ({NESTED_HTTP_VRF_NAME}) for HTTP server - used for image update ')
+        vrf_exec = f'ip vrf exec {NESTED_HTTP_VRF_NAME} '
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'set vrf name {NESTED_HTTP_VRF_NAME} table {NESTED_HTTP_VRF_TABLE}')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'set interfaces dummy {NESTED_HTTP_VRF_DUMMY} address {server_bind_host}/32')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'set interfaces dummy {NESTED_HTTP_VRF_DUMMY} vrf {NESTED_HTTP_VRF_NAME}')
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+    c.sendline(
+        f'sudo bash -c \'{vrf_exec}python3 -m http.server {NESTED_HTTP_SERV_PORT} --bind {server_bind_host} '
+        f'--directory {NESTED_HTTP_MOUNT_POINT} </dev/null >/tmp/nested_http.log 2>&1 &\''
+    )
+    c.expect(op_mode_prompt)
+
+    time.sleep(5) # Wait for HTTP server to start
+
+    update_cmd_cli = f'TERM=dumb add system image {url}'
+    if use_vrf:
+        update_cmd_cli = f'{update_cmd_cli} vrf {NESTED_HTTP_VRF_NAME}'
+    c.sendline(update_cmd_cli)
+
+    timeout = 600
+    deadline = time.time() + timeout
+    while True:
+        if time.time() > deadline:
+            raise Exception(f'add system image timed out after {timeout}s')
+        i = c.expect([
+            'What would you like to name this image',
+            'Would you like to set the new image as the default one for boot',
+            'An active configuration was found. Would you like to copy it to the new image',
+            'Would you like to copy SSH host keys',
+            'Would you like to save the SSH known hosts (fingerprints)',
+            'Signature is not available. Do you want to continue with installation',
+            'There are unsaved changes to the configuration',
+            'Would you like to continue',
+            'Unable to',
+            'Error:',
+            op_mode_prompt,
+        ], timeout=300)
+        if i == 0:
+            c.sendline(new_image_name)
+        elif i == 1:
+            c.sendline('n')
+        elif i == 2:
+            c.sendline('y')
+        elif i == 3:
+            c.sendline('y')
+        elif i == 4:
+            c.sendline('y')
+        elif i == 5:
+            c.sendline('y')
+        elif i == 6:
+            c.sendline('y')
+        elif i == 7:
+            c.sendline('y')
+        elif i == 8 or i == 9:
+            raise Exception('add system image reported an error')
+        elif i == 10:
+            log.info('add system image completed')
+            break
+
+    c.sendline('show system image')
+    c.expect(new_image_name)
+    c.expect(op_mode_prompt)
+
+    c.sendline(f'TERM=dumb delete system image {new_image_name}')
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        j = c.expect([
+            'Are you sure you want to delete',
+            'Do you really want to delete the image',
+            'Cannot ',
+            'Error:',
+            'Unable to ',
+            op_mode_prompt,
+        ], timeout=300)
+        if j == 0 or j == 1:
+            c.sendline('y')
+        elif j == 2 or j == 3 or j == 4:
+            raise Exception('delete system image failed')
+        elif j == 5:
+            break
+    else:
+        raise Exception('delete system image timed out')
+
+    c.sendline('show system image')
+    c.expect(op_mode_prompt)
+    if new_image_name in c.before.decode(errors='replace'):
+        raise Exception(f'Image {new_image_name!r} still listed after delete')
+
+    c.sendline(f'sudo fuser -k {NESTED_HTTP_SERV_PORT}/tcp 2>/dev/null || true')
+    c.expect(op_mode_prompt)
+
 if args.qemu_cmd:
-    tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
+    tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
+                       iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest,
+                       nested_cdrom_iso=nested_payload_iso_path)
     os.system(tmp)
     exit(0)
 
@@ -680,7 +844,9 @@ try:
     # Installing image to disk
     #################################################
     log.info('Installing system')
-    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid, tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest)
+    cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
+                       tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc,
+                       secure_boot=args.sbtest, nested_cdrom_iso=nested_payload_iso_path)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
@@ -1272,6 +1438,29 @@ try:
             tmp = 'Configtest failed :/ - check debug output'
             log.error(tmp)
             raise Exception(tmp)
+    elif args.test_image_update:
+        log.info(f'Nested installer ISO: mount second CD-ROM ({NESTED_INNER_ISO_NAME})')
+        c.sendline(f'sudo mkdir -p {NESTED_HTTP_MOUNT_POINT}')
+        c.expect(op_mode_prompt)
+
+        # After drive-cd1 eject the first SCSI CD node is often an empty tray; real
+        # media may appear on sr1+. Try every optical device until one mounts.
+        c.sendline(
+            f'for d in /dev/sr*; do sudo mount -o ro "$d" {NESTED_HTTP_MOUNT_POINT} 2>/dev/null '
+            '&& echo NESTED_ISO_MOUNT_OK && break; done; '
+            f'mountpoint -q {NESTED_HTTP_MOUNT_POINT} || echo NESTED_ISO_MOUNT_FAIL'
+        )
+        if c.expect(['NESTED_ISO_MOUNT_OK', 'NESTED_ISO_MOUNT_FAIL']) != 0:
+            raise Exception('Failed to mount nested installer payload ISO (no usable /dev/sr* media)')
+        c.expect(op_mode_prompt)
+
+        _image_update_cli_sequence(c, log, NESTED_HTTP_IMAGE_NAME)
+        _image_update_cli_sequence(c, log, f'{NESTED_HTTP_IMAGE_NAME}-{NESTED_HTTP_VRF_NAME}', NESTED_HTTP_VRF_ADDR, use_vrf=True)
+
+        log.info('Unmount nested installer ISO')
+        c.sendline(f'sudo umount {NESTED_HTTP_MOUNT_POINT}')
+        c.expect(op_mode_prompt)
+        log.info('Nested installer ISO testcase complete')
     elif args.sbtest:
         c.sendline('show secure-boot')
         c.expect('SecureBoot enabled')
@@ -1309,6 +1498,16 @@ log.info("Cleaning up")
 if tpm_process:
     tpm_process.terminate()
     tpm_process.join()
+
+if args.test_image_update:
+    try:
+        if os.path.isdir(NESTED_ISO_DATA_DIR):
+            shutil.rmtree(NESTED_ISO_DATA_DIR)
+        if nested_payload_iso_path and os.path.isfile(nested_payload_iso_path) \
+                and not args.keep:
+            os.remove(nested_payload_iso_path)
+    except OSError:
+        log.warning('Could not remove nested installer ISO artefacts', exc_info=True)
 
 if not args.keep:
     log.info(f'Removing disk file: {args.disk}')
