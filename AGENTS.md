@@ -87,9 +87,9 @@ make generic                            # builds the generic flavor
 - See also `CONTRIBUTING.md` for further hints on the commit messages.
 - Linting: unused-imports (Pylint) and J2 lint (note: workflow file is named
   `linit-j2.yml` in this repo — known cosmetic typo). Both inherited from
-  `vyos/.github@current`.
+  `vyos/.github@production`.
 - PR conflicts are flagged automatically via `check-pr-conflicts.yml` (reusable
-  `check-pr-merge-conflict.yml` from `vyos/.github@current`).
+  `check-pr-merge-conflict.yml` from `vyos/.github@production`).
 
 ## Notes for future contributors
 
