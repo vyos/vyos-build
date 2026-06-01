@@ -6,6 +6,7 @@ packer_build/*
 packer_cache/*
 key/*
 packages/*
+rootfs/*
 !packages/*/
 /testinstall*.raw
 /testinstall*.efivars

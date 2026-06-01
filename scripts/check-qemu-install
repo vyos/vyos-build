@@ -396,8 +396,9 @@ if not args.disk:
     tmp_disk_random = "%04x" % random.randint(0,65535)
     args.disk = f'testinstall-{tmp_disk_time}-{tmp_disk_random}{DISK_IMAGE_EXTENSION}'
 
-if not args.iso or not os.path.isfile(args.iso):
-    log.debug('Unable to find ISO image to install ...')
+if args.iso and not os.path.isfile(args.iso):
+    log.error('Unable to find VyOS ISO image needed by testcases!')
+    sys.exit(1)
 
 OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.secboot.fd'
 OVMF_VARS_TMP = args.disk.replace(DISK_IMAGE_EXTENSION, '.efivars')

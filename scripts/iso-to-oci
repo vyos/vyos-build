@@ -11,16 +11,22 @@ function cleanup() {
 
 if [[ $(/usr/bin/id -u) -ne 0 ]]; then
     echo "Not running as root"
-    exit
+    exit 1
 fi
 
 if [ "$#" -ne 1 ]; then
     echo "Illegal number of parameters"
+    exit 1
 fi
 
 ISO=$1
 ROOTFS=rootfs
 UNSQUASHFS=unsquashfs
+
+if [ ! -f "$ISO" ]; then
+    echo "E: Unable to find VyOS ISO image \"$ISO\" required for conversion"
+    exit 1
+fi
 
 # ensure clean working directory
 cleanup
