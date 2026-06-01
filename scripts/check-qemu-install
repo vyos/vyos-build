@@ -560,7 +560,8 @@ def basic_cli_tests(c):
     c.expect(op_mode_prompt)
 
     # Get serial console interface name from flavor definition
-    c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_type"')
+    flavor_json = '/usr/share/vyos/flavor.json'
+    c.sendline(f'jq -r ".console_type" {flavor_json}')
     c.expect(op_mode_prompt)
     lines = [l.strip() for l in c.before.splitlines() if l.strip()]
     console_type = lines[-1].decode('utf-8').strip() # e.g. ttyS
@@ -570,13 +571,13 @@ def basic_cli_tests(c):
     if console_type == 'tty':
         return
 
-    c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_num"')
+    c.sendline(f'jq -r ".console_num" {flavor_json}')
     c.expect(op_mode_prompt)
     lines = [l.strip() for l in c.before.splitlines() if l.strip()]
     console_num = lines[-1].decode('utf-8').strip() # e.g. 0
 
     # Get serial console speed from flavor definition
-    c.sendline('cat /usr/share/vyos/flavor.json | jq -r ".console_speed"')
+    c.sendline(f'jq -r ".console_speed" {flavor_json}')
     c.expect(op_mode_prompt)
     lines = [l.strip() for l in c.before.splitlines() if l.strip()]
     console_speed = lines[-1].decode('utf-8').strip() # e.g. 115200
