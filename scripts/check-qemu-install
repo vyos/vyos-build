@@ -317,6 +317,10 @@ def loginVM(c, log):
     c.sendline(default_password)
     c.expect(op_mode_prompt)
     log.info('Logged in!')
+    c.sendline('set terminal width 160')
+    c.expect(op_mode_prompt)
+    c.sendline('set terminal length 60')
+    c.expect(op_mode_prompt)
 
 def clearTPM():
     for f in glob(f'{tpm_folder}/*'):
