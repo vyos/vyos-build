@@ -344,6 +344,35 @@ else:
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
+# Mutually exclusive primary testcase selectors (--no-interfaces is a
+# smoketest modifier).
+_primary_modes = []
+if args.cloud_init:
+    _primary_modes.append('--cloud-init')
+if args.tpmtest:
+    _primary_modes.append('--tpmtest')
+if args.raid:
+    _primary_modes.append('--raid')
+if args.smoketest:
+    _primary_modes.append('--smoketest')
+if args.configtest:
+    _primary_modes.append('--configtest')
+if args.sbtest:
+    _primary_modes.append('--sbtest')
+if len(_primary_modes) > 1:
+    log.error('Incompatible combination of testcase flags (%s): only one of '
+        '--cloud-init, --tpmtest, --raid, --smoketest, '
+        '--configtest, --sbtest may be set.', ', '.join(_primary_modes))
+    sys.exit(1)
+
+if args.no_interfaces and not args.smoketest:
+    log.error('--no-interfaces requires --smoketest')
+    sys.exit(1)
+
+if args.sbtest and not args.uefi:
+    log.error('--sbtest requires --uefi')
+    sys.exit(1)
+
 if args.logfile:
     filehandler = logging.FileHandler(args.logfile)
     filehandler.setLevel(logging.DEBUG)
