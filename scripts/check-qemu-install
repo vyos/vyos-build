@@ -113,8 +113,6 @@ parser.add_argument('--match', help='Smoketests to run')
 parser.add_argument('--uefi', help='Boot using UEFI', action='store_true', default=False)
 parser.add_argument('--vnc', help='Enable VNC', action='store_true', default=False)
 parser.add_argument('--raid', help='Perform a RAID-1 install', action='store_true', default=False)
-parser.add_argument('--configd', help='Execute testsuite with config daemon', action='store_true',
-				default=False)
 parser.add_argument('--no-interfaces', help='Execute testsuite without interface tests to save time',
                 action='store_true', default=False)
 parser.add_argument('--smoketest', help='Execute script based CLI smoketests',
@@ -848,15 +846,6 @@ try:
 
     # Inform smoketest about this environment
     c.sendline('touch /tmp/vyos.smoketests.hint')
-    c.expect(op_mode_prompt)
-
-    #################################################
-    # Start/stop config daemon
-    #################################################
-    if args.configd:
-        c.sendline('sudo systemctl restart vyos-configd.service &> /dev/null')
-    else:
-        c.sendline('sudo systemctl stop vyos-configd.service &> /dev/null')
     c.expect(op_mode_prompt)
 
     #################################################
