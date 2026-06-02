@@ -465,6 +465,7 @@ if args.raid:
 # must be called after the raid disk as args.disk name is altered in the RAID path
 gen_disk(args.disk)
 
+nested_payload_iso_path = None
 if args.test_image_update:
     if os.path.isdir(NESTED_ISO_DATA_DIR):
         shutil.rmtree(NESTED_ISO_DATA_DIR)
