@@ -110,7 +110,8 @@ RUN apt-get update && apt-get install -y \
       gdisk \
       sbsigntool \
       dosfstools \
-      kpartx
+      kpartx \
+      xorriso
 
 # Packages for TPM test
 RUN apt-get update && apt-get install -y swtpm

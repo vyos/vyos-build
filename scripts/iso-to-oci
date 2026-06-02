@@ -1,74 +1,89 @@
 #!/bin/bash
 
-function cleanup() {
-    if [[ -d $ROOTFS ]]; then
-        rm -rf $ROOTFS
-    fi
-    if [[ -d $UNSQUASHFS ]]; then
-        rm -rf $UNSQUASHFS
+set -euo pipefail
+
+cleanup() {
+    if [[ -n "${WORKDIR:-}" && -d "${WORKDIR:-}" ]]; then
+        rm -rf "${WORKDIR}"
     fi
 }
 
-if [[ $(/usr/bin/id -u) -ne 0 ]]; then
-    echo "Not running as root"
-    exit 1
-fi
-
-if [ "$#" -ne 1 ]; then
-    echo "Illegal number of parameters"
-    exit 1
+if [[ "$#" -ne 1 ]]; then
+    echo "Usage: $0 <path-to-iso>"
+    exit 2
 fi
 
 ISO=$1
-ROOTFS=rootfs
-UNSQUASHFS=unsquashfs
-
-if [ ! -f "$ISO" ]; then
-    echo "E: Unable to find VyOS ISO image \"$ISO\" required for conversion"
-    exit 1
+if [[ ! -f "$ISO" ]]; then
+    echo "E: ISO file not found: $ISO"
+    exit 2
 fi
 
 # ensure clean working directory
 cleanup
 
-mkdir $ROOTFS $UNSQUASHFS
-echo "I: mount ISO $ISO"
-mount -t iso9660 -o loop $ISO $ROOTFS/ >/dev/null 2>&1
+if ! command -v xorriso >/dev/null 2>&1; then
+    echo "E: missing dependency: xorriso"
+    echo "   Install xorriso (recommended) or run inside the vyos-build container."
+    exit 2
+fi
+
+if ! command -v unsquashfs >/dev/null 2>&1; then
+    echo "E: missing dependency: unsquashfs"
+    echo "   Install squashfs-tools or run inside the vyos-build container."
+    exit 2
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "E: missing dependency: jq"
+    echo "   Install jq or run inside the vyos-build container."
+    exit 2
+fi
+
+WORKDIR="$(mktemp -d -t iso-to-oci.XXXXXXXXXX)"
+trap cleanup EXIT
+
+ROOTFS="${WORKDIR}/iso"
+UNSQUASHFS="${WORKDIR}/unsquashfs"
+mkdir -p "${ROOTFS}/live" "${UNSQUASHFS}"
+
+echo "I: extracting ISO metadata"
+xorriso -osirrox on -indev "${ISO}" -extract /version.json "${ROOTFS}/version.json" >/dev/null 2>&1
+
+echo "I: extracting squashfs image"
+xorriso -osirrox on -indev "${ISO}" -extract /live/filesystem.squashfs "${ROOTFS}/live/filesystem.squashfs" >/dev/null 2>&1
 
 # create directory, unpack squashfs filesystem, get ISO version
-# and unmount ISO
 echo "I: extracting squashfs content"
-unsquashfs -follow -dest $UNSQUASHFS/ $ROOTFS/live/filesystem.squashfs >/dev/null 2>&1
-VERSION=$(jq --raw-output .version $ROOTFS/version.json)
-umount $ROOTFS/
+unsquashfs -follow -dest "${UNSQUASHFS}/" "${ROOTFS}/live/filesystem.squashfs" >/dev/null 2>&1
+VERSION="$(jq --raw-output .version "${ROOTFS}/version.json")"
 
 # fix locales for correct system configuration loading
-sed -i 's/^LANG=.*$/LANG=C.UTF-8/' $UNSQUASHFS/etc/default/locale
+sed -i 's/^LANG=.*$/LANG=C.UTF-8/' "${UNSQUASHFS}/etc/default/locale"
 
 # optional step: Decrease docker image size by deleting not necessary files for container
-rm -rf $UNSQUASHFS/boot/*.img
-rm -rf $UNSQUASHFS/boot/*vyos*
-rm -rf $UNSQUASHFS/boot/vmlinuz
-rm -rf $UNSQUASHFS/lib/firmware/
-rm -rf $UNSQUASHFS/usr/lib/x86_64-linux-gnu/libwireshark.so*
-rm -rf $UNSQUASHFS/lib/modules/*amd64-vyos
-rm -rf $UNSQUASHFS/root/.gnupg
+rm -rf "${UNSQUASHFS}/boot"
+rm -rf "${UNSQUASHFS}/lib/firmware/"
+rm -rf "${UNSQUASHFS}/usr/lib/x86_64-linux-gnu/libwireshark.so*"
+rm -rf "${UNSQUASHFS}/lib/modules/*-vyos"
+rm -rf "${UNSQUASHFS}/root/.gnupg"
 
 # delete features not supported in container - only remove the node.def files,
 # this is sufficient to not make the feature pop up on the CLI
-rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/container
-rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/kernel
-rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/startup-beep
-rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/root-partition-auto-resize
-rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/reboot-on-panic
-rm -rf $UNSQUASHFS/opt/vyatta/share/vyatta-cfg/templates/system/option/performance
+rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/container"
+rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/console"
+rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/kernel"
+rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/startup-beep"
+rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/root-partition-auto-resize"
+rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/reboot-on-panic"
+rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/performance"
 
 # create a symbolic link to the configuration
-ln -s /opt/vyatta/etc/config $UNSQUASHFS/config
+ln -s /opt/vyatta/etc/config "${UNSQUASHFS}/config"
 
 # create docker image
 echo "I: generate OCI container image vyos-$VERSION.tar"
-tar -C unsquashfs -c . -f vyos-$VERSION.tar
+tar -C "${UNSQUASHFS}" -c . -f "vyos-${VERSION}.tar"
 
 echo "I: to import the previously generated OCI image to your local images run:"
 echo ""
