@@ -12,62 +12,54 @@ all:
 %:
 	./build-vyos-image $*
 
-.PHONY: checkiso
-.ONESHELL:
-checkiso:
-	if [[ ! -f $(ISO_PATH) ]]; then
-		echo "Could not find $(ISO_PATH)"
-		exit 1
-	fi
-
 .PHONY: test
 .ONESHELL:
-test: checkiso
-	scripts/check-qemu-install --debug --configd --match="$(MATCH)" --smoketest --uefi --cpu 4 --memory 8 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+test:
+	scripts/check-qemu-install --debug --match="$(MATCH)" --smoketest --uefi --cpu 4 --memory 8 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-no-interfaces
 .ONESHELL:
-test-no-interfaces: checkiso
-	scripts/check-qemu-install --debug --configd --smoketest --uefi --no-interfaces --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+test-no-interfaces:
+	scripts/check-qemu-install --debug --smoketest --uefi --no-interfaces --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-no-interfaces-no-vpp
 .ONESHELL:
-test-no-interfaces-no-vpp: checkiso
-	scripts/check-qemu-install --debug --configd --smoketest --uefi --no-interfaces --no-vpp --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+test-no-interfaces-no-vpp:
+	scripts/check-qemu-install --debug --smoketest --uefi --no-interfaces --no-vpp --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-interfaces
 .ONESHELL:
-test-interfaces: checkiso
-	scripts/check-qemu-install --debug --configd --match="interfaces_" --smoketest --uefi --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+test-interfaces:
+	scripts/check-qemu-install --debug --match="interfaces_" --smoketest --uefi --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-vpp
 .ONESHELL:
-test-vpp: checkiso
-	scripts/check-qemu-install --debug --configd --match="vpp" --smoketest --uefi --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+test-vpp:
+	scripts/check-qemu-install --debug --match="vpp" --smoketest --uefi --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testc
 .ONESHELL:
-testc: checkiso
-	scripts/check-qemu-install --debug --configd --match="!vpp" --cpu 2 --memory 7 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+testc:
+	scripts/check-qemu-install --debug --match="!vpp" --cpu 2 --memory 7 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testcvpp
 .ONESHELL:
-testcvpp: checkiso
-	scripts/check-qemu-install --debug --configd --match="vpp" --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+testcvpp:
+	scripts/check-qemu-install --debug --match="vpp" --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testraid
 .ONESHELL:
-testraid: checkiso
-	scripts/check-qemu-install --debug --configd --raid --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+testraid:
+	scripts/check-qemu-install --debug --raid --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testsb
 .ONESHELL:
-testsb: checkiso
+testsb:
 	scripts/check-qemu-install --debug --uefi --sbtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testtpm
 .ONESHELL:
-testtpm: checkiso
+testtpm:
 	scripts/check-qemu-install --debug --tpmtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-ci-qcow2
@@ -80,15 +72,20 @@ test-ci-qcow2:
 	rm -f cloud-init-image-$(ARCH).qcow2 ; cp $$(ls -t build/*.qcow2 | head -n 1) cloud-init-image-$(ARCH).qcow2
 	scripts/check-qemu-install --debug --cloud-init --disk cloud-init-image-$(ARCH).qcow2 $(filter-out $@,$(MAKECMDGOALS))
 
+.PHONY: test-image-update
+.ONESHELL:
+test-image-update:
+	scripts/check-qemu-install --debug --test-image-update --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+
 .PHONY: qemu-live
 .ONESHELL:
-qemu-live: checkiso
+qemu-live:
 	scripts/check-qemu-install --qemu-cmd --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: oci
 .ONESHELL:
-oci: checkiso
-	scripts/iso-to-oci $(ISO_PATH)
+oci:
+	@scripts/iso-to-oci $(ISO_PATH)
 
 .PHONY: clean
 .ONESHELL:
@@ -113,7 +110,7 @@ clean:
 
 .PHONY: purge
 purge:
-	rm -rf build packer_build packer_cache testinstall-*.raw ci_data ci_seed.iso
+	rm -rf build packer_build packer_cache testinstall-*.raw ci_data ci_seed.iso nested_iso_data nested_installer_payload.iso
 
 .PHONY: ansible-install ansible-check ansible-clean
 .ONESHELL:
