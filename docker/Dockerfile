@@ -348,6 +348,11 @@ RUN apt-get update && apt-get install -y \
       debmake \
       python3-debian
 
+# Install syft binary required for SBOM generation
+RUN cd /tmp && curl -sSfL -o syft.tar.gz \
+      https://cdn.vyos.io/tools/syft_1.44.0_linux_$(dpkg-architecture -qDEB_HOST_ARCH).tar.gz; \
+      tar --extract --file=syft.tar.gz syft; mv syft /usr/local/bin/
+
 # Allow password-less 'sudo' for all users in group 'sudo'
 RUN sed "s/^%sudo.*/%sudo\tALL=(ALL) NOPASSWD:ALL/g" -i /etc/sudoers && \
     echo "vyos_bld\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2022-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -17,7 +17,6 @@
 # File: build-vyos-image
 # Purpose: builds VyOS images using a fork of Debian's live-build tool
 
-# Import Python's standard library modules
 import re
 import os
 import sys
@@ -31,10 +30,10 @@ import argparse
 import datetime
 import functools
 import string
+import subprocess
 
 class ImageBuildError(Exception):
     pass
-
 
 # argparse converts hyphens to underscores,
 # so for lookups in the original options hash we have to convert them back
@@ -722,10 +721,31 @@ Pin-Priority: 600
         cmd("lb build 2>&1")
 
         # Copy the image
-        shutil.copy("live-image-{0}.hybrid.iso".format(build_config["architecture"]), iso_file)
+        shutil.copy(f'live-image-{build_config["architecture"]}.hybrid.iso', iso_file)
 
         # Add the image to the manifest
         manifest['artifacts'].append(iso_file)
+
+        # Now create SBOM
+        syft_target_dir = 'chroot'
+        syft_base_path = os.getcwd() + f'/{syft_target_dir}'
+        cmd = [['syft', syft_target_dir,
+                '--source-name', 'VyOS', '--source-version', version,
+               '-o', f'cyclonedx-json=vyos-{version}.cdx.json',
+               '-o', f'spdx-json=vyos-{version}.spdx.json']]
+
+        # syft bug for CycloneDX https://github.com/anchore/syft/issues/4592#issuecomment-4567247328
+        cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@@g', f'vyos-{version}.cdx.json'])
+        cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@//@g', f'vyos-{version}.spdx.json'])
+
+        for c in cmd:
+            print(c)
+            with subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  text=True, bufsize=1) as p:
+                for line in p.stdout:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                p.wait()
 
     # If the flavor has `image_format = "iso"`, then the work is done.
     # If not, build additional flavors from the ISO.
