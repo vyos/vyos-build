@@ -730,16 +730,16 @@ Pin-Priority: 600
         syft_target_dir = 'chroot'
         syft_base_path = os.getcwd() + f'/{syft_target_dir}'
         base_filename = iso_file.rstrip('.iso')
-        cmd = [['syft', syft_target_dir,
-                '--source-name', 'VyOS', '--source-version', version,
-               '-o', f'cyclonedx-json={base_filename}.cdx.json',
-               '-o', f'spdx-json={base_filename}.spdx.json']]
+        syft_cmd = [['syft', syft_target_dir,
+                     '--source-name', 'VyOS', '--source-version', version,
+                     '-o', f'cyclonedx-json={base_filename}.cdx.json',
+                     '-o', f'spdx-json={base_filename}.spdx.json']]
 
         # syft bug for CycloneDX https://github.com/anchore/syft/issues/4592#issuecomment-4567247328
-        cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@@g', f'{base_filename}.cdx.json'])
-        cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@//@g', f'{base_filename}.spdx.json'])
+        syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@@g', f'{base_filename}.cdx.json'])
+        syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@//@g', f'{base_filename}.spdx.json'])
 
-        for c in cmd:
+        for c in syft_cmd:
             with subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                   text=True, bufsize=1) as p:
                 for line in p.stdout:
