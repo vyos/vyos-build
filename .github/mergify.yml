@@ -40,6 +40,9 @@ pull_request_rules:
     conditions:
       - '-closed'
       - '-merged'
+      - '-author~=\[bot\]$'
+      - 'author!=copilot-swe-agent'
+      - 'author!=vyosbot'
       - or:
           - '-title~=^(([a-zA-Z0-9\-_.]+:\s)?)T\d+:\s+[^\s]+.*'
           - 'commits[*].commit_message~=^(?!(([a-zA-Z0-9\-_.]+:\s)?)T\d+:\s+[^\s]+).*'
