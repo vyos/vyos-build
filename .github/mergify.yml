@@ -45,7 +45,9 @@ pull_request_rules:
       - 'author!=vyosbot'
       - or:
           - '-title~=^(([a-zA-Z0-9\-_.]+:\s)?)T\d+:\s+[^\s]+.*'
-          - 'commits[*].commit_message~=^(?!(([a-zA-Z0-9\-_.]+:\s)?)T\d+:\s+[^\s]+).*'
+          - and:
+              - 'label!=legacy'
+              - 'commits[*].commit_message~=^(?!(([a-zA-Z0-9\-_.]+:\s)?)T\d+:\s+[^\s]+).*'
     actions:
       label:
         toggle:
