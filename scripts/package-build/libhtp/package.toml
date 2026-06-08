@@ -1,0 +1,4 @@
+[[packages]]
+name = "libhtp2"
+commit_id = "e851d98f"
+scm_url = "https://salsa.debian.org/pkg-suricata-team/pkg-libhtp.git"

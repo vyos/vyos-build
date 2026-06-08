@@ -53,6 +53,8 @@ jobs:
               - 'scripts/package-build/isc-kea/**'
             keepalived:
               - 'scripts/package-build/keepalived/**'
+            libhtp:
+              - 'scripts/package-build/libhtp/**'
             libnss-mapuser:
               - 'scripts/package-build/libnss-mapuser/**'
             libpam-radius-auth:
@@ -177,6 +179,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.keepalived }}" == "true" ]; then
             trigger_build "keepalived"
+          fi
+
+          if [ "${{ steps.changes.outputs.libhtp }}" == "true" ]; then
+            trigger_build "libhtp"
           fi
 
           if [ "${{ steps.changes.outputs.libnss-mapuser }}" == "true" ]; then
