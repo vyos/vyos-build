@@ -2,7 +2,7 @@ Package: iproute2
 Pin: release n=bookworm-backports
 Pin-Priority: 600
 
-Package: suricata libhtp2
+Package: suricata
 Pin: release n=bookworm-backports
 Pin-Priority: 600
 
