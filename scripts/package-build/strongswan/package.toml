@@ -1,6 +1,6 @@
 [[packages]]
 name = "strongswan"
-commit_id = "debian/5.9.11-2"
+commit_id = "debian/6.0.6-1"
 scm_url = "https://salsa.debian.org/debian/strongswan.git"
 
 # systemd now contains pkg-config files and systemd-dev is not needed
@@ -14,7 +14,7 @@ set -e
 export DEBEMAIL="maintainers@vyos.net"
 export DEBFULLNAME="VyOS Package Maintainers"
 
-dch -v "5.9.11-2+vyos0" "Patchset for DMVPN support" -b
+dch -v "6.0.6-1+vyos0" "Patchset for DMVPN support" -b
 dpkg-buildpackage -uc -us -tc -b -d
 cd ..; ./build-vici.sh
 """
