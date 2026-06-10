@@ -20,7 +20,6 @@ systemctl disable 'udp-broadcast-relay@*.service'
 systemctl disable pdns-recursor.service
 systemctl disable tftpd-hpa.service
 systemctl disable frr.service
-systemctl disable salt-minion.service
 systemctl disable certbot.service
 systemctl disable certbot.timer
 systemctl disable nginx.service

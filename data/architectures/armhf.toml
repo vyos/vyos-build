@@ -1,6 +1,2 @@
-additional_repositories = [
-  "deb [arch=armhf] https://packages.vyos.net/saltproject/debian/11/arm64/3005 bullseye main"
-]
-
 # Packages included in armhf images by default
 packages = ["grub-efi-arm"]
