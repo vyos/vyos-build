@@ -120,8 +120,7 @@ def build_package(package: list, patch_dir: Path) -> None:
                 print(f'I: execute pre_build_hook for the package "{repo_name}"')
                 run(pre_build_hook, cwd=repo_dir, check=True, shell=True)
             except CalledProcessError as e:
-                print(e)
-                print(f"I: pre_build_hook failed for the {repo_name}")
+                print(f"E: pre_build_hook failed for the {repo_name}")
                 raise
 
         # Apply patches if the 'apply_patches' key is set to True (default) in the package configuration
@@ -171,18 +170,20 @@ def build_package(package: list, patch_dir: Path) -> None:
                 # Clean up or dpkg-source will see this as changes to binary files
                 cleanup_build_deps(repo_dir)
             except CalledProcessError as e:
-                print(f"Failed to build package {repo_name}: {e}")
+                print(f"E: Failed to create/install dependency package for {repo_name}: {e}")
+                raise
 
         # Build the package, check if we have build_cmd in the package.toml
         try:
-            build_cmd = package.get('build_cmd', r'dpkg-buildpackage -uc -us -tc -F --source-option=--tar-ignore=.git --source-option=--tar-ignore=.github --source-option=--extend-diff-ignore="^\.github(?:/.*)?$"')
+            build_cmd = package.get('build_cmd', r'dpkg-buildpackage -uc -us -tc -F --source-option=--tar-ignore=.git --source-option=--tar-ignore=.github --source-option=-i --source-option=--extend-diff-ignore="^\.github(?:/.*)?$"')
             run(build_cmd, cwd=repo_dir, check=True, shell=True)
         except CalledProcessError as e:
-            print(f"E: Package build failed for package '{repo_name}': {e}")
-            sys.exit(1)
+            print(f"E: Build command failed for '{repo_name}': {build_cmd}")
+            raise
 
     except CalledProcessError as e:
         print(f"Failed to build package {repo_name}: {e}")
+        sys.exit(1)
     finally:
         # Clean up repository directory
         # shutil.rmtree(repo_dir, ignore_errors=True)
