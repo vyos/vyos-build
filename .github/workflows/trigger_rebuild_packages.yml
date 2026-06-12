@@ -82,6 +82,8 @@ jobs:
               - 'scripts/package-build/pyhumps/**'
             radvd:
               - 'scripts/package-build/radvd/**'
+            shim-signed:
+              - 'scripts/package-build/shim-signed/**'
             strongswan:
               - 'scripts/package-build/strongswan/**'
             tacacs:
@@ -233,6 +235,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.radvd }}" == "true" ]; then
             trigger_build "radvd"
+          fi
+
+          if [ "${{ steps.changes.outputs.shim-signed }}" == "true" ]; then
+            trigger_build "shim-signed"
           fi
 
           if [ "${{ steps.changes.outputs.strongswan }}" == "true" ]; then

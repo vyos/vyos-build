@@ -1,0 +1,4 @@
+[[packages]]
+name = "shim-signed"
+commit_id = "rolling"
+scm_url = "https://github.com/vyos/shim-signed.git"
