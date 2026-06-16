@@ -1,0 +1,11 @@
+[[packages]]
+name = "shim-signed"
+commit_id = "rolling"
+scm_url = "https://github.com/vyos/shim-signed.git"
+
+[dependencies]
+packages = [
+    "shim-helpers-amd64-signed",
+    "shim-helpers-amd64-signed-template",
+    "shim-unsigned"
+]
