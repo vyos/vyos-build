@@ -7,12 +7,23 @@ DATE_SUFFIX=$(date +%Y-%m)
 URL="https://download.db-ip.com/free/dbip-country-lite-${DATE_SUFFIX}.csv.gz"
 OUT_PATH="/usr/share/vyos-geoip/dbip-country-lite.csv.gz"
 
+ASN_URL="https://download.db-ip.com/free/dbip-asn-lite-${DATE_SUFFIX}.csv.gz"
+ASN_OUT_PATH="/usr/share/vyos-geoip/dbip-asn-lite.csv.gz"
+
 mkdir -p $(dirname $OUT_PATH)
-wget -O - $URL > $OUT_PATH
+curl -sSfL -o $OUT_PATH $URL
 
 if [ $? -ne 0 ]; then
-    echo "Failed to download GeoIP database"
+    echo "Failed to download GeoIP country-code database"
     rm $OUT_PATH
+fi
+
+mkdir -p $(dirname $ASN_OUT_PATH)
+curl -sSfL -o $ASN_OUT_PATH $ASN_URL
+
+if [ $? -ne 0 ]; then
+    echo "Failed to download GeoIP ASN database"
+    rm $ASN_OUT_PATH
 fi
 
 # Generate sqlite database
