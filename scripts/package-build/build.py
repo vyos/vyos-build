@@ -153,8 +153,17 @@ def build_package(package: list, patch_dir: Path) -> None:
             # On failure fallback to repo name
             package_name = repo_name
 
+        # 1.0 version needs 'native' format - without '.orig'
+        # 3.0 needs '.orig'
+        source_format_suffix = ''
+        if (repo_dir / 'debian/source/format').exists():
+            with open(repo_dir / 'debian/source/format') as f:
+                source_format_version = f.read()
+                if '3.0' in source_format_version:
+                    source_format_suffix = '.orig'
+
         # Build a tarball for the package
-        tarball_name = f'{package_name}_{package_version}.orig.tar.gz'
+        tarball_name = f'{package_name}_{package_version}{source_format_suffix}.tar.gz'
         run(['tar', '--exclude=.git', '--exclude=.github', '-czf', tarball_name, '-C', str(repo_dir.parent), repo_name], check=True)
         print(f"I: Tarball created: {tarball_name}")
 
