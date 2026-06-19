@@ -1,4 +1,4 @@
-From ee6c0b3ff6e3df5c7aef628621e19a813ff308ed Mon Sep 17 00:00:00 2001
+From 76b5eea5a0fefa38b1a85c29767b5334c70ae446 Mon Sep 17 00:00:00 2001
 From: Christian Poessinger <christian@poessinger.com>
 Date: Tue, 27 Dec 2022 13:36:43 +0000
 Subject: [PATCH] VyOS: disable options enabled by Debian that are unused
@@ -12,14 +12,27 @@ The following options need to be disabled for the DMVPN patchset:
 In addition we have no LED, LDAP and SQL configuration knows, thus we spare
 the plugins.
 ---
- debian/libcharon-extra-plugins.install     |  3 ---
- debian/libstrongswan-extra-plugins.install |  3 ---
- debian/rules                               | 11 ++++++++++-
- debian/strongswan-nm.install               |  2 --
- 4 files changed, 10 insertions(+), 9 deletions(-)
+ debian/libcharon-extauth-plugins.install      |  1 -
+ debian/libcharon-extra-plugins.install        |  9 -------
+ debian/libstrongswan-extra-plugins.install    | 26 -------------------
+ debian/libstrongswan-standard-plugins.install |  4 ---
+ debian/libstrongswan.install                  | 12 ---------
+ debian/rules                                  | 17 +++++++-----
+ debian/strongswan-libcharon.install           |  2 --
+ debian/strongswan-nm.install                  |  5 ----
+ 8 files changed, 10 insertions(+), 66 deletions(-)
 
+diff --git a/debian/libcharon-extauth-plugins.install b/debian/libcharon-extauth-plugins.install
+index 63d0eee92..f58b59984 100644
+--- a/debian/libcharon-extauth-plugins.install
++++ b/debian/libcharon-extauth-plugins.install
+@@ -19,4 +19,3 @@ etc/strongswan.d/charon/eap-mschapv2.conf
+ etc/strongswan.d/charon/xauth-generic.conf
+ etc/strongswan.d/charon-cmd/eap-mschapv2.conf
+ etc/strongswan.d/charon-cmd/xauth-generic.conf
+-etc/strongswan.d/charon-nm/eap-mschapv2.conf
 diff --git a/debian/libcharon-extra-plugins.install b/debian/libcharon-extra-plugins.install
-index 94fbabd88..068708ecb 100644
+index 22ae363ee..ef6dcd7a1 100644
 --- a/debian/libcharon-extra-plugins.install
 +++ b/debian/libcharon-extra-plugins.install
 @@ -13,7 +13,6 @@ usr/lib/ipsec/plugins/libstrongswan-error-notify.so
@@ -38,7 +51,7 @@ index 94fbabd88..068708ecb 100644
  usr/share/strongswan/templates/config/plugins/lookip.conf
  #usr/share/strongswan/templates/config/plugins/medsrv.conf
  #usr/share/strongswan/templates/config/plugins/medcli.conf
-@@ -60,7 +58,6 @@ etc/strongswan.d/charon/error-notify.conf
+@@ -61,7 +59,6 @@ etc/strongswan.d/charon/error-notify.conf
  etc/strongswan.d/charon/forecast.conf
  etc/strongswan.d/charon/ha.conf
  etc/strongswan.d/charon/kernel-libipsec.conf
@@ -46,36 +59,121 @@ index 94fbabd88..068708ecb 100644
  etc/strongswan.d/charon/lookip.conf
  #etc/strongswan.d/charon/medsrv.conf
  #etc/strongswan.d/charon/medcli.conf
+@@ -69,12 +66,6 @@ etc/strongswan.d/charon/tnc-tnccs.conf
+ etc/strongswan.d/charon/unity.conf
+ etc/strongswan.d/charon/xauth-eap.conf
+ etc/strongswan.d/charon/xauth-pam.conf
+-# charon-nm
+-etc/strongswan.d/charon-nm/eap-gtc.conf
+-etc/strongswan.d/charon-nm/eap-identity.conf
+-etc/strongswan.d/charon-nm/eap-md5.conf
+-etc/strongswan.d/charon-nm/eap-tls.conf
+-etc/strongswan.d/charon-nm/eap-ttls.conf
+ # charon-cmd
+ etc/strongswan.d/charon-cmd/eap-gtc.conf
+ etc/strongswan.d/charon-cmd/eap-identity.conf
 diff --git a/debian/libstrongswan-extra-plugins.install b/debian/libstrongswan-extra-plugins.install
-index 2846e2155..00cd0a146 100644
+index d00691503..3db1af5b5 100644
 --- a/debian/libstrongswan-extra-plugins.install
 +++ b/debian/libstrongswan-extra-plugins.install
-@@ -8,7 +8,6 @@ usr/lib/ipsec/plugins/libstrongswan-ctr.so
- usr/lib/ipsec/plugins/libstrongswan-curl.so
- usr/lib/ipsec/plugins/libstrongswan-curve25519.so
- usr/lib/ipsec/plugins/libstrongswan-gcrypt.so
+@@ -13,7 +13,6 @@ usr/lib/ipsec/plugins/libstrongswan-gcrypt.so
+ usr/lib/ipsec/plugins/libstrongswan-gmp.so
+ usr/lib/ipsec/plugins/libstrongswan-hmac.so
+ usr/lib/ipsec/plugins/libstrongswan-kdf.so
 -usr/lib/ipsec/plugins/libstrongswan-ldap.so
- usr/lib/ipsec/plugins/libstrongswan-pkcs11.so
- usr/lib/ipsec/plugins/libstrongswan-test-vectors.so
- usr/lib/ipsec/plugins/libstrongswan-tpm.so
-@@ -20,7 +19,6 @@ usr/share/strongswan/templates/config/plugins/ctr.conf
- usr/share/strongswan/templates/config/plugins/curl.conf
- usr/share/strongswan/templates/config/plugins/curve25519.conf
- usr/share/strongswan/templates/config/plugins/gcrypt.conf
+ usr/lib/ipsec/plugins/libstrongswan-md5.so
+ usr/lib/ipsec/plugins/libstrongswan-mgf1.so
+ usr/lib/ipsec/plugins/libstrongswan-pgp.so
+@@ -38,7 +37,6 @@ usr/share/strongswan/templates/config/plugins/gcrypt.conf
+ usr/share/strongswan/templates/config/plugins/gmp.conf
+ usr/share/strongswan/templates/config/plugins/hmac.conf
+ usr/share/strongswan/templates/config/plugins/kdf.conf
 -usr/share/strongswan/templates/config/plugins/ldap.conf
- usr/share/strongswan/templates/config/plugins/pkcs11.conf
- usr/share/strongswan/templates/config/plugins/test-vectors.conf
- usr/share/strongswan/templates/config/plugins/tpm.conf
-@@ -31,7 +29,6 @@ etc/strongswan.d/charon/ctr.conf
- etc/strongswan.d/charon/curl.conf
- etc/strongswan.d/charon/curve25519.conf
- etc/strongswan.d/charon/gcrypt.conf
+ usr/share/strongswan/templates/config/plugins/md5.conf
+ usr/share/strongswan/templates/config/plugins/mgf1.conf
+ usr/share/strongswan/templates/config/plugins/pgp.conf
+@@ -63,7 +61,6 @@ etc/strongswan.d/charon/gcrypt.conf
+ etc/strongswan.d/charon/gmp.conf
+ etc/strongswan.d/charon/hmac.conf
+ etc/strongswan.d/charon/kdf.conf
 -etc/strongswan.d/charon/ldap.conf
- etc/strongswan.d/charon/pkcs11.conf
- etc/strongswan.d/charon/test-vectors.conf
- etc/strongswan.d/charon/tpm.conf
+ etc/strongswan.d/charon/md5.conf
+ etc/strongswan.d/charon/mgf1.conf
+ etc/strongswan.d/charon/pgp.conf
+@@ -88,7 +85,6 @@ etc/strongswan.d/charon-cmd/gcrypt.conf
+ etc/strongswan.d/charon-cmd/gmp.conf
+ etc/strongswan.d/charon-cmd/hmac.conf
+ etc/strongswan.d/charon-cmd/kdf.conf
+-etc/strongswan.d/charon-cmd/ldap.conf
+ etc/strongswan.d/charon-cmd/md5.conf
+ etc/strongswan.d/charon-cmd/mgf1.conf
+ etc/strongswan.d/charon-cmd/pkcs11.conf
+@@ -98,28 +94,6 @@ etc/strongswan.d/charon-cmd/sha1.conf
+ etc/strongswan.d/charon-cmd/sha2.conf
+ etc/strongswan.d/charon-cmd/tpm.conf
+ etc/strongswan.d/charon-cmd/xcbc.conf
+-# charon-nm configuration files
+-etc/strongswan.d/charon-nm/aes.conf
+-etc/strongswan.d/charon-nm/ccm.conf
+-etc/strongswan.d/charon-nm/chapoly.conf
+-etc/strongswan.d/charon-nm/cmac.conf
+-etc/strongswan.d/charon-nm/ctr.conf
+-etc/strongswan.d/charon-nm/curl.conf
+-etc/strongswan.d/charon-nm/curve25519.conf
+-etc/strongswan.d/charon-nm/fips-prf.conf
+-etc/strongswan.d/charon-nm/gcrypt.conf
+-etc/strongswan.d/charon-nm/gmp.conf
+-etc/strongswan.d/charon-nm/hmac.conf
+-etc/strongswan.d/charon-nm/kdf.conf
+-etc/strongswan.d/charon-nm/ldap.conf
+-etc/strongswan.d/charon-nm/md5.conf
+-etc/strongswan.d/charon-nm/mgf1.conf
+-etc/strongswan.d/charon-nm/pkcs11.conf
+-etc/strongswan.d/charon-nm/rc2.conf
+-etc/strongswan.d/charon-nm/sha1.conf
+-etc/strongswan.d/charon-nm/sha2.conf
+-etc/strongswan.d/charon-nm/tpm.conf
+-etc/strongswan.d/charon-nm/xcbc.conf
+ # TPM libs
+ usr/lib/ipsec/libtpmtss.so.*
+ usr/lib/ipsec/libtpmtss.so
+diff --git a/debian/libstrongswan-standard-plugins.install b/debian/libstrongswan-standard-plugins.install
+index 97aaedabf..973172476 100644
+--- a/debian/libstrongswan-standard-plugins.install
++++ b/debian/libstrongswan-standard-plugins.install
+@@ -14,7 +14,3 @@ etc/strongswan.d/charon/sshkey.conf
+ etc/strongswan.d/charon-cmd/agent.conf
+ etc/strongswan.d/charon-cmd/gcm.conf
+ etc/strongswan.d/charon-cmd/sshkey.conf
+-# charon-nm config files
+-etc/strongswan.d/charon-nm/agent.conf
+-etc/strongswan.d/charon-nm/gcm.conf
+-etc/strongswan.d/charon-nm/sshkey.conf
+diff --git a/debian/libstrongswan.install b/debian/libstrongswan.install
+index 5ce6459ae..7c80a3007 100644
+--- a/debian/libstrongswan.install
++++ b/debian/libstrongswan.install
+@@ -61,18 +61,6 @@ etc/strongswan.d/charon-cmd/random.conf
+ etc/strongswan.d/charon-cmd/resolve.conf
+ etc/strongswan.d/charon-cmd/revocation.conf
+ etc/strongswan.d/charon-cmd/x509.conf
+-# charon-nm config files
+-etc/strongswan.d/charon-nm/constraints.conf
+-etc/strongswan.d/charon-nm/drbg.conf
+-etc/strongswan.d/charon-nm/nonce.conf
+-etc/strongswan.d/charon-nm/openssl.conf
+-etc/strongswan.d/charon-nm/pem.conf
+-etc/strongswan.d/charon-nm/pkcs1.conf
+-etc/strongswan.d/charon-nm/pkcs7.conf
+-etc/strongswan.d/charon-nm/pkcs8.conf
+-etc/strongswan.d/charon-nm/random.conf
+-etc/strongswan.d/charon-nm/revocation.conf
+-etc/strongswan.d/charon-nm/x509.conf
+ # config files
+ etc/strongswan.conf
+ etc/strongswan.d/iptfs.conf
 diff --git a/debian/rules b/debian/rules
-index 2fed1f10f..fa0d21a0c 100755
+index b77e0750d..abc637a1c 100755
 --- a/debian/rules
 +++ b/debian/rules
 @@ -3,6 +3,15 @@ export DEB_LDFLAGS_MAINT_APPEND=-Wl,-O1
@@ -93,8 +191,8 @@ index 2fed1f10f..fa0d21a0c 100755
 +
  CONFIGUREARGS := --libdir=/usr/lib --libexecdir=/usr/lib \
  		--enable-addrblock \
- 		--enable-agent \
-@@ -88,7 +97,7 @@ ifeq ($(DEB_HOST_ARCH_OS),kfreebsd)
+ 		--enable-aes \
+@@ -102,7 +111,7 @@ endif
  deb_systemdsystemunitdir = $(shell pkg-config --variable=systemdsystemunitdir systemd | sed s,^/,,)
  
  override_dh_auto_configure:
@@ -103,13 +201,73 @@ index 2fed1f10f..fa0d21a0c 100755
  
  override_dh_auto_clean:
  	dh_auto_clean
+@@ -143,13 +152,11 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
+ 	dh_install -p libstrongswan usr/share/strongswan/templates/config/plugins/kernel-netlink.conf
+ 	dh_install -p libstrongswan etc/strongswan.d/charon/kernel-netlink.conf
+ 	dh_install -p libstrongswan etc/strongswan.d/charon-cmd/kernel-netlink.conf
+-	dh_install -p libstrongswan etc/strongswan.d/charon-nm/kernel-netlink.conf
+ 
+ 	dh_install -p libstrongswan-extra-plugins usr/lib/ipsec/plugins/libstrongswan-af-alg.so
+ 	dh_install -p libstrongswan-extra-plugins usr/share/strongswan/templates/config/plugins/af-alg.conf
+ 	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon/af-alg.conf
+ 	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon-cmd/af-alg.conf
+-	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon-nm/af-alg.conf
+ 	# the systemd service file only gets generated on Linux
+ 	dh_install -p strongswan-starter "$(deb_systemdsystemunitdir)/strongswan-starter.service"
+ 	dh_link -p strongswan-starter "$(deb_systemdsystemunitdir)/strongswan-starter.service" "$(deb_systemdsystemunitdir)/ipsec.service"
+@@ -179,12 +186,10 @@ ifeq ($(DEB_HOST_ARCH_CPU),i386)
+ 	dh_install -p libstrongswan-extra-plugins usr/share/strongswan/templates/config/plugins/rdrand.conf
+ 	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon/rdrand.conf
+ 	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon-cmd/rdrand.conf
+-	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon-nm/rdrand.conf
+ 
+ 	dh_install -p libstrongswan-standard-plugins usr/lib/ipsec/plugins/libstrongswan-aesni.so
+ 	dh_install -p libstrongswan-standard-plugins usr/share/strongswan/templates/config/plugins/aesni.conf
+ 	dh_install -p libstrongswan-standard-plugins etc/strongswan.d/charon/aesni.conf
+-	dh_install -p libstrongswan-standard-plugins etc/strongswan.d/charon-nm/aesni.conf
+ 	dh_install -p libstrongswan-standard-plugins etc/strongswan.d/charon-cmd/aesni.conf
+ endif
+ 
+@@ -193,12 +198,10 @@ ifeq ($(DEB_HOST_ARCH_CPU), amd64)
+ 	dh_install -p libstrongswan-extra-plugins usr/share/strongswan/templates/config/plugins/rdrand.conf
+ 	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon/rdrand.conf
+ 	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon-cmd/rdrand.conf
+-	dh_install -p libstrongswan-extra-plugins etc/strongswan.d/charon-nm/rdrand.conf
+ 
+ 	dh_install -p libstrongswan-standard-plugins usr/lib/ipsec/plugins/libstrongswan-aesni.so
+ 	dh_install -p libstrongswan-standard-plugins usr/share/strongswan/templates/config/plugins/aesni.conf
+ 	dh_install -p libstrongswan-standard-plugins etc/strongswan.d/charon/aesni.conf
+-	dh_install -p libstrongswan-standard-plugins etc/strongswan.d/charon-nm/aesni.conf
+ 	dh_install -p libstrongswan-standard-plugins etc/strongswan.d/charon-cmd/aesni.conf
+ endif
+ 
+diff --git a/debian/strongswan-libcharon.install b/debian/strongswan-libcharon.install
+index 099c2e955..45eafad6f 100644
+--- a/debian/strongswan-libcharon.install
++++ b/debian/strongswan-libcharon.install
+@@ -5,7 +5,6 @@ usr/lib/ipsec/plugins/libstrongswan-socket-default.so
+ usr/share/strongswan/templates/config/plugins/socket-default.conf
+ etc/strongswan.d/charon/socket-default.conf
+ etc/strongswan.d/charon-cmd/socket-default.conf
+-etc/strongswan.d/charon-nm/socket-default.conf
+ # counters
+ usr/lib/ipsec/plugins/libstrongswan-counters.so
+ usr/share/strongswan/templates/config/plugins/counters.conf
+@@ -20,4 +19,3 @@ usr/lib/ipsec/plugins/libstrongswan-bypass-lan.so
+ usr/share/strongswan/templates/config/plugins/bypass-lan.conf
+ etc/strongswan.d/charon/bypass-lan.conf
+ etc/strongswan.d/charon-cmd/bypass-lan.conf
+-etc/strongswan.d/charon-nm/bypass-lan.conf
 diff --git a/debian/strongswan-nm.install b/debian/strongswan-nm.install
-index b0c05d94f..e69de29bb 100644
+index 058193688..e69de29bb 100644
 --- a/debian/strongswan-nm.install
 +++ b/debian/strongswan-nm.install
-@@ -1,2 +0,0 @@
+@@ -1,5 +0,0 @@
+-etc/strongswan.d/charon-nm.conf
 -usr/lib/ipsec/charon-nm
 -usr/share/dbus-1/system.d/nm-strongswan-service.conf
+-etc/strongswan.d/charon-nm.conf
+-usr/share/strongswan/templates/config/strongswan.d/charon-nm.conf
 -- 
-2.30.2
+2.51.2
 

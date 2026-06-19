@@ -1,0 +1,63 @@
+From 7570cabe74c1dae0ba9b8216090e86a781db810c Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Mon, 8 Jun 2026 22:38:12 +0300
+Subject: [PATCH] T8099: enable Module-Lattice-based crypto (ML-KEM)
+
+---
+ debian/libstrongswan-extra-plugins.install | 4 ++++
+ debian/rules                               | 3 ++-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/debian/libstrongswan-extra-plugins.install b/debian/libstrongswan-extra-plugins.install
+index 3db1af5b5..ae59d6eb5 100644
+--- a/debian/libstrongswan-extra-plugins.install
++++ b/debian/libstrongswan-extra-plugins.install
+@@ -15,6 +15,7 @@ usr/lib/ipsec/plugins/libstrongswan-hmac.so
+ usr/lib/ipsec/plugins/libstrongswan-kdf.so
+ usr/lib/ipsec/plugins/libstrongswan-md5.so
+ usr/lib/ipsec/plugins/libstrongswan-mgf1.so
++usr/lib/ipsec/plugins/libstrongswan-ml.so
+ usr/lib/ipsec/plugins/libstrongswan-pgp.so
+ usr/lib/ipsec/plugins/libstrongswan-pkcs11.so
+ usr/lib/ipsec/plugins/libstrongswan-pkcs12.so
+@@ -39,6 +40,7 @@ usr/share/strongswan/templates/config/plugins/hmac.conf
+ usr/share/strongswan/templates/config/plugins/kdf.conf
+ usr/share/strongswan/templates/config/plugins/md5.conf
+ usr/share/strongswan/templates/config/plugins/mgf1.conf
++usr/share/strongswan/templates/config/plugins/ml.conf
+ usr/share/strongswan/templates/config/plugins/pgp.conf
+ usr/share/strongswan/templates/config/plugins/pkcs11.conf
+ usr/share/strongswan/templates/config/plugins/pkcs12.conf
+@@ -63,6 +65,7 @@ etc/strongswan.d/charon/hmac.conf
+ etc/strongswan.d/charon/kdf.conf
+ etc/strongswan.d/charon/md5.conf
+ etc/strongswan.d/charon/mgf1.conf
++etc/strongswan.d/charon/ml.conf
+ etc/strongswan.d/charon/pgp.conf
+ etc/strongswan.d/charon/pkcs11.conf
+ etc/strongswan.d/charon/pkcs12.conf
+@@ -87,6 +90,7 @@ etc/strongswan.d/charon-cmd/hmac.conf
+ etc/strongswan.d/charon-cmd/kdf.conf
+ etc/strongswan.d/charon-cmd/md5.conf
+ etc/strongswan.d/charon-cmd/mgf1.conf
++etc/strongswan.d/charon-cmd/ml.conf
+ etc/strongswan.d/charon-cmd/pkcs11.conf
+ etc/strongswan.d/charon-cmd/pkcs12.conf
+ etc/strongswan.d/charon-cmd/rc2.conf
+diff --git a/debian/rules b/debian/rules
+index abc637a1c..097ce4b22 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -10,7 +10,8 @@ CONFIGUREARGS_VYOS := --disable-warnings \
+                --disable-mediation \
+                --disable-mysql \
+                --disable-sqlite \
+-               --disable-sql
++               --disable-sql \
++			   --enable-ml
+ 
+ CONFIGUREARGS := --libdir=/usr/lib --libexecdir=/usr/lib \
+ 		--enable-addrblock \
+-- 
+2.51.2
+
