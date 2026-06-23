@@ -120,8 +120,7 @@ def build_package(package: list, patch_dir: Path) -> None:
                 print(f'I: execute pre_build_hook for the package "{repo_name}"')
                 run(pre_build_hook, cwd=repo_dir, check=True, shell=True)
             except CalledProcessError as e:
-                print(e)
-                print(f"I: pre_build_hook failed for the {repo_name}")
+                print(f"E: pre_build_hook failed for the {repo_name}")
                 raise
 
         # Apply patches if the 'apply_patches' key is set to True (default) in the package configuration
@@ -136,9 +135,35 @@ def build_package(package: list, patch_dir: Path) -> None:
             if (repo_dir / 'patches'):
                 apply_patches(repo_dir, patch_dir / repo_name)
 
-        # Sanitize the commit ID and build a tarball for the package
-        commit_id_sanitized = package['commit_id'].replace('/', '_')
-        tarball_name = f"{repo_name}_{commit_id_sanitized}.tar.gz"
+        # Create original tarball for dpkg-source to be happy
+        package_version = run(['dpkg-parsechangelog', '--show-field', 'Version', '--file', repo_dir / 'debian/changelog'], capture_output=True, check=False)
+        if package_version.stdout:
+            package_version = package_version.stdout.decode().strip()
+            package_version = package_version.rsplit('-', maxsplit=1)[0]
+            if ':' in package_version:
+                package_version = package_version.split(':', maxsplit=1)[1]
+        else:
+            # On failure fallback to sanitized commit ID
+            package_version = package['commit_id'].replace('/', '_')
+
+        package_name = run(['dpkg-parsechangelog', '--show-field', 'Source', '--file', repo_dir / 'debian/changelog'], capture_output=True, check=False)
+        if package_name.stdout:
+            package_name = package_name.stdout.decode().strip()
+        else:
+            # On failure fallback to repo name
+            package_name = repo_name
+
+        # 1.0 version needs 'native' format - without '.orig'
+        # 3.0 needs '.orig'
+        source_format_suffix = ''
+        if (repo_dir / 'debian/source/format').exists():
+            with open(repo_dir / 'debian/source/format') as f:
+                source_format_version = f.read()
+                if '3.0' in source_format_version:
+                    source_format_suffix = '.orig'
+
+        # Build a tarball for the package
+        tarball_name = f'{package_name}_{package_version}{source_format_suffix}.tar.gz'
         run(['tar', '--exclude=.git', '--exclude=.github', '-czf', tarball_name, '-C', str(repo_dir.parent), repo_name], check=True)
         print(f"I: Tarball created: {tarball_name}")
 
@@ -151,21 +176,23 @@ def build_package(package: list, patch_dir: Path) -> None:
             try:
                 run('sudo mk-build-deps --install --tool "apt-get --yes --no-install-recommends"', cwd=repo_dir, check=True, shell=True)
                 run('sudo dpkg -i *build-deps*.deb', cwd=repo_dir, check=True, shell=True)
+                # Clean up or dpkg-source will see this as changes to binary files
+                cleanup_build_deps(repo_dir)
             except CalledProcessError as e:
-                print(f"Failed to build package {repo_name}: {e}")
+                print(f"E: Failed to create/install dependency package for {repo_name}: {e}")
+                raise
 
         # Build the package, check if we have build_cmd in the package.toml
         try:
-            build_cmd = package.get('build_cmd', 'dpkg-buildpackage -uc -us -tc -F --source-option=--tar-ignore=.git --source-option=--tar-ignore=.github')
+            build_cmd = package.get('build_cmd', r'dpkg-buildpackage -uc -us -tc -F --source-option=--tar-ignore=.git --source-option=--tar-ignore=.github --source-option=-i --source-option=--extend-diff-ignore="^\.github(?:/.*)?$"')
             run(build_cmd, cwd=repo_dir, check=True, shell=True)
         except CalledProcessError as e:
-            print(e)
-            print("I: Source packages build failed, ignoring - building binaries only")
-            build_cmd = package.get('build_cmd', 'dpkg-buildpackage -uc -us -tc -b')
-            run(build_cmd, cwd=repo_dir, check=True, shell=True)
+            print(f"E: Build command failed for '{repo_name}': {build_cmd}")
+            raise
 
     except CalledProcessError as e:
         print(f"Failed to build package {repo_name}: {e}")
+        sys.exit(1)
     finally:
         # Clean up repository directory
         # shutil.rmtree(repo_dir, ignore_errors=True)
@@ -176,8 +203,9 @@ def cleanup_build_deps(repo_dir: Path) -> None:
     """Clean up build dependency packages"""
     try:
         if repo_dir.exists():
-            for file in glob.glob(str(repo_dir / '*build-deps*.deb')):
-                os.remove(file)
+            for suffix in ('deb', 'buildinfo', 'changes'):
+                for file in glob.glob(str(repo_dir / f'*build-deps*.{suffix}')):
+                    os.remove(file)
             print("I: Cleaned up build dependency packages")
     except Exception as e:
         print(f"Error cleaning up build dependencies: {e}")
