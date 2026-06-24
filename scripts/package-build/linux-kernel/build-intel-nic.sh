@@ -78,4 +78,4 @@ fpm --input-type dir --output-type deb --name vyos-intel-${DRIVER_NAME} \
     --license "GPL2" -C ${DEBIAN_DIR} --after-install ${DEBIAN_POSTINST}
 
 # cleanup
-rm -rf ${DEBIAN_DIR}
+rm -rf -- "${DEBIAN_DIR}" "${DEBIAN_POSTINST}"
