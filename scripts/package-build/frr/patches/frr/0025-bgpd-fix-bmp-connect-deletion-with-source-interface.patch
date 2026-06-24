@@ -1,0 +1,31 @@
+From d8923603c8aab212e923dccc16de9bb4c22c6846 Mon Sep 17 00:00:00 2001
+From: Nataliia Solomko <natalirs1985@gmail.com>
+Date: Wed, 24 Jun 2026 16:03:45 +0300
+Subject: [PATCH] bgpd: fix bmp connect deletion with source-interface
+
+bmp_connect() rejects deletion when source-interface is provided.
+The check compares the configured source-interface with the one
+in the command. It uses !strcmp(), which is true when the strings
+are equal. But this result feeds an if-block that rejects the
+deletion. So the command is rejected exactly when the
+source-interface is correct, and accepted when it is wrong.
+Fix by changing !strcmp() to strcmp().
+---
+ bgpd/bgp_bmp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/bgpd/bgp_bmp.c b/bgpd/bgp_bmp.c
+index 40f70f5a7c..f8c3f1c838 100644
+--- a/bgpd/bgp_bmp.c
++++ b/bgpd/bgp_bmp.c
+@@ -2996,7 +2996,7 @@ DEFPY(bmp_connect,
+ 		/* connection deletion need same hostname port and interface */
+ 		if (ba->ifsrc || srcif)
+ 			if ((!ba->ifsrc) || (!srcif) ||
+-			    !strcmp(ba->ifsrc, srcif)) {
++			    strcmp(ba->ifsrc, srcif)) {
+ 				vty_out(vty,
+ 					"%% No such active connection found\n");
+ 				return CMD_WARNING;
+-- 
+2.51.0
