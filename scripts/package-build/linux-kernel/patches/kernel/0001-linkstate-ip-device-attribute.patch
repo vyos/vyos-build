@@ -27,6 +27,7 @@ Refreshed against Linux 6.18.x:
  8 files changed, 34 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
+index 7a637e87005f..982c76d0b0ab 100644
 --- a/Documentation/networking/ip-sysctl.rst
 +++ b/Documentation/networking/ip-sysctl.rst
 @@ -2042,6 +2042,17 @@ src_valid_mark - BOOLEAN
@@ -48,6 +49,7 @@ diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/i
  	- 1 - Allows you to have multiple network interfaces on the same
  	  subnet, and have the ARPs for each interface be answered
 diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index dccbeb25f701..b16f70e491d6 100644
 --- a/include/linux/inetdevice.h
 +++ b/include/linux/inetdevice.h
 @@ -139,6 +139,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
@@ -59,6 +61,7 @@ diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
  struct in_ifaddr {
  	struct hlist_node	addr_lst;
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 7294e4e89b79..5243afbd98b8 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
 @@ -91,6 +91,7 @@ struct ipv6_devconf {
@@ -70,6 +73,7 @@ diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
  	struct ctl_table_header *sysctl_header;
  };
 diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+index 5bd7ce934d74..cfe694a9810f 100644
 --- a/include/uapi/linux/ip.h
 +++ b/include/uapi/linux/ip.h
 @@ -189,6 +189,7 @@ enum
@@ -81,6 +85,7 @@ diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
  };
  
 diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index d4d3ae774b26..8495f1b69a64 100644
 --- a/include/uapi/linux/ipv6.h
 +++ b/include/uapi/linux/ipv6.h
 @@ -200,6 +200,7 @@ enum {
@@ -92,6 +97,7 @@ diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 942a887bf089..e6df2bfc4e40 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
 @@ -2652,6 +2652,7 @@ static struct devinet_sysctl_table {
@@ -103,9 +109,10 @@ diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index b2e1328371d3..769d4e1f5cbf 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5716,6 +5716,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
+@@ -5718,6 +5718,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
  		READ_ONCE(cnf->accept_untracked_na);
  	array[DEVCONF_ACCEPT_RA_MIN_LFT] = READ_ONCE(cnf->accept_ra_min_lft);
  	array[DEVCONF_FORCE_FORWARDING] = READ_ONCE(cnf->force_forwarding);
@@ -113,7 +120,7 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7251,6 +7252,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7253,6 +7254,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
@@ -128,9 +135,10 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f89220929c4e..8f92ef14d884 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -714,6 +714,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
+@@ -717,6 +717,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
  }
  #endif
  
@@ -145,7 +153,7 @@ diff --git a/net/ipv6/route.c b/net/ipv6/route.c
  /*
   * Default Router Selection (RFC 2461 6.3.6)
   */
-@@ -755,6 +763,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
+@@ -758,6 +766,8 @@ static int rt6_score_route(const struct fib6_nh *nh, u32 fib6_flags, int oif,
  
  	if (!m && (strict & RT6_LOOKUP_F_IFACE))
  		return RT6_NUD_FAIL_HARD;
