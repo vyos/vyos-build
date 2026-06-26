@@ -20,15 +20,16 @@ iterated over every package); since v6.7 the package build is driven
 per-package from debian/rules, so we have to extend that mechanism
 instead.
 ---
- scripts/package/builddeb      | 16 ++++++++++++++++
- scripts/package/debian/rules  |  3 ++-
- scripts/package/mkdebian      | 12 ++++++++++++
+ scripts/package/builddeb     | 16 ++++++++++++++++
+ scripts/package/debian/rules |  3 ++-
+ scripts/package/mkdebian     | 12 ++++++++++++
  3 files changed, 30 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/package/builddeb b/scripts/package/builddeb
+index ba1defc61652..61e5d3b8447d 100755
 --- a/scripts/package/builddeb
 +++ b/scripts/package/builddeb
-@@ -156,6 +156,20 @@ install_libc_headers () {
+@@ -162,6 +162,20 @@ install_libc_headers () {
  	mv "$pdir/usr/include/asm" "$pdir/usr/include/${DEB_HOST_MULTIARCH}"
  }
  
@@ -49,7 +50,7 @@ diff --git a/scripts/package/builddeb b/scripts/package/builddeb
  package=$1
  
  case "${package}" in
-@@ -167,4 +181,6 @@ linux-libc-dev)
+@@ -173,4 +187,6 @@ linux-libc-dev)
  	install_libc_headers "${package}";;
  linux-headers-*)
  	install_kernel_headers "${package}";;
@@ -57,6 +58,7 @@ diff --git a/scripts/package/builddeb b/scripts/package/builddeb
 +	install_perf "${package}";;
  esac
 diff --git a/scripts/package/debian/rules b/scripts/package/debian/rules
+index a417a7f8bbc1..3b6905034b4c 100755
 --- a/scripts/package/debian/rules
 +++ b/scripts/package/debian/rules
 @@ -27,13 +27,14 @@ make-opts = ARCH=$(ARCH) KERNELRELEASE=$(KERNELRELEASE) \
@@ -76,6 +78,7 @@ diff --git a/scripts/package/debian/rules b/scripts/package/debian/rules
  mk-files = $(patsubst binary-%,debian/%.files,$1)
  package = $($(@:binary-%=%-package))
 diff --git a/scripts/package/mkdebian b/scripts/package/mkdebian
+index d4b007b38a47..45a5f06b803d 100755
 --- a/scripts/package/mkdebian
 +++ b/scripts/package/mkdebian
 @@ -247,6 +247,18 @@ Description: Linux kernel headers for ${KERNELRELEASE} on $debarch
