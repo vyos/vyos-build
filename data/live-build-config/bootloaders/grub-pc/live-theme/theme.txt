@@ -31,7 +31,7 @@ terminal-font: "Unifont Regular 16"
         item_padding = 0
         item_spacing = 4
 	icon_width = 0
-	icon_heigh = 0
+	icon_height = 0
 	item_icon_space = 0
 }
 
