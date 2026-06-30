@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      REF: main  # Used for curl to trigger build package
+      REF: production  # Used for curl to trigger build package
 
     steps:
       - name: Checkout
