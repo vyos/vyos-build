@@ -1,0 +1,47 @@
+From 361b8051af88376d3667ee087f31a0de75fe276e Mon Sep 17 00:00:00 2001
+From: Viacheslav Hletenko <v.gletenko@vyos.io>
+Date: Wed, 1 Jul 2026 16:32:31 +0000
+Subject: [PATCH] Enable FIPS module
+
+---
+ debian/openssl.install | 1 +
+ debian/rules           | 4 +++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/debian/openssl.install b/debian/openssl.install
+index 1f270a762a..44444be066 100644
+--- a/debian/openssl.install
++++ b/debian/openssl.install
+@@ -5,6 +5,7 @@ usr/lib/ssl/certs
+ usr/lib/ssl/private
+ usr/lib/ssl/misc/*
+ usr/lib/ssl/openssl.cnf
++usr/lib/ssl/fipsmodule.cnf
+ usr/share/man/man1/*
+ usr/share/man/man5/*
+ usr/share/man/man7/*
+diff --git a/debian/rules b/debian/rules
+index 4e260eedf2..54d6db4513 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -29,7 +29,7 @@ ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+ 	MAKEFLAGS += -j$(NUMJOBS)
+ endif
+ 
+-CONFARGS  = --prefix=/usr --openssldir=/usr/lib/ssl --libdir=lib/$(DEB_HOST_MULTIARCH) no-idea no-mdc2 no-rc5 no-zlib no-ssl3 enable-unit-test no-ssl3-method enable-rfc3779 enable-cms no-capieng no-rdrand
++CONFARGS  = --prefix=/usr --openssldir=/usr/lib/ssl --libdir=lib/$(DEB_HOST_MULTIARCH) no-idea no-mdc2 no-rc5 no-zlib no-ssl3 enable-unit-test no-ssl3-method enable-rfc3779 enable-cms no-capieng no-rdrand enable-fips
+ #OPT_alpha = ev4 ev5
+ ARCHOPTS  = OPT_$(DEB_HOST_ARCH)
+ OPTS      = $($(ARCHOPTS))
+@@ -113,6 +113,8 @@ override_dh_auto_install-indep:
+ 
+ override_dh_auto_install-arch:
+ 	$(MAKE) -C build_shared install DESTDIR=`pwd`/debian/tmp
++	# Install FIPS module
++	$(MAKE) -C build_shared install_fips DESTDIR=`pwd`/debian/tmp
+ 	# pic static libraries, nobody should need them
+ 	cp -pf build_static/libcrypto.a debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/libcrypto.a
+ 	cp -pf build_static/libssl.a debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/libssl.a
+-- 
+2.39.5
+
