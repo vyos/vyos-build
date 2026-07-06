@@ -1,0 +1,7 @@
+# These run inside Linux containers — force LF so a Windows checkout can't
+# break the shebang / dpkg maintainer scripts with CRLF line endings.
+*.sh            text eol=lf
+debian/rules    text eol=lf
+debian/postinst text eol=lf
+debian/postrm   text eol=lf
+debian/*.service text eol=lf
