@@ -12,7 +12,7 @@ echo "==> Building quartzfire-webui .deb in rust:1-bookworm"
 docker run --rm -v "$repo_root":/src -w /src/quartzfire-webui rust:1-bookworm bash -euo pipefail -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y --no-install-recommends nodejs npm debhelper devscripts ca-certificates >/dev/null
+  apt-get install -y --no-install-recommends build-essential nodejs npm debhelper devscripts ca-certificates >/dev/null
 
   # Windows checkouts drop the exec bit; restore it for the maintainer scripts.
   chmod +x debian/rules debian/postinst debian/postrm

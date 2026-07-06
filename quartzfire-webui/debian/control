@@ -1,11 +1,13 @@
+# NOTE: cargo/rustc are intentionally NOT build-deps. Debian bookworm ships
+# Rust 1.63, too old for this backend (axum 0.7 needs ~1.75). A current
+# toolchain is provided via rustup at build time — see ../build-deb.sh.
 Source: quartzfire-webui
 Section: net
 Priority: optional
 Maintainer: QuartzFire <cwellman@quartz.systems>
 Build-Depends:
  debhelper-compat (= 13),
- cargo,
- rustc,
+ build-essential,
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 
