@@ -1,0 +1,22 @@
+[Unit]
+Description=QuartzFire WebUI backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/quartzfire-webui
+Environment=QUARTZFIRE_WEBUI_CONFIG=/etc/quartzfire/webui.toml
+Restart=on-failure
+RestartSec=2
+# Hardening — the backend only needs to read its config/key and talk localhost.
+DynamicUser=yes
+SupplementaryGroups=quartzfire
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/etc/quartzfire
+
+[Install]
+WantedBy=multi-user.target

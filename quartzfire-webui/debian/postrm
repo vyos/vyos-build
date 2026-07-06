@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|purge)
+        rm -f /etc/nginx/sites-enabled/quartzfire-webui
+        if command -v nginx >/dev/null 2>&1; then
+            systemctl reload nginx 2>/dev/null || true
+        fi
+        ;;
+esac
+
+if [ "$1" = "purge" ]; then
+    rm -f /etc/quartzfire/vyos-api.key
+    rmdir --ignore-fail-on-non-empty /etc/quartzfire 2>/dev/null || true
+fi
+
+#DEBHELPER#
+
+exit 0

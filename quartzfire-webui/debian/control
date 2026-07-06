@@ -1,0 +1,21 @@
+Source: quartzfire-webui
+Section: net
+Priority: optional
+Maintainer: QuartzFire <cwellman@quartz.systems>
+Build-Depends:
+ debhelper-compat (= 13),
+ cargo,
+ rustc,
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: quartzfire-webui
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ nginx,
+Description: QuartzFire web management interface
+ Rust backend that serves the exported Next.js frontend and reverse-proxies
+ requests to the local VyOS HTTP API, injecting the API key server-side.
+ Ships a systemd unit and an nginx site enabled on installation.

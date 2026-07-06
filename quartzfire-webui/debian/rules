@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+# Build the Rust backend and stage the (pre-exported) Next.js frontend.
+# The frontend must be exported to backend/www BEFORE dpkg-buildpackage runs;
+# see ../README.md.
+
+export CARGO_HOME = $(CURDIR)/debian/cargo
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cd backend && cargo build --release
+
+override_dh_auto_test:
+	# Backend has no packaged tests yet.
+
+override_dh_auto_install:
+	install -D -m0755 backend/target/release/quartzfire-webui \
+		debian/quartzfire-webui/usr/bin/quartzfire-webui
+	mkdir -p debian/quartzfire-webui/usr/share/quartzfire-webui/www
+	# Frontend export is optional at package time; warn but do not fail.
+	if [ -d backend/www ]; then \
+		cp -r backend/www/. debian/quartzfire-webui/usr/share/quartzfire-webui/www/ ; \
+	else \
+		echo "W: backend/www not found — frontend not exported; shipping empty www" ; \
+	fi
+	install -D -m0644 debian/config/webui.toml \
+		debian/quartzfire-webui/etc/quartzfire/webui.toml
+	install -D -m0644 debian/config/nginx-quartzfire.conf \
+		debian/quartzfire-webui/etc/nginx/sites-available/quartzfire-webui
+
+override_dh_auto_clean:
+	cd backend && cargo clean || true
+	rm -rf debian/cargo

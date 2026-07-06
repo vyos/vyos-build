@@ -1,0 +1,18 @@
+# QuartzFire flavor — VyOS base + QuartzFire WebUI.
+#
+# The WebUI itself is delivered as a local .deb: build quartzfire-webui and copy
+# quartzfire-webui_*.deb into ../packages/ before running `make quartzfire`.
+# build-vyos-image installs every packages/*.deb into the image automatically
+# (see scripts/image-build/build-vyos-image), so it is not listed here.
+#
+# nginx and the VyOS HTTP API (vyos-http-api-tools) are already pulled in by the
+# base system, so no extra apt packages are required for the WebUI to work.
+
+image_format = "iso"
+
+# QuartzFire identity marker, readable on the running system.
+[[includes_chroot]]
+  path = 'usr/share/quartzfire/edition'
+  data = '''
+QuartzFire — VyOS-based firewall OS
+'''

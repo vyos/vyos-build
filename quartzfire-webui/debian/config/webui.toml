@@ -1,0 +1,7 @@
+# QuartzFire WebUI backend configuration.
+# nginx terminates TLS on :443 and proxies to `listen` below.
+
+listen            = "127.0.0.1:8443"
+vyos_api_url      = "http://127.0.0.1:8080"
+vyos_api_key_file = "/etc/quartzfire/vyos-api.key"
+www_root          = "/usr/share/quartzfire-webui/www"

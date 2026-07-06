@@ -1,0 +1,6 @@
+quartzfire-webui (0.1.0-1) unstable; urgency=medium
+
+  * Initial skeleton: axum backend (static server + VyOS HTTP API proxy),
+    Next.js static-export frontend, systemd unit and nginx site.
+
+ -- QuartzFire <cwellman@quartz.systems>  Mon, 06 Jul 2026 00:00:00 +0000

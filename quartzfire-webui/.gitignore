@@ -1,0 +1,20 @@
+# Rust
+backend/target/
+debian/cargo/
+
+# Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# Exported frontend staged for packaging
+backend/www/
+
+# Debian build artifacts
+debian/quartzfire-webui/
+debian/.debhelper/
+debian/files
+debian/*.substvars
+debian/*.log
+*.deb

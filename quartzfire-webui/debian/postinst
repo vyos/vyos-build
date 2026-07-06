@@ -1,0 +1,40 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Group used to hand the API key to the DynamicUser backend service.
+        if ! getent group quartzfire >/dev/null; then
+            addgroup --system quartzfire
+        fi
+
+        # Generate a VyOS API key on first install. The operator must register
+        # it with VyOS:  set service https api keys id quartzfire key '<key>'
+        KEY_FILE=/etc/quartzfire/vyos-api.key
+        if [ ! -s "$KEY_FILE" ]; then
+            mkdir -p /etc/quartzfire
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$KEY_FILE"
+            echo >> "$KEY_FILE"
+            echo "QuartzFire: generated VyOS API key at $KEY_FILE"
+            echo "QuartzFire: register it with: set service https api keys id quartzfire key '$(cat "$KEY_FILE")'"
+        fi
+        chgrp quartzfire "$KEY_FILE"
+        chmod 0640 "$KEY_FILE"
+
+        # Enable the nginx site.
+        if [ -d /etc/nginx/sites-enabled ] && \
+           [ ! -e /etc/nginx/sites-enabled/quartzfire-webui ]; then
+            ln -s ../sites-available/quartzfire-webui \
+                /etc/nginx/sites-enabled/quartzfire-webui
+            # Drop Debian's default site so ours can be default_server.
+            rm -f /etc/nginx/sites-enabled/default
+        fi
+        if command -v nginx >/dev/null 2>&1; then
+            nginx -t && (systemctl reload nginx 2>/dev/null || true)
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
