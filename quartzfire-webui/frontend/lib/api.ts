@@ -131,6 +131,14 @@ export async function vyosApi<T = unknown>(endpoint: string, data: unknown): Pro
     redirectToLogin();
     throw new Error("Session expired. Please sign in again.");
   }
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    // VyOS reports op failures as 400 with a JSON {success, error} body —
+    // hand that to the caller so it can surface the real error message.
+    try {
+      return (await res.json()) as T;
+    } catch {
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
+  }
   return res.json() as Promise<T>;
 }
