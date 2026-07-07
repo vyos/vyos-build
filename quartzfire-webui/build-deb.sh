@@ -12,13 +12,22 @@ echo "==> Building quartzfire-webui .deb in rust:1-bookworm"
 docker run --rm -v "$repo_root":/src -w /src/quartzfire-webui rust:1-bookworm bash -euo pipefail -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y --no-install-recommends build-essential nodejs npm debhelper devscripts ca-certificates >/dev/null
+  apt-get install -y --no-install-recommends build-essential debhelper devscripts ca-certificates curl gnupg >/dev/null
+
+  # Tailwind v4 needs Node >= 20; bookworm ships EOL Node 18 — use NodeSource.
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
+  apt-get install -y --no-install-recommends nodejs >/dev/null
 
   # Windows checkouts drop the exec bit; restore it for the maintainer scripts.
   chmod +x debian/rules debian/postinst debian/postrm
 
-  # 1) Static-export the Next.js frontend into backend/www
-  ( cd frontend && npm install && npm run build )
+  # 1) Static-export the Next.js frontend into backend/www.
+  #    `npm ci` (not `install`) wipes node_modules first — the repo mount may
+  #    carry a node_modules from a Windows checkout whose native bindings
+  #    (@tailwindcss/oxide, lightningcss) are the wrong platform, and npm would
+  #    otherwise consider the tree complete and skip them (npm/cli#4828).
+  #    Stale .next/out caches from the host are cleared for the same reason.
+  ( cd frontend && rm -rf .next out && npm ci && npm run build )
 
   # 2) Build the .deb (lands in the parent dir, /src)
   dpkg-buildpackage -us -uc -b

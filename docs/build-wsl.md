@@ -74,9 +74,12 @@ bash quartzfire-webui/build-deb.sh
 What it does (all inside a `rust:1-bookworm` container, so no toolchain pollutes
 your WSL):
 
-- installs `build-essential nodejs npm debhelper devscripts`
+- installs `build-essential debhelper devscripts` + Node 22 from NodeSource
+  (Tailwind v4 needs Node ≥ 20; bookworm's apt `nodejs` is EOL 18)
 - restores exec bits on the `debian/` maintainer scripts (Windows checkouts drop them)
-- exports the Next.js frontend to `quartzfire-webui/backend/www` (`npm run build`)
+- exports the Next.js frontend to `quartzfire-webui/backend/www` (`npm ci` +
+  `npm run build`; `npm ci` wipes any `node_modules` carried over from a
+  Windows checkout — its native bindings are the wrong platform, npm/cli#4828)
 - runs `dpkg-buildpackage -us -uc -b`
 - copies the resulting `quartzfire-webui_*.deb` into **`packages/`**
 
@@ -188,6 +191,7 @@ container first.
 | `mknod: … Operation not supported` / `mounted with noexec or nodev` during `make quartzfire` | Repo is on `/mnt/c` (9p/drvfs) or bind-mounted via Docker Desktop — can't create device nodes | Move the repo to WSL2 ext4 (`~/…`); use `docker.io` inside WSL. Verify `findmnt -no FSTYPE -T .` prints `ext4` |
 | `build-deb.sh: Permission denied` | Script lost its exec bit in a Windows checkout | `bash quartzfire-webui/build-deb.sh`, or `chmod +x` + `git update-index --chmod=+x` |
 | `dpkg-checkbuilddeps: Unmet build dependencies: build-essential:native cargo rustc` | `build-essential` missing; Debian's `cargo`/`rustc` (1.63) too old for axum 0.7 | Handled by `build-deb.sh` (installs `build-essential`; toolchain comes from the `rust:1-bookworm` image). `cargo`/`rustc` are intentionally **not** in `debian/control` |
+| `Error: Cannot find native binding` from `@tailwindcss/oxide`/`lightningcss` during `next build` | `node_modules` created on Windows is reused in the Linux container; `npm install` thinks the tree is complete and skips the Linux binding (npm/cli#4828). Or Node < 20 | Handled by `build-deb.sh` (`npm ci` wipes `node_modules`; NodeSource Node 22). Manually: `rm -rf frontend/node_modules frontend/.next` then `npm ci` |
 | API `ss ... grep 8080` shows nothing | VyOS has no public TCP API port; it fronts the API via nginx :443 → `/run/api.sock` | Backend targets `https://127.0.0.1` (:443), not `:8080` |
 | WebUI page loads but "API not reachable" | Proxied `/api` request hits the WebUI's own `default_server` and loops (Host mismatch) | Backend sends `Host: <hostname>` so nginx routes to VyOS's block. Confirm VyOS's `server_name` == system hostname |
 | Register service re-commits every boot | (Fixed) `return_value()` reads empty session config in op-mode | Uses `return_effective_value()`; `save_config('/config/config.boot')` persists |
