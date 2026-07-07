@@ -1,9 +1,10 @@
 [Unit]
 Description=Register QuartzFire WebUI API key with VyOS
-# Run after VyOS has applied the boot config and its config daemons are up, so
-# ConfigSession can commit.
-After=vyos-router.service vyos-configd.service vyos-commitd.service
-Wants=vyos-router.service
+# Inject the key into /config/config.boot BEFORE vyos-router loads it, so the
+# normal boot commit applies the key. No runtime ConfigSession/commit — a
+# boot-time session that fails teardown wedges the config CLI system-wide.
+Before=vyos-router.service
+After=local-fs.target
 ConditionPathExists=/usr/libexec/quartzfire/register-api-key
 
 [Service]

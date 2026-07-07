@@ -25,14 +25,17 @@ through the VyOS HTTP API (`vyos-http-api-tools`).
 
 ### Zero-touch API key
 
-`quartzfire-register-api-key.service` runs on first boot and:
+`quartzfire-register-api-key.service` runs **before** `vyos-router.service` and:
 
 1. generates a unique key per device (`/etc/quartzfire/vyos-api.key`), and
-2. registers it in the VyOS config via the config API (equivalent to
-   `set service https api keys id quartzfire key '<key>'`) and commits/saves it.
+2. injects it into `/config/config.boot` with `vyos.configtree` (equivalent to
+   `set service https api rest` + `set service https api keys id quartzfire
+   key '<key>'`), so the normal boot config load applies it.
 
 So the appliance is usable with no manual API setup. The service is idempotent —
-once the key is persisted to `config.boot`, later boots are a no-op.
+once the key is in `config.boot`, later boots are a no-op. It deliberately does
+**not** open a runtime `ConfigSession`/commit at boot: a leaked boot-time
+session can wedge every subsequent config session on the box.
 
 ## Build
 
@@ -57,7 +60,8 @@ cd .. && make quartzfire
 
 ```toml
 listen        = "127.0.0.1:8443"   # nginx proxies to this
-vyos_api_url  = "http://127.0.0.1:8080"
+vyos_api_url  = "https://127.0.0.1"
+# vyos_api_host = "vyos"           # Host header (defaults to /etc/hostname)
 vyos_api_key_file = "/etc/quartzfire/vyos-api.key"
 www_root      = "/usr/share/quartzfire-webui/www"
 ```

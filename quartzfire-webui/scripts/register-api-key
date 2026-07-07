@@ -1,22 +1,29 @@
 #!/usr/bin/python3
-# Ensure the QuartzFire WebUI's VyOS API key exists and is registered in the
-# VyOS configuration, so the appliance works out of the box with no manual
+# Ensure the QuartzFire WebUI's VyOS API key exists and is present in the boot
+# configuration, so the appliance works out of the box with no manual
 # `set service https api keys ...` step. Idempotent and safe to run every boot.
 #
 # The key is generated per device on first boot (not baked into the image), so
 # every QuartzFire install gets a unique key.
+#
+# This runs BEFORE vyos-router.service and edits /config/config.boot with
+# vyos.configtree (a plain parse/edit/serialize, same mechanism the VyOS
+# cloud-init module uses). The normal boot config load then applies the key as
+# part of the regular boot commit. Deliberately NOT implemented with
+# ConfigSession: a boot-time runtime commit races the config daemons, and a
+# leaked session (e.g. teardown failing at interpreter shutdown) wedges every
+# subsequent config session on the box ("can't initialize output").
 
-import grp
 import os
-import secrets
+import re
 import sys
+import grp
+import secrets
 
 KEY_FILE = "/etc/quartzfire/vyos-api.key"
+CONFIG_BOOT = "/config/config.boot"
 KEY_ID = "quartzfire"
-KEY_PATH = ["service", "https", "api", "keys", "id", KEY_ID, "key"]
-# `rest` is a separate container node — enabling it is what mounts the REST
-# endpoints (/retrieve, /configure, ...). Without it VyOS returns 404 there.
-REST_PATH = ["service", "https", "api", "rest"]
+API_PATH = ["service", "https", "api"]
 
 
 def ensure_key_file():
@@ -40,44 +47,75 @@ def ensure_key_file():
     return key
 
 
+def split_version_footer(text):
+    """Split config.boot into (body, footer).
+
+    config.boot ends with component-version metadata comments that the config
+    parser does not own; keep them byte-identical and re-append after editing.
+    """
+    m = re.search(r"^// (Warning:|vyos-config-version|Release version)",
+                  text, re.MULTILINE)
+    if m:
+        return text[:m.start()], text[m.start():]
+    return text, ""
+
+
 def main():
     key = ensure_key_file()
 
     try:
-        from vyos.config import Config
-        from vyos.configsession import ConfigSession
+        from vyos.configtree import ConfigTree
     except ImportError:
         # Not a VyOS system (e.g. a dev box) — the key file is enough.
         print("quartzfire: VyOS not detected, skipping API key registration",
               file=sys.stderr)
         return 0
 
-    # Already fully configured? Nothing to do — avoids a needless commit (and
-    # nginx/api reload) on every boot once persisted.
-    # NB: use the *_effective helpers, not return_value()/exists(): outside a
-    # configure session (this runs at boot) those read the empty session config
-    # and would always miss, causing a re-commit every boot.
-    conf = Config()
-    key_ok = conf.return_effective_value(KEY_PATH) == key
-    try:
-        rest_ok = conf.exists_effective(REST_PATH)
-    except Exception:  # noqa: BLE001 - be conservative and (re)commit if unsure
-        rest_ok = False
-    if key_ok and rest_ok:
+    if not os.path.isfile(CONFIG_BOOT):
+        # Nothing to edit (e.g. live boot before a config exists). The key
+        # file is in place; the next boot with a config.boot will register it.
+        print(f"quartzfire: {CONFIG_BOOT} not found, skipping registration",
+              file=sys.stderr)
         return 0
 
-    session = ConfigSession(os.getpid(), "quartzfire-register-api-key")
-    session.set(REST_PATH)  # enable the REST API (valueless container node)
-    session.set(KEY_PATH, value=key)
-    session.commit()
+    with open(CONFIG_BOOT) as f:
+        body, footer = split_version_footer(f.read())
 
-    # Best-effort persist to the boot config so subsequent boots are a no-op.
-    try:
-        session.save_config("/config/config.boot")
-    except Exception as e:  # noqa: BLE001 - persistence is optional, don't fail boot
-        print(f"quartzfire: could not persist config.boot: {e}", file=sys.stderr)
+    config = ConfigTree(body)
 
-    print("quartzfire: enabled VyOS REST API and registered the WebUI key")
+    # `rest` is a separate container node — enabling it is what mounts the REST
+    # endpoints (/retrieve, /configure, ...). Without it VyOS returns 404 there.
+    rest_path = API_PATH + ["rest"]
+    key_path = API_PATH + ["keys", "id", KEY_ID, "key"]
+
+    changed = False
+    if not config.exists(rest_path):
+        config.set(rest_path)
+        changed = True
+    if not config.exists(key_path) or config.return_value(key_path) != key:
+        config.set(key_path, value=key, replace=True)
+        config.set_tag(API_PATH + ["keys", "id"])
+        changed = True
+
+    if not changed:
+        return 0
+
+    new_body = config.to_string()
+    if not new_body.endswith("\n"):
+        new_body += "\n"
+
+    # Atomic replace, preserving ownership/mode (vyattacfg needs group rw).
+    st = os.stat(CONFIG_BOOT)
+    tmp = CONFIG_BOOT + ".quartzfire.tmp"
+    with open(tmp, "w") as f:
+        f.write(new_body + footer)
+        f.flush()
+        os.fsync(f.fileno())
+    os.chown(tmp, st.st_uid, st.st_gid)
+    os.chmod(tmp, st.st_mode & 0o7777)
+    os.replace(tmp, CONFIG_BOOT)
+
+    print("quartzfire: added VyOS REST API + WebUI key to config.boot")
     return 0
 
 
