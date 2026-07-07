@@ -21,19 +21,38 @@ pub struct Config {
     /// Directory holding the exported Next.js frontend.
     #[serde(default = "default_www_root")]
     pub www_root: PathBuf,
+
+    /// Host header presented to the VyOS HTTPS API. VyOS and the WebUI share one
+    /// nginx on :443; VyOS's server block matches `server_name <hostname>` while
+    /// the WebUI is the `default_server`. Proxied API requests must carry this
+    /// Host so nginx routes them to VyOS (→ /run/api.sock) instead of looping
+    /// back into the WebUI. Defaults to the system hostname.
+    #[serde(default = "default_vyos_api_host")]
+    pub vyos_api_host: String,
 }
 
 fn default_listen() -> String {
     "127.0.0.1:8443".to_string()
 }
 fn default_vyos_api_url() -> String {
-    "http://127.0.0.1:8080".to_string()
+    // VyOS exposes the HTTP API through its HTTPS service on :443; the internal
+    // backend is a local socket, not a public TCP port. reqwest is configured to
+    // accept the self-signed cert on localhost.
+    "https://127.0.0.1".to_string()
 }
 fn default_key_file() -> PathBuf {
     PathBuf::from("/etc/quartzfire/vyos-api.key")
 }
 fn default_www_root() -> PathBuf {
     PathBuf::from("/usr/share/quartzfire-webui/www")
+}
+fn default_vyos_api_host() -> String {
+    // VyOS sets nginx server_name to the system hostname.
+    std::fs::read_to_string("/etc/hostname")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "vyos".to_string())
 }
 
 impl Config {

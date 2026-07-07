@@ -44,29 +44,53 @@ async fn forward(state: Arc<AppState>, req: Request) -> anyhow::Result<Response>
     let path = if path.is_empty() { "/" } else { path };
     let url = format!("{}{}", state.config.vyos_api_url.trim_end_matches('/'), path);
 
-    let bytes = axum::body::to_bytes(body, usize::MAX).await?;
+    let mut body_bytes = axum::body::to_bytes(body, usize::MAX).await?.to_vec();
+
+    // VyOS HTTP API authenticates via a `key` form field (application/x-www-
+    // form-urlencoded: `data=<json>&key=<key>`). Inject the key server-side and
+    // force the form content type, so the browser never carries the key.
+    let key = state.config.read_api_key();
+    let inject_key = !key.is_empty();
+    if inject_key {
+        if !body_bytes.is_empty() {
+            body_bytes.push(b'&');
+        }
+        body_bytes.extend_from_slice(b"key=");
+        body_bytes.extend_from_slice(percent_encode(&key).as_bytes());
+    }
 
     let mut builder = state
         .http
         .request(parts.method.clone(), &url)
-        .body(bytes.to_vec());
+        .body(body_bytes);
 
-    // Forward client headers except hop-by-hop ones and any client-supplied key.
+    // Forward client headers, except hop-by-hop ones, any client-supplied key,
+    // and the length/type we are about to override.
     for (name, value) in parts.headers.iter() {
         let n = name.as_str().to_ascii_lowercase();
-        if STRIP_HEADERS.contains(&n.as_str()) || n == "x-api-key" {
+        if STRIP_HEADERS.contains(&n.as_str())
+            || n == "x-api-key"
+            || n == "content-length"
+            || (inject_key && n == "content-type")
+        {
             continue;
         }
         builder = builder.header(name, value);
     }
-
-    // Inject the real key server-side. VyOS HTTP API authenticates via `key`
-    // form field; newer builds also honor the X-API-KEY header. We set the
-    // header here and let the frontend include `key` placeholders if needed.
-    let key = state.config.read_api_key();
-    if !key.is_empty() {
-        builder = builder.header(HeaderName::from_static("x-api-key"), key);
+    if inject_key {
+        builder = builder.header(
+            HeaderName::from_static("content-type"),
+            "application/x-www-form-urlencoded",
+        );
     }
+
+    // VyOS and the WebUI share one nginx on :443. Present VyOS's server_name as
+    // the Host so nginx routes to the API block (→ /run/api.sock); otherwise the
+    // request falls through to the WebUI's default_server and loops.
+    builder = builder.header(
+        HeaderName::from_static("host"),
+        state.config.vyos_api_host.clone(),
+    );
 
     let upstream = builder.send().await?;
 
@@ -82,6 +106,21 @@ async fn forward(state: Arc<AppState>, req: Request) -> anyhow::Result<Response>
 
     let stream = upstream.bytes_stream();
     Ok(resp.body(Body::from_stream(stream))?)
+}
+
+/// Minimal application/x-www-form-urlencoded value encoding for the API key.
+/// Keeps RFC 3986 unreserved characters; percent-encodes everything else.
+fn percent_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
 }
 
 trait PathAndQuery {

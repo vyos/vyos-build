@@ -1,0 +1,75 @@
+#!/usr/bin/python3
+# Ensure the QuartzFire WebUI's VyOS API key exists and is registered in the
+# VyOS configuration, so the appliance works out of the box with no manual
+# `set service https api keys ...` step. Idempotent and safe to run every boot.
+#
+# The key is generated per device on first boot (not baked into the image), so
+# every QuartzFire install gets a unique key.
+
+import grp
+import os
+import secrets
+import sys
+
+KEY_FILE = "/etc/quartzfire/vyos-api.key"
+KEY_ID = "quartzfire"
+KEY_PATH = ["service", "https", "api", "keys", "id", KEY_ID, "key"]
+
+
+def ensure_key_file():
+    """Return the API key, generating and persisting a fresh one if absent."""
+    if os.path.exists(KEY_FILE) and os.path.getsize(KEY_FILE) > 0:
+        with open(KEY_FILE) as f:
+            return f.read().strip()
+
+    key = secrets.token_hex(32)
+    os.makedirs(os.path.dirname(KEY_FILE), exist_ok=True)
+    with open(KEY_FILE, "w") as f:
+        f.write(key + "\n")
+
+    # root:quartzfire 0640 — readable by the DynamicUser backend via its group.
+    try:
+        gid = grp.getgrnam("quartzfire").gr_gid
+    except KeyError:
+        gid = 0
+    os.chown(KEY_FILE, 0, gid)
+    os.chmod(KEY_FILE, 0o640)
+    return key
+
+
+def main():
+    key = ensure_key_file()
+
+    try:
+        from vyos.config import Config
+        from vyos.configsession import ConfigSession
+    except ImportError:
+        # Not a VyOS system (e.g. a dev box) — the key file is enough.
+        print("quartzfire: VyOS not detected, skipping API key registration",
+              file=sys.stderr)
+        return 0
+
+    # Already registered with the same value? Nothing to do — avoids a needless
+    # commit (and nginx/api reload) on every boot once persisted.
+    # NB: use return_effective_value(), not return_value(): outside a configure
+    # session (this runs at boot) return_value() reads the empty session config
+    # and would always miss, causing a re-commit every boot.
+    if Config().return_effective_value(KEY_PATH) == key:
+        return 0
+
+    session = ConfigSession(os.getpid(), "quartzfire-register-api-key")
+    session.set(KEY_PATH, value=key)
+    session.commit()
+
+    # Best-effort persist to the boot config so subsequent boots are a no-op.
+    try:
+        session.save_config("/config/config.boot")
+    except Exception as e:  # noqa: BLE001 - persistence is optional, don't fail boot
+        print(f"quartzfire: could not persist config.boot: {e}", file=sys.stderr)
+
+    print("quartzfire: registered VyOS API key for the WebUI")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

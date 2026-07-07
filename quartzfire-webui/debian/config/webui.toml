@@ -2,6 +2,10 @@
 # nginx terminates TLS on :443 and proxies to `listen` below.
 
 listen            = "127.0.0.1:8443"
-vyos_api_url      = "http://127.0.0.1:8080"
+vyos_api_url      = "https://127.0.0.1"
+# Host header for the VyOS API — must equal VyOS's nginx server_name (its system
+# hostname) so shared-nginx requests reach VyOS, not the WebUI's default_server.
+# Defaults to /etc/hostname if omitted.
+# vyos_api_host   = "vyos"
 vyos_api_key_file = "/etc/quartzfire/vyos-api.key"
 www_root          = "/usr/share/quartzfire-webui/www"

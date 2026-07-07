@@ -5,3 +5,4 @@ debian/rules    text eol=lf
 debian/postinst text eol=lf
 debian/postrm   text eol=lf
 debian/*.service text eol=lf
+scripts/register-api-key text eol=lf

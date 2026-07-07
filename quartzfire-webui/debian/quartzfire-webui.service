@@ -1,7 +1,7 @@
 [Unit]
 Description=QuartzFire WebUI backend
-After=network-online.target
-Wants=network-online.target
+After=network-online.target quartzfire-register-api-key.service
+Wants=network-online.target quartzfire-register-api-key.service
 
 [Service]
 Type=simple

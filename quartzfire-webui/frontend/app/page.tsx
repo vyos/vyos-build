@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-// Calls the backend proxy, which forwards to the VyOS HTTP API and injects the
-// API key. The `key` field below is a placeholder the backend overrides.
+// Calls the backend proxy, which forwards to the VyOS HTTP API. We send only
+// the `data` form field; the backend injects the `key` field server-side so it
+// never reaches the browser (VyOS authenticates via form-encoded data + key).
 async function retrieveConfig(): Promise<unknown> {
+  const body = new URLSearchParams();
+  body.set("data", JSON.stringify({ op: "showConfig", path: [] }));
   const res = await fetch("/api/retrieve", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      data: JSON.stringify({ op: "showConfig", path: [] }),
-    }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();

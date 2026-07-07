@@ -16,17 +16,23 @@ Web management interface for QuartzFire (a VyOS-based firewall OS).
 ```
 browser ──https──> nginx :443 ──> quartzfire-webui (axum) :8443
                                      ├── /             static files (exported Next.js)
-                                     └── /api/*  ──>   VyOS HTTP API 127.0.0.1:8080
-                                                       (X-API-KEY injected here)
+                                     └── /api/*  ──>   VyOS HTTPS API https://127.0.0.1
+                                                       (form `key` field injected here)
 ```
 
 The browser never sees the VyOS API key. All privileged config/commit calls go
-through the VyOS HTTP API (`vyos-http-api-tools`), which must be enabled on the
-device:
+through the VyOS HTTP API (`vyos-http-api-tools`).
 
-```
-set service https api keys id quartzfire key '<generated-key>'
-```
+### Zero-touch API key
+
+`quartzfire-register-api-key.service` runs on first boot and:
+
+1. generates a unique key per device (`/etc/quartzfire/vyos-api.key`), and
+2. registers it in the VyOS config via the config API (equivalent to
+   `set service https api keys id quartzfire key '<key>'`) and commits/saves it.
+
+So the appliance is usable with no manual API setup. The service is idempotent —
+once the key is persisted to `config.boot`, later boots are a no-op.
 
 ## Build
 
