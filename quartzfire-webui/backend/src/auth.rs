@@ -160,17 +160,41 @@ fn extract_token(headers: &HeaderMap) -> Option<String> {
 /// users, locked accounts, and wrong passwords; a dummy hash round keeps the
 /// unknown-user timing indistinguishable from a real verification.
 async fn verify_vyos_user(state: &Arc<AppState>, username: &str, password: &str) -> Result<()> {
-    let users = vyos::show_config(state, &["system", "login", "user"]).await?;
+    let data = vyos::show_config(state, &["system", "login", "user"]).await?;
 
-    let stored = users
+    // `showConfig` is backed by `cli-shell-api showConfig <path>`, whose output
+    // for a tag-node path includes the node name — the subtree arrives as
+    // {"user": {"<name>": …}}. Accept the unwrapped shape too, just in case.
+    let user_entry = data
         .get(username)
+        .or_else(|| data.get("user").and_then(|u| u.get(username)));
+
+    let stored = user_entry
         .and_then(|u| u.get("authentication"))
         .and_then(|a| a.get("encrypted-password"))
         .and_then(Value::as_str)
         .map(str::to_string);
 
+    // The client always gets a uniform 401; the journal gets the real story.
+    match &stored {
+        None if user_entry.is_none() => {
+            tracing::warn!(user = %username, "login failed: no such user in system login config")
+        }
+        None => {
+            tracing::warn!(user = %username, "login failed: user has no encrypted-password")
+        }
+        Some(h) if !h.starts_with('$') => {
+            tracing::warn!(user = %username, "login failed: account locked or hash unusable")
+        }
+        Some(h) => {
+            let scheme: String = h.chars().take(3).collect();
+            tracing::debug!(user = %username, %scheme, "verifying password hash");
+        }
+    }
+
     // sha512-crypt is deliberately slow (thousands of rounds) — keep it off the
     // async runtime, and burn the same work when the user doesn't exist.
+    let had_hash = stored.is_some();
     let password = password.to_string();
     let ok = tokio::task::spawn_blocking(move || match stored {
         Some(hash) => pwhash::unix::verify(&password, &hash),
@@ -185,6 +209,9 @@ async fn verify_vyos_user(state: &Arc<AppState>, username: &str, password: &str)
     if ok {
         Ok(())
     } else {
+        if had_hash {
+            tracing::warn!(user = %username, "login failed: password verification failed");
+        }
         Err(AppError::Unauthorized)
     }
 }
