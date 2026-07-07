@@ -86,6 +86,8 @@ jobs:
               - 'scripts/package-build/radvd/**'
             shim-signed:
               - 'scripts/package-build/shim-signed/**'
+            squid:
+              - 'scripts/package-build/squid/**'
             strongswan:
               - 'scripts/package-build/strongswan/**'
             tacacs:
@@ -245,6 +247,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.shim-signed }}" == "true" ]; then
             trigger_build "shim-signed"
+          fi
+
+          if [ "${{ steps.changes.outputs.squid }}" == "true" ]; then
+            trigger_build "squid"
           fi
 
           if [ "${{ steps.changes.outputs.strongswan }}" == "true" ]; then
