@@ -47,12 +47,18 @@ fn default_www_root() -> PathBuf {
     PathBuf::from("/usr/share/quartzfire-webui/www")
 }
 fn default_vyos_api_host() -> String {
-    // VyOS sets nginx server_name to the system hostname.
-    std::fs::read_to_string("/etc/hostname")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "vyos".to_string())
+    // VyOS sets nginx server_name to the running hostname. Prefer the live
+    // kernel hostname: /etc/hostname may still hold the build-chroot value
+    // ("debian") before VyOS applies its config.
+    for path in ["/proc/sys/kernel/hostname", "/etc/hostname"] {
+        if let Ok(s) = std::fs::read_to_string(path) {
+            let h = s.trim();
+            if !h.is_empty() {
+                return h.to_string();
+            }
+        }
+    }
+    "vyos".to_string()
 }
 
 impl Config {

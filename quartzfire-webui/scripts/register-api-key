@@ -14,6 +14,9 @@ import sys
 KEY_FILE = "/etc/quartzfire/vyos-api.key"
 KEY_ID = "quartzfire"
 KEY_PATH = ["service", "https", "api", "keys", "id", KEY_ID, "key"]
+# `rest` is a separate container node — enabling it is what mounts the REST
+# endpoints (/retrieve, /configure, ...). Without it VyOS returns 404 there.
+REST_PATH = ["service", "https", "api", "rest"]
 
 
 def ensure_key_file():
@@ -49,15 +52,22 @@ def main():
               file=sys.stderr)
         return 0
 
-    # Already registered with the same value? Nothing to do — avoids a needless
-    # commit (and nginx/api reload) on every boot once persisted.
-    # NB: use return_effective_value(), not return_value(): outside a configure
-    # session (this runs at boot) return_value() reads the empty session config
+    # Already fully configured? Nothing to do — avoids a needless commit (and
+    # nginx/api reload) on every boot once persisted.
+    # NB: use the *_effective helpers, not return_value()/exists(): outside a
+    # configure session (this runs at boot) those read the empty session config
     # and would always miss, causing a re-commit every boot.
-    if Config().return_effective_value(KEY_PATH) == key:
+    conf = Config()
+    key_ok = conf.return_effective_value(KEY_PATH) == key
+    try:
+        rest_ok = conf.exists_effective(REST_PATH)
+    except Exception:  # noqa: BLE001 - be conservative and (re)commit if unsure
+        rest_ok = False
+    if key_ok and rest_ok:
         return 0
 
     session = ConfigSession(os.getpid(), "quartzfire-register-api-key")
+    session.set(REST_PATH)  # enable the REST API (valueless container node)
     session.set(KEY_PATH, value=key)
     session.commit()
 
@@ -67,7 +77,7 @@ def main():
     except Exception as e:  # noqa: BLE001 - persistence is optional, don't fail boot
         print(f"quartzfire: could not persist config.boot: {e}", file=sys.stderr)
 
-    print("quartzfire: registered VyOS API key for the WebUI")
+    print("quartzfire: enabled VyOS REST API and registered the WebUI key")
     return 0
 
 

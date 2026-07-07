@@ -14,6 +14,13 @@ override_dh_auto_build:
 override_dh_auto_test:
 	# Backend has no packaged tests yet.
 
+# dh_installsystemd only auto-processes debian/<pkg>.service. The extra unit
+# lives in debian/quartzfire-webui.quartzfire-register-api-key.service and must
+# be installed+enabled explicitly by name, else it is silently dropped.
+override_dh_installsystemd:
+	dh_installsystemd
+	dh_installsystemd --name=quartzfire-register-api-key
+
 override_dh_auto_install:
 	install -D -m0755 backend/target/release/quartzfire-webui \
 		debian/quartzfire-webui/usr/bin/quartzfire-webui

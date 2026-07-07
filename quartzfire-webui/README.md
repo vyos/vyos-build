@@ -36,6 +36,9 @@ once the key is persisted to `config.boot`, later boots are a no-op.
 
 ## Build
 
+For the full Windows/WSL2 workflow (environment setup, ISO build, flashing,
+troubleshooting) see [`docs/build-wsl.md`](../docs/build-wsl.md). Quick version:
+
 ```
 # 1. Frontend → static export
 cd frontend && npm ci && npm run build      # emits ../backend/www
