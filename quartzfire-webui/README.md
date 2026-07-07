@@ -15,9 +15,10 @@ Web management interface for QuartzFire (a VyOS-based firewall OS).
 
 ```
 browser ──https──> nginx :443 ──> quartzfire-webui (axum) :8443
-                                     ├── /             static files (exported Next.js)
-                                     └── /api/*  ──>   VyOS HTTPS API https://127.0.0.1:4443
-                                                       (form `key` field injected here)
+                                     ├── /                 static files (exported Next.js; login shell)
+                                     ├── /api/auth/*       login/logout/me (session issue/verify)
+                                     └── /api/*  ──auth──> VyOS HTTPS API https://127.0.0.1:4443
+                                                           (form `key` field injected here)
 ```
 
 nginx is the sole owner of :443; the VyOS API is pinned to loopback on :4443
@@ -26,6 +27,27 @@ boot) and serves its own TLS with a self-signed certificate.
 
 The browser never sees the VyOS API key. All privileged config/commit calls go
 through the VyOS HTTP API (`vyos-http-api-tools`).
+
+### Authentication
+
+Security model ported from the vyos-fabric project; credentials are the users
+configured on VyOS itself.
+
+- `POST /api/auth/login` reads `system login user` via the local VyOS API and
+  verifies the password against that user's `encrypted-password` sha512-crypt
+  hash **in-process** (the daemon is an unprivileged `DynamicUser`, so
+  PAM//etc/shadow is not an option — and the VyOS config tree is the source of
+  truth for users anyway). Unknown user, locked account, and wrong password all
+  return the same `401 invalid credentials`, with a dummy hash round so timing
+  doesn't leak which usernames exist.
+- Sessions are JWTs (HS256, 24 h) carried in an `HttpOnly; SameSite=Lax;
+  Secure` cookie — JS can never read the token, and cross-site POSTs don't
+  carry it. The signing secret is generated on first start into the systemd
+  `StateDirectory` (`/var/lib/quartzfire-webui/jwt.secret`, 0600).
+- **Every** `/api/*` route — including the VyOS API proxy — sits behind the
+  auth middleware; only `/auth/login`, `/auth/logout`, and the static SPA are
+  public. The session cookie is stripped before requests are forwarded to the
+  VyOS API.
 
 ### Zero-touch API key
 
@@ -77,10 +99,14 @@ listen        = "127.0.0.1:8443"   # nginx proxies to this
 vyos_api_url  = "https://127.0.0.1:4443"
 vyos_api_key_file = "/etc/quartzfire/vyos-api.key"
 www_root      = "/usr/share/quartzfire-webui/www"
+jwt_secret_file = "/var/lib/quartzfire-webui/jwt.secret"
+cookie_secure = true               # set false only for plain-HTTP local dev
+session_hours = 24
 ```
 
 ## Status
 
-Skeleton. TODOs are marked inline; the proxy, static serving, and packaging are
-wired end-to-end but the frontend is a single placeholder page and the VyOS API
-surface is not yet mapped to UI.
+Login is implemented end-to-end: the sign-in page (Quartz design system, at
+`/`) authenticates against VyOS-configured users, and the whole `/api/*`
+surface — including the VyOS proxy — requires a session. `/dashboard` is a
+placeholder behind the auth guard; the real console views come next.

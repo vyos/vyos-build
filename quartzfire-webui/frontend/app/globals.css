@@ -1,0 +1,367 @@
+@import "tailwindcss";
+
+/* =========================================================================
+   Quartz Systems — Design Tokens
+   Dark-first system. All semantic vars map to base scales.
+   ========================================================================= */
+
+:root {
+  /* ---------- Brand ---------- */
+  --qz-green-50:  #e6fff4;
+  --qz-green-100: #b3ffde;
+  --qz-green-200: #80ffc8;
+  --qz-green-300: #4dffb2;
+  --qz-green-400: #1aff9c;
+  --qz-green-500: #00d992;
+  --qz-green-600: #00b07a;
+  --qz-green-700: #008760;
+  --qz-green-800: #005e44;
+  --qz-green-900: #003528;
+
+  /* ---------- Neutrals (dark-first) ---------- */
+  --qz-ink-0:   #0b0d12;
+  --qz-ink-1:   #0f1117;
+  --qz-ink-2:   #161920;
+  --qz-ink-3:   #1a1d26;
+  --qz-ink-4:   #1d2029;
+  --qz-ink-5:   #252830;
+  --qz-ink-6:   #2f323c;
+  --qz-ink-7:   #41454f;
+  --qz-ink-8:   #6b6f7a;
+  --qz-ink-9:   #a2a6b0;
+  --qz-ink-10:  #d7d9de;
+  --qz-ink-11:  #f2f3f5;
+
+  /* ---------- Semantic — surfaces ---------- */
+  --qz-bg:               var(--qz-ink-1);
+  --qz-bg-elevated:      var(--qz-ink-2);
+  --qz-surface:          var(--qz-ink-2);
+  --qz-surface-raised:   var(--qz-ink-4);
+  --qz-surface-sunken:   var(--qz-ink-0);
+  --qz-input-bg:         var(--qz-ink-3);
+
+  /* ---------- Semantic — borders ---------- */
+  --qz-border:           var(--qz-ink-5);
+  --qz-border-strong:    var(--qz-ink-6);
+  --qz-border-subtle:    #1f222b;
+  --qz-divider:          #1c1f28;
+
+  /* ---------- Semantic — text ---------- */
+  --qz-fg:               var(--qz-ink-11);
+  --qz-fg-1:             var(--qz-ink-11);
+  --qz-fg-2:             var(--qz-ink-10);
+  --qz-fg-3:             var(--qz-ink-9);
+  --qz-fg-4:             var(--qz-ink-8);
+  --qz-fg-on-accent:     #062014;
+  --qz-fg-on-danger:     #ffffff;
+
+  /* ---------- Semantic — interaction ---------- */
+  --qz-accent:           var(--qz-green-500);
+  --qz-accent-hover:     var(--qz-green-400);
+  --qz-accent-press:     var(--qz-green-600);
+  --qz-accent-soft:      color-mix(in oklab, var(--qz-green-500) 14%, transparent);
+  --qz-accent-border:    color-mix(in oklab, var(--qz-green-500) 38%, transparent);
+  --qz-focus-ring:       0 0 0 2px var(--qz-bg), 0 0 0 4px var(--qz-green-500);
+
+  /* ---------- Status ---------- */
+  --qz-success: #00d992;
+  --qz-warn:    #f5b243;
+  --qz-danger:  #ff5d6c;
+  --qz-info:    #4fb3ff;
+  --qz-success-soft: color-mix(in oklab, var(--qz-success) 16%, transparent);
+  --qz-warn-soft:    color-mix(in oklab, var(--qz-warn) 16%, transparent);
+  --qz-danger-soft:  color-mix(in oklab, var(--qz-danger) 16%, transparent);
+  --qz-info-soft:    color-mix(in oklab, var(--qz-info) 16%, transparent);
+
+  /* ---------- Type ---------- */
+  --qz-font-sans:    "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --qz-font-mono:    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --qz-font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  /* ---------- Shadows / elevation ---------- */
+  --qz-shadow-1: 0 1px 0 0 rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --qz-shadow-2: 0 4px 12px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.45);
+  --qz-shadow-3: 0 12px 28px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.5);
+  --qz-shadow-glow: 0 0 0 1px var(--qz-accent-border), 0 6px 28px color-mix(in oklab, var(--qz-green-500) 22%, transparent);
+  --qz-inset-line: inset 0 1px 0 rgba(255,255,255,0.04);
+
+  /* ---------- Motion ---------- */
+  --qz-ease-out:    cubic-bezier(0.22, 0.61, 0.36, 1);
+  --qz-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --qz-ease-snap:   cubic-bezier(0.2, 0.9, 0.2, 1);
+  --qz-dur-1: 120ms;
+  --qz-dur-2: 180ms;
+  --qz-dur-3: 260ms;
+}
+
+@theme inline {
+  --color-background: var(--qz-bg);
+  --color-foreground: var(--qz-fg-2);
+  --font-sans: var(--qz-font-sans);
+  --font-mono: var(--qz-font-mono);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #__next { height: 100%; }
+
+body {
+  background: var(--qz-bg);
+  color: var(--qz-fg-2);
+  font-family: var(--qz-font-sans);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Render native controls (number-input spinners, scrollbars, etc.) in dark mode. */
+  color-scheme: dark;
+}
+
+/* --- Surface utility --- */
+.surface {
+  background: var(--qz-surface);
+  border: 1px solid var(--qz-border);
+  border-radius: 10px;
+  box-shadow: var(--qz-inset-line);
+}
+
+/* --- Table --- */
+.qz-table { width: 100%; border-collapse: collapse; }
+.qz-table th {
+  text-align: left;
+  padding: 10px 14px;
+  font-family: var(--qz-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--qz-fg-4);
+  border-bottom: 1px solid var(--qz-border);
+  background: var(--qz-surface);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.qz-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--qz-divider);
+  font-size: 13px;
+  color: var(--qz-fg-2);
+}
+.qz-table tr { cursor: pointer; }
+.qz-table tbody tr:hover td { background: color-mix(in oklab, white 4%, var(--qz-surface)); }
+.qz-table tbody tr.selected td { background: var(--qz-accent-soft); }
+.qz-table td.mono { font-family: var(--qz-font-mono); color: var(--qz-fg-1); }
+
+/* --- Dark checkbox --- */
+.qz-check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border: 1px solid var(--qz-border-strong);
+  border-radius: 4px;
+  background: var(--qz-input-bg);
+  cursor: pointer;
+  position: relative;
+  transition: background 120ms, border-color 120ms;
+  vertical-align: middle;
+}
+.qz-check:hover { border-color: var(--qz-fg-4); }
+.qz-check:checked,
+.qz-check:indeterminate {
+  background: var(--qz-accent);
+  border-color: var(--qz-accent);
+}
+.qz-check:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--qz-fg-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.qz-check:indeterminate::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  width: 7px;
+  height: 2px;
+  background: var(--qz-fg-on-accent);
+}
+
+/* --- KPI --- */
+.kpi-card {
+  background: var(--qz-surface);
+  border: 1px solid var(--qz-border);
+  border-radius: 10px;
+  box-shadow: var(--qz-inset-line);
+  padding: 18px;
+}
+.kpi-label {
+  font-family: var(--qz-font-mono);
+  font-size: 10px;
+  color: var(--qz-fg-4);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.kpi-value {
+  font-family: var(--qz-font-mono);
+  font-weight: 600;
+  font-size: 32px;
+  color: var(--qz-fg-1);
+  margin-top: 6px;
+  line-height: 1;
+}
+
+/* --- Badge --- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font-family: var(--qz-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  line-height: 1;
+}
+.badge-ok   { background: var(--qz-success-soft); border-color: color-mix(in oklab, var(--qz-success) 38%, transparent); color: var(--qz-success); }
+.badge-warn { background: var(--qz-warn-soft);    border-color: color-mix(in oklab, var(--qz-warn) 38%, transparent);    color: var(--qz-warn); }
+.badge-crit { background: var(--qz-danger-soft);  border-color: color-mix(in oklab, var(--qz-danger) 38%, transparent);  color: var(--qz-danger); }
+.badge-info { background: var(--qz-info-soft);    border-color: color-mix(in oklab, var(--qz-info) 38%, transparent);    color: var(--qz-info); }
+.badge-muted { background: var(--qz-ink-3); border-color: var(--qz-border); color: var(--qz-fg-3); }
+
+/* --- Alert --- */
+.alert-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--qz-border);
+  background: var(--qz-surface-raised);
+}
+
+/* --- Drawer --- */
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 13, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100vw;
+  background: var(--qz-surface);
+  border-left: 1px solid var(--qz-border);
+  box-shadow: -12px 0 28px rgba(0,0,0,0.45);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  animation: drawer-in 220ms var(--qz-ease-out);
+}
+@keyframes drawer-in {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+/* --- Command palette --- */
+.palette-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(8,9,13,0.55);
+  backdrop-filter: blur(8px);
+  z-index: 70;
+  display: grid;
+  place-items: start center;
+  padding-top: 16vh;
+}
+.palette {
+  width: min(620px, 92vw);
+  background: var(--qz-surface-raised);
+  border: 1px solid var(--qz-border);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+
+/* --- Toast --- */
+.toast {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 80;
+  background: var(--qz-surface-raised);
+  border: 1px solid var(--qz-border);
+  border-left: 3px solid var(--qz-accent);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+  font-size: 13px;
+  color: var(--qz-fg-1);
+  animation: drawer-in 220ms var(--qz-ease-out);
+}
+
+/* --- Marketing hero gradient --- */
+.hero-bg {
+  position: absolute;
+  inset: -10% -10% 0 -10%;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 70% 40%, color-mix(in oklab, var(--qz-accent) 28%, transparent), transparent 50%),
+    radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1.2px) 0 0 / 22px 22px,
+    var(--qz-bg);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent);
+  mask-image: linear-gradient(to bottom, black 60%, transparent);
+}
+
+/* --- Schematic SVG --- */
+.schematic-svg text { font-family: var(--qz-font-mono); font-size: 11px; fill: var(--qz-fg-3); letter-spacing: 0.06em; }
+.schematic-svg .node { fill: var(--qz-surface-raised); stroke: var(--qz-border-strong); stroke-width: 1.5; }
+.schematic-svg .node-accent { fill: var(--qz-accent-soft); stroke: var(--qz-accent); stroke-width: 1.5; }
+.schematic-svg .node-label { fill: var(--qz-fg-2); }
+.schematic-svg .node-label-accent { fill: var(--qz-accent); font-weight: 700; }
+.schematic-svg .line { stroke: var(--qz-border-strong); stroke-width: 1.5; fill: none; }
+.schematic-svg .line-accent { stroke: var(--qz-accent); stroke-width: 1.5; fill: none; }
+.schematic-svg .term { fill: var(--qz-accent); }
+
+/* --- Scrollbars --- */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb { background: var(--qz-ink-5); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* --- Switch --- */
+.switch {
+  width: 34px;
+  height: 20px;
+  background: var(--qz-ink-5);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: background 160ms;
+  flex-shrink: 0;
+}
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 160ms var(--qz-ease-out);
+}
+.switch.on { background: var(--qz-accent); }
+.switch.on .switch-knob { left: 16px; background: var(--qz-fg-on-accent); }

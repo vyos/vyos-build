@@ -19,5 +19,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
 anyhow = "1"
+thiserror = "1"
+jsonwebtoken = "9"
+# Verifies the sha512-crypt (`$6$…`) hashes VyOS stores under
+# `system login user <u> authentication encrypted-password`.
+pwhash = "1"
+rand = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

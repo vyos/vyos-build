@@ -1,8 +1,15 @@
+mod auth;
 mod config;
+mod error;
 mod proxy;
+mod vyos;
 
 use anyhow::Result;
-use axum::{routing::any, Router};
+use axum::{
+    middleware,
+    routing::{any, get, post},
+    Router,
+};
 use std::sync::Arc;
 use tower_http::{
     services::{ServeDir, ServeFile},
@@ -15,6 +22,8 @@ use config::Config;
 pub struct AppState {
     pub config: Config,
     pub http: reqwest::Client,
+    /// Secret used to sign session JWTs (see `auth::load_jwt_secret`).
+    pub jwt_secret: String,
 }
 
 #[tokio::main]
@@ -38,16 +47,29 @@ async fn main() -> Result<()> {
 
     let listen = config.listen.clone();
     let www_root = config.www_root.clone();
-    let state = Arc::new(AppState { config, http });
+    let jwt_secret = auth::load_jwt_secret(&config.jwt_secret_file);
+    let state = Arc::new(AppState { config, http, jwt_secret });
 
-    // `/api/*` is reverse-proxied to VyOS; everything else is the static SPA.
+    // Everything except the SPA itself and login/logout requires a session:
+    // the VyOS API proxy is the crown jewels, so it sits behind `require_auth`.
+    let protected = Router::new()
+        .route("/api/auth/me", get(auth::me))
+        .route("/api", any(proxy::handler))
+        .route("/api/*rest", any(proxy::handler))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_auth,
+        ));
+
+    // Static SPA (public — it's just the login shell until a session exists).
     // `ServeDir` falls back to index.html so client-side routing works.
     let static_service =
         ServeDir::new(&www_root).not_found_service(ServeFile::new(www_root.join("index.html")));
 
     let app = Router::new()
-        .route("/api", any(proxy::handler))
-        .route("/api/*rest", any(proxy::handler))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/logout", post(auth::logout))
+        .merge(protected)
         .fallback_service(static_service)
         .layer(TraceLayer::new_for_http())
         .with_state(state);

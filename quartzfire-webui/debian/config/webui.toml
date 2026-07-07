@@ -7,3 +7,15 @@ listen            = "127.0.0.1:8443"
 vyos_api_url      = "https://127.0.0.1:4443"
 vyos_api_key_file = "/etc/quartzfire/vyos-api.key"
 www_root          = "/usr/share/quartzfire-webui/www"
+
+# ── Session auth ─────────────────────────────────────────────────────────────
+# Sign-in is verified against the users configured on VyOS
+# (`system login user …`); sessions are JWTs in an httpOnly cookie.
+
+# Session-signing secret; generated on first start (systemd StateDirectory).
+jwt_secret_file = "/var/lib/quartzfire-webui/jwt.secret"
+# Mark the session cookie Secure (HTTPS-only). Leave true in production —
+# nginx always terminates TLS. Set false only for plain-HTTP local dev.
+cookie_secure   = true
+# Session lifetime in hours.
+session_hours   = 24

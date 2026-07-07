@@ -21,6 +21,20 @@ pub struct Config {
     /// Directory holding the exported Next.js frontend.
     #[serde(default = "default_www_root")]
     pub www_root: PathBuf,
+
+    /// File holding the JWT session-signing secret. Generated on first start
+    /// if absent; the systemd unit's `StateDirectory=` makes it writable.
+    #[serde(default = "default_jwt_secret_file")]
+    pub jwt_secret_file: PathBuf,
+
+    /// Mark the session cookie `Secure` (HTTPS-only). True in production —
+    /// nginx always terminates TLS; set false only for plain-HTTP local dev.
+    #[serde(default = "default_cookie_secure")]
+    pub cookie_secure: bool,
+
+    /// Session (JWT + cookie) lifetime in hours.
+    #[serde(default = "default_session_hours")]
+    pub session_hours: u64,
 }
 
 fn default_listen() -> String {
@@ -38,6 +52,15 @@ fn default_key_file() -> PathBuf {
 }
 fn default_www_root() -> PathBuf {
     PathBuf::from("/usr/share/quartzfire-webui/www")
+}
+fn default_jwt_secret_file() -> PathBuf {
+    PathBuf::from("/var/lib/quartzfire-webui/jwt.secret")
+}
+fn default_cookie_secure() -> bool {
+    true
+}
+fn default_session_hours() -> u64 {
+    24
 }
 impl Config {
     /// Load config from `path`, falling back to built-in defaults if the file

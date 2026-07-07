@@ -65,11 +65,13 @@ async fn forward(state: Arc<AppState>, req: Request) -> anyhow::Result<Response>
         .body(body_bytes);
 
     // Forward client headers, except hop-by-hop ones, any client-supplied key,
-    // and the length/type we are about to override.
+    // the session cookie (the VyOS API has no business seeing our JWT), and
+    // the length/type we are about to override.
     for (name, value) in parts.headers.iter() {
         let n = name.as_str().to_ascii_lowercase();
         if STRIP_HEADERS.contains(&n.as_str())
             || n == "x-api-key"
+            || n == "cookie"
             || n == "content-length"
             || (inject_key && n == "content-type")
         {

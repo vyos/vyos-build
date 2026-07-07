@@ -17,6 +17,10 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 ReadOnlyPaths=/etc/quartzfire
+# Writable persistent dir (/var/lib/quartzfire-webui) for the session-signing
+# secret, generated on first start so logins survive restarts.
+StateDirectory=quartzfire-webui
+StateDirectoryMode=0700
 
 [Install]
 WantedBy=multi-user.target
