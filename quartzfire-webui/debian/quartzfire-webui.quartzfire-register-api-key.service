@@ -1,8 +1,11 @@
 [Unit]
 Description=Register QuartzFire WebUI API key with VyOS
-# Inject the key into /config/config.boot BEFORE vyos-router loads it, so the
-# normal boot commit applies the key. No runtime ConfigSession/commit — a
-# boot-time session that fails teardown wedges the config CLI system-wide.
+# Belt-and-braces invocation: the PRIMARY mechanism is the preconfig hook
+# (/config/scripts/vyos-preconfig-bootup.script), which vyos-router runs after
+# creating/migrating config.boot but before loading it. This unit additionally
+# runs before vyos-router — on anything but the very first boot the persisted
+# config.boot already exists at /opt/vyatta/etc/config, and on dev boxes it at
+# least materialises the key file. The script is idempotent.
 Before=vyos-router.service
 After=local-fs.target
 ConditionPathExists=/usr/libexec/quartzfire/register-api-key

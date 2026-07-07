@@ -1,0 +1,15 @@
+#!/bin/sh
+# Default pre-config bootup script for QuartzFire images.
+#
+# vyos-router restores this from the image rootfs into /config/scripts on any
+# boot where it is missing, then runs it after config.boot has been created
+# and migrated but BEFORE it is loaded — the one safe moment to inject
+# configuration without a runtime commit.
+#
+# Operators may append their own commands; keep the QuartzFire block below.
+
+# Zero-touch WebUI: ensure the per-device VyOS API key exists and is present
+# in config.boot so the normal boot commit applies it.
+if [ -x /usr/libexec/quartzfire/register-api-key ]; then
+    /usr/libexec/quartzfire/register-api-key || true
+fi

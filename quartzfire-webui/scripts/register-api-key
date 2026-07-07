@@ -6,24 +6,38 @@
 # The key is generated per device on first boot (not baked into the image), so
 # every QuartzFire install gets a unique key.
 #
-# This runs BEFORE vyos-router.service and edits /config/config.boot with
-# vyos.configtree (a plain parse/edit/serialize, same mechanism the VyOS
-# cloud-init module uses). The normal boot config load then applies the key as
-# part of the regular boot commit. Deliberately NOT implemented with
-# ConfigSession: a boot-time runtime commit races the config daemons, and a
-# leaked session (e.g. teardown failing at interpreter shutdown) wedges every
-# subsequent config session on the box ("can't initialize output").
+# Primary invocation: the QuartzFire default preconfig hook
+# (/config/scripts/vyos-preconfig-bootup.script), which vyos-router runs after
+# config.boot has been created and migrated but BEFORE it is loaded — the boot
+# commit then applies the key. vyos-router exports BOOTFILE with the config
+# path; /config is only bind-mounted at the END of vyos-router startup, so the
+# file's canonical home is /opt/vyatta/etc/config/config.boot.
+#
+# Also run (belt and braces) by quartzfire-register-api-key.service before
+# vyos-router: on anything but the very first boot the persisted config.boot
+# already exists there, and on dev boxes it at least materialises the key file.
+#
+# Deliberately NOT implemented with ConfigSession: a boot-time runtime commit
+# races the config daemons, and a leaked session (e.g. teardown failing at
+# interpreter shutdown) wedges every subsequent config session on the box
+# ("can't initialize output").
 
 import os
 import re
 import sys
 import grp
+import shutil
 import secrets
 
 KEY_FILE = "/etc/quartzfire/vyos-api.key"
-CONFIG_BOOT = "/config/config.boot"
 KEY_ID = "quartzfire"
 API_PATH = ["service", "https", "api"]
+
+# The VyOS API serves TLS itself and defaults to :443, which nginx owns for
+# the WebUI. On fresh systems pin it to loopback on a dedicated port; the
+# backend's vyos_api_url points here.
+API_LISTEN = "127.0.0.1"
+API_PORT = "4443"
 
 
 def ensure_key_file():
@@ -45,6 +59,21 @@ def ensure_key_file():
     os.chown(KEY_FILE, 0, gid)
     os.chmod(KEY_FILE, 0o640)
     return key
+
+
+def find_config_boot():
+    """Locate the boot config, preferring vyos-router's exported BOOTFILE."""
+    candidates = []
+    if os.environ.get("BOOTFILE"):
+        candidates.append(os.environ["BOOTFILE"])
+    candidates += [
+        "/opt/vyatta/etc/config/config.boot",  # canonical persisted location
+        "/config/config.boot",                 # bind mount, post vyos-router
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
 
 
 def split_version_footer(text):
@@ -71,24 +100,34 @@ def main():
               file=sys.stderr)
         return 0
 
-    if not os.path.isfile(CONFIG_BOOT):
-        # Nothing to edit (e.g. live boot before a config exists). The key
-        # file is in place; the next boot with a config.boot will register it.
-        print(f"quartzfire: {CONFIG_BOOT} not found, skipping registration",
+    config_boot = find_config_boot()
+    if config_boot is None:
+        # First boot before vyos-router has created config.boot; the preconfig
+        # hook invocation (which runs after that) will register the key.
+        print("quartzfire: config.boot not found, skipping registration",
               file=sys.stderr)
         return 0
 
-    with open(CONFIG_BOOT) as f:
+    with open(config_boot) as f:
         body, footer = split_version_footer(f.read())
 
     config = ConfigTree(body)
+
+    changed = False
+
+    # Only pin listen-address/port on a system where the operator has not
+    # configured `service https` at all — never clobber an existing choice.
+    if not config.exists(["service", "https"]):
+        config.set(["service", "https", "listen-address"],
+                   value=API_LISTEN, replace=True)
+        config.set(["service", "https", "port"], value=API_PORT, replace=True)
+        changed = True
 
     # `rest` is a separate container node — enabling it is what mounts the REST
     # endpoints (/retrieve, /configure, ...). Without it VyOS returns 404 there.
     rest_path = API_PATH + ["rest"]
     key_path = API_PATH + ["keys", "id", KEY_ID, "key"]
 
-    changed = False
     if not config.exists(rest_path):
         config.set(rest_path)
         changed = True
@@ -105,17 +144,24 @@ def main():
         new_body += "\n"
 
     # Atomic replace, preserving ownership/mode (vyattacfg needs group rw).
-    st = os.stat(CONFIG_BOOT)
-    tmp = CONFIG_BOOT + ".quartzfire.tmp"
+    st = os.stat(config_boot)
+    tmp = config_boot + ".quartzfire.tmp"
     with open(tmp, "w") as f:
         f.write(new_body + footer)
         f.flush()
         os.fsync(f.fileno())
     os.chown(tmp, st.st_uid, st.st_gid)
     os.chmod(tmp, st.st_mode & 0o7777)
-    os.replace(tmp, CONFIG_BOOT)
+    os.replace(tmp, config_boot)
 
-    print("quartzfire: added VyOS REST API + WebUI key to config.boot")
+    # vyos-router (init_bootfile) mirrors config.boot into the vyconf config
+    # dir before we run; refresh the mirror so a vyconf-backed load sees our
+    # edit. VYCONF_CONFIG_DIR is only present when exported by vyos-router.
+    vyconf_dir = os.environ.get("VYCONF_CONFIG_DIR")
+    if vyconf_dir and os.path.isdir(vyconf_dir):
+        shutil.copy2(config_boot, os.path.join(vyconf_dir, "config.boot"))
+
+    print(f"quartzfire: added VyOS REST API + WebUI key to {config_boot}")
     return 0
 
 

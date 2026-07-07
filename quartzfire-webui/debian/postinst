@@ -17,14 +17,19 @@ case "$1" in
            [ ! -e /etc/nginx/sites-enabled/quartzfire-webui ]; then
             ln -s ../sites-available/quartzfire-webui \
                 /etc/nginx/sites-enabled/quartzfire-webui
-            # Drop Debian's default site so ours can be default_server. (VyOS
-            # regenerates its own :443 server block on commit; that one stays.)
+            # Drop Debian's default site so ours can be default_server.
             rm -f /etc/nginx/sites-enabled/default
         fi
-        # Reload nginx if it is running; never fail the install if the test
-        # cannot run (e.g. inside the image-build chroot).
+        # VyOS images ship daemons disabled (the config system starts what is
+        # configured), and nothing in VyOS manages nginx — we own it, so we
+        # must enable it ourselves. `enable` works in the image-build chroot;
+        # `reload-or-restart` only matters on a live system and must not fail
+        # the install inside the chroot.
         if command -v nginx >/dev/null 2>&1; then
-            nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
+            systemctl enable nginx >/dev/null 2>&1 || true
+            if nginx -t >/dev/null 2>&1; then
+                systemctl reload-or-restart nginx >/dev/null 2>&1 || true
+            fi
         fi
         ;;
 esac

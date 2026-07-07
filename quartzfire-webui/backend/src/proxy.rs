@@ -84,14 +84,6 @@ async fn forward(state: Arc<AppState>, req: Request) -> anyhow::Result<Response>
         );
     }
 
-    // VyOS and the WebUI share one nginx on :443. Present VyOS's server_name as
-    // the Host so nginx routes to the API block (→ /run/api.sock); otherwise the
-    // request falls through to the WebUI's default_server and loops.
-    builder = builder.header(
-        HeaderName::from_static("host"),
-        state.config.vyos_api_host.clone(),
-    );
-
     let upstream = builder.send().await?;
 
     let status = upstream.status();

@@ -16,26 +16,40 @@ Web management interface for QuartzFire (a VyOS-based firewall OS).
 ```
 browser ──https──> nginx :443 ──> quartzfire-webui (axum) :8443
                                      ├── /             static files (exported Next.js)
-                                     └── /api/*  ──>   VyOS HTTPS API https://127.0.0.1
+                                     └── /api/*  ──>   VyOS HTTPS API https://127.0.0.1:4443
                                                        (form `key` field injected here)
 ```
+
+nginx is the sole owner of :443; the VyOS API is pinned to loopback on :4443
+(`service https listen-address 127.0.0.1` + `port 4443`, injected at first
+boot) and serves its own TLS with a self-signed certificate.
 
 The browser never sees the VyOS API key. All privileged config/commit calls go
 through the VyOS HTTP API (`vyos-http-api-tools`).
 
 ### Zero-touch API key
 
-`quartzfire-register-api-key.service` runs **before** `vyos-router.service` and:
+`scripts/register-api-key` generates a unique key per device
+(`/etc/quartzfire/vyos-api.key`) and injects it into `config.boot` with
+`vyos.configtree` (equivalent to `set service https api rest`, `set service
+https api keys id quartzfire key '<key>'`, plus `listen-address 127.0.0.1` /
+`port 4443` on fresh systems), so the **normal boot commit** applies it.
 
-1. generates a unique key per device (`/etc/quartzfire/vyos-api.key`), and
-2. injects it into `/config/config.boot` with `vyos.configtree` (equivalent to
-   `set service https api rest` + `set service https api keys id quartzfire
-   key '<key>'`), so the normal boot config load applies it.
+It is invoked from the image's default preconfig hook
+(`/config/scripts/vyos-preconfig-bootup.script`, shipped via
+`data/live-build-config/includes.chroot/...`): `vyos-router` restores that hook
+from the rootfs whenever it is missing and runs it after `config.boot` is
+created and migrated but **before** it is loaded — the only moment the file is
+guaranteed to exist and editable pre-commit. (`/config` itself is bind-mounted
+only at the *end* of vyos-router startup; the persisted file lives at
+`/opt/vyatta/etc/config/config.boot`.) `quartzfire-register-api-key.service`
+also runs it before vyos-router as belt-and-braces for non-first boots and dev
+boxes.
 
-So the appliance is usable with no manual API setup. The service is idempotent —
-once the key is in `config.boot`, later boots are a no-op. It deliberately does
-**not** open a runtime `ConfigSession`/commit at boot: a leaked boot-time
-session can wedge every subsequent config session on the box.
+The script is idempotent — once the key is in `config.boot`, later boots are a
+no-op. It deliberately does **not** open a runtime `ConfigSession`/commit at
+boot: a leaked boot-time session can wedge every subsequent config session on
+the box ("can't initialize output").
 
 ## Build
 
@@ -60,8 +74,7 @@ cd .. && make quartzfire
 
 ```toml
 listen        = "127.0.0.1:8443"   # nginx proxies to this
-vyos_api_url  = "https://127.0.0.1"
-# vyos_api_host = "vyos"           # Host header (defaults to /etc/hostname)
+vyos_api_url  = "https://127.0.0.1:4443"
 vyos_api_key_file = "/etc/quartzfire/vyos-api.key"
 www_root      = "/usr/share/quartzfire-webui/www"
 ```
