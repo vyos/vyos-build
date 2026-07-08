@@ -19,9 +19,10 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-if-bonding",  section: "Go to", label: "Interfaces › Bonding",  kbd: "", href: "/interfaces/bonding" },
   { id: "nav-if-bridge",   section: "Go to", label: "Interfaces › Bridge",   kbd: "", href: "/interfaces/bridge" },
   { id: "nav-if-loopback", section: "Go to", label: "Interfaces › Loopback", kbd: "", href: "/interfaces/loopback" },
-  { id: "nav-routing",    section: "Go to", label: "Routing",    kbd: "G R", href: "/routing" },
   { id: "nav-nat",        section: "Go to", label: "NAT",        kbd: "G N", href: "/nat" },
+  { id: "nav-nat-nat44",  section: "Go to", label: "NAT › NAT44", kbd: "", href: "/nat/nat44" },
   { id: "nav-firewall",   section: "Go to", label: "Firewall",   kbd: "G F", href: "/firewall" },
+  { id: "nav-routing",    section: "Go to", label: "Routing",    kbd: "G R", href: "/routing" },
   { id: "nav-services",   section: "Go to", label: "Services",   kbd: "G V", href: "/services" },
   { id: "nav-system",     section: "Go to", label: "System",     kbd: "G S", href: "/system" },
 ];

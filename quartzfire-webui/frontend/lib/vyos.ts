@@ -198,9 +198,12 @@ function parseStorage(text: string | null): StorageMount[] {
 
 /// Parse `show interfaces counters`. Columns are `Interface Rx-Packets
 /// Rx-Bytes Tx-Packets Tx-Bytes`; the header and separator rows are skipped
-/// because their non-name columns don't parse as numbers.
+/// because their non-name columns don't parse as numbers. Some VyOS builds
+/// emit the whole table twice (the op-mode script prints it and the runner
+/// prints the returned copy again), so only the first row per interface is kept.
 function parseInterfaceCounters(text: string): InterfaceStat[] {
   const out: InterfaceStat[] = [];
+  const seen = new Set<string>();
   for (const line of text.split("\n")) {
     const cols = line.trim().split(/\s+/);
     if (cols.length < 5) continue;
@@ -209,6 +212,8 @@ function parseInterfaceCounters(text: string): InterfaceStat[] {
       return Number.isFinite(n) ? n : null;
     });
     if (nums.some((n) => n === null)) continue; // header / separator / non-data row
+    if (seen.has(cols[0])) continue;
+    seen.add(cols[0]);
     out.push({
       name: cols[0],
       rx_packets: nums[0],

@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -36,9 +36,17 @@ const ITEMS: NavItem[] = [
       { id: "loopback", label: "Loopback", href: "/interfaces/loopback", icon: Repeat },
     ],
   },
-  { id: "routing",    label: "Routing",    icon: Route,          href: "/routing" },
-  { id: "nat",        label: "NAT",        icon: ArrowLeftRight, href: "/nat" },
+  {
+    id: "nat",
+    label: "NAT",
+    icon: ArrowLeftRight,
+    href: "/nat",
+    children: [
+      { id: "nat44", label: "NAT44", href: "/nat/nat44", icon: Shuffle },
+    ],
+  },
   { id: "firewall",   label: "Firewall",   icon: Shield,         href: "/firewall" },
+  { id: "routing",    label: "Routing",    icon: Route,          href: "/routing" },
   { id: "services",   label: "Services",   icon: Server,         href: "/services" },
   { id: "system",     label: "System",     icon: Settings,       href: "/system" },
 ];

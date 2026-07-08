@@ -117,7 +117,7 @@ export interface BridgeConfigUpdate {
   enabled: boolean;
 }
 
-interface VyosCommand {
+export interface VyosCommand {
   op: "set" | "delete";
   path: string[];
 }
@@ -336,7 +336,7 @@ const trimmed = (s: string | null) => {
 
 /// Commit a command list in one transaction and save to the boot config so the
 /// change survives a reboot. Returns the number of changes applied.
-async function commitAndSave(commands: VyosCommand[]): Promise<number> {
+export async function commitAndSave(commands: VyosCommand[]): Promise<number> {
   if (commands.length === 0) return 0;
 
   const resp = await vyosApi<VyosResponse>("configure", commands);
