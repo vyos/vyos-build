@@ -14,6 +14,7 @@ import {
   RuleEndpoint,
   setDefaultAction,
 } from "@/lib/firewall";
+import { fetchInterfaceStats } from "@/lib/vyos";
 import { useDashboard } from "@/lib/DashboardContext";
 import { RowActions } from "@/components/dashboard/RowActions";
 import { RuleFormModal } from "./RuleFormModal";
@@ -30,6 +31,14 @@ function EndpointCell({ endpoint }: { endpoint: RuleEndpoint }) {
   if (sel.kind === "alias") {
     return <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>{sel.name}</span>;
   }
+  if (sel.kind === "interface") {
+    return (
+      <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>
+        {sel.name}
+        <span className="text-[var(--qz-fg-4)]"> · iface</span>
+      </span>
+    );
+  }
   if (sel.kind === "address") {
     return <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>{sel.address}</span>;
   }
@@ -39,6 +48,7 @@ function EndpointCell({ endpoint }: { endpoint: RuleEndpoint }) {
 export default function FirewallRulesPage() {
   const { setToast } = useDashboard();
   const [data, setData] = useState<FirewallConfig>({ aliases: [], policies: [], rules: [], default_action: null });
+  const [interfaces, setInterfaces] = useState<string[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [query, setQuery] = useState("");
@@ -55,8 +65,14 @@ export default function FirewallRulesPage() {
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
     if (mode === "load") setStatus("loading");
     try {
-      const fw = await fetchFirewall();
+      // Interface names populate the rule form's From/To pickers; tolerate
+      // their failure so a firewall read still renders.
+      const [fw, ifs] = await Promise.all([
+        fetchFirewall(),
+        fetchInterfaceStats().catch(() => []),
+      ]);
       setData(fw);
+      setInterfaces(ifs.map((i) => i.name).sort());
       setOrder(fw.rules.map((r) => r.rule));
       setStatus("ready");
     } catch (e) {
@@ -99,8 +115,10 @@ export default function FirewallRulesPage() {
         r.action,
         r.from.group_name,
         r.from.address,
+        r.from.iface,
         r.to.group_name,
         r.to.address,
+        r.to.iface,
         r.policy,
         r.protocol,
       ]
@@ -386,6 +404,7 @@ export default function FirewallRulesPage() {
       {modal && (
         <RuleFormModal
           initial={modal.rule}
+          interfaces={interfaces}
           aliases={data.aliases}
           policies={data.policies}
           rules={data.rules}

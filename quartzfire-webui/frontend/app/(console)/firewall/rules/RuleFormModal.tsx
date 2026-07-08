@@ -40,27 +40,40 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 const ANY = "any";
-const CUSTOM = "custom";
+const LEGACY = "legacy-address";
 const aliasKey = (type: AliasType, name: string) => `alias:${type}:${name}`;
+const ifaceKey = (name: string) => `iface:${name}`;
 
-/// From/To picker: Any, an alias, or a custom literal address.
+/// From/To picker: Any, a firewall interface, or an alias. A rule created on
+/// the CLI with a literal address keeps a legacy entry so editing it doesn't
+/// silently drop the match, but literal addresses can't be newly selected —
+/// name them as an alias instead.
 function EndpointField({
   label,
+  interfaces,
   aliases,
   value,
   onChange,
 }: {
   label: string;
+  interfaces: string[];
   aliases: FirewallAlias[];
   value: EndpointSelection;
   onChange: (sel: EndpointSelection) => void;
 }) {
   const selectValue =
-    value.kind === "any" ? ANY : value.kind === "address" ? CUSTOM : aliasKey(value.type, value.name);
+    value.kind === "any"
+      ? ANY
+      : value.kind === "address"
+        ? LEGACY
+        : value.kind === "interface"
+          ? ifaceKey(value.name)
+          : aliasKey(value.type, value.name);
 
   const onSelect = (v: string) => {
     if (v === ANY) onChange({ kind: "any" });
-    else if (v === CUSTOM) onChange({ kind: "address", address: value.kind === "address" ? value.address : "" });
+    else if (v === LEGACY) return; // only reachable while it is already selected
+    else if (v.startsWith("iface:")) onChange({ kind: "interface", name: v.slice("iface:".length) });
     else {
       const [, type, ...rest] = v.split(":");
       onChange({ kind: "alias", type: type as AliasType, name: rest.join(":") });
@@ -69,39 +82,37 @@ function EndpointField({
 
   return (
     <Field label={label}>
-      <div className="flex flex-col gap-2">
-        <select
-          value={selectValue}
-          onChange={(e) => onSelect(e.target.value)}
-          className={`${inputCls} cursor-pointer`}
-          style={monoSt}
-          onFocus={focusBorder}
-          onBlur={blurBorder}
-        >
-          <option value={ANY}>Any</option>
-          {aliases.length > 0 && (
-            <optgroup label="Aliases">
-              {aliases.map((a) => (
-                <option key={aliasKey(a.type, a.name)} value={aliasKey(a.type, a.name)}>
-                  {a.name} ({ALIAS_GROUP[a.type].label})
-                </option>
-              ))}
-            </optgroup>
-          )}
-          <option value={CUSTOM}>Custom address…</option>
-        </select>
-        {value.kind === "address" && (
-          <input
-            value={value.address}
-            onChange={(e) => onChange({ kind: "address", address: e.target.value })}
-            placeholder="172.16.20.0/24"
-            className={inputCls}
-            style={monoSt}
-            onFocus={focusBorder}
-            onBlur={blurBorder}
-          />
+      <select
+        value={selectValue}
+        onChange={(e) => onSelect(e.target.value)}
+        className={`${inputCls} cursor-pointer`}
+        style={monoSt}
+        onFocus={focusBorder}
+        onBlur={blurBorder}
+      >
+        <option value={ANY}>Any</option>
+        {interfaces.length > 0 && (
+          <optgroup label="Interfaces">
+            {interfaces.map((n) => (
+              <option key={ifaceKey(n)} value={ifaceKey(n)}>
+                {n}
+              </option>
+            ))}
+          </optgroup>
         )}
-      </div>
+        {aliases.length > 0 && (
+          <optgroup label="Aliases">
+            {aliases.map((a) => (
+              <option key={aliasKey(a.type, a.name)} value={aliasKey(a.type, a.name)}>
+                {a.name} ({ALIAS_GROUP[a.type].label})
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {value.kind === "address" && (
+          <option value={LEGACY}>{value.address} (custom address)</option>
+        )}
+      </select>
     </Field>
   );
 }
@@ -111,6 +122,7 @@ function EndpointField({
 /// config). New rules are appended at the bottom — drag the table to reorder.
 export function RuleFormModal({
   initial,
+  interfaces,
   aliases,
   policies,
   rules,
@@ -119,6 +131,8 @@ export function RuleFormModal({
 }: {
   /** Present when editing an existing rule; absent when creating. */
   initial?: FirewallRule;
+  /** Firewall interface names offered in the From/To pickers. */
+  interfaces: string[];
   aliases: FirewallAlias[];
   policies: FirewallPolicy[];
   /** All existing rules — a new rule is numbered after the last one. */
@@ -143,14 +157,6 @@ export function RuleFormModal({
     e.preventDefault();
     setError("");
 
-    if (from.kind === "address" && from.address.trim() === "") {
-      setError("Enter a From address, or pick Any.");
-      return;
-    }
-    if (to.kind === "address" && to.address.trim() === "") {
-      setError("Enter a To address, or pick Any.");
-      return;
-    }
     const policy = policies.find((p) => p.name === policyName) ?? null;
     if (policyName && !policy) {
       setError(`Policy ${policyName} no longer exists — refresh and try again.`);
@@ -215,8 +221,8 @@ export function RuleFormModal({
         </Field>
 
         <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          <EndpointField label="From" aliases={aliases} value={from} onChange={setFrom} />
-          <EndpointField label="To" aliases={aliases} value={to} onChange={setTo} />
+          <EndpointField label="From" interfaces={interfaces} aliases={aliases} value={from} onChange={setFrom} />
+          <EndpointField label="To" interfaces={interfaces} aliases={aliases} value={to} onChange={setTo} />
         </div>
 
         <Field

@@ -56,12 +56,14 @@ export interface FirewallPolicy {
 
 export type RuleAction = "accept" | "drop" | "reject";
 
-/// One side of a rule match: a group reference, a literal address, or
-/// neither (= any). Only one of `group_*`/`address` is set.
+/// One side of a rule match: a group reference, an interface, a literal
+/// address, or none of them (= any). The UI sets at most one; `iface` maps to
+/// the rule-level `inbound-interface` (From) / `outbound-interface` (To) node.
 export interface RuleEndpoint {
   group_type: string | null;
   group_name: string | null;
   address: string | null;
+  iface: string | null;
 }
 
 export interface FirewallRule {
@@ -178,14 +180,31 @@ function parsePolicies(group: Cfg): FirewallPolicy[] {
 /// Group references a rule side can carry that the From/To model understands.
 const REF_NODES = ["address-group", "network-group", "domain-group"] as const;
 
+/// Rule-level interface-match node backing each side.
+const IFACE_NODE: Record<"source" | "destination", string> = {
+  source: "inbound-interface",
+  destination: "outbound-interface",
+};
+
 function parseEndpoint(cfg: Cfg, side: "source" | "destination"): RuleEndpoint {
   const s = childCfg(cfg, side) ?? {};
   const g = childCfg(s, "group") ?? {};
+
+  // Interface matches live at rule level (`inbound-interface name <if>`), not
+  // under source/destination. Interface-group references aren't modelled.
+  const ifNode = cfg[IFACE_NODE[side]];
+  const iface =
+    typeof ifNode === "string"
+      ? ifNode.trim() || null
+      : ifNode && typeof ifNode === "object"
+        ? childStr(ifNode as Cfg, "name")
+        : null;
+
   for (const node of REF_NODES) {
     const name = childStr(g, node);
-    if (name) return { group_type: node, group_name: name, address: null };
+    if (name) return { group_type: node, group_name: name, address: null, iface };
   }
-  return { group_type: null, group_name: null, address: childStr(s, "address") };
+  return { group_type: null, group_name: null, address: childStr(s, "address"), iface };
 }
 
 const asAction = (v: string | null): RuleAction | null =>
@@ -379,9 +398,12 @@ export function deletePolicy(name: string): Promise<number> {
 const FILTER_BASE = ["firewall", "ipv4", "forward", "filter"];
 const ruleBase = (rule: number) => [...FILTER_BASE, "rule", String(rule)];
 
-/// From/To selection in the rule form: any, an alias, or a literal address.
+/// From/To selection in the rule form: any, a firewall interface, an alias,
+/// or a literal address (legacy — kept so CLI-created rules stay editable, not
+/// offered for new selections).
 export type EndpointSelection =
   | { kind: "any" }
+  | { kind: "interface"; name: string }
   | { kind: "alias"; type: AliasType; name: string }
   | { kind: "address"; address: string };
 
@@ -390,6 +412,7 @@ export function endpointToSelection(e: RuleEndpoint): EndpointSelection {
     const type = GROUP_NODE_TO_TYPE[e.group_type];
     if (type) return { kind: "alias", type, name: e.group_name };
   }
+  if (e.iface) return { kind: "interface", name: e.iface };
   if (e.address) return { kind: "address", address: e.address };
   return { kind: "any" };
 }
@@ -430,6 +453,15 @@ function diffEndpoint(
   if (desiredAddr !== liveAddr) {
     if (desiredAddr !== null) out.push({ op: "set", path: [...base, side, "address", desiredAddr] });
     else out.push({ op: "delete", path: [...base, side, "address"] });
+  }
+
+  // Interface match — a rule-level node, written in the `name <iface>` form.
+  const desiredIface = sel.kind === "interface" ? sel.name.trim() || null : null;
+  const liveIface = live?.iface ?? null;
+  if (desiredIface !== liveIface) {
+    const key = IFACE_NODE[side];
+    if (liveIface !== null) out.push({ op: "delete", path: [...base, key] });
+    if (desiredIface !== null) out.push({ op: "set", path: [...base, key, "name", desiredIface] });
   }
 }
 

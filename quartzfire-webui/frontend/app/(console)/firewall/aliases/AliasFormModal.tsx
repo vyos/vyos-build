@@ -45,7 +45,7 @@ const MEMBER_INFO: Record<AliasType, { placeholder: string; hint: string; valid:
   },
   fqdn: {
     placeholder: "vpn.example.com",
-    hint: "One fully-qualified domain name per line.",
+    hint: "One fully-qualified domain name per line. No wildcards — VyOS resolves each name to its DNS addresses, and subdomains are not covered.",
     valid: (m) => FQDN_RE.test(m),
   },
 };
