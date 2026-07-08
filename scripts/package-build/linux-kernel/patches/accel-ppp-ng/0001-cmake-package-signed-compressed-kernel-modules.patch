@@ -1,0 +1,66 @@
+From: Christian Breunig <christian@vyos.io>
+Date: Sun, 5 Jul 2026 00:00:00 +0200
+Subject: [PATCH] cmake: package signed/compressed kernel modules
+
+sign-modules.sh signs the built ipoe/vlan_mon/pptp kernel modules and,
+if the target kernel's .config enables CONFIG_MODULE_COMPRESS_XZ,
+compresses them to .ko.xz before cpack packages the Debian archive.
+The Debian packaging rules installed the drivers by their exact
+pre-sign build path (*.ko) unconditionally, so a compressed build
+never actually shipped the compressed module. Mirror sign-modules.sh's
+own .config check to pick the extension that actually ends up on disk.
+
+---
+ cmake/debian/debian.cmake | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/cmake/debian/debian.cmake b/cmake/debian/debian.cmake
+index 8db274a..64b8f7d 100644
+--- a/cmake/debian/debian.cmake
++++ b/cmake/debian/debian.cmake
+@@ -9,6 +9,18 @@ if (NOT DEFINED MODULES_KDIR)
+ 	)
+ endif()
+
++# sign-modules.sh signs the built .ko files and, if the target kernel's
++# .config has module compression enabled, xz-compresses them in place.
++# Mirror that check here so we install whichever artifact actually ends
++# up on disk.
++SET(KMOD_EXT ".ko")
++IF (DEFINED KDIR AND EXISTS "${KDIR}/.config")
++	FILE(STRINGS "${KDIR}/.config" _ACCEL_PPP_KMOD_COMPRESS_XZ REGEX "^CONFIG_MODULE_COMPRESS_XZ=y$")
++	IF (_ACCEL_PPP_KMOD_COMPRESS_XZ)
++		SET(KMOD_EXT ".ko.xz")
++	ENDIF ()
++ENDIF ()
++
+ if (BUILD_PPTP_DRIVER)
+ 	if (BUILD_DRIVER_ONLY)
+ 		SET(CPACK_PACKAGE_VERSION_MAJOR "0")
+@@ -21,7 +33,7 @@ if (BUILD_PPTP_DRIVER)
+ 		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian-kmod/postinst")
+ 	endif ()
+ 	#INSTALL(DIRECTORY lib/modules/${DEBIAN_KDIR}/extra)
+-	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/driver/driver/pptp.ko DESTINATION /lib/modules/${MODULES_KDIR}/extra)
++	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/driver/driver/pptp${KMOD_EXT} DESTINATION /lib/modules/${MODULES_KDIR}/extra)
+ 	#SET(CPACK_DEBIAN_PACKAGE_DEPENDS "linux-image (= ${LINUX_IMAGE})")
+ endif (BUILD_PPTP_DRIVER)
+
+@@ -33,7 +45,7 @@ if (BUILD_IPOE_DRIVER)
+ 		SET(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+ 		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian-kmod/postinst")
+ 	endif ()
+-	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/drivers/ipoe/driver/ipoe.ko DESTINATION /lib/modules/${MODULES_KDIR}/extra)
++	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/drivers/ipoe/driver/ipoe${KMOD_EXT} DESTINATION /lib/modules/${MODULES_KDIR}/extra)
+ endif (BUILD_IPOE_DRIVER)
+
+ if (BUILD_VLAN_MON_DRIVER)
+@@ -44,7 +56,7 @@ if (BUILD_VLAN_MON_DRIVER)
+ 		SET(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+ 		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian-kmod/postinst")
+ 	endif ()
+-	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/drivers/vlan_mon/driver/vlan_mon.ko DESTINATION /lib/modules/${MODULES_KDIR}/extra)
++	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/drivers/vlan_mon/driver/vlan_mon${KMOD_EXT} DESTINATION /lib/modules/${MODULES_KDIR}/extra)
+ endif (BUILD_VLAN_MON_DRIVER)
+
+ if (NOT BUILD_DRIVER_ONLY)
