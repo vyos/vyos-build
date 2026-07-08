@@ -1,9 +1,12 @@
 // Data layer for the dashboard tiles.
 //
-// STUB: nothing here talks to the firewall yet. Every fetcher returns plausible
-// sample data so the dashboard renders end-to-end. When wiring up, replace the
-// bodies with calls through the authenticated VyOS proxy (`vyosApi` in lib/api.ts,
-// e.g. `show` ops for uptime/memory and `show interfaces counters`).
+// Everything here reads live operational state from the firewall through the
+// authenticated VyOS proxy (`vyosApi`). System info is best-effort: each field
+// is null when its `show` command fails or its output can't be parsed, and the
+// tiles render what they get.
+
+import { vyosApi } from "./api";
+import { VyosResponse } from "./interfaces";
 
 export interface LoadAverage {
   one: number | null;
@@ -48,81 +51,203 @@ export interface InterfaceStat {
   tx_packets: number | null;
 }
 
-const GB = 1024 ** 3;
+/// Run an operational `show` command and return its text payload, or null on
+/// any failure (unreachable, API error, missing data).
+async function showText(path: string[]): Promise<string | null> {
+  try {
+    const resp = await vyosApi<VyosResponse<string | null>>("show", { op: "show", path });
+    return resp.success ? resp.data ?? null : null;
+  } catch {
+    return null;
+  }
+}
 
-/// Small jitter around a base value so polled tiles look alive.
-const jitter = (base: number, spread: number) =>
-  Math.round((base + (Math.random() - 0.5) * spread) * 10) / 10;
+// ── parsers (ported from the vyos-fabric backend) ─────────────────────────────
 
-export async function fetchSystemInfo(): Promise<DeviceSystemInfo> {
-  const total = 8 * GB;
-  const used = 1.9 * GB + Math.random() * 0.2 * GB;
+/// Parse the `Key: value` lines of `show version`.
+function parseVersion(text: string | null) {
+  const map = new Map<string, string>();
+  for (const line of text?.split("\n") ?? []) {
+    const i = line.indexOf(":");
+    if (i < 0) continue;
+    const k = line.slice(0, i).trim().toLowerCase();
+    const v = line.slice(i + 1).trim();
+    if (k && v) map.set(k, v);
+  }
+  const version = map.get("version")?.replace(/^vyos\s+/i, "").trim() ?? null;
   return {
-    version: "1.5-rolling-202507",
-    release_train: "current",
-    built_on: "2025-07-01 04:12 UTC",
-    hardware_vendor: "Quartz Systems",
-    hardware_model: "QF-1000",
-    uptime: "12 days, 4 hours, 23 minutes",
-    load: { one: jitter(6, 4), five: jitter(8, 3), fifteen: jitter(7, 2) },
-    memory: {
-      total_bytes: total,
-      used_bytes: used,
-      free_bytes: total - used,
-      used_pct: Math.round((used / total) * 1000) / 10,
-    },
-    storage: [
-      {
-        filesystem: "/dev/sda1",
-        size_bytes: 32 * GB,
-        used_bytes: 4.6 * GB,
-        avail_bytes: 27.4 * GB,
-        used_pct: 14,
-        mount: "/",
-      },
-    ],
+    version,
+    release_train: map.get("release train") ?? null,
+    built_on: map.get("built on") ?? null,
+    hardware_vendor: map.get("hardware vendor") ?? null,
+    hardware_model: map.get("hardware model") ?? null,
   };
 }
 
-// Cumulative counters that tick up between polls so the speed tile computes
-// nonzero rates from the deltas.
-const IFACE_PROFILES: { name: string; rxRate: number; txRate: number }[] = [
-  { name: "eth0", rxRate: 6_400_000, txRate: 1_800_000 },
-  { name: "eth1", rxRate: 2_100_000, txRate: 4_900_000 },
-  { name: "eth2", rxRate: 240_000, txRate: 90_000 },
-  { name: "wg0", rxRate: 610_000, txRate: 350_000 },
-  { name: "lo", rxRate: 4_000, txRate: 4_000 },
-];
+/// Extract the numeric percentage after the colon, tolerating a trailing `%`.
+function parsePct(line: string): number | null {
+  const i = line.indexOf(":");
+  if (i < 0) return null;
+  const n = Number(line.slice(i + 1).trim().replace(/%$/, "").trim());
+  return Number.isFinite(n) ? n : null;
+}
 
-const counters = new Map(
-  IFACE_PROFILES.map((p) => [
-    p.name,
-    {
-      rx_bytes: Math.round(p.rxRate * 3600 * (2 + Math.random())),
-      tx_bytes: Math.round(p.txRate * 3600 * (2 + Math.random())),
-      rx_packets: 0,
-      tx_packets: 0,
-      last: Date.now(),
-    },
-  ]),
-);
+/// Parse `show system uptime`: an "Uptime:" line plus 1/5/15-minute load percentages.
+function parseUptime(text: string | null): { uptime: string | null; load: LoadAverage } {
+  let uptime: string | null = null;
+  const load: LoadAverage = { one: null, five: null, fifteen: null };
+  for (const line of text?.split("\n") ?? []) {
+    // VyOS pads "1  minute:" to align with "15 minutes:" — collapse runs of
+    // whitespace before matching.
+    const lower = line.trim().toLowerCase().replace(/\s+/g, " ");
+    if (lower.startsWith("uptime")) {
+      const i = line.indexOf(":");
+      const v = i >= 0 ? line.slice(i + 1).trim() : "";
+      uptime = v || null;
+    } else if (lower.startsWith("1 minute")) {
+      load.one = parsePct(line);
+    } else if (lower.startsWith("5 minute")) {
+      load.five = parsePct(line);
+    } else if (lower.startsWith("15 minute")) {
+      load.fifteen = parsePct(line);
+    }
+  }
+  return { uptime, load };
+}
+
+/// Parse a human size token like "15.6 GB", "184.9 MB", "126G", or a bare number into bytes.
+function parseSize(s: string): number | null {
+  const m = s.trim().match(/^([\d.]+)\s*([KMGT])?/i);
+  if (!m || m[1] === "") return null;
+  const num = Number(m[1]);
+  if (!Number.isFinite(num)) return null;
+  const mult = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 }[
+    (m[2] ?? "").toUpperCase() as "K" | "M" | "G" | "T"
+  ] ?? 1;
+  return Math.round(num * mult);
+}
+
+/// Parse `show system memory`: Total/Used/Free lines with optional units.
+function parseMemory(text: string | null): MemoryInfo {
+  const mem: MemoryInfo = { total_bytes: null, used_bytes: null, free_bytes: null, used_pct: null };
+  for (const line of text?.split("\n") ?? []) {
+    const i = line.indexOf(":");
+    if (i < 0) continue;
+    const key = line.slice(0, i).trim().toLowerCase();
+    const val = line.slice(i + 1).trim();
+    if (key === "total") mem.total_bytes = parseSize(val);
+    else if (key === "used") mem.used_bytes = parseSize(val);
+    else if (key === "free") mem.free_bytes = parseSize(val);
+  }
+  if (mem.total_bytes && mem.used_bytes !== null) {
+    mem.used_pct = (mem.used_bytes / mem.total_bytes) * 100;
+  }
+  return mem;
+}
+
+/// Extract a percentage from a parenthesised suffix like "562M (1%)" → 1.
+function parseParenPct(s: string): number | null {
+  const m = s.match(/\(([\d.]+)\s*%\)/);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+/// Parse `show system storage`, which VyOS emits as `Key: value` blocks (one
+/// per filesystem):
+///
+/// ```text
+/// Filesystem: /dev/sda3
+/// Size: 126G
+/// Used: 562M (1%)
+/// Available: 119G (99%)
+/// ```
+function parseStorage(text: string | null): StorageMount[] {
+  const out: StorageMount[] = [];
+  let cur: StorageMount | null = null;
+  for (const line of text?.split("\n") ?? []) {
+    const i = line.indexOf(":");
+    if (i < 0) continue;
+    const key = line.slice(0, i).trim().toLowerCase();
+    const val = line.slice(i + 1).trim();
+    if (key === "filesystem") {
+      if (cur) out.push(cur);
+      cur = {
+        filesystem: val,
+        size_bytes: null,
+        used_bytes: null,
+        avail_bytes: null,
+        used_pct: null,
+        mount: null,
+      };
+    } else if (!cur) {
+      continue;
+    } else if (key === "size") {
+      cur.size_bytes = parseSize(val);
+    } else if (key === "used") {
+      cur.used_bytes = parseSize(val);
+      cur.used_pct = parseParenPct(val);
+    } else if (key === "available" || key === "avail") {
+      cur.avail_bytes = parseSize(val);
+    } else if (key === "mounted on" || key === "mount") {
+      cur.mount = val;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/// Parse `show interfaces counters`. Columns are `Interface Rx-Packets
+/// Rx-Bytes Tx-Packets Tx-Bytes`; the header and separator rows are skipped
+/// because their non-name columns don't parse as numbers.
+function parseInterfaceCounters(text: string): InterfaceStat[] {
+  const out: InterfaceStat[] = [];
+  for (const line of text.split("\n")) {
+    const cols = line.trim().split(/\s+/);
+    if (cols.length < 5) continue;
+    const nums = cols.slice(1, 5).map((c) => {
+      const n = Number(c.replace(/,/g, ""));
+      return Number.isFinite(n) ? n : null;
+    });
+    if (nums.some((n) => n === null)) continue; // header / separator / non-data row
+    out.push({
+      name: cols[0],
+      rx_packets: nums[0],
+      rx_bytes: nums[1],
+      tx_packets: nums[2],
+      tx_bytes: nums[3],
+    });
+  }
+  return out;
+}
+
+// ── fetchers ──────────────────────────────────────────────────────────────────
+
+export async function fetchSystemInfo(): Promise<DeviceSystemInfo> {
+  // Independent best-effort reads — fan them out concurrently.
+  const [versionTxt, uptimeTxt, memoryTxt, storageTxt] = await Promise.all([
+    showText(["version"]),
+    showText(["system", "uptime"]),
+    showText(["system", "memory"]),
+    showText(["system", "storage"]),
+  ]);
+
+  const { uptime, load } = parseUptime(uptimeTxt);
+  return {
+    ...parseVersion(versionTxt),
+    uptime,
+    load,
+    memory: parseMemory(memoryTxt),
+    storage: parseStorage(storageTxt),
+  };
+}
 
 export async function fetchInterfaceStats(): Promise<InterfaceStat[]> {
-  const now = Date.now();
-  return IFACE_PROFILES.map((p) => {
-    const c = counters.get(p.name)!;
-    const dt = (now - c.last) / 1000;
-    c.last = now;
-    c.rx_bytes += Math.round(p.rxRate * dt * (0.5 + Math.random()));
-    c.tx_bytes += Math.round(p.txRate * dt * (0.5 + Math.random()));
-    c.rx_packets = Math.round(c.rx_bytes / 900);
-    c.tx_packets = Math.round(c.tx_bytes / 900);
-    return {
-      name: p.name,
-      rx_bytes: c.rx_bytes,
-      tx_bytes: c.tx_bytes,
-      rx_packets: c.rx_packets,
-      tx_packets: c.tx_packets,
-    };
+  const resp = await vyosApi<VyosResponse<string | null>>("show", {
+    op: "show",
+    path: ["interfaces", "counters"],
   });
+  if (!resp.success) {
+    throw new Error(resp.error || "Device returned an error reading interface counters.");
+  }
+  return parseInterfaceCounters(resp.data ?? "");
 }

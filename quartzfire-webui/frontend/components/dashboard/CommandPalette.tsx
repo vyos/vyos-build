@@ -14,6 +14,11 @@ interface PaletteAction {
 const ACTIONS: PaletteAction[] = [
   { id: "nav-dashboard",  section: "Go to", label: "Dashboard",  kbd: "G D", href: "/dashboard" },
   { id: "nav-interfaces", section: "Go to", label: "Interfaces", kbd: "G I", href: "/interfaces" },
+  { id: "nav-if-ethernet", section: "Go to", label: "Interfaces › Ethernet", kbd: "", href: "/interfaces/ethernet" },
+  { id: "nav-if-vlan",     section: "Go to", label: "Interfaces › VLAN",     kbd: "", href: "/interfaces/vlan" },
+  { id: "nav-if-bonding",  section: "Go to", label: "Interfaces › Bonding",  kbd: "", href: "/interfaces/bonding" },
+  { id: "nav-if-bridge",   section: "Go to", label: "Interfaces › Bridge",   kbd: "", href: "/interfaces/bridge" },
+  { id: "nav-if-loopback", section: "Go to", label: "Interfaces › Loopback", kbd: "", href: "/interfaces/loopback" },
   { id: "nav-routing",    section: "Go to", label: "Routing",    kbd: "G R", href: "/routing" },
   { id: "nav-nat",        section: "Go to", label: "NAT",        kbd: "G N", href: "/nat" },
   { id: "nav-firewall",   section: "Go to", label: "Firewall",   kbd: "G F", href: "/firewall" },
@@ -101,12 +106,14 @@ export function CommandPalette({
                 >
                   <ArrowRight size={14} className="text-[var(--qz-fg-4)]" />
                   <span className="flex-1">{a.label}</span>
-                  <span
-                    className="text-[10px] text-[var(--qz-fg-4)] border border-[var(--qz-border)] px-[5px] py-[1px] rounded"
-                    style={{ fontFamily: "var(--qz-font-mono)" }}
-                  >
-                    {a.kbd}
-                  </span>
+                  {a.kbd && (
+                    <span
+                      className="text-[10px] text-[var(--qz-fg-4)] border border-[var(--qz-border)] px-[5px] py-[1px] rounded"
+                      style={{ fontFamily: "var(--qz-font-mono)" }}
+                    >
+                      {a.kbd}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

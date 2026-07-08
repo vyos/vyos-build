@@ -1,18 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Pencil, Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Column, DataTable, FilterDef } from "@/components/dashboard/DataTable";
-import { EthernetInterface, fetchEthernet, fetchPhysicalEthernet } from "@/lib/interfaces";
+import { fetchLoopback, LoopbackInterface } from "@/lib/interfaces";
 import { useDashboard } from "@/lib/DashboardContext";
-import { EthernetFormModal } from "./EthernetFormModal";
+import { LoopbackFormModal } from "./LoopbackFormModal";
 
 function StatePill({ enabled }: { enabled: boolean }) {
   return <span className={enabled ? "badge badge-ok" : "badge badge-muted"}>{enabled ? "Enabled" : "Disabled"}</span>;
 }
 
-const columns: Column<EthernetInterface>[] = [
+const columns: Column<LoopbackInterface>[] = [
   { key: "name", header: "Interface", value: (r) => r.name, mono: true, sortable: true, width: 130 },
   { key: "description", header: "Description", value: (r) => r.description ?? "", sortable: true },
   {
@@ -23,8 +23,6 @@ const columns: Column<EthernetInterface>[] = [
     mono: true,
   },
   { key: "mtu", header: "MTU", value: (r) => r.mtu, mono: true, sortable: true, width: 80 },
-  { key: "hw_id", header: "MAC", value: (r) => r.hw_id ?? "", mono: true, width: 150 },
-  { key: "vlan_count", header: "VLANs", value: (r) => r.vlan_count, mono: true, sortable: true, width: 80 },
   {
     key: "status",
     header: "Status",
@@ -35,7 +33,7 @@ const columns: Column<EthernetInterface>[] = [
   },
 ];
 
-const filters: FilterDef<EthernetInterface>[] = [
+const filters: FilterDef<LoopbackInterface>[] = [
   {
     key: "status",
     label: "Status",
@@ -47,55 +45,46 @@ const filters: FilterDef<EthernetInterface>[] = [
   },
 ];
 
-export default function EthernetPage() {
+export default function LoopbackPage() {
   const { setToast } = useDashboard();
-  const [rows, setRows] = useState<EthernetInterface[]>([]);
-  const [physical, setPhysical] = useState<string[]>([]);
+  const [rows, setRows] = useState<LoopbackInterface[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // null = closed; { eth: undefined } = add; { eth } = edit.
-  const [modal, setModal] = useState<{ eth?: EthernetInterface } | null>(null);
-
-  const fetchData = useCallback(async () => {
-    const [eths, phys] = await Promise.all([fetchEthernet(), fetchPhysicalEthernet()]);
-    setRows(eths);
-    setPhysical(phys);
-  }, []);
+  // null = closed; { lo: undefined } = configure `lo`; { lo } = edit.
+  const [modal, setModal] = useState<{ lo?: LoopbackInterface } | null>(null);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
     if (mode === "load") setStatus("loading");
     try {
-      await fetchData();
+      setRows(await fetchLoopback());
       setStatus("ready");
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "Failed to load interfaces.");
+      setErrorMsg(e instanceof Error ? e.message : "Failed to load loopback interfaces.");
       setStatus("error");
     }
-  }, [fetchData]);
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // Physical NICs that have no configured interface yet — the only ones addable.
-  const freeNames = useMemo(
-    () => physical.filter((p) => !rows.some((r) => r.name === p)),
-    [physical, rows],
-  );
+  // VyOS supports exactly one loopback node, `lo` — offer to configure it only
+  // when it's absent from the config.
+  const loMissing = !rows.some((r) => r.name === "lo");
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-[36px] pt-[28px] pb-5 flex-shrink-0">
         <h1 className="text-[28px] font-bold text-[var(--qz-fg-1)] m-0" style={{ letterSpacing: "-0.015em" }}>
-          Ethernet Interfaces
+          Loopback Interfaces
         </h1>
-        <p className="text-[13px] text-[var(--qz-fg-4)] mt-1">Physical ethernet interfaces</p>
+        <p className="text-[13px] text-[var(--qz-fg-4)] mt-1">Loopback interfaces for stable local addressing</p>
       </div>
 
       <div className="flex-1 overflow-auto px-[36px] pb-[28px]">
         {status === "loading" && (
-          <div className="text-[13px] text-[var(--qz-fg-4)]">Loading interfaces…</div>
+          <div className="text-[13px] text-[var(--qz-fg-4)]">Loading loopback interfaces…</div>
         )}
         {status === "error" && (
           <div className="flex flex-col gap-3">
@@ -114,22 +103,16 @@ export default function EthernetPage() {
             columns={columns}
             filters={filters}
             rowId={(r) => r.name}
-            storageKey="interfaces-ethernet"
-            searchPlaceholder="Search interfaces…"
-            emptyMessage="No ethernet interfaces configured."
+            storageKey="interfaces-loopback"
+            searchPlaceholder="Search loopback interfaces…"
+            emptyMessage="Loopback `lo` is not in the config yet — configure it to add addresses."
             onRefresh={() => load("refresh")}
             toolbar={
-              <span title={freeNames.length === 0 ? "No free physical interfaces available" : undefined}>
-                <Button
-                  kind="primary"
-                  size="sm"
-                  icon={Plus}
-                  onClick={() => setModal({})}
-                  disabled={freeNames.length === 0}
-                >
-                  Add interface
+              loMissing ? (
+                <Button kind="primary" size="sm" icon={Plus} onClick={() => setModal({})}>
+                  Configure lo
                 </Button>
-              </span>
+              ) : undefined
             }
             actions={(row) => (
               <div className="inline-flex items-center justify-end">
@@ -137,7 +120,7 @@ export default function EthernetPage() {
                   type="button"
                   title={`Edit ${row.name}`}
                   aria-label="Edit"
-                  onClick={() => setModal({ eth: row })}
+                  onClick={() => setModal({ lo: row })}
                   className="grid place-items-center w-7 h-7 rounded-md bg-transparent border-0 text-[var(--qz-fg-4)] hover:text-[var(--qz-accent)] hover:bg-[color-mix(in_oklab,white_5%,transparent)] transition-colors cursor-pointer"
                 >
                   <Pencil size={14} />
@@ -149,9 +132,8 @@ export default function EthernetPage() {
       </div>
 
       {modal && (
-        <EthernetFormModal
-          initial={modal.eth}
-          freeNames={freeNames}
+        <LoopbackFormModal
+          initial={modal.lo}
           onClose={() => setModal(null)}
           onSaved={(msg) => {
             setModal(null);

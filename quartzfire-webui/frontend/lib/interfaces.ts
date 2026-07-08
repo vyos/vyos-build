@@ -1,4 +1,4 @@
-// Ethernet interface data layer.
+// Interface data layer (ethernet, VLAN, loopback, bond, bridge).
 //
 // Unlike vyos-fabric (which stages changes in a controller DB for review),
 // QuartzFire manages a single local firewall: reads and writes go straight to
@@ -37,6 +37,86 @@ export interface EthernetConfigUpdate {
   enabled: boolean;
 }
 
+export interface VlanInterface {
+  name: string;
+  parent: string;
+  vlan_id: number;
+  description: string | null;
+  addresses: string[];
+  mtu: number | null;
+  enabled: boolean;
+}
+
+/// Desired VLAN config. `original_*` identify the vif being edited; when they
+/// differ from `parent`/`vlan_id` the edit is a move (old vif deleted, new one
+/// built fresh).
+export interface VlanConfigUpdate {
+  parent: string;
+  vlan_id: number;
+  description: string | null;
+  addresses: string[];
+  mtu: number | null;
+  enabled: boolean;
+  original_parent: string | null;
+  original_vlan_id: number | null;
+}
+
+export interface LoopbackInterface {
+  name: string;
+  description: string | null;
+  addresses: string[];
+  mtu: number | null;
+  enabled: boolean;
+}
+
+/// Desired loopback config. VyOS only supports the fixed `lo` node, with
+/// `address` and `description` leaves.
+export interface LoopbackConfigUpdate {
+  name: string;
+  description: string | null;
+  addresses: string[];
+}
+
+export interface BondInterface {
+  name: string;
+  description: string | null;
+  addresses: string[];
+  mtu: number | null;
+  mode: string | null;
+  members: string[];
+  enabled: boolean;
+}
+
+/// Desired bond config. `mode` is always concrete — the modal preselects the
+/// VyOS default (802.3ad) so the diff can compare against an absent leaf.
+export interface BondConfigUpdate {
+  name: string;
+  description: string | null;
+  addresses: string[];
+  mtu: number | null;
+  mode: string;
+  members: string[];
+  enabled: boolean;
+}
+
+export interface BridgeInterface {
+  name: string;
+  description: string | null;
+  addresses: string[];
+  mtu: number | null;
+  members: string[];
+  enabled: boolean;
+}
+
+export interface BridgeConfigUpdate {
+  name: string;
+  description: string | null;
+  addresses: string[];
+  mtu: number | null;
+  members: string[];
+  enabled: boolean;
+}
+
 interface VyosCommand {
   op: "set" | "delete";
   path: string[];
@@ -72,31 +152,47 @@ function asAddresses(v: Cfg): string[] {
   return [];
 }
 
+/// Bond/bridge members live under `member interface <name>` (VyOS 1.4+).
+function asMembers(v: Cfg): string[] {
+  const member = v["member"];
+  if (!member || typeof member !== "object") return [];
+  const iface = (member as Cfg)["interface"];
+  if (!iface || typeof iface !== "object") return [];
+  return Object.keys(iface).sort();
+}
+
 /// `disable` is a valueless leaf — its mere presence means the iface is down.
 const isEnabled = (v: Cfg) => !("disable" in v);
 
 // ── reads ─────────────────────────────────────────────────────────────────────
 
-/// Configured ethernet interfaces, from the running config.
+/// The full running `interfaces` config node ({} when nothing is configured).
 ///
-/// We query the parent `interfaces` node and read its `ethernet` child —
-/// querying the tag node directly gets wrapped as `{"ethernet": {...}}` on
-/// some VyOS versions.
-export async function fetchEthernet(): Promise<EthernetInterface[]> {
+/// We query the parent `interfaces` node and read type children from it —
+/// querying a tag node directly gets wrapped as `{"ethernet": {...}}` on some
+/// VyOS versions.
+async function fetchInterfacesConfig(): Promise<Cfg> {
   const resp = await vyosApi<VyosResponse<Cfg | null>>("retrieve", {
     op: "showConfig",
     path: ["interfaces"],
   });
 
-  let node: Cfg = {};
-  if (resp.success) {
-    const eth = resp.data?.["ethernet"];
-    if (eth && typeof eth === "object") node = eth as Cfg;
-  } else if (!(resp.error ?? "").toLowerCase().includes("empty")) {
-    // VyOS: "Configuration under specified path is empty" just means nothing
-    // is configured; anything else is a real error.
-    throw new Error(resp.error || "Device returned an error reading interfaces.");
-  }
+  if (resp.success) return resp.data ?? {};
+  // VyOS: "Configuration under specified path is empty" just means nothing is
+  // configured; anything else is a real error.
+  if ((resp.error ?? "").toLowerCase().includes("empty")) return {};
+  throw new Error(resp.error || "Device returned an error reading interfaces.");
+}
+
+/// One interface type's map (keyed by interface name, e.g. `eth0`).
+function kindNode(interfaces: Cfg, kind: string): Record<string, Cfg> {
+  const node = interfaces[kind];
+  return node && typeof node === "object" ? (node as Record<string, Cfg>) : {};
+}
+
+/// Configured ethernet interfaces, from the running config.
+export async function fetchEthernet(): Promise<EthernetInterface[]> {
+  const node = kindNode(await fetchInterfacesConfig(), "ethernet");
 
   return Object.entries(node)
     .map(([name, raw]) => {
@@ -112,6 +208,87 @@ export async function fetchEthernet(): Promise<EthernetInterface[]> {
         duplex: childStr(cfg, "duplex"),
         enabled: isEnabled(cfg),
         vlan_count: vif && typeof vif === "object" ? Object.keys(vif).length : 0,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/// Configured 802.1Q VLAN sub-interfaces (`vif` children of ethernet nodes).
+export async function fetchVlans(): Promise<VlanInterface[]> {
+  const eths = kindNode(await fetchInterfacesConfig(), "ethernet");
+
+  const out: VlanInterface[] = [];
+  for (const [parent, raw] of Object.entries(eths)) {
+    const vifs = (raw ?? {})["vif"];
+    if (!vifs || typeof vifs !== "object") continue;
+    for (const [vid, vraw] of Object.entries(vifs as Record<string, Cfg>)) {
+      const cfg = (vraw ?? {}) as Cfg;
+      out.push({
+        name: `${parent}.${vid}`,
+        parent,
+        vlan_id: Number(vid) || 0,
+        description: childStr(cfg, "description"),
+        addresses: asAddresses(cfg),
+        mtu: asMtu(cfg),
+        enabled: isEnabled(cfg),
+      });
+    }
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/// Configured loopback interfaces (normally just `lo`).
+export async function fetchLoopback(): Promise<LoopbackInterface[]> {
+  const node = kindNode(await fetchInterfacesConfig(), "loopback");
+
+  return Object.entries(node)
+    .map(([name, raw]) => {
+      const cfg = (raw ?? {}) as Cfg;
+      return {
+        name,
+        description: childStr(cfg, "description"),
+        addresses: asAddresses(cfg),
+        mtu: asMtu(cfg),
+        enabled: isEnabled(cfg),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/// Configured bond (link aggregation) interfaces.
+export async function fetchBonds(): Promise<BondInterface[]> {
+  const node = kindNode(await fetchInterfacesConfig(), "bonding");
+
+  return Object.entries(node)
+    .map(([name, raw]) => {
+      const cfg = (raw ?? {}) as Cfg;
+      return {
+        name,
+        description: childStr(cfg, "description"),
+        addresses: asAddresses(cfg),
+        mtu: asMtu(cfg),
+        mode: childStr(cfg, "mode"),
+        members: asMembers(cfg),
+        enabled: isEnabled(cfg),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/// Configured bridge interfaces.
+export async function fetchBridges(): Promise<BridgeInterface[]> {
+  const node = kindNode(await fetchInterfacesConfig(), "bridge");
+
+  return Object.entries(node)
+    .map(([name, raw]) => {
+      const cfg = (raw ?? {}) as Cfg;
+      return {
+        name,
+        description: childStr(cfg, "description"),
+        addresses: asAddresses(cfg),
+        mtu: asMtu(cfg),
+        members: asMembers(cfg),
+        enabled: isEnabled(cfg),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -157,14 +334,34 @@ const trimmed = (s: string | null) => {
   return t === "" ? null : t;
 };
 
-/// Diff a desired ethernet config against the live row into a minimal
-/// set/delete command list (empty when the config already matches).
-export function diffEthernet(
-  live: EthernetInterface | null,
-  u: EthernetConfigUpdate,
-): VyosCommand[] {
-  const base = ["interfaces", "ethernet", u.name];
-  const out: VyosCommand[] = [];
+/// Commit a command list in one transaction and save to the boot config so the
+/// change survives a reboot. Returns the number of changes applied.
+async function commitAndSave(commands: VyosCommand[]): Promise<number> {
+  if (commands.length === 0) return 0;
+
+  const resp = await vyosApi<VyosResponse>("configure", commands);
+  if (!resp.success) {
+    throw new Error(resp.error || "Device rejected the configuration.");
+  }
+
+  const save = await vyosApi<VyosResponse>("config-file", { op: "save" });
+  if (!save.success) {
+    throw new Error(
+      `Applied, but saving to boot config failed: ${save.error ?? "unknown error"}`,
+    );
+  }
+
+  return commands.length;
+}
+
+/// Diff description + addresses + MTU + enabled against a live row — the leaf
+/// set every interface type shares. Returns whether any `set` was emitted.
+function diffCommonLeaves(
+  out: VyosCommand[],
+  base: string[],
+  live: { description: string | null; addresses: string[]; mtu: number | null; enabled: boolean } | null,
+  u: { description: string | null; addresses: string[]; mtu: number | null; enabled: boolean },
+): void {
   const mk = (op: "set" | "delete", ...suffix: string[]) =>
     out.push({ op, path: [...base, ...suffix] });
 
@@ -187,6 +384,38 @@ export function diffEthernet(
     else mk("delete", "mtu");
   }
 
+  // Enabled state — VyOS models "down" as a valueless `disable` leaf. New
+  // interfaces default up.
+  const liveEnabled = live?.enabled ?? true;
+  if (u.enabled !== liveEnabled) {
+    if (u.enabled) mk("delete", "disable");
+    else mk("set", "disable");
+  }
+}
+
+/// A new node with nothing else set still needs to be created explicitly.
+function ensureCreated(out: VyosCommand[], base: string[], isNew: boolean): void {
+  if (isNew && !out.some((c) => c.op === "set")) {
+    out.length = 0;
+    out.push({ op: "set", path: base });
+  }
+}
+
+// ── ethernet ──────────────────────────────────────────────────────────────────
+
+/// Diff a desired ethernet config against the live row into a minimal
+/// set/delete command list (empty when the config already matches).
+export function diffEthernet(
+  live: EthernetInterface | null,
+  u: EthernetConfigUpdate,
+): VyosCommand[] {
+  const base = ["interfaces", "ethernet", u.name];
+  const out: VyosCommand[] = [];
+  const mk = (op: "set" | "delete", ...suffix: string[]) =>
+    out.push({ op, path: [...base, ...suffix] });
+
+  diffCommonLeaves(out, base, live, u);
+
   // Speed / duplex — null means auto (the default), modelled by deleting the leaf.
   const newSpeed = trimmed(u.speed);
   if (newSpeed !== (live?.speed ?? null)) {
@@ -199,45 +428,170 @@ export function diffEthernet(
     else mk("delete", "duplex");
   }
 
-  // Enabled state — VyOS models "down" as a valueless `disable` leaf. New NICs default up.
-  const liveEnabled = live?.enabled ?? true;
-  if (u.enabled !== liveEnabled) {
-    if (u.enabled) mk("delete", "disable");
-    else mk("set", "disable");
+  ensureCreated(out, base, live === null);
+  return out;
+}
+
+/// Apply a desired ethernet config against the live row. Returns the number of
+/// changes applied (0 = already matched, nothing sent).
+export function applyEthernet(
+  live: EthernetInterface | null,
+  update: EthernetConfigUpdate,
+): Promise<number> {
+  return commitAndSave(diffEthernet(live, update));
+}
+
+// ── VLAN ──────────────────────────────────────────────────────────────────────
+
+/// Config path of a VLAN sub-interface node: `interfaces ethernet <parent> vif <id>`.
+const vifBase = (parent: string, vid: number) => [
+  "interfaces",
+  "ethernet",
+  parent,
+  "vif",
+  String(vid),
+];
+
+/// Diff a desired VLAN against the live list into a minimal set/delete command
+/// list. An edit that changes parent or id is a move: drop the old vif and
+/// rebuild fresh.
+export function diffVlan(existing: VlanInterface[], u: VlanConfigUpdate): VyosCommand[] {
+  const out: VyosCommand[] = [];
+
+  const moved =
+    u.original_parent !== null &&
+    u.original_vlan_id !== null &&
+    (u.original_parent !== u.parent || u.original_vlan_id !== u.vlan_id);
+  if (moved) {
+    out.push({ op: "delete", path: vifBase(u.original_parent!, u.original_vlan_id!) });
   }
 
-  // Configuring a previously-unconfigured NIC with nothing else still needs
-  // the node created.
-  if (live === null && !out.some((c) => c.op === "set")) {
-    out.length = 0;
-    out.push({ op: "set", path: base });
-  }
+  // After a move the target is brand new, so diff against an empty live config.
+  const live = moved
+    ? null
+    : existing.find((v) => v.parent === u.parent && v.vlan_id === u.vlan_id) ?? null;
+
+  const base = vifBase(u.parent, u.vlan_id);
+  const body: VyosCommand[] = [];
+  diffCommonLeaves(body, base, live, u);
+  ensureCreated(body, base, live === null);
+  out.push(...body);
 
   return out;
 }
 
-/// Apply a desired ethernet config: diff against the live row, commit all
-/// changes in one transaction, and save to the boot config. Returns the number
-/// of changes applied (0 = already matched, nothing sent).
-export async function applyEthernet(
-  live: EthernetInterface | null,
-  update: EthernetConfigUpdate,
+/// Apply a desired VLAN config. Returns the number of changes applied.
+export function applyVlan(existing: VlanInterface[], update: VlanConfigUpdate): Promise<number> {
+  return commitAndSave(diffVlan(existing, update));
+}
+
+/// Delete a VLAN sub-interface.
+export function deleteVlan(parent: string, vlanId: number): Promise<number> {
+  return commitAndSave([{ op: "delete", path: vifBase(parent, vlanId) }]);
+}
+
+// ── loopback ──────────────────────────────────────────────────────────────────
+
+/// Diff a desired loopback config. Only `description` and `address` exist on
+/// the VyOS loopback node, so that's all the diff touches.
+export function diffLoopback(
+  live: LoopbackInterface | null,
+  u: LoopbackConfigUpdate,
+): VyosCommand[] {
+  const base = ["interfaces", "loopback", u.name];
+  const out: VyosCommand[] = [];
+  const mk = (op: "set" | "delete", ...suffix: string[]) =>
+    out.push({ op, path: [...base, ...suffix] });
+
+  const newDesc = trimmed(u.description);
+  if (newDesc !== (live?.description ?? null)) {
+    if (newDesc !== null) mk("set", "description", newDesc);
+    else mk("delete", "description");
+  }
+
+  const liveAddrs = live?.addresses ?? [];
+  const newAddrs = u.addresses.map((a) => a.trim()).filter(Boolean);
+  for (const a of newAddrs) if (!liveAddrs.includes(a)) mk("set", "address", a);
+  for (const a of liveAddrs) if (!newAddrs.includes(a)) mk("delete", "address", a);
+
+  ensureCreated(out, base, live === null);
+  return out;
+}
+
+/// Apply a desired loopback config. Returns the number of changes applied.
+export function applyLoopback(
+  live: LoopbackInterface | null,
+  update: LoopbackConfigUpdate,
 ): Promise<number> {
-  const commands = diffEthernet(live, update);
-  if (commands.length === 0) return 0;
+  return commitAndSave(diffLoopback(live, update));
+}
 
-  const resp = await vyosApi<VyosResponse>("configure", commands);
-  if (!resp.success) {
-    throw new Error(resp.error || "Device rejected the configuration.");
+// ── bond / bridge ─────────────────────────────────────────────────────────────
+
+/// Diff member lists — `member interface <name>` nodes, multi-value like `address`.
+function diffMembers(
+  out: VyosCommand[],
+  base: string[],
+  liveMembers: string[],
+  newMembers: string[],
+): void {
+  for (const m of newMembers)
+    if (!liveMembers.includes(m)) out.push({ op: "set", path: [...base, "member", "interface", m] });
+  for (const m of liveMembers)
+    if (!newMembers.includes(m)) out.push({ op: "delete", path: [...base, "member", "interface", m] });
+}
+
+/// Diff a desired bond config against the live row into a minimal set/delete
+/// command list (empty when the config already matches).
+export function diffBond(live: BondInterface | null, u: BondConfigUpdate): VyosCommand[] {
+  const base = ["interfaces", "bonding", u.name];
+  const out: VyosCommand[] = [];
+
+  diffCommonLeaves(out, base, live, u);
+
+  // Mode — an absent leaf means the VyOS default, 802.3ad.
+  if (u.mode !== (live?.mode ?? "802.3ad")) {
+    out.push({ op: "set", path: [...base, "mode", u.mode] });
   }
 
-  // Persist to the boot config so the change survives a reboot.
-  const save = await vyosApi<VyosResponse>("config-file", { op: "save" });
-  if (!save.success) {
-    throw new Error(
-      `Applied, but saving to boot config failed: ${save.error ?? "unknown error"}`,
-    );
-  }
+  diffMembers(out, base, live?.members ?? [], u.members);
 
-  return commands.length;
+  ensureCreated(out, base, live === null);
+  return out;
+}
+
+/// Apply a desired bond config. Returns the number of changes applied.
+export function applyBond(live: BondInterface | null, update: BondConfigUpdate): Promise<number> {
+  return commitAndSave(diffBond(live, update));
+}
+
+/// Delete a bond interface.
+export function deleteBond(name: string): Promise<number> {
+  return commitAndSave([{ op: "delete", path: ["interfaces", "bonding", name] }]);
+}
+
+/// Diff a desired bridge config against the live row into a minimal set/delete
+/// command list (empty when the config already matches).
+export function diffBridge(live: BridgeInterface | null, u: BridgeConfigUpdate): VyosCommand[] {
+  const base = ["interfaces", "bridge", u.name];
+  const out: VyosCommand[] = [];
+
+  diffCommonLeaves(out, base, live, u);
+  diffMembers(out, base, live?.members ?? [], u.members);
+
+  ensureCreated(out, base, live === null);
+  return out;
+}
+
+/// Apply a desired bridge config. Returns the number of changes applied.
+export function applyBridge(
+  live: BridgeInterface | null,
+  update: BridgeConfigUpdate,
+): Promise<number> {
+  return commitAndSave(diffBridge(live, update));
+}
+
+/// Delete a bridge interface.
+export function deleteBridge(name: string): Promise<number> {
+  return commitAndSave([{ op: "delete", path: ["interfaces", "bridge", name] }]);
 }
