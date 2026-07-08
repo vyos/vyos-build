@@ -22,8 +22,15 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-nat",        section: "Go to", label: "NAT",        kbd: "G N", href: "/nat" },
   { id: "nav-nat-nat44",  section: "Go to", label: "NAT › NAT44", kbd: "", href: "/nat/nat44" },
   { id: "nav-firewall",   section: "Go to", label: "Firewall",   kbd: "G F", href: "/firewall" },
+  { id: "nav-fw-rules",    section: "Go to", label: "Firewall › Rules",    kbd: "", href: "/firewall/rules" },
+  { id: "nav-fw-policies", section: "Go to", label: "Firewall › Policies", kbd: "", href: "/firewall/policies" },
+  { id: "nav-fw-aliases",  section: "Go to", label: "Firewall › Aliases",  kbd: "", href: "/firewall/aliases" },
   { id: "nav-routing",    section: "Go to", label: "Routing",    kbd: "G R", href: "/routing" },
+  { id: "nav-rt-static",   section: "Go to", label: "Routing › Static", kbd: "", href: "/routing/static" },
   { id: "nav-services",   section: "Go to", label: "Services",   kbd: "G V", href: "/services" },
+  { id: "nav-svc-dhcp-server",    section: "Go to", label: "Services › DHCP Server",    kbd: "", href: "/services/dhcp-server" },
+  { id: "nav-svc-dhcp-relay",     section: "Go to", label: "Services › DHCP Relay",     kbd: "", href: "/services/dhcp-relay" },
+  { id: "nav-svc-dns-forwarding", section: "Go to", label: "Services › DNS Forwarding", kbd: "", href: "/services/dns-forwarding" },
   { id: "nav-system",     section: "Go to", label: "System",     kbd: "G S", href: "/system" },
 ];
 

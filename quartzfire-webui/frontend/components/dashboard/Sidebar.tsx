@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -45,9 +45,37 @@ const ITEMS: NavItem[] = [
       { id: "nat44", label: "NAT44", href: "/nat/nat44", icon: Shuffle },
     ],
   },
-  { id: "firewall",   label: "Firewall",   icon: Shield,         href: "/firewall" },
-  { id: "routing",    label: "Routing",    icon: Route,          href: "/routing" },
-  { id: "services",   label: "Services",   icon: Server,         href: "/services" },
+  {
+    id: "firewall",
+    label: "Firewall",
+    icon: Shield,
+    href: "/firewall",
+    children: [
+      { id: "rules",    label: "Rules",    href: "/firewall/rules",    icon: ListOrdered },
+      { id: "policies", label: "Policies", href: "/firewall/policies", icon: Boxes },
+      { id: "aliases",  label: "Aliases",  href: "/firewall/aliases",  icon: BookMarked },
+    ],
+  },
+  {
+    id: "routing",
+    label: "Routing",
+    icon: Route,
+    href: "/routing",
+    children: [
+      { id: "static", label: "Static", href: "/routing/static", icon: Milestone },
+    ],
+  },
+  {
+    id: "services",
+    label: "Services",
+    icon: Server,
+    href: "/services",
+    children: [
+      { id: "dhcp-server",    label: "DHCP Server",    href: "/services/dhcp-server",    icon: Router },
+      { id: "dhcp-relay",     label: "DHCP Relay",     href: "/services/dhcp-relay",     icon: Forward },
+      { id: "dns-forwarding", label: "DNS Forwarding", href: "/services/dns-forwarding", icon: Globe },
+    ],
+  },
   { id: "system",     label: "System",     icon: Settings,       href: "/system" },
 ];
 

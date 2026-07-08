@@ -17,13 +17,15 @@ function StatePill({ enabled }: { enabled: boolean }) {
 }
 
 const dash = (v: string | null) => (v && v.length ? v : "—");
+// An unset match address means "any" in VyOS NAT — surface that rather than a blank dash.
+const any = (v: string | null) => (v && v.length ? v : "any");
 
 const columns: Column<NatRule>[] = [
   { key: "rule", header: "Rule", value: (r) => r.rule, mono: true, sortable: true, width: 80 },
   { key: "description", header: "Description", value: (r) => r.description ?? "", render: (r) => dash(r.description), sortable: true },
   { key: "interface", header: "Interface", value: (r) => r.interface ?? "", render: (r) => dash(r.interface), mono: true, width: 110 },
-  { key: "source", header: "Source", value: (r) => r.source ?? r.source_group ?? "", render: (r) => dash(r.source ?? r.source_group), mono: true },
-  { key: "destination", header: "Destination", value: (r) => r.destination ?? r.destination_group ?? "", render: (r) => dash(r.destination ?? r.destination_group), mono: true },
+  { key: "source", header: "Source", value: (r) => r.source ?? r.source_group ?? "any", render: (r) => any(r.source ?? r.source_group), mono: true },
+  { key: "destination", header: "Destination", value: (r) => r.destination ?? r.destination_group ?? "any", render: (r) => any(r.destination ?? r.destination_group), mono: true },
   {
     key: "translation",
     header: "Translation",
