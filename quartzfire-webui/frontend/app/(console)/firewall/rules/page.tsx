@@ -420,7 +420,14 @@ export default function FirewallRulesPage() {
                             </span>
                           </td>
                           <td>
-                            <ActionPill action={r.action} />
+                            <span className="inline-flex items-center gap-[5px]">
+                              <ActionPill action={r.action} />
+                              {r.ips && (
+                                <span className="badge badge-warn" title="Matches are inspected by the IPS engine">
+                                  IPS
+                                </span>
+                              )}
+                            </span>
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {r.name ?? <span className="text-[var(--qz-fg-4)]">—</span>}

@@ -18,6 +18,10 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 ReadOnlyPaths=/etc/quartzfire
+# IPS desired state (/config persists across image upgrades). Written here,
+# applied by the root quartzfire-ips units. `-` tolerates absence on dev
+# boxes without /config; the ips-apply boot run creates it group-writable.
+ReadWritePaths=-/config/quartzfire
 # Writable persistent dir (/var/lib/quartzfire-webui) for the session-signing
 # secret, generated on first start so logins survive restarts.
 StateDirectory=quartzfire-webui

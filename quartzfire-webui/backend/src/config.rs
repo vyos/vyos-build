@@ -35,6 +35,17 @@ pub struct Config {
     /// Session (JWT + cookie) lifetime in hours.
     #[serde(default = "default_session_hours")]
     pub session_hours: u64,
+
+    /// Desired IPS state, applied by the root `ips-apply` helper. Lives under
+    /// `/config` so it survives image upgrades. The webui unit grants write
+    /// access via `ReadWritePaths=`; the helper's boot run creates the
+    /// directory group-writable.
+    #[serde(default = "default_ips_settings_file")]
+    pub ips_settings_file: PathBuf,
+
+    /// The helper's last apply report (read-only for us).
+    #[serde(default = "default_ips_status_file")]
+    pub ips_status_file: PathBuf,
 }
 
 fn default_listen() -> String {
@@ -58,6 +69,12 @@ fn default_jwt_secret_file() -> PathBuf {
 }
 fn default_cookie_secure() -> bool {
     true
+}
+fn default_ips_settings_file() -> PathBuf {
+    PathBuf::from("/config/quartzfire/ips.json")
+}
+fn default_ips_status_file() -> PathBuf {
+    PathBuf::from("/run/quartzfire-ips/status.json")
 }
 fn default_session_hours() -> u64 {
     24

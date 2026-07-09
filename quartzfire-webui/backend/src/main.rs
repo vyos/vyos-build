@@ -1,6 +1,7 @@
 mod auth;
 mod config;
 mod error;
+mod ips;
 mod monitor;
 mod proxy;
 mod vyos;
@@ -11,7 +12,7 @@ use axum::{
     http::{header, HeaderValue},
     middleware::{self, Next},
     response::Response,
-    routing::{any, get, post},
+    routing::{any, get, post, put},
     Router,
 };
 use std::sync::Arc;
@@ -62,6 +63,10 @@ async fn main() -> Result<()> {
         // Static routes win over the `/api/*rest` proxy wildcard.
         .route("/api/monitor/firewall-log", get(monitor::firewall_log))
         .route("/api/monitor/system-log", get(monitor::system_log))
+        .route("/api/ips/status", get(ips::status))
+        .route("/api/ips/settings", put(ips::put_settings))
+        .route("/api/ips/update", post(ips::request_update))
+        .route("/api/ips/alerts", get(ips::alerts))
         .route("/api", any(proxy::handler))
         .route("/api/*rest", any(proxy::handler))
         .layer(middleware::from_fn_with_state(

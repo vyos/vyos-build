@@ -170,6 +170,11 @@ export interface FirewallRule {
   /** Rule name, stored as the VyOS `description` leaf. */
   name: string | null;
   action: RuleAction | null;
+  /** Whether matches are inspected by the IPS engine. Stored as `action
+   *  queue` (+ `queue`/`queue-options` leaves) — the packet is queued to
+   *  Suricata, which returns the accept/drop verdict. Displayed as an Allow
+   *  rule with IPS on; `action` reads "accept" when this is set. */
+  ips: boolean;
   from: RuleEndpoint;
   to: RuleEndpoint;
   /** Policy (destination port-group) name, or null = any port. */
@@ -419,11 +424,15 @@ function parseChain(filter: Cfg, chain: RuleChain): { rules: FirewallRule[]; set
       continue;
     }
     const dstGroup = childCfg(childCfg(cfg, "destination") ?? {}, "group") ?? {};
+    const rawAction = childStr(cfg, "action");
     rules.push({
       rule: Number(num) || 0,
       chain,
       name,
-      action: asAction(childStr(cfg, "action")),
+      // `queue` hands matches to the IPS engine for an inline verdict — the
+      // GUI shows it as Allow with IPS on.
+      action: rawAction === "queue" ? "accept" : asAction(rawAction),
+      ips: rawAction === "queue",
       from: parseEndpoint(cfg, "source"),
       to: parseEndpoint(cfg, "destination"),
       policy: childStr(dstGroup, "port-group"),
@@ -712,6 +721,9 @@ export interface RuleUpdate {
   enabled: boolean;
   /** Log matches so they show in the Traffic Monitor. */
   log: boolean;
+  /** Inspect matches with the IPS engine (only meaningful on Allow rules —
+   *  see FirewallRule.ips). */
+  ips: boolean;
 }
 
 /// Shared allocation context for both sides of a rule diff.
@@ -919,7 +931,21 @@ export function diffRule(liveIn: FirewallRule | null, u: RuleUpdate, cfg: Firewa
     else if (liveV !== null) out.push({ op: "delete", path: [...base, ...sub] });
   };
 
-  leaf(["action"], live?.action ?? null, u.action);
+  // IPS-inspected Allow rules are stored as `action queue`: matches are queued
+  // to Suricata for the inline accept/drop verdict. `queue 0` names the
+  // NFQUEUE the IPS engine listens on; `queue-options bypass` fails open so
+  // traffic still flows if Suricata is down.
+  const wantIps = u.ips && u.action === "accept";
+  const liveIps = live?.ips ?? false;
+  const liveWireAction = live?.action === null ? null : liveIps ? "queue" : live?.action ?? null;
+  leaf(["action"], liveWireAction, wantIps ? "queue" : u.action);
+  if (wantIps && !liveIps) {
+    out.push({ op: "set", path: [...base, "queue", "0"] });
+    out.push({ op: "set", path: [...base, "queue-options", "bypass"] });
+  } else if (!wantIps && liveIps) {
+    out.push({ op: "delete", path: [...base, "queue"] });
+    out.push({ op: "delete", path: [...base, "queue-options"] });
+  }
   leaf(["description"], live?.name ?? null, u.name);
 
   const ctx: AutoCtx = { autoGroups: cfg.auto_groups, taken: new Set(cfg.group_names) };
@@ -970,6 +996,31 @@ export function diffRule(liveIn: FirewallRule | null, u: RuleUpdate, cfg: Firewa
 /// Apply a desired rule. Returns the number of changes applied.
 export function applyRule(live: FirewallRule | null, update: RuleUpdate, cfg: FirewallConfig): Promise<number> {
   return commitAndSave(diffRule(live, update, cfg));
+}
+
+/// Commands toggling IPS inspection on an existing Allow rule (see
+/// FirewallRule.ips). Empty when nothing would change or the rule isn't an
+/// Allow rule.
+export function ipsRuleCommands(rule: FirewallRule, enabled: boolean): VyosCommand[] {
+  if (rule.action !== "accept" || rule.ips === enabled) return [];
+  const base = ruleBase(rule.chain, rule.rule);
+  if (enabled) {
+    return [
+      { op: "set", path: [...base, "action", "queue"] },
+      { op: "set", path: [...base, "queue", "0"] },
+      { op: "set", path: [...base, "queue-options", "bypass"] },
+    ];
+  }
+  return [
+    { op: "set", path: [...base, "action", "accept"] },
+    { op: "delete", path: [...base, "queue"] },
+    { op: "delete", path: [...base, "queue-options"] },
+  ];
+}
+
+/// Toggle IPS inspection on one or more rules. Returns the number of changes.
+export function applyRuleIps(changes: { rule: FirewallRule; enabled: boolean }[]): Promise<number> {
+  return commitAndSave(changes.flatMap((c) => ipsRuleCommands(c.rule, c.enabled)));
 }
 
 /// Delete a filter rule, along with the auto-managed OR groups backing its

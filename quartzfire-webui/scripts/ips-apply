@@ -1,0 +1,474 @@
+#!/usr/bin/python3
+# Apply the QuartzFire IPS desired state (/config/quartzfire/ips.json) to
+# Suricata. Runs as root; the WebUI backend is unprivileged and only edits the
+# desired-state file — quartzfire-ips.path triggers this script on change, and
+# quartzfire-ips.service runs it once per boot so an image upgrade re-renders
+# everything from /config.
+#
+# What "applying" means:
+#   * render /etc/suricata/suricata.yaml — NFQUEUE mode (the firewall's
+#     IPS-enabled rules use `action queue`, so only their traffic is
+#     inspected), EVE alerts to syslog so the backend can stream them from the
+#     journal, scan-mode knobs (Fast = stream/TLS bypass);
+#   * render a systemd drop-in replacing Debian's af-packet ExecStart with
+#     `-q 0`;
+#   * fetch signatures with suricata-update when the desired update_seq is
+#     ahead of the last applied one (or no ruleset exists yet), keeping a
+#     pristine copy;
+#   * regenerate the active ruleset from the pristine copy: map each
+#     signature's priority (explicit `priority:` keyword, else its classtype's
+#     classification.config priority) onto WatchGuard-style threat levels
+#     (1 critical / 2 high / 3 medium / 4 low / else information) and apply
+#     the per-level action — alert, drop, or disabled — plus SID exceptions;
+#   * start/stop/reload suricata.service accordingly;
+#   * report to /run/quartzfire-ips/status.json for the WebUI to read back.
+#
+# Idempotent and safe to run at any time. The pristine-copy scheme makes the
+# per-level rewrite deterministic: the active ruleset is always regenerated
+# from unmodified sources, never transformed in place.
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+CONFIG_DIR = "/config/quartzfire"
+SETTINGS_FILE = CONFIG_DIR + "/ips.json"
+STATUS_DIR = "/run/quartzfire-ips"
+STATUS_FILE = STATUS_DIR + "/status.json"
+STATE_DIR = "/var/lib/quartzfire-ips"
+STATE_FILE = STATE_DIR + "/state.json"
+
+RULES_DIR = "/var/lib/suricata/rules"
+RULES_FILE = RULES_DIR + "/suricata.rules"
+PRISTINE_FILE = RULES_DIR + "/suricata.rules.qz-pristine"
+
+SURICATA_YAML = "/etc/suricata/suricata.yaml"
+DROPIN_DIR = "/etc/systemd/system/suricata.service.d"
+DROPIN_FILE = DROPIN_DIR + "/quartzfire.conf"
+
+LEVELS = ["critical", "high", "medium", "low", "information"]
+
+DEFAULT_LEVEL_POLICY = {
+    "critical": {"action": "drop", "alarm": True, "log": True},
+    "high": {"action": "drop", "alarm": True, "log": True},
+    "medium": {"action": "drop", "alarm": False, "log": True},
+    "low": {"action": "drop", "alarm": False, "log": True},
+    "information": {"action": "allow", "alarm": False, "log": False},
+}
+
+DISABLED_MARK = "# [qz-disabled] "
+
+SURICATA_YAML_TEMPLATE = """\
+%YAML 1.1
+---
+# Managed by QuartzFire (ips-apply) — do not edit; changes are overwritten.
+# Traffic selection happens in the firewall: rules with IPS enabled use
+# `action queue`, so only their packets reach this engine via NFQUEUE 0.
+
+vars:
+  address-groups:
+    HOME_NET: "[192.168.0.0/16,10.0.0.0/8,172.16.0.0/12]"
+    EXTERNAL_NET: "!$HOME_NET"
+    HTTP_SERVERS: "$HOME_NET"
+    SMTP_SERVERS: "$HOME_NET"
+    SQL_SERVERS: "$HOME_NET"
+    DNS_SERVERS: "$HOME_NET"
+    TELNET_SERVERS: "$HOME_NET"
+    AIM_SERVERS: "$EXTERNAL_NET"
+    DC_SERVERS: "$HOME_NET"
+    DNP3_SERVER: "$HOME_NET"
+    DNP3_CLIENT: "$HOME_NET"
+    MODBUS_CLIENT: "$HOME_NET"
+    MODBUS_SERVER: "$HOME_NET"
+    ENIP_CLIENT: "$HOME_NET"
+    ENIP_SERVER: "$HOME_NET"
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+    FTP_PORTS: 21
+    GENEVE_PORTS: 6081
+    VXLAN_PORTS: 4789
+    TEREDO_PORTS: 3544
+
+default-rule-path: {rules_dir}
+rule-files:
+  - suricata.rules
+
+classification-file: {classification_file}
+reference-config-file: /etc/suricata/reference.config
+
+runmode: workers
+
+# Inline verdict mode. fail-open accepts packets instead of dropping them if
+# the queue overflows — the firewall's queue rules already carry
+# `queue-options bypass` for the daemon-down case.
+nfq:
+  mode: accept
+  fail-open: yes
+
+outputs:
+  - fast:
+      enabled: no
+  # Alerts go to syslog as EVE JSON; the WebUI streams them from the journal
+  # (journalctl -t suricata), the same transport as the Traffic Monitor.
+  - eve-log:
+      enabled: yes
+      filetype: syslog
+      identity: suricata
+      facility: local5
+      level: Info
+      types:
+        - alert
+
+stream:
+  # Fast Scan stops inspecting flows past the reassembly depth.
+  bypass: {stream_bypass}
+
+app-layer:
+  protocols:
+    tls:
+      # Fast Scan bypasses flows once they go encrypted.
+      encryption-handling: {tls_handling}
+
+# Control socket for live ruleset reloads (suricatasc).
+unix-command:
+  enabled: yes
+"""
+
+DROPIN_TEMPLATE = """\
+# Managed by QuartzFire (ips-apply) — do not edit; changes are overwritten.
+# Replaces Debian's af-packet capture with NFQUEUE 0: Suricata only sees
+# packets the firewall queues to it (rules with IPS enabled).
+[Service]
+ExecStartPre=
+ExecStartPre=/bin/rm -f /run/suricata.pid
+ExecStart=
+ExecStart=/usr/bin/suricata -D -q 0 -c /etc/suricata/suricata.yaml --pidfile /run/suricata.pid
+ExecReload=
+ExecReload=/bin/kill -USR2 $MAINPID
+"""
+
+
+def log(msg):
+    print(f"quartzfire-ips: {msg}", file=sys.stderr)
+
+
+def run(cmd, timeout=60):
+    """Run a command; returns (exit_code, combined_output)."""
+    try:
+        p = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=timeout,
+        )
+        return p.returncode, p.stdout.strip()
+    except FileNotFoundError:
+        return 127, f"{cmd[0]}: not found"
+    except subprocess.TimeoutExpired:
+        return 124, f"{' '.join(cmd)}: timed out after {timeout}s"
+
+
+def write_atomic(path, text, mode=0o644):
+    tmp = path + ".qz-tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+
+
+def write_if_changed(path, text, mode=0o644):
+    """Write `text` to `path` unless already identical. Returns True on change."""
+    try:
+        with open(path) as f:
+            if f.read() == text:
+                return False
+    except OSError:
+        pass
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    write_atomic(path, text, mode)
+    return True
+
+
+# ── desired state / helper state ──────────────────────────────────────────────
+
+
+def ensure_config_dir():
+    """Create /config/quartzfire group-writable so the DynamicUser backend
+    (supplementary group quartzfire) can write the desired-state file."""
+    if not os.path.isdir("/config"):
+        return  # not a VyOS system (dev box)
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    try:
+        import grp
+        gid = grp.getgrnam("quartzfire").gr_gid
+    except KeyError:
+        gid = 0
+    os.chown(CONFIG_DIR, 0, gid)
+    os.chmod(CONFIG_DIR, 0o2775)
+
+
+def load_settings():
+    """Desired state with defaults merged; absent file = IPS off."""
+    settings = {
+        "enabled": False,
+        "scan_mode": "full",
+        "exceptions": [],
+        "update_url": None,
+        "update_seq": 0,
+    }
+    settings.update({lvl: dict(pol) for lvl, pol in DEFAULT_LEVEL_POLICY.items()})
+    try:
+        with open(SETTINGS_FILE) as f:
+            desired = json.load(f)
+    except FileNotFoundError:
+        return settings
+    for key, value in desired.items():
+        if key in LEVELS and isinstance(value, dict):
+            settings[key] = {**DEFAULT_LEVEL_POLICY[key], **value}
+        else:
+            settings[key] = value
+    return settings
+
+
+def load_state():
+    try:
+        with open(STATE_FILE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"update_seq_applied": 0, "last_update": None}
+
+
+def save_state(state):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    write_atomic(STATE_FILE, json.dumps(state))
+
+
+# ── signature update & threat-level rewrite ───────────────────────────────────
+
+
+def suricata_update(settings, state):
+    """Fetch fresh signatures; on success refresh the pristine copy."""
+    cmd = ["suricata-update", "--no-reload"]
+    if settings.get("update_url"):
+        cmd += ["--url", settings["update_url"]]
+    log(f"updating signatures: {' '.join(cmd)}")
+    code, out = run(cmd, timeout=600)
+    ok = code == 0 and os.path.isfile(RULES_FILE)
+    if ok:
+        shutil.copy2(RULES_FILE, PRISTINE_FILE)
+    else:
+        log(f"suricata-update failed ({code}): {out[-2000:]}")
+    state["last_update"] = {
+        "time": int(time.time()),
+        "ok": ok,
+        "message": None if ok else (out.splitlines()[-1] if out else f"exit {code}"),
+    }
+    state["update_seq_applied"] = settings.get("update_seq", 0)
+    return ok
+
+
+def classification_priorities():
+    """classtype → priority from classification.config (rule-set copy first —
+    it matches the downloaded signatures; package copy as fallback)."""
+    priorities = {}
+    for path in (RULES_DIR + "/classification.config", "/etc/suricata/classification.config"):
+        try:
+            with open(path) as f:
+                text = f.read()
+        except OSError:
+            continue
+        for m in re.finditer(
+            r"^config classification:\s*([^,]+),[^,]*,\s*(\d+)", text, re.MULTILINE
+        ):
+            priorities.setdefault(m.group(1).strip(), int(m.group(2)))
+    return priorities
+
+
+def priority_level(priority):
+    if priority is None:
+        return "information"
+    return {1: "critical", 2: "high", 3: "medium", 4: "low"}.get(priority, "information")
+
+
+RULE_LINE = re.compile(r"^(alert|drop|pass|reject)\s")
+SID_RE = re.compile(r"\bsid\s*:\s*(\d+)\s*;")
+PRIORITY_RE = re.compile(r"\bpriority\s*:\s*(\d+)\s*;")
+CLASSTYPE_RE = re.compile(r"\bclasstype\s*:\s*([^;\s]+)\s*;")
+
+
+def rewrite_rules(settings):
+    """Regenerate the active ruleset from the pristine copy, applying the
+    per-level actions and SID exceptions. Returns per-level rule counts."""
+    # Seed the pristine copy from an existing ruleset the first time (e.g. a
+    # manual suricata-update run predating this tool).
+    if not os.path.isfile(PRISTINE_FILE):
+        if os.path.isfile(RULES_FILE):
+            shutil.copy2(RULES_FILE, PRISTINE_FILE)
+        else:
+            os.makedirs(RULES_DIR, exist_ok=True)
+            write_atomic(PRISTINE_FILE, "")
+
+    priorities = classification_priorities()
+    exceptions = {int(s) for s in settings.get("exceptions", [])}
+    counts = {lvl: 0 for lvl in LEVELS}
+    counts["disabled"] = 0
+
+    out_lines = []
+    with open(PRISTINE_FILE) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not RULE_LINE.match(line):
+                out_lines.append(line)  # comments, blanks, multi-line tails
+                continue
+
+            m = PRIORITY_RE.search(line)
+            if m:
+                priority = int(m.group(1))  # explicit keyword overrides classtype
+            else:
+                ct = CLASSTYPE_RE.search(line)
+                priority = priorities.get(ct.group(1)) if ct else None
+            level = priority_level(priority)
+
+            sid_m = SID_RE.search(line)
+            sid = int(sid_m.group(1)) if sid_m else None
+            action = settings[level]["action"]
+
+            if action == "disable" or (sid is not None and sid in exceptions):
+                counts["disabled"] += 1
+                out_lines.append(DISABLED_MARK + line)
+                continue
+            counts[level] += 1
+            desired = "drop" if action == "drop" else "alert"
+            out_lines.append(RULE_LINE.sub(desired + " ", line, count=1))
+
+    write_atomic(RULES_FILE, "\n".join(out_lines) + "\n")
+    return counts
+
+
+# ── suricata service ──────────────────────────────────────────────────────────
+
+
+def render_configs(settings):
+    """Render suricata.yaml + the systemd drop-in. Returns True on change."""
+    fast = settings.get("scan_mode") == "fast"
+    classification = RULES_DIR + "/classification.config"
+    if not os.path.isfile(classification):
+        classification = "/etc/suricata/classification.config"
+    yaml = SURICATA_YAML_TEMPLATE.format(
+        rules_dir=RULES_DIR,
+        classification_file=classification,
+        stream_bypass="yes" if fast else "no",
+        tls_handling="bypass" if fast else "default",
+    )
+    changed = write_if_changed(SURICATA_YAML, yaml)
+    if write_if_changed(DROPIN_FILE, DROPIN_TEMPLATE):
+        run(["systemctl", "daemon-reload"])
+        changed = True
+    return changed
+
+
+def suricata_active():
+    code, _ = run(["systemctl", "is-active", "--quiet", "suricata.service"])
+    return code == 0
+
+
+def start_or_reload(config_changed, rules_changed):
+    run(["systemctl", "enable", "suricata.service"])
+    if config_changed or not suricata_active():
+        code, out = run(["systemctl", "restart", "suricata.service"], timeout=120)
+    elif rules_changed:
+        # ExecReload sends USR2 — a live ruleset reload, no traffic gap.
+        code, out = run(["systemctl", "reload-or-restart", "suricata.service"], timeout=120)
+    else:
+        return None
+    return None if code == 0 else (out or f"suricata start failed (exit {code})")
+
+
+def stop_suricata():
+    run(["systemctl", "disable", "--now", "suricata.service"], timeout=120)
+
+
+# ── status report ─────────────────────────────────────────────────────────────
+
+
+def write_status(settings, state, rule_counts, error):
+    os.makedirs(STATUS_DIR, exist_ok=True)
+    status = {
+        "applied_at": int(time.time()),
+        "enabled": settings.get("enabled", False),
+        "running": suricata_active(),
+        "update_seq_applied": state.get("update_seq_applied", 0),
+        "last_update": state.get("last_update"),
+        "rule_counts": rule_counts,
+        "error": error,
+    }
+    write_atomic(STATUS_FILE, json.dumps(status))
+
+
+def main():
+    if shutil.which("suricata") is None:
+        # Not fatal for the boot unit on dev images; report and bow out.
+        write_status({"enabled": False}, {}, None, "suricata is not installed")
+        log("suricata not installed, nothing to apply")
+        return 0
+
+    ensure_config_dir()
+    settings = load_settings()
+    state = load_state()
+    error = None
+    rule_counts = None
+
+    if not settings.get("enabled"):
+        stop_suricata()
+        write_status(settings, state, None, None)
+        log("IPS disabled — suricata stopped")
+        return 0
+
+    # Fetch signatures when explicitly requested (update_seq bumped) or when
+    # there is no ruleset at all yet (first enable).
+    need_update = settings.get("update_seq", 0) > state.get("update_seq_applied", 0)
+    if need_update or (not os.path.isfile(PRISTINE_FILE) and not os.path.isfile(RULES_FILE)):
+        if not suricata_update(settings, state) and not os.path.isfile(PRISTINE_FILE):
+            # No signatures at all — run the engine anyway (it passes traffic;
+            # the firewall's bypass option covers the rest) and surface why.
+            error = "signature download failed: " + (
+                (state.get("last_update") or {}).get("message") or "unknown error"
+            )
+        save_state(state)
+
+    old_rules = None
+    try:
+        with open(RULES_FILE) as f:
+            old_rules = f.read()
+    except OSError:
+        pass
+
+    rule_counts = rewrite_rules(settings)
+    with open(RULES_FILE) as f:
+        rules_changed = f.read() != old_rules
+
+    config_changed = render_configs(settings)
+    start_error = start_or_reload(config_changed, rules_changed)
+    if start_error and not error:
+        error = start_error
+
+    write_status(settings, state, rule_counts, error)
+    log(
+        f"applied: running={suricata_active()} counts={rule_counts}"
+        + (f" error={error}" if error else "")
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

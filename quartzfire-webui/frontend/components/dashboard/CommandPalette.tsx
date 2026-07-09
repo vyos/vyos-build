@@ -32,6 +32,7 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-svc-dhcp-server",    section: "Go to", label: "Services › DHCP Server",    kbd: "", href: "/services/dhcp-server" },
   { id: "nav-svc-dhcp-relay",     section: "Go to", label: "Services › DHCP Relay",     kbd: "", href: "/services/dhcp-relay" },
   { id: "nav-svc-dns-forwarding", section: "Go to", label: "Services › DNS Forwarding", kbd: "", href: "/services/dns-forwarding" },
+  { id: "nav-svc-ips", section: "Go to", label: "Services › Intrusion Prevention", kbd: "", href: "/services/intrusion-prevention" },
   { id: "nav-system",     section: "Go to", label: "System",     kbd: "G S", href: "/system" },
   { id: "nav-sys-audit",   section: "Go to", label: "System › Audit Log", kbd: "", href: "/system/audit" },
 ];

@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -75,6 +75,7 @@ const ITEMS: NavItem[] = [
       { id: "dhcp-server",    label: "DHCP Server",    href: "/services/dhcp-server",    icon: Router },
       { id: "dhcp-relay",     label: "DHCP Relay",     href: "/services/dhcp-relay",     icon: Forward },
       { id: "dns-forwarding", label: "DNS Forwarding", href: "/services/dns-forwarding", icon: Globe },
+      { id: "intrusion-prevention", label: "Intrusion Prevention", href: "/services/intrusion-prevention", icon: ShieldAlert },
     ],
   },
   {
