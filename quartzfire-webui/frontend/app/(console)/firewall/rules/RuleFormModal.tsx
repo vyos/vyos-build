@@ -213,7 +213,7 @@ function EndpointField({
 }
 
 /// Create/edit a filter rule (From → To with an action and a policy). Diffs
-/// against the live config and commits immediately (saved to boot config).
+/// against the live config and commits immediately (the boot-config save runs in the background).
 /// New rules are appended at the bottom — drag the table to reorder. A side
 /// set to the built-in Firewall entry places the rule in the input/output
 /// chain instead of forward.
@@ -299,7 +299,7 @@ export function RuleFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to rule ${rule} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to rule ${rule}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply rule.");

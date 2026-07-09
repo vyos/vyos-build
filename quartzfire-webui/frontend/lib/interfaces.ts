@@ -3,9 +3,10 @@
 // Unlike vyos-fabric (which stages changes in a controller DB for review),
 // QuartzFire manages a single local firewall: reads and writes go straight to
 // the VyOS HTTP API through the authenticated backend proxy, commit
-// immediately, and are saved to the boot config.
+// immediately, and are saved to the boot config in the background.
 
 import { vyosApi } from "./api";
+import { scheduleBootSave } from "./bootSave";
 
 /// Every VyOS API endpoint answers `{success, data, error}`.
 export interface VyosResponse<T = unknown> {
@@ -370,8 +371,11 @@ const trimmed = (s: string | null) => {
   return t === "" ? null : t;
 };
 
-/// Commit a command list in one transaction and save to the boot config so the
-/// change survives a reboot. Returns the number of changes applied.
+/// Commit a command list in one transaction. The change is live once this
+/// resolves; persisting it to the boot config is a second slow VyOS API round
+/// trip the user shouldn't wait on, so it runs in the background (the shell's
+/// SaveIndicator shows progress and surfaces failures with a retry). Returns
+/// the number of changes applied.
 export async function commitAndSave(commands: VyosCommand[]): Promise<number> {
   if (commands.length === 0) return 0;
 
@@ -380,13 +384,7 @@ export async function commitAndSave(commands: VyosCommand[]): Promise<number> {
     throw new Error(resp.error || "Device rejected the configuration.");
   }
 
-  const save = await vyosApi<VyosResponse>("config-file", { op: "save" });
-  if (!save.success) {
-    throw new Error(
-      `Applied, but saving to boot config failed: ${save.error ?? "unknown error"}`,
-    );
-  }
-
+  scheduleBootSave();
   return commands.length;
 }
 

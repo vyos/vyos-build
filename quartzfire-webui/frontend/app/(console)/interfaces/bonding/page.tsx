@@ -176,7 +176,7 @@ export default function BondingPage() {
   const removeBond = async (row: BondInterface) => {
     try {
       await deleteBond(row.name);
-      setToast(`Deleted ${row.name} and saved to boot config.`);
+      setToast(`Deleted ${row.name}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete ${row.name}.`);

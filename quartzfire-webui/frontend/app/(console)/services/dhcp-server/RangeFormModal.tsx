@@ -95,7 +95,7 @@ export function RangeFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to range ${n} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to range ${n}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply range.");

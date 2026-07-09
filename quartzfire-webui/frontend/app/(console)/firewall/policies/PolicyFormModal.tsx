@@ -39,7 +39,7 @@ function validPort(p: string): boolean {
 }
 
 /// Create/edit a policy (a named port set with a protocol). Diffs against the
-/// live config and commits immediately (saved to boot config). Changing the
+/// live config and commits immediately (the boot-config save runs in the background). Changing the
 /// protocol also updates every rule using the policy.
 export function PolicyFormModal({
   initial,
@@ -113,7 +113,7 @@ export function PolicyFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to policy ${n} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to policy ${n}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply policy.");

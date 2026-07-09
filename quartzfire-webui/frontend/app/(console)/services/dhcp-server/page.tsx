@@ -163,7 +163,7 @@ export default function DhcpServerPage() {
     setConfirmingServer(false);
     await toastAfter(
       deleteDhcpServer(selected.name),
-      `Deleted DHCP server ${selected.name} and saved to boot config.`,
+      `Deleted DHCP server ${selected.name}.`,
       `Failed to delete DHCP server ${selected.name}.`,
     );
   };
@@ -321,7 +321,7 @@ export default function DhcpServerPage() {
                         onDelete={() =>
                           toastAfter(
                             deleteDhcpSubnet(selected.name, row.subnet),
-                            `Deleted subnet ${row.subnet} and saved to boot config.`,
+                            `Deleted subnet ${row.subnet}.`,
                             `Failed to delete subnet ${row.subnet}.`,
                           )
                         }
@@ -350,7 +350,7 @@ export default function DhcpServerPage() {
                         onDelete={() =>
                           toastAfter(
                             deleteDhcpRange(selected.name, row.subnet, row.range.name),
-                            `Deleted range ${row.range.name} and saved to boot config.`,
+                            `Deleted range ${row.range.name}.`,
                             `Failed to delete range ${row.range.name}.`,
                           )
                         }
@@ -379,7 +379,7 @@ export default function DhcpServerPage() {
                         onDelete={() =>
                           toastAfter(
                             deleteDhcpMapping(selected.name, row.subnet, row.mapping.name),
-                            `Deleted mapping ${row.mapping.name} and saved to boot config.`,
+                            `Deleted mapping ${row.mapping.name}.`,
                             `Failed to delete mapping ${row.mapping.name}.`,
                           )
                         }

@@ -56,7 +56,7 @@ export default function FirewallPoliciesPage() {
     }
     try {
       await deletePolicy(p.name);
-      setToast(`Deleted policy ${p.name} and saved to boot config.`);
+      setToast(`Deleted policy ${p.name}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete policy ${p.name}.`);

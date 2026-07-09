@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
+import { SaveIndicator } from "@/components/dashboard/SaveIndicator";
 import { Toast } from "@/components/dashboard/Toast";
 import { DashboardProvider, useDashboard } from "@/lib/DashboardContext";
 
@@ -38,6 +39,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         onClose={() => setPaletteOpen(false)}
         onNavigate={(href) => nextRouter.push(href)}
       />
+      <SaveIndicator />
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );

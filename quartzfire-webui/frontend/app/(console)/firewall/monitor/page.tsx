@@ -104,7 +104,7 @@ export default function TrafficMonitorPage() {
       setToast(
         n === 0
           ? "Traffic logging is already fully enabled."
-          : `Enabled traffic logging (${n} change${n === 1 ? "" : "s"}) and saved to boot config.`,
+          : `Enabled traffic logging (${n} change${n === 1 ? "" : "s"}).`,
       );
       await loadConfig();
     } catch (e) {

@@ -38,7 +38,7 @@ const PLACEHOLDERS: Record<RouteFamily, { destination: string; gateway: string }
 };
 
 /// Create/edit one static route next-hop. Diffs against the live config and
-/// commits immediately (saved to boot config).
+/// commits immediately (the boot-config save runs in the background).
 export function StaticRouteFormModal({
   family,
   initial,
@@ -135,7 +135,7 @@ export function StaticRouteFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to route ${dst} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to route ${dst}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply route.");

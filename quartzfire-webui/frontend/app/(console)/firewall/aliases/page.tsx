@@ -87,7 +87,7 @@ export default function FirewallAliasesPage() {
     }
     try {
       await deleteAlias(alias);
-      setToast(`Deleted alias ${alias.display} and saved to boot config.`);
+      setToast(`Deleted alias ${alias.display}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete alias ${alias.display}.`);

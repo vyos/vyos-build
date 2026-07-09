@@ -176,7 +176,7 @@ export default function Nat44Page() {
   const removeRule = async (section: NatSection, row: NatRule) => {
     try {
       await deleteNatRule(section, row.rule);
-      setToast(`Deleted ${section} NAT rule ${row.rule} and saved to boot config.`);
+      setToast(`Deleted ${section} NAT rule ${row.rule}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete rule ${row.rule}.`);
@@ -186,7 +186,7 @@ export default function Nat44Page() {
   const removeStatic = async (row: StaticNatMapping) => {
     try {
       await deleteStaticNat(row.rule);
-      setToast(`Deleted 1-to-1 NAT rule ${row.rule} and saved to boot config.`);
+      setToast(`Deleted 1-to-1 NAT rule ${row.rule}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete rule ${row.rule}.`);

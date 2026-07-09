@@ -70,7 +70,7 @@ export default function DnsForwardingPage() {
   const removeDomain = async (domain: DnsForwardingDomain) => {
     try {
       await deleteDnsDomain(domain.name);
-      setToast(`Deleted domain ${domain.name} and saved to boot config.`);
+      setToast(`Deleted domain ${domain.name}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete domain ${domain.name}.`);

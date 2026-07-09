@@ -33,7 +33,7 @@ const IP_OR_CIDR_RE = /^[0-9a-f.:/]+$/i;
 const DNSSEC_MODES = ["", "off", "process-no-validate", "process", "log-fail", "validate"];
 
 /// Edit the recursive DNS forwarder settings. Diffs against the live config
-/// and commits immediately (saved to boot config).
+/// and commits immediately (the boot-config save runs in the background).
 export function SettingsFormModal({
   live,
   onClose,
@@ -104,7 +104,7 @@ export function SettingsFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to DNS forwarding and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to DNS forwarding.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply DNS forwarding settings.");

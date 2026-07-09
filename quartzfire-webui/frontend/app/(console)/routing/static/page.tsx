@@ -99,7 +99,7 @@ export default function StaticRoutesPage() {
   const remove = async (row: StaticRoute) => {
     try {
       await deleteStaticRoute(routes, row);
-      setToast(`Deleted route ${row.destination} and saved to boot config.`);
+      setToast(`Deleted route ${row.destination}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete route ${row.destination}.`);

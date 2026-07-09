@@ -146,7 +146,7 @@ export function ServerFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to DHCP server ${n} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to DHCP server ${n}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply DHCP server.");

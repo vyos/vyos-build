@@ -26,7 +26,7 @@
 // the Aliases page.
 //
 // Writes follow the QuartzFire model — diff against the live config, commit
-// straight to the VyOS API, and save to the boot config.
+// straight to the VyOS API, and save to the boot config in the background.
 
 import { vyosApi } from "./api";
 import { commitAndSave, VyosCommand, VyosResponse } from "./interfaces";

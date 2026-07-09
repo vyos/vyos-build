@@ -53,7 +53,7 @@ const MEMBER_INFO: Record<AliasType, { placeholder: string; hint: string; valid:
 };
 
 /// Create/edit an alias (a named host / network / FQDN group). Diffs against
-/// the live config and commits immediately (saved to boot config).
+/// the live config and commits immediately (the boot-config save runs in the background).
 export function AliasFormModal({
   initial,
   existing,
@@ -130,7 +130,7 @@ export function AliasFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to alias ${display} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to alias ${display}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply alias.");

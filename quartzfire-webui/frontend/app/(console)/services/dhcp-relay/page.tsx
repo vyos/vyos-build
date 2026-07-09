@@ -130,7 +130,7 @@ function AddEntryModal({
     setSaving(true);
     try {
       await addDhcpRelayEntry(kind, v);
-      onSaved(`Added DHCP relay ${kind} ${v} and saved to boot config.`);
+      onSaved(`Added DHCP relay ${kind} ${v}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply change.");
     } finally {
@@ -230,7 +230,7 @@ export default function DhcpRelayPage() {
   const remove = async (kind: EntryKind, value: string) => {
     try {
       await deleteDhcpRelayEntry(kind, value);
-      setToast(`Deleted DHCP relay ${kind} ${value} and saved to boot config.`);
+      setToast(`Deleted DHCP relay ${kind} ${value}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete ${value}.`);

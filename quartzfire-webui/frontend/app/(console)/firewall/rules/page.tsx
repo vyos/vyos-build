@@ -185,7 +185,7 @@ export default function FirewallRulesPage() {
     setApplyingOrder(true);
     try {
       const moved = await applyRuleOrder(orderedRules);
-      setToast(`Reordered ${moved} rule${moved === 1 ? "" : "s"} and saved to boot config.`);
+      setToast(`Reordered ${moved} rule${moved === 1 ? "" : "s"}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Failed to apply the new rule order.");
@@ -197,7 +197,7 @@ export default function FirewallRulesPage() {
   const remove = async (rule: FirewallRule) => {
     try {
       await deleteRule(rule, data.auto_groups);
-      setToast(`Deleted rule ${rule.rule} and saved to boot config.`);
+      setToast(`Deleted rule ${rule.rule}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : `Failed to delete rule ${rule.rule}.`);
@@ -207,7 +207,7 @@ export default function FirewallRulesPage() {
   const changeDefaultAction = async (action: "accept" | "drop") => {
     try {
       await setDefaultAction(data, action);
-      setToast(`Default action set to ${action === "accept" ? "Allow" : "Deny"} and saved to boot config.`);
+      setToast(`Default action set to ${action === "accept" ? "Allow" : "Deny"}.`);
       await load("refresh");
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Failed to set the default action.");

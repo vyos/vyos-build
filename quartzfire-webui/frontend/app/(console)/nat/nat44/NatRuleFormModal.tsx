@@ -36,7 +36,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 /// Create/edit a single NAT44 source (SNAT) or destination (DNAT) rule.
-/// Diffs against the live config and commits immediately (saved to boot config).
+/// Diffs against the live config and commits immediately (the boot-config save runs in the background).
 export function NatRuleFormModal({
   section,
   initial,
@@ -185,7 +185,7 @@ export function NatRuleFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to ${section} NAT rule ${num} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to ${section} NAT rule ${num}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply NAT rule.");

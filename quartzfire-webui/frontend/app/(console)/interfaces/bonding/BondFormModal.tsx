@@ -110,7 +110,7 @@ export function BondFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to ${trimmedName} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to ${trimmedName}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply bond changes.");
