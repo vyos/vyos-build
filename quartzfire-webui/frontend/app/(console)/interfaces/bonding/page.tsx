@@ -143,7 +143,7 @@ export default function BondingPage() {
     ]);
     setRows(bonds);
     setBridges(brs);
-    setEthNames([...new Set([...physical, ...eths.map((e) => e.name)])].sort());
+    setEthNames([...new Set([...physical.map((p) => p.name), ...eths.map((e) => e.name)])].sort());
     setAddressedEth(eths.filter((e) => e.addresses.length > 0).map((e) => e.name));
   }, []);
 

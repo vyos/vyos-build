@@ -7,14 +7,14 @@ import {
   applyRuleOrder,
   AutoGroup,
   deleteRule,
-  endpointToSelection,
   fetchFirewall,
   FirewallConfig,
   FirewallRule,
   PROTOCOL_LABEL,
-  RuleEndpoint,
+  ruleSelection,
   setDefaultAction,
 } from "@/lib/firewall";
+import { fetchInterfaceDescriptions } from "@/lib/interfaces";
 import { fetchInterfaceStats } from "@/lib/vyos";
 import { useDashboard } from "@/lib/DashboardContext";
 import { RowActions } from "@/components/dashboard/RowActions";
@@ -27,10 +27,13 @@ function ActionPill({ action }: { action: FirewallRule["action"] }) {
   return <span className="badge badge-muted">—</span>;
 }
 
-function EndpointCell({ endpoint, autoGroups }: { endpoint: RuleEndpoint; autoGroups: AutoGroup[] }) {
-  const sel = endpointToSelection(endpoint, autoGroups);
+/// Stable row identity — rule numbers are only unique within a chain.
+const ruleKey = (r: FirewallRule) => `${r.chain}:${r.rule}`;
+
+function EndpointCell({ rule, side, autoGroups }: { rule: FirewallRule; side: "from" | "to"; autoGroups: AutoGroup[] }) {
+  const sel = ruleSelection(rule, side, autoGroups);
   if (sel.length === 0) return <span className="text-[var(--qz-fg-4)]">Any</span>;
-  const names = sel.map((e) => (e.kind === "address" ? e.address : e.name));
+  const names = sel.map((e) => (e.kind === "address" ? e.address : e.kind === "firewall" ? "Firewall" : e.name));
   const allIfaces = sel.every((e) => e.kind === "interface" || e.kind === "ifgroup");
   return (
     <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }} title={names.join(", ")}>
@@ -49,8 +52,13 @@ export default function FirewallRulesPage() {
     auto_groups: [],
     group_names: [],
     default_action: null,
+    setup: {
+      input: { baseline: false, default_action: null },
+      output: { baseline: false, default_action: null },
+    },
   });
   const [interfaces, setInterfaces] = useState<string[]>([]);
+  const [ifaceDescriptions, setIfaceDescriptions] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [query, setQuery] = useState("");
@@ -59,9 +67,9 @@ export default function FirewallRulesPage() {
   // null = closed; { rule: undefined } = create; { rule } = edit.
   const [modal, setModal] = useState<{ rule?: FirewallRule } | null>(null);
 
-  // Display order as a list of rule numbers. Dragging edits this locally;
+  // Display order as a list of rule keys. Dragging edits this locally;
   // "Apply order" commits the renumbering in one transaction.
-  const [order, setOrder] = useState<number[]>([]);
+  const [order, setOrder] = useState<string[]>([]);
   const [applyingOrder, setApplyingOrder] = useState(false);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
@@ -69,13 +77,15 @@ export default function FirewallRulesPage() {
     try {
       // Interface names populate the rule form's From/To pickers; tolerate
       // their failure so a firewall read still renders.
-      const [fw, ifs] = await Promise.all([
+      const [fw, ifs, descs] = await Promise.all([
         fetchFirewall(),
         fetchInterfaceStats().catch(() => []),
+        fetchInterfaceDescriptions().catch(() => ({})),
       ]);
       setData(fw);
       setInterfaces(ifs.map((i) => i.name).sort());
-      setOrder(fw.rules.map((r) => r.rule));
+      setIfaceDescriptions(descs);
+      setOrder(fw.rules.map(ruleKey));
       setStatus("ready");
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Failed to load firewall rules.");
@@ -96,13 +106,17 @@ export default function FirewallRulesPage() {
     }
   };
 
-  const byNumber = useMemo(() => new Map(data.rules.map((r) => [r.rule, r])), [data.rules]);
+  const byKey = useMemo(() => new Map(data.rules.map((r) => [ruleKey(r), r])), [data.rules]);
   const orderedRules = useMemo(
-    () => order.map((n) => byNumber.get(n)).filter((r): r is FirewallRule => !!r),
-    [order, byNumber],
+    () => order.map((k) => byKey.get(k)).filter((r): r is FirewallRule => !!r),
+    [order, byKey],
   );
   const orderDirty = useMemo(
-    () => orderedRules.some((r, i) => r.rule !== data.rules[i]?.rule),
+    () =>
+      orderedRules.some((r, i) => {
+        const original = data.rules[i];
+        return !original || ruleKey(original) !== ruleKey(r);
+      }),
     [orderedRules, data.rules],
   );
 
@@ -115,6 +129,7 @@ export default function FirewallRulesPage() {
       const hay = [
         r.name,
         r.action,
+        r.chain !== "forward" ? "firewall" : null,
         r.from.group_name,
         r.from.address,
         r.from.iface,
@@ -199,7 +214,11 @@ export default function FirewallRulesPage() {
       );
     }
     if (r.protocol) {
-      return <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>{r.protocol}</span>;
+      return (
+        <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>
+          {r.protocol === "icmp" ? "ping" : r.protocol}
+        </span>
+      );
     }
     return <span className="text-[var(--qz-fg-4)]">Any</span>;
   };
@@ -211,7 +230,8 @@ export default function FirewallRulesPage() {
           Rules
         </h1>
         <p className="text-[13px] text-[var(--qz-fg-4)] mt-1">
-          IPv4 forwarded-traffic rules, evaluated top to bottom — drag to reorder
+          IPv4 rules for forwarded traffic and traffic to or from the firewall itself, evaluated top to bottom — drag
+          to reorder
         </p>
       </div>
 
@@ -287,7 +307,7 @@ export default function FirewallRulesPage() {
                   Rule order changed — not applied yet.
                 </span>
                 <div className="ml-auto flex items-center gap-2">
-                  <Button kind="secondary" size="sm" icon={Undo2} onClick={() => setOrder(data.rules.map((r) => r.rule))} disabled={applyingOrder}>
+                  <Button kind="secondary" size="sm" icon={Undo2} onClick={() => setOrder(data.rules.map(ruleKey))} disabled={applyingOrder}>
                     Reset
                   </Button>
                   <Button kind="primary" size="sm" icon={Check} onClick={commitOrder} disabled={applyingOrder}>
@@ -334,7 +354,7 @@ export default function FirewallRulesPage() {
                       const position = orderedRules.indexOf(r) + 1;
                       return (
                         <tr
-                          key={r.rule}
+                          key={ruleKey(r)}
                           draggable={dragEnabled}
                           onDragStart={(e) => {
                             dragIndex.current = orderedRules.indexOf(r);
@@ -367,10 +387,10 @@ export default function FirewallRulesPage() {
                             {r.name ?? <span className="text-[var(--qz-fg-4)]">—</span>}
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <EndpointCell endpoint={r.from} autoGroups={data.auto_groups} />
+                            <EndpointCell rule={r} side="from" autoGroups={data.auto_groups} />
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <EndpointCell endpoint={r.to} autoGroups={data.auto_groups} />
+                            <EndpointCell rule={r} side="to" autoGroups={data.auto_groups} />
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {policyCell(r)}
@@ -396,7 +416,8 @@ export default function FirewallRulesPage() {
             </div>
 
             <p className="text-[12px] text-[var(--qz-fg-4)] m-0">
-              Traffic matching no rule falls through to the default action.
+              Forwarded traffic matching no rule falls through to the default action. Traffic to or from the Firewall
+              itself is allowed unless a rule denies it.
               {q && " Reordering is disabled while a search filter is active."}
             </p>
           </div>
@@ -407,6 +428,7 @@ export default function FirewallRulesPage() {
         <RuleFormModal
           initial={modal.rule}
           interfaces={interfaces}
+          descriptions={ifaceDescriptions}
           config={data}
           onClose={() => setModal(null)}
           onSaved={(msg) => {

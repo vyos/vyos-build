@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Column, DataTable } from "@/components/dashboard/DataTable";
 import { RowActions } from "@/components/dashboard/RowActions";
 import { deleteStaticRoute, fetchStaticRoutes, RouteFamily, StaticRoute } from "@/lib/routing";
+import { fetchInterfaceDescriptions } from "@/lib/interfaces";
 import { fetchInterfaceStats } from "@/lib/vyos";
 import { useDashboard } from "@/lib/DashboardContext";
 import { StaticRouteFormModal } from "./StaticRouteFormModal";
@@ -61,6 +62,7 @@ export default function StaticRoutesPage() {
   const { setToast } = useDashboard();
   const [routes, setRoutes] = useState<StaticRoute[]>([]);
   const [interfaces, setInterfaces] = useState<string[]>([]);
+  const [ifaceDescriptions, setIfaceDescriptions] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [tab, setTab] = useState<RouteFamily>("ipv4");
@@ -73,12 +75,14 @@ export default function StaticRoutesPage() {
     try {
       // Interface names populate the route form's pickers; tolerate their
       // failure so a routing read still renders.
-      const [rts, ifs] = await Promise.all([
+      const [rts, ifs, descs] = await Promise.all([
         fetchStaticRoutes(),
         fetchInterfaceStats().catch(() => []),
+        fetchInterfaceDescriptions().catch(() => ({})),
       ]);
       setRoutes(rts);
       setInterfaces(ifs.map((i) => i.name).sort());
+      setIfaceDescriptions(descs);
       setStatus("ready");
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Failed to load static routes.");
@@ -187,6 +191,7 @@ export default function StaticRoutesPage() {
           family={tab}
           initial={modal.route}
           interfaces={interfaces}
+          descriptions={ifaceDescriptions}
           existing={routes}
           onClose={() => setModal(null)}
           onSaved={(msg) => {

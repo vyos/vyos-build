@@ -5,6 +5,8 @@ import { AlertTriangle, Pencil, Plus, RotateCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Column, DataTable } from "@/components/dashboard/DataTable";
 import { deleteNatRule, deleteStaticNat, fetchNat44, Nat44Config, NatRule, NatSection, StaticNatMapping } from "@/lib/nat";
+import { fetchFirewall, FirewallAlias } from "@/lib/firewall";
+import { fetchInterfaceDescriptions } from "@/lib/interfaces";
 import { fetchInterfaceStats } from "@/lib/vyos";
 import { useDashboard } from "@/lib/DashboardContext";
 import { NatRuleFormModal } from "./NatRuleFormModal";
@@ -126,6 +128,8 @@ export default function Nat44Page() {
   const { setToast } = useDashboard();
   const [data, setData] = useState<Nat44Config>({ source: [], destination: [], static_nat: [] });
   const [interfaces, setInterfaces] = useState<string[]>([]);
+  const [ifaceDescriptions, setIfaceDescriptions] = useState<Record<string, string>>({});
+  const [aliases, setAliases] = useState<FirewallAlias[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [tab, setTab] = useState<Tab>("source");
@@ -136,14 +140,18 @@ export default function Nat44Page() {
   const [staticModal, setStaticModal] = useState<{ mapping?: StaticNatMapping } | null>(null);
 
   const fetchData = useCallback(async () => {
-    // Interface names populate the rule form's picker; tolerate their failure
-    // so a NAT read still renders.
-    const [nat, ifs] = await Promise.all([
+    // Interface names and aliases populate the rule form's pickers; tolerate
+    // their failure so a NAT read still renders.
+    const [nat, ifs, descs, fw] = await Promise.all([
       fetchNat44(),
       fetchInterfaceStats().catch(() => []),
+      fetchInterfaceDescriptions().catch(() => ({})),
+      fetchFirewall().catch(() => null),
     ]);
     setData(nat);
     setInterfaces(ifs.map((i) => i.name).sort());
+    setIfaceDescriptions(descs);
+    setAliases(fw?.aliases ?? []);
   }, []);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
@@ -291,6 +299,8 @@ export default function Nat44Page() {
           section={modal.section}
           initial={modal.rule}
           interfaces={interfaces}
+          descriptions={ifaceDescriptions}
+          aliases={aliases}
           existing={modal.section === "source" ? data.source : data.destination}
           takenRules={data.static_nat.map((m) => m.rule)}
           onClose={() => setModal(null)}
@@ -306,6 +316,7 @@ export default function Nat44Page() {
         <StaticNatFormModal
           initial={staticModal.mapping}
           interfaces={interfaces}
+          descriptions={ifaceDescriptions}
           existing={data.static_nat}
           takenRules={[...data.source, ...data.destination].map((r) => r.rule)}
           onClose={() => setStaticModal(null)}

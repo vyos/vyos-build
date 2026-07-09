@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
 import { Column, DataTable } from "@/components/dashboard/DataTable";
 import { addDhcpRelayEntry, deleteDhcpRelayEntry, DhcpRelayConfig, fetchDhcpRelay } from "@/lib/services";
+import { fetchInterfaceDescriptions } from "@/lib/interfaces";
 import { fetchInterfaceStats } from "@/lib/vyos";
 import { useDashboard } from "@/lib/DashboardContext";
 
@@ -93,6 +94,7 @@ const KIND_META: Record<EntryKind, { title: string; label: string; hint: string;
 function AddEntryModal({
   kind,
   interfaces,
+  descriptions,
   existing,
   onClose,
   onSaved,
@@ -100,6 +102,8 @@ function AddEntryModal({
   kind: EntryKind;
   /** Interface names offered as a datalist when adding an interface. */
   interfaces: string[];
+  /** Interface descriptions by name, shown next to the datalist entries. */
+  descriptions?: Record<string, string>;
   existing: string[];
   onClose: () => void;
   onSaved: (message: string) => void;
@@ -141,7 +145,7 @@ function AddEntryModal({
         {kind === "interface" && (
           <datalist id="dhcp-relay-interfaces">
             {interfaces.map((n) => (
-              <option key={n} value={n} />
+              <option key={n} value={n} label={descriptions?.[n]} />
             ))}
           </datalist>
         )}
@@ -194,6 +198,7 @@ export default function DhcpRelayPage() {
   const { setToast } = useDashboard();
   const [data, setData] = useState<DhcpRelayConfig>({ interfaces: [], servers: [] });
   const [interfaces, setInterfaces] = useState<string[]>([]);
+  const [ifaceDescriptions, setIfaceDescriptions] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [modal, setModal] = useState<EntryKind | null>(null);
@@ -203,12 +208,14 @@ export default function DhcpRelayPage() {
     try {
       // Interface names populate the add form's picker; tolerate their failure
       // so the relay read still renders.
-      const [relay, ifs] = await Promise.all([
+      const [relay, ifs, descs] = await Promise.all([
         fetchDhcpRelay(),
         fetchInterfaceStats().catch(() => []),
+        fetchInterfaceDescriptions().catch(() => ({})),
       ]);
       setData(relay);
       setInterfaces(ifs.map((i) => i.name).sort());
+      setIfaceDescriptions(descs);
       setStatus("ready");
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Failed to load DHCP relay.");
@@ -310,6 +317,7 @@ export default function DhcpRelayPage() {
         <AddEntryModal
           kind={modal}
           interfaces={interfaces}
+          descriptions={ifaceDescriptions}
           existing={modal === "interface" ? data.interfaces : data.servers}
           onClose={() => setModal(null)}
           onSaved={(msg) => {

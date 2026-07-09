@@ -43,6 +43,7 @@ export function StaticRouteFormModal({
   family,
   initial,
   interfaces,
+  descriptions,
   existing,
   onClose,
   onSaved,
@@ -52,6 +53,8 @@ export function StaticRouteFormModal({
   initial?: StaticRoute;
   /** Interface names offered as a datalist for the interface fields. */
   interfaces: string[];
+  /** Interface descriptions by name, shown next to the datalist entries. */
+  descriptions?: Record<string, string>;
   /** Every configured route row, for duplicate detection and diffing. */
   existing: StaticRoute[];
   onClose: () => void;
@@ -152,7 +155,7 @@ export function StaticRouteFormModal({
       <form onSubmit={submit} className="flex flex-col gap-4">
         <datalist id="static-route-interfaces">
           {interfaces.map((n) => (
-            <option key={n} value={n} />
+            <option key={n} value={n} label={descriptions?.[n]} />
           ))}
         </datalist>
 

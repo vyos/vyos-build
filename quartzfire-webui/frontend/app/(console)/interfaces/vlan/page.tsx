@@ -100,6 +100,7 @@ export default function VlanPage() {
   const { setToast } = useDashboard();
   const [rows, setRows] = useState<VlanInterface[]>([]);
   const [parents, setParents] = useState<string[]>([]);
+  const [parentDescriptions, setParentDescriptions] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -110,6 +111,9 @@ export default function VlanPage() {
     const [vlans, eths] = await Promise.all([fetchVlans(), fetchEthernet()]);
     setRows(vlans);
     setParents(eths.map((e) => e.name).sort());
+    setParentDescriptions(
+      Object.fromEntries(eths.filter((e) => e.description).map((e) => [e.name, e.description!])),
+    );
   }, []);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
@@ -213,6 +217,7 @@ export default function VlanPage() {
         <VlanFormModal
           initial={modal.vlan}
           parents={parents}
+          descriptions={parentDescriptions}
           existing={rows}
           onClose={() => setModal(null)}
           onSaved={(msg) => {

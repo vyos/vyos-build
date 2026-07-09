@@ -30,6 +30,7 @@ const toRows = (values: string[]): AddrRow[] =>
 export function VlanFormModal({
   initial,
   parents,
+  descriptions,
   existing,
   onClose,
   onSaved,
@@ -38,6 +39,8 @@ export function VlanFormModal({
   initial?: VlanInterface;
   /** Ethernet interface names available as VLAN parents. */
   parents: string[];
+  /** Parent interface descriptions by name, shown next to the picker entries. */
+  descriptions?: Record<string, string>;
   /** All current VLANs, for duplicate detection and diffing. */
   existing: VlanInterface[];
   onClose: () => void;
@@ -144,7 +147,7 @@ export function VlanFormModal({
                 {/* Keep the original parent selectable even if it's missing from the list. */}
                 {(parents.includes(parent) || !parent ? parents : [parent, ...parents]).map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {descriptions?.[p] ? `${p} — ${descriptions[p]}` : p}
                   </option>
                 ))}
               </select>

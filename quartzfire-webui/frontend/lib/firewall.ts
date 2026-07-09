@@ -7,8 +7,16 @@
 //   Policies → `firewall group port-group`; the protocol is kept in a
 //              `[tcp]`/`[udp]`/`[tcp_udp]` marker prefixed to the group
 //              description (port-groups have no protocol of their own)
-//   Rules    → `firewall ipv4 forward filter rule <n>`, ordered by rule
-//              number in gaps of 10 so drag-reorder renumbers cleanly
+//   Rules    → `firewall ipv4 <chain> filter rule <n>`, ordered by rule
+//              number in gaps of 10 so drag-reorder renumbers cleanly.
+//              Routed traffic lives in the forward chain; a rule whose To
+//              (From) side is the built-in Firewall endpoint lives in the
+//              input (output) chain instead, because traffic to/from the box
+//              itself never traverses forward. The first rule written to
+//              input/output also seeds hidden `[qz-sys]` baseline rules
+//              (accept established/related and loopback, default-action
+//              accept) so a broad deny can't cut off reply traffic or the
+//              WebUI's own loopback API connection.
 //
 // A rule's From/To is a WatchGuard-style list matching ANY of its entries. One
 // native rule can't OR several groups (multiple criteria AND together), so a
@@ -63,6 +71,14 @@ export interface FirewallPolicy {
 
 export type RuleAction = "accept" | "drop" | "reject";
 
+/// Base chain a rule lives in. Routed traffic uses forward; traffic addressed
+/// to the firewall itself only ever traverses input, and firewall-originated
+/// traffic output — so the built-in Firewall endpoint steers a rule into the
+/// matching chain.
+export type RuleChain = "forward" | "input" | "output";
+
+const CHAIN_RANK: Record<RuleChain, number> = { forward: 0, input: 1, output: 2 };
+
 /// Auto-managed OR group backing a multi-entry From/To side.
 export interface AutoGroup {
   name: string;
@@ -76,6 +92,10 @@ export interface AutoGroup {
 
 /// Description marker identifying auto-managed groups.
 export const AUTO_MARK = "[qz-rule]";
+
+/// Description marker identifying hidden system rules — the safety baseline
+/// seeded into the input/output chains (see ensureChainSetup).
+export const SYS_MARK = "[qz-sys]";
 
 /// One side of a rule match as stored in the config: a group reference, an
 /// interface (by name or interface-group), a literal address, or none (= any).
@@ -91,6 +111,8 @@ export interface RuleEndpoint {
 
 export interface FirewallRule {
   rule: number;
+  /** Base chain holding the rule — see RuleChain. */
+  chain: RuleChain;
   /** Rule name, stored as the VyOS `description` leaf. */
   name: string | null;
   action: RuleAction | null;
@@ -105,6 +127,15 @@ export interface FirewallRule {
   raw: Cfg;
 }
 
+/// What already exists in a non-forward chain — used to seed the hidden
+/// safety baseline exactly once (see ensureChainSetup).
+export interface ChainSetup {
+  /** Baseline rules present (or their rule numbers already taken). */
+  baseline: boolean;
+  /** The chain's configured default-action (null = not set). */
+  default_action: string | null;
+}
+
 export interface FirewallConfig {
   aliases: FirewallAlias[];
   policies: FirewallPolicy[];
@@ -116,6 +147,8 @@ export interface FirewallConfig {
   group_names: string[];
   /** `firewall ipv4 forward filter default-action` (null = VyOS default). */
   default_action: string | null;
+  /** Input/output chain state backing the built-in Firewall endpoint. */
+  setup: { input: ChainSetup; output: ChainSetup };
 }
 
 // ── parse helpers ─────────────────────────────────────────────────────────────
@@ -264,39 +297,61 @@ function parseEndpoint(cfg: Cfg, side: "source" | "destination"): RuleEndpoint {
 const asAction = (v: string | null): RuleAction | null =>
   v === "accept" || v === "drop" || v === "reject" ? v : null;
 
-function parseRules(filter: Cfg): FirewallRule[] {
-  const rules = childCfg(filter, "rule") ?? {};
-  return Object.entries(rules)
-    .map(([num, raw]) => {
-      const cfg = (raw ?? {}) as Cfg;
-      const dstGroup = childCfg(childCfg(cfg, "destination") ?? {}, "group") ?? {};
-      return {
-        rule: Number(num) || 0,
-        name: childStr(cfg, "description"),
-        action: asAction(childStr(cfg, "action")),
-        from: parseEndpoint(cfg, "source"),
-        to: parseEndpoint(cfg, "destination"),
-        policy: childStr(dstGroup, "port-group"),
-        protocol: childStr(cfg, "protocol"),
-        enabled: !("disable" in cfg),
-        raw: cfg,
-      };
-    })
-    .sort((a, b) => a.rule - b.rule);
+function parseChain(filter: Cfg, chain: RuleChain): { rules: FirewallRule[]; setup: ChainSetup } {
+  const ruleCfg = childCfg(filter, "rule") ?? {};
+  let sys = false;
+  const rules: FirewallRule[] = [];
+  for (const [num, raw] of Object.entries(ruleCfg)) {
+    const cfg = (raw ?? {}) as Cfg;
+    const name = childStr(cfg, "description");
+    if (name?.startsWith(SYS_MARK)) {
+      sys = true; // hidden baseline rule — not a user rule
+      continue;
+    }
+    const dstGroup = childCfg(childCfg(cfg, "destination") ?? {}, "group") ?? {};
+    rules.push({
+      rule: Number(num) || 0,
+      chain,
+      name,
+      action: asAction(childStr(cfg, "action")),
+      from: parseEndpoint(cfg, "source"),
+      to: parseEndpoint(cfg, "destination"),
+      policy: childStr(dstGroup, "port-group"),
+      protocol: childStr(cfg, "protocol"),
+      enabled: !("disable" in cfg),
+      raw: cfg,
+    });
+  }
+  return {
+    rules,
+    setup: {
+      // CLI-created rules 1/2 also count — the baseline must never clobber them.
+      baseline: sys || "1" in ruleCfg || "2" in ruleCfg,
+      default_action: childStr(filter, "default-action"),
+    },
+  };
 }
 
-/// Configured aliases, policies, and forward-filter rules, from the running config.
+/// Configured aliases, policies, and filter rules (all three base chains),
+/// from the running config.
 export async function fetchFirewall(): Promise<FirewallConfig> {
   const fw = await fetchFirewallConfig();
   const group = childCfg(fw, "group") ?? {};
-  const filter = childCfg(childCfg(childCfg(fw, "ipv4") ?? {}, "forward") ?? {}, "filter") ?? {};
+  const ipv4 = childCfg(fw, "ipv4") ?? {};
+  const chainFilter = (chain: RuleChain) => childCfg(childCfg(ipv4, chain) ?? {}, "filter") ?? {};
+  const forward = parseChain(chainFilter("forward"), "forward");
+  const input = parseChain(chainFilter("input"), "input");
+  const output = parseChain(chainFilter("output"), "output");
   return {
     aliases: parseAliases(group),
     policies: parsePolicies(group),
-    rules: parseRules(filter),
+    rules: [...forward.rules, ...input.rules, ...output.rules].sort(
+      (a, b) => a.rule - b.rule || CHAIN_RANK[a.chain] - CHAIN_RANK[b.chain],
+    ),
     auto_groups: parseAutoGroups(group),
     group_names: parseGroupNames(group),
-    default_action: childStr(filter, "default-action"),
+    default_action: forward.setup.default_action,
+    setup: { input: input.setup, output: output.setup },
   };
 }
 
@@ -428,8 +483,8 @@ export function diffPolicy(
 
   // Keep rules using this policy in sync with its protocol.
   if (live && live.protocol !== u.protocol) {
-    for (const num of policyUsage(rules, u.name)) {
-      out.push({ op: "set", path: [...ruleBase(num), "protocol", u.protocol] });
+    for (const r of rules) {
+      if (r.policy === u.name) out.push({ op: "set", path: [...ruleBase(r.chain, r.rule), "protocol", u.protocol] });
     }
   }
 
@@ -452,14 +507,17 @@ export function deletePolicy(name: string): Promise<number> {
 
 // ── writes: rules ─────────────────────────────────────────────────────────────
 
-const FILTER_BASE = ["firewall", "ipv4", "forward", "filter"];
-const ruleBase = (rule: number) => [...FILTER_BASE, "rule", String(rule)];
+const filterBase = (chain: RuleChain) => ["firewall", "ipv4", chain, "filter"];
+const ruleBase = (chain: RuleChain, rule: number) => [...filterBase(chain), "rule", String(rule)];
 
-/// One From/To list entry. `address` and `ifgroup` are legacy — kept so
-/// CLI-created rules stay editable, not offered for new selections.
+/// One From/To list entry. `firewall` is the built-in endpoint for the box
+/// itself — it writes no match node; its presence moves the rule into the
+/// input (To) or output (From) chain. `address` and `ifgroup` are legacy —
+/// kept so CLI-created rules stay editable, not offered for new selections.
 export type EndpointEntry =
   | { kind: "interface"; name: string }
   | { kind: "alias"; type: AliasType; name: string }
+  | { kind: "firewall" }
   | { kind: "address"; address: string }
   | { kind: "ifgroup"; name: string };
 
@@ -488,16 +546,41 @@ export function endpointToSelection(e: RuleEndpoint, autoGroups: AutoGroup[]): E
   return out;
 }
 
-/// Desired forward-filter rule. The rule number is fixed here — ordering is
-/// changed by drag-reorder, not by editing.
+/// The From/To list for a rule side, including the synthetic Firewall entry
+/// implied by the rule's chain (input = To Firewall, output = From Firewall).
+export function ruleSelection(rule: FirewallRule, side: "from" | "to", autoGroups: AutoGroup[]): EndpointSelection {
+  const sel = endpointToSelection(side === "from" ? rule.from : rule.to, autoGroups);
+  if ((side === "to" && rule.chain === "input") || (side === "from" && rule.chain === "output")) {
+    sel.unshift({ kind: "firewall" });
+  }
+  return sel;
+}
+
+/// Which chain a rule with these sides belongs in.
+export function ruleChainFor(from: EndpointSelection, to: EndpointSelection): RuleChain {
+  const f = from.some((e) => e.kind === "firewall");
+  const t = to.some((e) => e.kind === "firewall");
+  if (f && t) throw new Error("Only one side of a rule can be the Firewall itself.");
+  return t ? "input" : f ? "output" : "forward";
+}
+
+/// A rule's traffic match: a policy (port-group + protocol) or the built-in
+/// Ping policy (protocol icmp — port-groups can't express ICMP).
+export type RulePolicyChoice =
+  | { kind: "policy"; name: string; protocol: PolicyProtocol }
+  | { kind: "ping" };
+
+/// Desired filter rule. The rule number is fixed here — ordering is changed
+/// by drag-reorder, not by editing. The chain is implied by which side (if
+/// any) carries the Firewall endpoint.
 export interface RuleUpdate {
   rule: number;
   name: string | null;
   action: RuleAction;
   from: EndpointSelection;
   to: EndpointSelection;
-  /** Policy name plus its protocol, or null = any port/protocol. */
-  policy: { name: string; protocol: PolicyProtocol } | null;
+  /** Traffic match, or null = any port/protocol. */
+  policy: RulePolicyChoice | null;
   enabled: boolean;
 }
 
@@ -535,13 +618,16 @@ function diffAutoMembers(
 
 function diffEndpoint(
   out: VyosCommand[],
+  chain: RuleChain,
   rule: number,
   side: "source" | "destination",
   live: RuleEndpoint | null,
-  sel: EndpointSelection,
+  selIn: EndpointSelection,
   ctx: AutoCtx,
 ): void {
-  const base = ruleBase(rule);
+  const base = ruleBase(chain, rule);
+  // The Firewall endpoint writes no match node — it's expressed by the chain.
+  const sel = selIn.filter((e) => e.kind !== "firewall");
   const findAuto = (node: string | null, name: string | null) =>
     (node && name && ctx.autoGroups.find((g) => g.node === node && g.name === name)) || null;
 
@@ -622,9 +708,67 @@ function diffEndpoint(
   }
 }
 
-export function diffRule(live: FirewallRule | null, u: RuleUpdate, cfg: FirewallConfig): VyosCommand[] {
-  const base = ruleBase(u.rule);
+/// Seed safety defaults into a non-forward chain the first time a rule lands
+/// there. Rule 1 accepts established/related (so a broad deny can't cut off
+/// reply traffic of allowed or firewall-originated connections), rule 2
+/// accepts loopback (the WebUI reaches the VyOS API over lo), and
+/// default-action is pinned to accept so defining the chain can't lock the
+/// box out on its own.
+function ensureChainSetup(out: VyosCommand[], chain: "input" | "output", cfg: FirewallConfig): void {
+  const setup = cfg.setup[chain];
+  const fb = filterBase(chain);
+  if (!setup.baseline) {
+    const r1 = [...fb, "rule", "1"];
+    out.push({ op: "set", path: [...r1, "action", "accept"] });
+    out.push({ op: "set", path: [...r1, "state", "established"] });
+    out.push({ op: "set", path: [...r1, "state", "related"] });
+    out.push({ op: "set", path: [...r1, "description", `${SYS_MARK} allow established/related replies`] });
+    const r2 = [...fb, "rule", "2"];
+    const ifNode = chain === "input" ? IFACE_NODE.source : IFACE_NODE.destination;
+    out.push({ op: "set", path: [...r2, "action", "accept"] });
+    out.push({ op: "set", path: [...r2, ifNode, "name", "lo"] });
+    out.push({ op: "set", path: [...r2, "description", `${SYS_MARK} allow loopback (WebUI/API)`] });
+  }
+  if (setup.default_action === null) {
+    out.push({ op: "set", path: [...fb, "default-action", "accept"] });
+  }
+}
+
+/// Deletes for the auto-managed OR groups backing a rule's sides (auto groups
+/// are per-side, so no other rule references them).
+function autoGroupDeletes(rule: FirewallRule, autoGroups: AutoGroup[]): VyosCommand[] {
   const out: VyosCommand[] = [];
+  for (const e of [rule.from, rule.to]) {
+    const refs = [
+      e.group_type && e.group_name ? { node: e.group_type, name: e.group_name } : null,
+      e.iface_group ? { node: "interface-group", name: e.iface_group } : null,
+    ];
+    for (const ref of refs) {
+      if (ref && autoGroups.some((g) => g.node === ref.node && g.name === ref.name)) {
+        out.push({ op: "delete", path: ["firewall", "group", ref.node, ref.name] });
+      }
+    }
+  }
+  return out;
+}
+
+export function diffRule(liveIn: FirewallRule | null, u: RuleUpdate, cfg: FirewallConfig): VyosCommand[] {
+  const chain = ruleChainFor(u.from, u.to);
+  const out: VyosCommand[] = [];
+
+  // A chain change can't be edited in place — the old rule is dropped (with
+  // its auto groups) and rebuilt at a fresh number in the target chain.
+  let live = liveIn;
+  let rule = u.rule;
+  if (live && live.chain !== chain) {
+    out.push({ op: "delete", path: ruleBase(live.chain, live.rule) });
+    out.push(...autoGroupDeletes(live, cfg.auto_groups));
+    live = null;
+    rule = nextRuleNumber(cfg.rules);
+  }
+  if (chain !== "forward") ensureChainSetup(out, chain, cfg);
+
+  const base = ruleBase(chain, rule);
   const leaf = (sub: string[], liveV: string | null, desiredRaw: string | null) => {
     const desired = desiredRaw?.trim() || null;
     if (desired === liveV) return;
@@ -636,12 +780,13 @@ export function diffRule(live: FirewallRule | null, u: RuleUpdate, cfg: Firewall
   leaf(["description"], live?.name ?? null, u.name);
 
   const ctx: AutoCtx = { autoGroups: cfg.auto_groups, taken: new Set(cfg.group_names) };
-  diffEndpoint(out, u.rule, "source", live?.from ?? null, u.from, ctx);
-  diffEndpoint(out, u.rule, "destination", live?.to ?? null, u.to, ctx);
+  diffEndpoint(out, chain, rule, "source", live?.from ?? null, u.from, ctx);
+  diffEndpoint(out, chain, rule, "destination", live?.to ?? null, u.to, ctx);
 
-  // Policy = destination port-group + matching protocol leaf.
+  // Policy = destination port-group + matching protocol leaf; built-in Ping
+  // is just the protocol leaf.
   const livePolicy = live?.policy ?? null;
-  const newPolicy = u.policy?.name ?? null;
+  const newPolicy = u.policy?.kind === "policy" ? u.policy.name : null;
   if (newPolicy !== livePolicy) {
     if (livePolicy !== null && newPolicy === null) {
       out.push({ op: "delete", path: [...base, "destination", "group", "port-group"] });
@@ -650,7 +795,8 @@ export function diffRule(live: FirewallRule | null, u: RuleUpdate, cfg: Firewall
       out.push({ op: "set", path: [...base, "destination", "group", "port-group", newPolicy] });
     }
   }
-  leaf(["protocol"], live?.protocol ?? null, u.policy?.protocol ?? null);
+  const desiredProtocol = u.policy === null ? null : u.policy.kind === "policy" ? u.policy.protocol : "icmp";
+  leaf(["protocol"], live?.protocol ?? null, desiredProtocol);
 
   // Enabled state — VyOS models "off" as a valueless `disable` leaf.
   const liveEnabled = live?.enabled ?? true;
@@ -667,25 +813,18 @@ export function applyRule(live: FirewallRule | null, update: RuleUpdate, cfg: Fi
   return commitAndSave(diffRule(live, update, cfg));
 }
 
-/// Delete a forward-filter rule, along with the auto-managed OR groups backing
-/// its sides (auto groups are per-side, so no other rule references them).
+/// Delete a filter rule, along with the auto-managed OR groups backing its
+/// sides.
 export function deleteRule(rule: FirewallRule, autoGroups: AutoGroup[]): Promise<number> {
-  const out: VyosCommand[] = [{ op: "delete", path: ruleBase(rule.rule) }];
-  for (const e of [rule.from, rule.to]) {
-    const refs = [
-      e.group_type && e.group_name ? { node: e.group_type, name: e.group_name } : null,
-      e.iface_group ? { node: "interface-group", name: e.iface_group } : null,
-    ];
-    for (const ref of refs) {
-      if (ref && autoGroups.some((g) => g.node === ref.node && g.name === ref.name)) {
-        out.push({ op: "delete", path: ["firewall", "group", ref.node, ref.name] });
-      }
-    }
-  }
-  return commitAndSave(out);
+  return commitAndSave([
+    { op: "delete", path: ruleBase(rule.chain, rule.rule) },
+    ...autoGroupDeletes(rule, autoGroups),
+  ]);
 }
 
-/// Rule number for a newly created rule: appended after the last one.
+/// Rule number for a newly created rule: appended after the last one. The max
+/// spans all chains so a new rule sorts to the bottom of the merged table
+/// (numbers only have to be unique within a chain).
 export function nextRuleNumber(rules: FirewallRule[]): number {
   const max = rules.reduce((m, r) => Math.max(m, r.rule), 0);
   return max + 10;
@@ -727,8 +866,8 @@ export function reorderCommands(orderedRules: FirewallRule[]): VyosCommand[] {
   orderedRules.forEach((r, i) => {
     const target = (i + 1) * 10;
     if (r.rule === target) return;
-    deletes.push({ op: "delete", path: ruleBase(r.rule) });
-    cfgToCommands(ruleBase(target), r.raw, sets);
+    deletes.push({ op: "delete", path: ruleBase(r.chain, r.rule) });
+    cfgToCommands(ruleBase(r.chain, target), r.raw, sets);
   });
   return [...deletes, ...sets];
 }
@@ -745,5 +884,5 @@ export async function applyRuleOrder(orderedRules: FirewallRule[]): Promise<numb
 /// Set `firewall ipv4 forward filter default-action` (what happens to traffic
 /// no rule matches).
 export function setDefaultAction(action: "accept" | "drop"): Promise<number> {
-  return commitAndSave([{ op: "set", path: [...FILTER_BASE, "default-action", action] }]);
+  return commitAndSave([{ op: "set", path: [...filterBase("forward"), "default-action", action] }]);
 }

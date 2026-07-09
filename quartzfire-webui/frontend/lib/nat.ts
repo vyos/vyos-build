@@ -55,6 +55,9 @@ export interface NatRuleUpdate {
   description: string | null;
   interface: string | null;
   source_address: string | null;
+  /** `<type> <name>` firewall-group source match (e.g. `network-group LAN-NETS`);
+   *  mutually exclusive with `source_address`. */
+  source_group: string | null;
   source_port: string | null;
   destination_address: string | null;
   destination_port: string | null;
@@ -238,7 +241,32 @@ export function diffNatRule(existing: NatRule[], u: NatRuleUpdate): VyosCommand[
   };
 
   leaf(["description"], live?.description ?? null, u.description);
-  leaf(["source", "address"], live?.source ?? null, u.source_address);
+
+  // Source match — a literal address or a firewall-group reference (stored as
+  // `<type> <name>`), mutually exclusive. Deletes are emitted before sets so
+  // the departing form is gone before the new one lands in the same commit.
+  const newSrcAddr = u.source_address?.trim() || null;
+  const newSrcGroup = u.source_group?.trim() || null;
+  const liveSrcAddr = live?.source ?? null;
+  const liveSrcGroup = live?.source_group ?? null;
+  if (liveSrcAddr !== null && newSrcAddr === null) {
+    body.push({ op: "delete", path: [...base, "source", "address"] });
+  }
+  // A group set replaces a same-type value, but a type change (`network-group`
+  // → `address-group`) would leave the old sibling leaf behind — clear the node.
+  if (
+    liveSrcGroup !== null &&
+    (newSrcGroup === null || newSrcGroup.split(" ")[0] !== liveSrcGroup.split(" ")[0])
+  ) {
+    body.push({ op: "delete", path: [...base, "source", "group"] });
+  }
+  if (newSrcAddr !== null && newSrcAddr !== liveSrcAddr) {
+    body.push({ op: "set", path: [...base, "source", "address", newSrcAddr] });
+  }
+  if (newSrcGroup !== null && newSrcGroup !== liveSrcGroup) {
+    body.push({ op: "set", path: [...base, "source", "group", ...newSrcGroup.split(" ")] });
+  }
+
   leaf(["source", "port"], live?.source_port ?? null, u.source_port);
   leaf(["destination", "address"], live?.destination ?? null, u.destination_address);
   leaf(["destination", "port"], live?.destination_port ?? null, u.destination_port);
@@ -308,6 +336,7 @@ function staticPair(u: StaticNatUpdate): [NatRuleUpdate, NatRuleUpdate] {
     rule: u.rule,
     description: u.description,
     interface: u.interface,
+    source_group: null,
     source_port: null,
     destination_port: null,
     translation_port: null,

@@ -294,11 +294,41 @@ export async function fetchBridges(): Promise<BridgeInterface[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/// Parse interface names from the first column of `show interfaces ethernet`
-/// op output. The table starts after a dashed separator line; vif
-/// sub-interfaces (`eth1.20`) are skipped.
-function parseEthernetNames(text: string): string[] {
-  const out: string[] = [];
+/// Description of every configured interface, keyed by name (VLAN
+/// sub-interfaces included as `eth0.10`) — for annotating interface pickers.
+export async function fetchInterfaceDescriptions(): Promise<Record<string, string>> {
+  const interfaces = await fetchInterfacesConfig();
+  const out: Record<string, string> = {};
+  for (const kind of Object.keys(interfaces)) {
+    for (const [name, raw] of Object.entries(kindNode(interfaces, kind))) {
+      const cfg = (raw ?? {}) as Cfg;
+      const desc = childStr(cfg, "description");
+      if (desc) out[name] = desc;
+      const vifs = cfg["vif"];
+      if (!vifs || typeof vifs !== "object") continue;
+      for (const [vid, vraw] of Object.entries(vifs as Record<string, Cfg>)) {
+        const vdesc = childStr((vraw ?? {}) as Cfg, "description");
+        if (vdesc) out[`${name}.${vid}`] = vdesc;
+      }
+    }
+  }
+  return out;
+}
+
+/// Carrier state of a physical NIC, from operational (not config) state.
+export type LinkState = "up" | "down" | "unknown";
+
+export interface PhysicalEthernet {
+  name: string;
+  link: LinkState;
+}
+
+/// Parse `show interfaces ethernet` op output. The table starts after a dashed
+/// separator line; vif sub-interfaces (`eth1.20`) are skipped. The S/L column
+/// (`u/u`, `u/D`, `A/D`) encodes admin state / link state — the second letter
+/// is the carrier.
+function parseEthernetTable(text: string): PhysicalEthernet[] {
+  const out = new Map<string, LinkState>();
   let inTable = false;
   for (const line of text.split("\n")) {
     const t = line.trimStart();
@@ -306,17 +336,23 @@ function parseEthernetNames(text: string): string[] {
       if (t.startsWith("---")) inTable = true;
       continue;
     }
-    const tok = t.split(/\s+/)[0];
-    if (!tok || tok.includes(".")) continue; // vif sub-interface, not a physical NIC
-    if (/^[a-z]/i.test(tok)) out.push(tok);
+    const toks = t.split(/\s+/);
+    const name = toks[0];
+    if (!name || name.includes(".")) continue; // vif sub-interface, not a physical NIC
+    if (!/^[a-z]/i.test(name)) continue; // continuation line (extra IP address)
+    const sl = toks.find((tok) => /^[uDA]\/[uDA]$/.test(tok));
+    const link: LinkState = sl ? (sl.endsWith("u") ? "up" : "down") : "unknown";
+    if (!out.has(name)) out.set(name, link);
   }
-  return [...new Set(out)].sort();
+  return [...out.entries()]
+    .map(([name, link]) => ({ name, link }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/// All physical ethernet NICs present on the device (configured or not), read
-/// from operational state. The UI subtracts already-configured interfaces from
-/// this to find which NICs are free to add.
-export async function fetchPhysicalEthernet(): Promise<string[]> {
+/// All physical ethernet NICs present on the device (configured or not), with
+/// their link state, read from operational state. The UI subtracts
+/// already-configured interfaces from this to find which NICs are free to add.
+export async function fetchPhysicalEthernet(): Promise<PhysicalEthernet[]> {
   const resp = await vyosApi<VyosResponse<string | null>>("show", {
     op: "show",
     path: ["interfaces", "ethernet"],
@@ -324,7 +360,7 @@ export async function fetchPhysicalEthernet(): Promise<string[]> {
   if (!resp.success) {
     throw new Error(resp.error || "Device returned an error listing physical interfaces.");
   }
-  return parseEthernetNames(resp.data ?? "");
+  return parseEthernetTable(resp.data ?? "");
 }
 
 // ── writes ────────────────────────────────────────────────────────────────────

@@ -30,6 +30,10 @@ export default function FirewallPoliciesPage() {
     auto_groups: [],
     group_names: [],
     default_action: null,
+    setup: {
+      input: { baseline: false, default_action: null },
+      output: { baseline: false, default_action: null },
+    },
   });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");

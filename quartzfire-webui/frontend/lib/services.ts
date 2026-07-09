@@ -24,11 +24,14 @@ function childCfg(v: Cfg, key: string): Cfg | null {
 }
 
 /// VyOS renders a multi-value leaf as a JSON string when it holds one value
-/// and a JSON array when it holds several.
+/// and a JSON array when it holds several. Tag nodes (values that can carry
+/// children, like `name-server <addr> port <n>`) render as an object keyed by
+/// value instead — return the keys.
 function strList(v: Cfg, key: string): string[] {
   const x = v[key];
   if (typeof x === "string") return [x];
   if (Array.isArray(x)) return x.filter((s): s is string => typeof s === "string");
+  if (x && typeof x === "object") return Object.keys(x);
   return [];
 }
 

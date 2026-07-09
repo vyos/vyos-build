@@ -9,7 +9,6 @@ import {
   ALIAS_GROUP,
   applyRule,
   AliasType,
-  endpointToSelection,
   EndpointEntry,
   EndpointSelection,
   FirewallConfig,
@@ -17,6 +16,9 @@ import {
   nextRuleNumber,
   PROTOCOL_LABEL,
   RuleAction,
+  RuleChain,
+  RulePolicyChoice,
+  ruleSelection,
 } from "@/lib/firewall";
 
 const inputCls = "w-full rounded-md px-3 py-[9px] text-[13px] text-[var(--qz-fg-1)] outline-none";
@@ -42,6 +44,17 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 const aliasKey = (type: AliasType, name: string) => `alias:${type}:${name}`;
 const ifaceKey = (name: string) => `iface:${name}`;
+const FIREWALL_KEY = "builtin:firewall";
+
+/// Built-in Ping policy sentinel for the policy select — a value no
+/// port-group can be named (VyOS group names can't contain brackets).
+const PING_KEY = "[ping]";
+
+const CHAIN_LABEL: Record<RuleChain, string> = {
+  forward: "Forward filter",
+  input: "Input filter",
+  output: "Output filter",
+};
 
 function entryLabel(e: EndpointEntry): { main: string; sub: string } {
   switch (e.kind) {
@@ -49,6 +62,8 @@ function entryLabel(e: EndpointEntry): { main: string; sub: string } {
       return { main: e.name, sub: ALIAS_GROUP[e.type].label };
     case "interface":
       return { main: e.name, sub: "Interface" };
+    case "firewall":
+      return { main: "Firewall", sub: "This device" };
     case "ifgroup":
       return { main: e.name, sub: "Interface group" };
     case "address":
@@ -60,43 +75,52 @@ function entryLabel(e: EndpointEntry): { main: string; sub: string } {
 /// (any of them; empty = Any) with add/remove controls. The add dropdown only
 /// offers entries VyOS can OR with what's already listed — interfaces and
 /// aliases can't be mixed, alias types can't be combined, and FQDN aliases
-/// stand alone (domain groups have no include). Legacy entries (a literal
-/// address or an interface-group written on the CLI) stay removable but can't
-/// be newly added.
+/// stand alone (domain groups have no include). The built-in Firewall entry
+/// (this device itself) stands alone too, and only one side can carry it.
+/// Legacy entries (a literal address or an interface-group written on the
+/// CLI) stay removable but can't be newly added.
 function EndpointField({
   label,
   interfaces,
+  descriptions,
   aliases,
+  allowFirewall,
   value,
   onChange,
 }: {
   label: string;
   interfaces: string[];
+  descriptions?: Record<string, string>;
   aliases: FirewallConfig["aliases"];
+  /** False when the other side already carries the Firewall entry. */
+  allowFirewall: boolean;
   value: EndpointSelection;
   onChange: (sel: EndpointSelection) => void;
 }) {
   const hasIface = value.some((e) => e.kind === "interface" || e.kind === "ifgroup");
+  const hasFirewall = value.some((e) => e.kind === "firewall");
   const aliasEntry = value.find((e) => e.kind === "alias");
   const aliasType = aliasEntry?.kind === "alias" ? aliasEntry.type : null;
   // A legacy entry can't be OR-combined with anything — matches would AND.
   const hasLegacy = value.some((e) => e.kind === "ifgroup" || e.kind === "address");
 
   const addableIfaces =
-    aliasType || hasLegacy
+    aliasType || hasLegacy || hasFirewall
       ? []
       : interfaces.filter((n) => !value.some((e) => e.kind === "interface" && e.name === n));
-  const addableAliases = hasIface || hasLegacy
+  const addableAliases = hasIface || hasLegacy || hasFirewall
     ? []
     : aliases.filter((a) => {
         if (value.some((e) => e.kind === "alias" && e.type === a.type && e.name === a.name)) return false;
         if (aliasType) return a.type === aliasType && aliasType !== "fqdn";
         return true;
       });
-  const canAdd = addableIfaces.length > 0 || addableAliases.length > 0;
+  const firewallAddable = allowFirewall && value.length === 0;
+  const canAdd = addableIfaces.length > 0 || addableAliases.length > 0 || firewallAddable;
 
   const add = (v: string) => {
-    if (v.startsWith("iface:")) onChange([...value, { kind: "interface", name: v.slice("iface:".length) }]);
+    if (v === FIREWALL_KEY) onChange([...value, { kind: "firewall" }]);
+    else if (v.startsWith("iface:")) onChange([...value, { kind: "interface", name: v.slice("iface:".length) }]);
     else if (v.startsWith("alias:")) {
       const [, type, ...rest] = v.split(":");
       onChange([...value, { kind: "alias", type: type as AliasType, name: rest.join(":") }]);
@@ -147,11 +171,16 @@ function EndpointField({
         <option value="" disabled>
           {canAdd ? "Add…" : "Nothing more can be added"}
         </option>
+        {firewallAddable && (
+          <optgroup label="Built-in">
+            <option value={FIREWALL_KEY}>Firewall — this device itself</option>
+          </optgroup>
+        )}
         {addableIfaces.length > 0 && (
           <optgroup label="Interfaces">
             {addableIfaces.map((n) => (
               <option key={ifaceKey(n)} value={ifaceKey(n)}>
-                {n}
+                {descriptions?.[n] ? `${n} — ${descriptions[n]}` : n}
               </option>
             ))}
           </optgroup>
@@ -170,12 +199,15 @@ function EndpointField({
   );
 }
 
-/// Create/edit a forward-filter rule (From → To with an action and a policy).
-/// Diffs against the live config and commits immediately (saved to boot
-/// config). New rules are appended at the bottom — drag the table to reorder.
+/// Create/edit a filter rule (From → To with an action and a policy). Diffs
+/// against the live config and commits immediately (saved to boot config).
+/// New rules are appended at the bottom — drag the table to reorder. A side
+/// set to the built-in Firewall entry places the rule in the input/output
+/// chain instead of forward.
 export function RuleFormModal({
   initial,
   interfaces,
+  descriptions,
   config,
   onClose,
   onSaved,
@@ -184,6 +216,8 @@ export function RuleFormModal({
   initial?: FirewallRule;
   /** Firewall interface names offered in the From/To pickers. */
   interfaces: string[];
+  /** Interface descriptions by name, shown next to the picker entries. */
+  descriptions?: Record<string, string>;
   /** The full firewall config — aliases and policies for the pickers, rules
    *  for numbering, auto groups and group names for the endpoint diff. */
   config: FirewallConfig;
@@ -197,12 +231,14 @@ export function RuleFormModal({
   const [name, setName] = useState(initial?.name ?? "");
   const [action, setAction] = useState<RuleAction>(initial?.action ?? "accept");
   const [from, setFrom] = useState<EndpointSelection>(
-    initial ? endpointToSelection(initial.from, config.auto_groups) : [],
+    initial ? ruleSelection(initial, "from", config.auto_groups) : [],
   );
   const [to, setTo] = useState<EndpointSelection>(
-    initial ? endpointToSelection(initial.to, config.auto_groups) : [],
+    initial ? ruleSelection(initial, "to", config.auto_groups) : [],
   );
-  const [policyName, setPolicyName] = useState(initial?.policy ?? "");
+  const [policyName, setPolicyName] = useState(
+    initial?.policy ?? (initial?.protocol === "icmp" ? PING_KEY : ""),
+  );
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
 
   const [error, setError] = useState("");
@@ -212,10 +248,16 @@ export function RuleFormModal({
     e.preventDefault();
     setError("");
 
-    const policy = policies.find((p) => p.name === policyName) ?? null;
-    if (policyName && !policy) {
-      setError(`Policy ${policyName} no longer exists — refresh and try again.`);
-      return;
+    let policy: RulePolicyChoice | null = null;
+    if (policyName === PING_KEY) {
+      policy = { kind: "ping" };
+    } else if (policyName) {
+      const p = policies.find((pol) => pol.name === policyName);
+      if (!p) {
+        setError(`Policy ${policyName} no longer exists — refresh and try again.`);
+        return;
+      }
+      policy = { kind: "policy", name: p.name, protocol: p.protocol };
     }
 
     setSaving(true);
@@ -229,7 +271,7 @@ export function RuleFormModal({
           action,
           from,
           to,
-          policy: policy ? { name: policy.name, protocol: policy.protocol } : null,
+          policy,
           enabled,
         },
         config,
@@ -250,7 +292,7 @@ export function RuleFormModal({
     <ModalShell onClose={onClose} maxWidth={640}>
       <ModalHeader
         title={`${isEdit ? "Edit" : "Create"} Rule`}
-        subtitle={isEdit ? `Forward filter rule ${initial!.rule}` : "New rules are added at the bottom — drag to reorder"}
+        subtitle={isEdit ? `${CHAIN_LABEL[initial!.chain]} rule ${initial!.rule}` : "New rules are added at the bottom — drag to reorder"}
         onClose={onClose}
       />
 
@@ -280,12 +322,29 @@ export function RuleFormModal({
         </Field>
 
         <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          <EndpointField label="From" interfaces={interfaces} aliases={aliases} value={from} onChange={setFrom} />
-          <EndpointField label="To" interfaces={interfaces} aliases={aliases} value={to} onChange={setTo} />
+          <EndpointField
+            label="From"
+            interfaces={interfaces}
+            descriptions={descriptions}
+            aliases={aliases}
+            allowFirewall={!to.some((e) => e.kind === "firewall")}
+            value={from}
+            onChange={setFrom}
+          />
+          <EndpointField
+            label="To"
+            interfaces={interfaces}
+            descriptions={descriptions}
+            aliases={aliases}
+            allowFirewall={!from.some((e) => e.kind === "firewall")}
+            value={to}
+            onChange={setTo}
+          />
         </div>
         <p className="text-[11px] text-[var(--qz-fg-4)] m-0 -mt-2">
           Traffic matches any entry in a list; an empty list matches everything. Interfaces and aliases can&apos;t be
-          mixed in one list, and aliases must share a type.
+          mixed in one list, and aliases must share a type. The built-in Firewall entry matches this device itself —
+          use it to control management access, pings, and other traffic to or from the firewall.
         </p>
 
         <Field
@@ -301,6 +360,7 @@ export function RuleFormModal({
             onBlur={blurBorder}
           >
             <option value="">Any (all traffic)</option>
+            <option value={PING_KEY}>Ping — icmp</option>
             {policies.map((p) => (
               <option key={p.name} value={p.name}>
                 {p.name} — {PROTOCOL_LABEL[p.protocol].toLowerCase()}:{p.ports.join(",")}

@@ -4,15 +4,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Pencil, Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Column, DataTable, FilterDef } from "@/components/dashboard/DataTable";
-import { EthernetInterface, fetchEthernet, fetchPhysicalEthernet } from "@/lib/interfaces";
+import { EthernetInterface, LinkState, fetchEthernet, fetchPhysicalEthernet } from "@/lib/interfaces";
 import { useDashboard } from "@/lib/DashboardContext";
 import { EthernetFormModal } from "./EthernetFormModal";
+
+/// Configured interface plus its operational link (carrier) state.
+type EthRow = EthernetInterface & { link: LinkState };
 
 function StatePill({ enabled }: { enabled: boolean }) {
   return <span className={enabled ? "badge badge-ok" : "badge badge-muted"}>{enabled ? "Enabled" : "Disabled"}</span>;
 }
 
-const columns: Column<EthernetInterface>[] = [
+function LinkPill({ link }: { link: LinkState }) {
+  if (link === "unknown") return <span className="badge badge-muted">Unknown</span>;
+  return <span className={link === "up" ? "badge badge-ok" : "badge badge-crit"}>{link === "up" ? "Up" : "Down"}</span>;
+}
+
+const columns: Column<EthRow>[] = [
   { key: "name", header: "Interface", value: (r) => r.name, mono: true, sortable: true, width: 130 },
   { key: "description", header: "Description", value: (r) => r.description ?? "", sortable: true },
   {
@@ -26,6 +34,14 @@ const columns: Column<EthernetInterface>[] = [
   { key: "hw_id", header: "MAC", value: (r) => r.hw_id ?? "", mono: true, width: 150 },
   { key: "vlan_count", header: "VLANs", value: (r) => r.vlan_count, mono: true, sortable: true, width: 80 },
   {
+    key: "link",
+    header: "Link",
+    value: (r) => r.link,
+    render: (r) => <LinkPill link={r.link} />,
+    sortable: true,
+    width: 100,
+  },
+  {
     key: "status",
     header: "Status",
     value: (r) => (r.enabled ? "enabled" : "disabled"),
@@ -35,7 +51,16 @@ const columns: Column<EthernetInterface>[] = [
   },
 ];
 
-const filters: FilterDef<EthernetInterface>[] = [
+const filters: FilterDef<EthRow>[] = [
+  {
+    key: "link",
+    label: "Link",
+    options: [
+      { value: "up", label: "Up" },
+      { value: "down", label: "Down" },
+    ],
+    predicate: (r, v) => r.link === v,
+  },
   {
     key: "status",
     label: "Status",
@@ -49,7 +74,7 @@ const filters: FilterDef<EthernetInterface>[] = [
 
 export default function EthernetPage() {
   const { setToast } = useDashboard();
-  const [rows, setRows] = useState<EthernetInterface[]>([]);
+  const [rows, setRows] = useState<EthRow[]>([]);
   const [physical, setPhysical] = useState<string[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -59,8 +84,8 @@ export default function EthernetPage() {
 
   const fetchData = useCallback(async () => {
     const [eths, phys] = await Promise.all([fetchEthernet(), fetchPhysicalEthernet()]);
-    setRows(eths);
-    setPhysical(phys);
+    setRows(eths.map((e) => ({ ...e, link: phys.find((p) => p.name === e.name)?.link ?? "unknown" })));
+    setPhysical(phys.map((p) => p.name));
   }, []);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {

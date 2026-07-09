@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
 import { Switch } from "@/components/ui/Switch";
 import { applyNatRule, NatRule, NatSection } from "@/lib/nat";
+import { ALIAS_GROUP, FirewallAlias } from "@/lib/firewall";
 
 const inputCls = "w-full rounded-md px-3 py-[9px] text-[13px] text-[var(--qz-fg-1)] outline-none";
 const inputSt = { background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" } as const;
@@ -34,6 +35,8 @@ export function NatRuleFormModal({
   section,
   initial,
   interfaces,
+  descriptions,
+  aliases,
   existing,
   takenRules,
   onClose,
@@ -44,6 +47,10 @@ export function NatRuleFormModal({
   initial?: NatRule;
   /** Interface names offered in the interface picker. */
   interfaces: string[];
+  /** Interface descriptions by name, shown next to the picker entries. */
+  descriptions?: Record<string, string>;
+  /** Firewall aliases offered as source matches (host/network only). */
+  aliases: FirewallAlias[];
   /** Existing rules in this section, for duplicate detection and diffing. */
   existing: NatRule[];
   /** Rule numbers used by 1-to-1 mappings (unavailable here). */
@@ -59,6 +66,12 @@ export function NatRuleFormModal({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [iface, setIface] = useState(initial?.interface ?? interfaces[0] ?? "");
   const [sourceAddress, setSourceAddress] = useState(initial?.source ?? "");
+  // Source match is an address or an alias (firewall-group reference stored
+  // as `<type> <name>`), mutually exclusive.
+  const [sourceMode, setSourceMode] = useState<"address" | "alias">(
+    initial?.source_group ? "alias" : "address",
+  );
+  const [sourceGroup, setSourceGroup] = useState(initial?.source_group ?? "");
   const [sourcePort, setSourcePort] = useState(initial?.source_port ?? "");
   const [destAddress, setDestAddress] = useState(initial?.destination ?? "");
   const [destPort, setDestPort] = useState(initial?.destination_port ?? "");
@@ -79,6 +92,19 @@ export function NatRuleFormModal({
 
   // Keep the current value selectable even if it's missing from the list.
   const ifaceOptions = [...new Set([iface, ...interfaces].filter(Boolean))];
+
+  // Host/network aliases as `<type> <name>` group references. VyOS NAT also
+  // accepts domain/mac groups, but subnets and hosts are what SNAT wants.
+  const aliasOptions = aliases
+    .filter((a) => a.type === "host" || a.type === "network")
+    .map((a) => ({
+      value: `${ALIAS_GROUP[a.type].node} ${a.name}`,
+      label: `${a.name} (${ALIAS_GROUP[a.type].label})`,
+    }));
+  // Keep a group configured outside the Aliases page (CLI, other type) selectable.
+  if (sourceGroup && !aliasOptions.some((o) => o.value === sourceGroup)) {
+    aliasOptions.unshift({ value: sourceGroup, label: sourceGroup });
+  }
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -103,6 +129,10 @@ export function NatRuleFormModal({
       setError(isSource ? "Enter a translation address, or use masquerade." : "Enter a forward-to address.");
       return;
     }
+    if (sourceMode === "alias" && !sourceGroup) {
+      setError("Choose a source alias, or switch the source match to an address.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -111,7 +141,8 @@ export function NatRuleFormModal({
         rule: num,
         description: description.trim() || null,
         interface: iface.trim() || null,
-        source_address: sourceAddress.trim() || null,
+        source_address: sourceMode === "address" ? sourceAddress.trim() || null : null,
+        source_group: sourceMode === "alias" ? sourceGroup || null : null,
         source_port: sourcePort.trim() || null,
         destination_address: destAddress.trim() || null,
         destination_port: destPort.trim() || null,
@@ -204,7 +235,7 @@ export function NatRuleFormModal({
             >
               {ifaceOptions.map((n) => (
                 <option key={n} value={n}>
-                  {n}
+                  {descriptions?.[n] ? `${n} — ${descriptions[n]}` : n}
                 </option>
               ))}
             </select>
@@ -222,16 +253,56 @@ export function NatRuleFormModal({
         </Field>
 
         <div className="grid gap-4" style={{ gridTemplateColumns: "2fr 1fr" }}>
-          <Field label="Source Address">
-            <input
-              value={sourceAddress}
-              onChange={(e) => setSourceAddress(e.target.value)}
-              placeholder={isSource ? "10.0.0.0/24" : "any"}
-              className={inputCls}
-              style={monoSt}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
+          <Field
+            label="Source"
+            hint={sourceMode === "alias" ? "Aliases are managed under Firewall → Aliases." : undefined}
+          >
+            <div className="flex gap-2">
+              <div style={{ width: 104, flexShrink: 0 }}>
+                <select
+                  value={sourceMode}
+                  onChange={(e) => setSourceMode(e.target.value as "address" | "alias")}
+                  className={`${inputCls} cursor-pointer`}
+                  style={inputSt}
+                  onFocus={focusBorder}
+                  onBlur={blurBorder}
+                >
+                  <option value="address">Address</option>
+                  <option value="alias">Alias</option>
+                </select>
+              </div>
+              <div className="flex-1 min-w-0">
+                {sourceMode === "address" ? (
+                  <input
+                    value={sourceAddress}
+                    onChange={(e) => setSourceAddress(e.target.value)}
+                    placeholder={isSource ? "10.0.0.0/24" : "any"}
+                    className={inputCls}
+                    style={monoSt}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                  />
+                ) : (
+                  <select
+                    value={sourceGroup}
+                    onChange={(e) => setSourceGroup(e.target.value)}
+                    className={`${inputCls} cursor-pointer`}
+                    style={monoSt}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                  >
+                    <option value="" disabled>
+                      {aliasOptions.length ? "Select alias…" : "No aliases defined"}
+                    </option>
+                    {aliasOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
           </Field>
           <Field label="Source Port">
             <input

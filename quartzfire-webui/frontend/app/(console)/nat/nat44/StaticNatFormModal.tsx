@@ -31,6 +31,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 export function StaticNatFormModal({
   initial,
   interfaces,
+  descriptions,
   existing,
   takenRules,
   onClose,
@@ -40,6 +41,8 @@ export function StaticNatFormModal({
   initial?: StaticNatMapping;
   /** Interface names offered as a datalist for the interface field. */
   interfaces: string[];
+  /** Interface descriptions by name, shown next to the datalist entries. */
+  descriptions?: Record<string, string>;
   /** Existing mappings, for duplicate rule-number detection. */
   existing: StaticNatMapping[];
   /** Rule numbers used by plain source/destination rules (unavailable here). */
@@ -118,7 +121,7 @@ export function StaticNatFormModal({
       <form onSubmit={submit} className="flex flex-col gap-4">
         <datalist id="static-nat-interfaces">
           {interfaces.map((n) => (
-            <option key={n} value={n} />
+            <option key={n} value={n} label={descriptions?.[n]} />
           ))}
         </datalist>
 
