@@ -1,0 +1,23 @@
+[[packages]]
+name = "squid"
+commit_id = "debian/7.6-2"
+scm_url = "https://salsa.debian.org/squid-team/squid"
+
+[dependencies]
+  packages = [
+    "libltdl-dev",
+    "dh-apparmor",
+    "libcppunit-dev",
+    "libcap2-dev",
+    "libecap3-dev",
+    "libgnutls28-dev",
+    "libldap2-dev",
+    "libnetfilter-conntrack-dev",
+    "libpam0g-dev",
+    "libsasl2-dev",
+    "libsystemd-dev",
+    "libtdb-dev",
+    "nettle-dev",
+    "libssl-dev"
+  ]
+

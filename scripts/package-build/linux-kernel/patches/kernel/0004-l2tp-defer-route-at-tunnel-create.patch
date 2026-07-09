@@ -30,10 +30,15 @@ Assisted-by: Cursor:claude-4.8-opus
 Signed-off-by: Christian Breunig <christian@breunig.cc>
 
 ---
-diff --git i/net/l2tp/l2tp_core.c w/net/l2tp/l2tp_core.c
-index 9156a937334a..6fd9c1d89533 100644
---- i/net/l2tp/l2tp_core.c
-+++ w/net/l2tp/l2tp_core.c
+ net/l2tp/l2tp_core.c |  65 +++++++++++++++++++++++-
+ net/l2tp/l2tp_ip.c   |  37 ++++++++++++++
+ net/l2tp/l2tp_ip6.c  | 117 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 218 insertions(+), 1 deletion(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index fd78928e9be2..0be01b28b7a8 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
 @@ -55,6 +55,8 @@
  #include <net/inet_ecn.h>
  #include <net/ip6_route.h>
@@ -43,7 +48,7 @@ index 9156a937334a..6fd9c1d89533 100644
  
  #include <asm/byteorder.h>
  #include <linux/atomic.h>
-@@ -1453,6 +1455,67 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
+@@ -1454,6 +1456,67 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
   * These sockets are freed when the namespace exits using the pernet
   * exit hook.
   */
@@ -111,7 +116,7 @@ index 9156a937334a..6fd9c1d89533 100644
  static int l2tp_tunnel_sock_create(struct net *net,
  				   u32 tunnel_id,
  				   u32 peer_tunnel_id,
-@@ -1490,7 +1553,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
+@@ -1491,7 +1554,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
  		udp_conf.local_udp_port = htons(cfg->local_udp_port);
  		udp_conf.peer_udp_port = htons(cfg->peer_udp_port);
  
@@ -120,10 +125,10 @@ index 9156a937334a..6fd9c1d89533 100644
  		if (err < 0)
  			goto out;
  
-diff --git i/net/l2tp/l2tp_ip.c w/net/l2tp/l2tp_ip.c
-index 29795d2839e8..d63b00f09421 100644
---- i/net/l2tp/l2tp_ip.c
-+++ w/net/l2tp/l2tp_ip.c
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 29795d2839e8..0d904a50b9a3 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
 @@ -24,6 +24,7 @@
  #include <net/xfrm.h>
  #include <net/net_namespace.h>
@@ -182,10 +187,10 @@ index 29795d2839e8..d63b00f09421 100644
  	if (rc < 0)
  		goto out_sk;
  
-diff --git i/net/l2tp/l2tp_ip6.c w/net/l2tp/l2tp_ip6.c
-index ea232f338dcb..610e666c0a58 100644
---- i/net/l2tp/l2tp_ip6.c
-+++ w/net/l2tp/l2tp_ip6.c
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index ea232f338dcb..e4e34db4c37f 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
 @@ -28,6 +28,8 @@
  #include <net/transp_v6.h>
  #include <net/addrconf.h>
@@ -324,3 +329,6 @@ index ea232f338dcb..610e666c0a58 100644
  	if (rc < 0)
  		goto out_sk;
  
+-- 
+2.39.5
+
