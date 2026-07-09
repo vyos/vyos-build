@@ -5,6 +5,7 @@ import { AlertTriangle, Check, GripVertical, Plus, RotateCw, Search, Undo2 } fro
 import { Button } from "@/components/ui/Button";
 import {
   applyRuleOrder,
+  AutoGroup,
   deleteRule,
   endpointToSelection,
   fetchFirewall,
@@ -26,28 +27,29 @@ function ActionPill({ action }: { action: FirewallRule["action"] }) {
   return <span className="badge badge-muted">—</span>;
 }
 
-function EndpointCell({ endpoint }: { endpoint: RuleEndpoint }) {
-  const sel = endpointToSelection(endpoint);
-  if (sel.kind === "alias") {
-    return <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>{sel.name}</span>;
-  }
-  if (sel.kind === "interface") {
-    return (
-      <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>
-        {sel.name}
-        <span className="text-[var(--qz-fg-4)]"> · iface</span>
-      </span>
-    );
-  }
-  if (sel.kind === "address") {
-    return <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }}>{sel.address}</span>;
-  }
-  return <span className="text-[var(--qz-fg-4)]">Any</span>;
+function EndpointCell({ endpoint, autoGroups }: { endpoint: RuleEndpoint; autoGroups: AutoGroup[] }) {
+  const sel = endpointToSelection(endpoint, autoGroups);
+  if (sel.length === 0) return <span className="text-[var(--qz-fg-4)]">Any</span>;
+  const names = sel.map((e) => (e.kind === "address" ? e.address : e.name));
+  const allIfaces = sel.every((e) => e.kind === "interface" || e.kind === "ifgroup");
+  return (
+    <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }} title={names.join(", ")}>
+      {names.join(", ")}
+      {allIfaces && <span className="text-[var(--qz-fg-4)]"> · iface</span>}
+    </span>
+  );
 }
 
 export default function FirewallRulesPage() {
   const { setToast } = useDashboard();
-  const [data, setData] = useState<FirewallConfig>({ aliases: [], policies: [], rules: [], default_action: null });
+  const [data, setData] = useState<FirewallConfig>({
+    aliases: [],
+    policies: [],
+    rules: [],
+    auto_groups: [],
+    group_names: [],
+    default_action: null,
+  });
   const [interfaces, setInterfaces] = useState<string[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -163,7 +165,7 @@ export default function FirewallRulesPage() {
 
   const remove = async (rule: FirewallRule) => {
     try {
-      await deleteRule(rule.rule);
+      await deleteRule(rule, data.auto_groups);
       setToast(`Deleted rule ${rule.rule} and saved to boot config.`);
       await load("refresh");
     } catch (e) {
@@ -365,10 +367,10 @@ export default function FirewallRulesPage() {
                             {r.name ?? <span className="text-[var(--qz-fg-4)]">—</span>}
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <EndpointCell endpoint={r.from} />
+                            <EndpointCell endpoint={r.from} autoGroups={data.auto_groups} />
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <EndpointCell endpoint={r.to} />
+                            <EndpointCell endpoint={r.to} autoGroups={data.auto_groups} />
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {policyCell(r)}
@@ -405,9 +407,7 @@ export default function FirewallRulesPage() {
         <RuleFormModal
           initial={modal.rule}
           interfaces={interfaces}
-          aliases={data.aliases}
-          policies={data.policies}
-          rules={data.rules}
+          config={data}
           onClose={() => setModal(null)}
           onSaved={(msg) => {
             setModal(null);

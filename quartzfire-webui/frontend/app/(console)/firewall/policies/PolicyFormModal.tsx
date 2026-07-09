@@ -9,10 +9,10 @@ const inputCls = "w-full rounded-md px-3 py-[9px] text-[13px] text-[var(--qz-fg-
 const inputSt = { background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" } as const;
 const monoSt = { ...inputSt, fontFamily: "var(--qz-font-mono)" } as const;
 
-function focusBorder(e: React.FocusEvent<HTMLInputElement>) {
+function focusBorder(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
   e.currentTarget.style.borderColor = "var(--qz-accent)";
 }
-function blurBorder(e: React.FocusEvent<HTMLInputElement>) {
+function blurBorder(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
   e.currentTarget.style.borderColor = "var(--qz-border)";
 }
 
@@ -66,7 +66,7 @@ export function PolicyFormModal({
 
   const [name, setName] = useState(initial?.name ?? "");
   const [protocol, setProtocol] = useState<PolicyProtocol>(initial?.protocol ?? "tcp");
-  const [portsText, setPortsText] = useState(initial?.ports.join(", ") ?? "");
+  const [portsText, setPortsText] = useState(initial?.ports.join("\n") ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
 
   const [error, setError] = useState("");
@@ -161,12 +161,13 @@ export function PolicyFormModal({
           />
         </Field>
 
-        <Field label="Ports" hint="Comma or space separated: numbers (443), ranges (8000-8010), or service names (https).">
-          <input
+        <Field label="Ports" hint="One per line (commas work too): numbers (443), ranges (8000-8010), or service names (https).">
+          <textarea
             value={portsText}
             onChange={(e) => setPortsText(e.target.value)}
-            placeholder="80, 443, 8000-8010"
-            className={inputCls}
+            placeholder={"80\n443\n8000-8010"}
+            rows={4}
+            className={`${inputCls} resize-y`}
             style={monoSt}
             onFocus={focusBorder}
             onBlur={blurBorder}

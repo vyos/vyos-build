@@ -29,7 +29,14 @@ function TypePill({ type }: { type: AliasType }) {
 
 export default function FirewallAliasesPage() {
   const { setToast } = useDashboard();
-  const [data, setData] = useState<FirewallConfig>({ aliases: [], policies: [], rules: [], default_action: null });
+  const [data, setData] = useState<FirewallConfig>({
+    aliases: [],
+    policies: [],
+    rules: [],
+    auto_groups: [],
+    group_names: [],
+    default_action: null,
+  });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -51,7 +58,7 @@ export default function FirewallAliasesPage() {
     load();
   }, [load]);
 
-  const usedBy = (alias: FirewallAlias) => aliasUsage(data.rules, alias);
+  const usedBy = (alias: FirewallAlias) => aliasUsage(data.rules, data.auto_groups, alias);
 
   const remove = async (alias: FirewallAlias) => {
     const rules = usedBy(alias);

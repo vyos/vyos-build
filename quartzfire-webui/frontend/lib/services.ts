@@ -348,6 +348,18 @@ export interface DhcpServerUpdate {
   description: string | null;
   authoritative: boolean;
   enabled: boolean;
+  /** First subnet, committed together with a new shared network — VyOS
+   *  rejects a shared network without a subnet, and a shared network whose
+   *  subnets have no range or static mapping. Ignored when editing. */
+  first_subnet?: DhcpFirstSubnet | null;
+}
+
+export interface DhcpFirstSubnet {
+  subnet: string;
+  default_router: string | null;
+  name_servers: string[];
+  range_start: string;
+  range_stop: string;
 }
 
 /// Apply a desired shared network. Returns the number of changes applied.
@@ -361,6 +373,16 @@ export function applyDhcpServer(existing: DhcpServer[], u: DhcpServerUpdate): Pr
   // Enabled state — VyOS models "off" as a valueless `disable` leaf. New
   // networks default enabled.
   diffFlag(out, base, "disable", !(live?.enabled ?? true), !u.enabled);
+
+  if (live === null && u.first_subnet) {
+    const fs = u.first_subnet;
+    const sb = subnetBase(u.name, fs.subnet);
+    out.push({ op: "set", path: [...sb, "subnet-id", String(nextSubnetId(existing))] });
+    diffLeaf(out, sb, ["option", "default-router"], null, fs.default_router);
+    diffMulti(out, [...sb, "option"], "name-server", [], fs.name_servers);
+    out.push({ op: "set", path: [...sb, "range", "default", "start", fs.range_start] });
+    out.push({ op: "set", path: [...sb, "range", "default", "stop", fs.range_stop] });
+  }
 
   ensureCreated(out, base, live === null);
   return commitAndSave(out);

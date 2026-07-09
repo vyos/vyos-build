@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
 import { Segmented } from "@/components/ui/Segmented";
 import { Switch } from "@/components/ui/Switch";
@@ -9,9 +10,9 @@ import {
   applyRule,
   AliasType,
   endpointToSelection,
+  EndpointEntry,
   EndpointSelection,
-  FirewallAlias,
-  FirewallPolicy,
+  FirewallConfig,
   FirewallRule,
   nextRuleNumber,
   PROTOCOL_LABEL,
@@ -39,15 +40,29 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-const ANY = "any";
-const LEGACY = "legacy-address";
 const aliasKey = (type: AliasType, name: string) => `alias:${type}:${name}`;
 const ifaceKey = (name: string) => `iface:${name}`;
 
-/// From/To picker: Any, a firewall interface, or an alias. A rule created on
-/// the CLI with a literal address keeps a legacy entry so editing it doesn't
-/// silently drop the match, but literal addresses can't be newly selected —
-/// name them as an alias instead.
+function entryLabel(e: EndpointEntry): { main: string; sub: string } {
+  switch (e.kind) {
+    case "alias":
+      return { main: e.name, sub: ALIAS_GROUP[e.type].label };
+    case "interface":
+      return { main: e.name, sub: "Interface" };
+    case "ifgroup":
+      return { main: e.name, sub: "Interface group" };
+    case "address":
+      return { main: e.address, sub: "Custom address" };
+  }
+}
+
+/// From/To picker, WatchGuard style: a list of the entries the side matches
+/// (any of them; empty = Any) with add/remove controls. The add dropdown only
+/// offers entries VyOS can OR with what's already listed — interfaces and
+/// aliases can't be mixed, alias types can't be combined, and FQDN aliases
+/// stand alone (domain groups have no include). Legacy entries (a literal
+/// address or an interface-group written on the CLI) stay removable but can't
+/// be newly added.
 function EndpointField({
   label,
   interfaces,
@@ -57,60 +72,98 @@ function EndpointField({
 }: {
   label: string;
   interfaces: string[];
-  aliases: FirewallAlias[];
+  aliases: FirewallConfig["aliases"];
   value: EndpointSelection;
   onChange: (sel: EndpointSelection) => void;
 }) {
-  const selectValue =
-    value.kind === "any"
-      ? ANY
-      : value.kind === "address"
-        ? LEGACY
-        : value.kind === "interface"
-          ? ifaceKey(value.name)
-          : aliasKey(value.type, value.name);
+  const hasIface = value.some((e) => e.kind === "interface" || e.kind === "ifgroup");
+  const aliasEntry = value.find((e) => e.kind === "alias");
+  const aliasType = aliasEntry?.kind === "alias" ? aliasEntry.type : null;
+  // A legacy entry can't be OR-combined with anything — matches would AND.
+  const hasLegacy = value.some((e) => e.kind === "ifgroup" || e.kind === "address");
 
-  const onSelect = (v: string) => {
-    if (v === ANY) onChange({ kind: "any" });
-    else if (v === LEGACY) return; // only reachable while it is already selected
-    else if (v.startsWith("iface:")) onChange({ kind: "interface", name: v.slice("iface:".length) });
-    else {
+  const addableIfaces =
+    aliasType || hasLegacy
+      ? []
+      : interfaces.filter((n) => !value.some((e) => e.kind === "interface" && e.name === n));
+  const addableAliases = hasIface || hasLegacy
+    ? []
+    : aliases.filter((a) => {
+        if (value.some((e) => e.kind === "alias" && e.type === a.type && e.name === a.name)) return false;
+        if (aliasType) return a.type === aliasType && aliasType !== "fqdn";
+        return true;
+      });
+  const canAdd = addableIfaces.length > 0 || addableAliases.length > 0;
+
+  const add = (v: string) => {
+    if (v.startsWith("iface:")) onChange([...value, { kind: "interface", name: v.slice("iface:".length) }]);
+    else if (v.startsWith("alias:")) {
       const [, type, ...rest] = v.split(":");
-      onChange({ kind: "alias", type: type as AliasType, name: rest.join(":") });
+      onChange([...value, { kind: "alias", type: type as AliasType, name: rest.join(":") }]);
     }
   };
 
   return (
     <Field label={label}>
+      <div
+        className="rounded-md overflow-y-auto"
+        style={{ ...monoSt, minHeight: 96, maxHeight: 160, padding: value.length ? "4px 0" : 0 }}
+      >
+        {value.length === 0 ? (
+          <div className="flex items-center justify-center h-[96px] text-[13px] text-[var(--qz-fg-4)]">Any</div>
+        ) : (
+          value.map((e, i) => {
+            const { main, sub } = entryLabel(e);
+            return (
+              <div
+                key={`${e.kind}:${main}:${i}`}
+                className="group flex items-center gap-2 px-3 py-[5px] text-[13px] text-[var(--qz-fg-1)]"
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{main}</span>
+                <span className="text-[11px] text-[var(--qz-fg-4)] flex-shrink-0">{sub}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange(value.filter((_, idx) => idx !== i))}
+                  title={`Remove ${main}`}
+                  className="ml-auto flex-shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded cursor-pointer border-0 text-[var(--qz-fg-4)] hover:text-[var(--qz-fg-1)]"
+                  style={{ background: "transparent" }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
       <select
-        value={selectValue}
-        onChange={(e) => onSelect(e.target.value)}
-        className={`${inputCls} cursor-pointer`}
-        style={monoSt}
+        value=""
+        onChange={(e) => add(e.target.value)}
+        disabled={!canAdd}
+        className={`${inputCls} cursor-pointer mt-2`}
+        style={{ ...monoSt, opacity: canAdd ? 1 : 0.5 }}
         onFocus={focusBorder}
         onBlur={blurBorder}
       >
-        <option value={ANY}>Any</option>
-        {interfaces.length > 0 && (
+        <option value="" disabled>
+          {canAdd ? "Add…" : "Nothing more can be added"}
+        </option>
+        {addableIfaces.length > 0 && (
           <optgroup label="Interfaces">
-            {interfaces.map((n) => (
+            {addableIfaces.map((n) => (
               <option key={ifaceKey(n)} value={ifaceKey(n)}>
                 {n}
               </option>
             ))}
           </optgroup>
         )}
-        {aliases.length > 0 && (
+        {addableAliases.length > 0 && (
           <optgroup label="Aliases">
-            {aliases.map((a) => (
+            {addableAliases.map((a) => (
               <option key={aliasKey(a.type, a.name)} value={aliasKey(a.type, a.name)}>
                 {a.name} ({ALIAS_GROUP[a.type].label})
               </option>
             ))}
           </optgroup>
-        )}
-        {value.kind === "address" && (
-          <option value={LEGACY}>{value.address} (custom address)</option>
         )}
       </select>
     </Field>
@@ -123,9 +176,7 @@ function EndpointField({
 export function RuleFormModal({
   initial,
   interfaces,
-  aliases,
-  policies,
-  rules,
+  config,
   onClose,
   onSaved,
 }: {
@@ -133,20 +184,24 @@ export function RuleFormModal({
   initial?: FirewallRule;
   /** Firewall interface names offered in the From/To pickers. */
   interfaces: string[];
-  aliases: FirewallAlias[];
-  policies: FirewallPolicy[];
-  /** All existing rules — a new rule is numbered after the last one. */
-  rules: FirewallRule[];
+  /** The full firewall config — aliases and policies for the pickers, rules
+   *  for numbering, auto groups and group names for the endpoint diff. */
+  config: FirewallConfig;
   onClose: () => void;
   /** Called after a successful apply with a toast-able summary. */
   onSaved: (message: string) => void;
 }) {
   const isEdit = !!initial;
+  const { aliases, policies, rules } = config;
 
   const [name, setName] = useState(initial?.name ?? "");
   const [action, setAction] = useState<RuleAction>(initial?.action ?? "accept");
-  const [from, setFrom] = useState<EndpointSelection>(initial ? endpointToSelection(initial.from) : { kind: "any" });
-  const [to, setTo] = useState<EndpointSelection>(initial ? endpointToSelection(initial.to) : { kind: "any" });
+  const [from, setFrom] = useState<EndpointSelection>(
+    initial ? endpointToSelection(initial.from, config.auto_groups) : [],
+  );
+  const [to, setTo] = useState<EndpointSelection>(
+    initial ? endpointToSelection(initial.to, config.auto_groups) : [],
+  );
   const [policyName, setPolicyName] = useState(initial?.policy ?? "");
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
 
@@ -166,15 +221,19 @@ export function RuleFormModal({
     setSaving(true);
     try {
       const rule = initial?.rule ?? nextRuleNumber(rules);
-      const applied = await applyRule(initial ?? null, {
-        rule,
-        name: name.trim() || null,
-        action,
-        from,
-        to,
-        policy: policy ? { name: policy.name, protocol: policy.protocol } : null,
-        enabled,
-      });
+      const applied = await applyRule(
+        initial ?? null,
+        {
+          rule,
+          name: name.trim() || null,
+          action,
+          from,
+          to,
+          policy: policy ? { name: policy.name, protocol: policy.protocol } : null,
+          enabled,
+        },
+        config,
+      );
       onSaved(
         applied === 0
           ? "No changes — config already matches."
@@ -188,7 +247,7 @@ export function RuleFormModal({
   };
 
   return (
-    <ModalShell onClose={onClose} maxWidth={560}>
+    <ModalShell onClose={onClose} maxWidth={640}>
       <ModalHeader
         title={`${isEdit ? "Edit" : "Create"} Rule`}
         subtitle={isEdit ? `Forward filter rule ${initial!.rule}` : "New rules are added at the bottom — drag to reorder"}
@@ -224,6 +283,10 @@ export function RuleFormModal({
           <EndpointField label="From" interfaces={interfaces} aliases={aliases} value={from} onChange={setFrom} />
           <EndpointField label="To" interfaces={interfaces} aliases={aliases} value={to} onChange={setTo} />
         </div>
+        <p className="text-[11px] text-[var(--qz-fg-4)] m-0 -mt-2">
+          Traffic matches any entry in a list; an empty list matches everything. Interfaces and aliases can&apos;t be
+          mixed in one list, and aliases must share a type.
+        </p>
 
         <Field
           label="Policy"

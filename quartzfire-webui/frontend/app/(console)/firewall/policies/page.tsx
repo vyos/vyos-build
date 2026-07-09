@@ -23,7 +23,14 @@ function ProtocolPill({ protocol }: { protocol: PolicyProtocol }) {
 
 export default function FirewallPoliciesPage() {
   const { setToast } = useDashboard();
-  const [data, setData] = useState<FirewallConfig>({ aliases: [], policies: [], rules: [], default_action: null });
+  const [data, setData] = useState<FirewallConfig>({
+    aliases: [],
+    policies: [],
+    rules: [],
+    auto_groups: [],
+    group_names: [],
+    default_action: null,
+  });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 

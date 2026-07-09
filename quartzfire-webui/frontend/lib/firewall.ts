@@ -10,6 +10,13 @@
 //   Rules    → `firewall ipv4 forward filter rule <n>`, ordered by rule
 //              number in gaps of 10 so drag-reorder renumbers cleanly
 //
+// A rule's From/To is a WatchGuard-style list matching ANY of its entries. One
+// native rule can't OR several groups (multiple criteria AND together), so a
+// multi-entry side is backed by a hidden auto-managed group — an address/
+// network-group `include`-ing each chosen alias, or an interface-group holding
+// the chosen interfaces — marked with a `[qz-rule]` description and kept off
+// the Aliases page.
+//
 // Writes follow the QuartzFire model — diff against the live config, commit
 // straight to the VyOS API, and save to the boot config.
 
@@ -56,14 +63,30 @@ export interface FirewallPolicy {
 
 export type RuleAction = "accept" | "drop" | "reject";
 
-/// One side of a rule match: a group reference, an interface, a literal
-/// address, or none of them (= any). The UI sets at most one; `iface` maps to
-/// the rule-level `inbound-interface` (From) / `outbound-interface` (To) node.
+/// Auto-managed OR group backing a multi-entry From/To side.
+export interface AutoGroup {
+  name: string;
+  /** VyOS group node: address-group, network-group, or interface-group. */
+  node: string;
+  /** Included alias-group names (address/network groups). */
+  includes: string[];
+  /** Member interfaces (interface groups). */
+  interfaces: string[];
+}
+
+/// Description marker identifying auto-managed groups.
+export const AUTO_MARK = "[qz-rule]";
+
+/// One side of a rule match as stored in the config: a group reference, an
+/// interface (by name or interface-group), a literal address, or none (= any).
+/// `iface`/`iface_group` map to the rule-level `inbound-interface` (From) /
+/// `outbound-interface` (To) node.
 export interface RuleEndpoint {
   group_type: string | null;
   group_name: string | null;
   address: string | null;
   iface: string | null;
+  iface_group: string | null;
 }
 
 export interface FirewallRule {
@@ -86,6 +109,11 @@ export interface FirewallConfig {
   aliases: FirewallAlias[];
   policies: FirewallPolicy[];
   rules: FirewallRule[];
+  /** Auto-managed OR groups created by the rule editor. */
+  auto_groups: AutoGroup[];
+  /** Every configured group name across all group types — used to pick fresh
+   *  auto-group names without colliding with user-defined groups. */
+  group_names: string[];
   /** `firewall ipv4 forward filter default-action` (null = VyOS default). */
   default_action: string | null;
 }
@@ -155,15 +183,40 @@ function parseAliases(group: Cfg): FirewallAlias[] {
     const groups = childCfg(group, node) ?? {};
     for (const [name, raw] of Object.entries(groups)) {
       const cfg = (raw ?? {}) as Cfg;
+      const description = childStr(cfg, "description");
+      if (description?.startsWith(AUTO_MARK)) continue; // rule-editor internals
       out.push({
         name,
         type,
-        description: childStr(cfg, "description"),
+        description,
         members: childList(cfg, ALIAS_GROUP[type].memberLeaf),
       });
     }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+const AUTO_NODES = ["address-group", "network-group", "interface-group"] as const;
+
+function parseAutoGroups(group: Cfg): AutoGroup[] {
+  const out: AutoGroup[] = [];
+  for (const node of AUTO_NODES) {
+    const groups = childCfg(group, node) ?? {};
+    for (const [name, raw] of Object.entries(groups)) {
+      const cfg = (raw ?? {}) as Cfg;
+      if (!(childStr(cfg, "description") ?? "").startsWith(AUTO_MARK)) continue;
+      out.push({ name, node, includes: childList(cfg, "include"), interfaces: childList(cfg, "interface") });
+    }
+  }
+  return out;
+}
+
+function parseGroupNames(group: Cfg): string[] {
+  const out: string[] = [];
+  for (const v of Object.values(group)) {
+    if (v && typeof v === "object" && !Array.isArray(v)) out.push(...Object.keys(v as Cfg));
+  }
+  return out;
 }
 
 function parsePolicies(group: Cfg): FirewallPolicy[] {
@@ -190,21 +243,22 @@ function parseEndpoint(cfg: Cfg, side: "source" | "destination"): RuleEndpoint {
   const s = childCfg(cfg, side) ?? {};
   const g = childCfg(s, "group") ?? {};
 
-  // Interface matches live at rule level (`inbound-interface name <if>`), not
-  // under source/destination. Interface-group references aren't modelled.
+  // Interface matches live at rule level (`inbound-interface name <if>` or
+  // `inbound-interface group <g>`), not under source/destination.
   const ifNode = cfg[IFACE_NODE[side]];
-  const iface =
-    typeof ifNode === "string"
-      ? ifNode.trim() || null
-      : ifNode && typeof ifNode === "object"
-        ? childStr(ifNode as Cfg, "name")
-        : null;
+  let iface: string | null = null;
+  let iface_group: string | null = null;
+  if (typeof ifNode === "string") iface = ifNode.trim() || null;
+  else if (ifNode && typeof ifNode === "object") {
+    iface = childStr(ifNode as Cfg, "name");
+    iface_group = childStr(ifNode as Cfg, "group");
+  }
 
   for (const node of REF_NODES) {
     const name = childStr(g, node);
-    if (name) return { group_type: node, group_name: name, address: null, iface };
+    if (name) return { group_type: node, group_name: name, address: null, iface, iface_group };
   }
-  return { group_type: null, group_name: null, address: childStr(s, "address"), iface };
+  return { group_type: null, group_name: null, address: childStr(s, "address"), iface, iface_group };
 }
 
 const asAction = (v: string | null): RuleAction | null =>
@@ -240,21 +294,24 @@ export async function fetchFirewall(): Promise<FirewallConfig> {
     aliases: parseAliases(group),
     policies: parsePolicies(group),
     rules: parseRules(filter),
+    auto_groups: parseAutoGroups(group),
+    group_names: parseGroupNames(group),
     default_action: childStr(filter, "default-action"),
   };
 }
 
 // ── usage lookups (for "in use" counts and delete guards) ─────────────────────
 
-function endpointMatches(e: RuleEndpoint, alias: FirewallAlias): boolean {
-  return e.group_type === ALIAS_GROUP[alias.type].node && e.group_name === alias.name;
-}
-
-/// Rule numbers referencing an alias in From or To.
-export function aliasUsage(rules: FirewallRule[], alias: FirewallAlias): number[] {
-  return rules
-    .filter((r) => endpointMatches(r.from, alias) || endpointMatches(r.to, alias))
-    .map((r) => r.rule);
+/// Rule numbers referencing an alias in From or To, directly or through an
+/// auto-managed OR group that includes it.
+export function aliasUsage(rules: FirewallRule[], autoGroups: AutoGroup[], alias: FirewallAlias): number[] {
+  const node = ALIAS_GROUP[alias.type].node;
+  const viaAuto = new Set(
+    autoGroups.filter((g) => g.node === node && g.includes.includes(alias.name)).map((g) => g.name),
+  );
+  const matches = (e: RuleEndpoint) =>
+    e.group_type === node && e.group_name !== null && (e.group_name === alias.name || viaAuto.has(e.group_name));
+  return rules.filter((r) => matches(r.from) || matches(r.to)).map((r) => r.rule);
 }
 
 /// Rule numbers referencing a policy (port-group).
@@ -398,23 +455,37 @@ export function deletePolicy(name: string): Promise<number> {
 const FILTER_BASE = ["firewall", "ipv4", "forward", "filter"];
 const ruleBase = (rule: number) => [...FILTER_BASE, "rule", String(rule)];
 
-/// From/To selection in the rule form: any, a firewall interface, an alias,
-/// or a literal address (legacy — kept so CLI-created rules stay editable, not
-/// offered for new selections).
-export type EndpointSelection =
-  | { kind: "any" }
+/// One From/To list entry. `address` and `ifgroup` are legacy — kept so
+/// CLI-created rules stay editable, not offered for new selections.
+export type EndpointEntry =
   | { kind: "interface"; name: string }
   | { kind: "alias"; type: AliasType; name: string }
-  | { kind: "address"; address: string };
+  | { kind: "address"; address: string }
+  | { kind: "ifgroup"; name: string };
 
-export function endpointToSelection(e: RuleEndpoint): EndpointSelection {
+/// A From/To selection: the entries the side matches (any of them, WatchGuard
+/// style). Empty = Any.
+export type EndpointSelection = EndpointEntry[];
+
+/// Expand a stored endpoint into its list form, resolving auto-managed OR
+/// groups back into the aliases/interfaces they carry.
+export function endpointToSelection(e: RuleEndpoint, autoGroups: AutoGroup[]): EndpointSelection {
+  const out: EndpointEntry[] = [];
+
   if (e.group_type && e.group_name) {
     const type = GROUP_NODE_TO_TYPE[e.group_type];
-    if (type) return { kind: "alias", type, name: e.group_name };
+    const auto = autoGroups.find((g) => g.node === e.group_type && g.name === e.group_name);
+    if (type && auto) for (const name of auto.includes) out.push({ kind: "alias", type, name });
+    else if (type) out.push({ kind: "alias", type, name: e.group_name });
   }
-  if (e.iface) return { kind: "interface", name: e.iface };
-  if (e.address) return { kind: "address", address: e.address };
-  return { kind: "any" };
+  if (e.iface) out.push({ kind: "interface", name: e.iface });
+  if (e.iface_group) {
+    const auto = autoGroups.find((g) => g.node === "interface-group" && g.name === e.iface_group);
+    if (auto) for (const name of auto.interfaces) out.push({ kind: "interface", name });
+    else out.push({ kind: "ifgroup", name: e.iface_group });
+  }
+  if (e.address) out.push({ kind: "address", address: e.address });
+  return out;
 }
 
 /// Desired forward-filter rule. The rule number is fixed here — ordering is
@@ -430,42 +501,128 @@ export interface RuleUpdate {
   enabled: boolean;
 }
 
+/// Shared allocation context for both sides of a rule diff.
+interface AutoCtx {
+  autoGroups: AutoGroup[];
+  /** Group names already in use (grows as new auto names are allocated). */
+  taken: Set<string>;
+}
+
+/// A fresh, readable auto-group name. Names carry the rule number only as a
+/// label — reorders don't rename groups, so collisions are avoided by suffix.
+function allocAutoName(rule: number, side: "source" | "destination", taken: Set<string>): string {
+  const base = `QZ-R${rule}-${side === "source" ? "FROM" : "TO"}`;
+  let name = base;
+  for (let i = 2; taken.has(name); i++) name = `${base}-${i}`;
+  taken.add(name);
+  return name;
+}
+
+/// Create/update an auto group's member leaf and delete stale members.
+function diffAutoMembers(
+  out: VyosCommand[],
+  node: string,
+  name: string,
+  leaf: "include" | "interface",
+  liveMembers: string[] | null,
+  desired: string[],
+): void {
+  const gp = ["firewall", "group", node, name];
+  if (liveMembers === null) out.push({ op: "set", path: [...gp, "description", AUTO_MARK] });
+  for (const m of desired) if (!liveMembers?.includes(m)) out.push({ op: "set", path: [...gp, leaf, m] });
+  for (const m of liveMembers ?? []) if (!desired.includes(m)) out.push({ op: "delete", path: [...gp, leaf, m] });
+}
+
 function diffEndpoint(
   out: VyosCommand[],
-  base: string[],
+  rule: number,
   side: "source" | "destination",
   live: RuleEndpoint | null,
   sel: EndpointSelection,
+  ctx: AutoCtx,
 ): void {
-  const desiredType = sel.kind === "alias" ? ALIAS_GROUP[sel.type].node : null;
-  const desiredName = sel.kind === "alias" ? sel.name : null;
-  const desiredAddr = sel.kind === "address" ? sel.address.trim() || null : null;
+  const base = ruleBase(rule);
+  const findAuto = (node: string | null, name: string | null) =>
+    (node && name && ctx.autoGroups.find((g) => g.node === node && g.name === name)) || null;
+
+  // ── aliases: one → direct group ref; several → auto OR group with includes.
+  const aliases = sel.filter((e) => e.kind === "alias");
+  const types = new Set(aliases.map((a) => a.type));
+  if (types.size > 1) throw new Error("From/To aliases must all be of the same type.");
+  const aliasType = aliases[0]?.type ?? null;
+  if (aliases.length > 1 && aliasType === "fqdn") {
+    throw new Error("FQDN aliases can't be combined — VyOS domain groups don't support includes.");
+  }
+
+  const liveAuto = findAuto(live?.group_type ?? null, live?.group_name ?? null);
+
+  let desiredNode: string | null = null;
+  let desiredName: string | null = null;
+  if (aliasType !== null) {
+    desiredNode = ALIAS_GROUP[aliasType].node;
+    if (aliases.length === 1) {
+      desiredName = aliases[0].name;
+    } else {
+      // Reuse the side's existing auto group while its type still matches.
+      const reuse = liveAuto !== null && liveAuto.node === desiredNode;
+      desiredName = reuse ? liveAuto!.name : allocAutoName(rule, side, ctx.taken);
+      diffAutoMembers(out, desiredNode, desiredName, "include", reuse ? liveAuto!.includes : null, aliases.map((a) => a.name));
+    }
+  }
+  // A live auto group this side no longer references is deleted outright.
+  if (liveAuto && liveAuto.name !== desiredName) {
+    out.push({ op: "delete", path: ["firewall", "group", liveAuto.node, liveAuto.name] });
+  }
 
   const liveType = live?.group_type ?? null;
   const liveName = live?.group_name ?? null;
-  const refChanged = liveType !== desiredType || liveName !== desiredName;
+  const refChanged = liveType !== desiredNode || liveName !== desiredName;
   if (liveType && refChanged) out.push({ op: "delete", path: [...base, side, "group", liveType] });
-  if (desiredType && desiredName && refChanged) {
-    out.push({ op: "set", path: [...base, side, "group", desiredType, desiredName] });
+  if (desiredNode && desiredName && refChanged) {
+    out.push({ op: "set", path: [...base, side, "group", desiredNode, desiredName] });
   }
 
+  // ── literal address (legacy).
+  const addrEntry = sel.find((e) => e.kind === "address");
+  const desiredAddr = addrEntry?.address.trim() || null;
   const liveAddr = live?.address ?? null;
   if (desiredAddr !== liveAddr) {
     if (desiredAddr !== null) out.push({ op: "set", path: [...base, side, "address", desiredAddr] });
     else out.push({ op: "delete", path: [...base, side, "address"] });
   }
 
-  // Interface match — a rule-level node, written in the `name <iface>` form.
-  const desiredIface = sel.kind === "interface" ? sel.name.trim() || null : null;
+  // ── interfaces: one → `name <if>`; several → auto interface-group; a legacy
+  //    ifgroup entry keeps its `group <g>` form.
+  const ifaces = sel.filter((e) => e.kind === "interface").map((e) => e.name.trim()).filter(Boolean);
+  const legacyIfGroup = sel.find((e) => e.kind === "ifgroup")?.name ?? null;
+  const liveIfAuto = findAuto(live?.iface_group ? "interface-group" : null, live?.iface_group ?? null);
+
+  let desiredIface: string | null = null;
+  let desiredIfGroup: string | null = null;
+  if (legacyIfGroup !== null) {
+    desiredIfGroup = legacyIfGroup;
+  } else if (ifaces.length === 1) {
+    desiredIface = ifaces[0];
+  } else if (ifaces.length > 1) {
+    desiredIfGroup = liveIfAuto ? liveIfAuto.name : allocAutoName(rule, side, ctx.taken);
+    diffAutoMembers(out, "interface-group", desiredIfGroup, "interface", liveIfAuto ? liveIfAuto.interfaces : null, ifaces);
+  }
+  if (liveIfAuto && liveIfAuto.name !== desiredIfGroup) {
+    out.push({ op: "delete", path: ["firewall", "group", "interface-group", liveIfAuto.name] });
+  }
+
+  // The interface match node holds either `name <if>` or `group <g>`.
   const liveIface = live?.iface ?? null;
-  if (desiredIface !== liveIface) {
+  const liveIfGroup = live?.iface_group ?? null;
+  if (desiredIface !== liveIface || desiredIfGroup !== liveIfGroup) {
     const key = IFACE_NODE[side];
-    if (liveIface !== null) out.push({ op: "delete", path: [...base, key] });
+    if (liveIface !== null || liveIfGroup !== null) out.push({ op: "delete", path: [...base, key] });
     if (desiredIface !== null) out.push({ op: "set", path: [...base, key, "name", desiredIface] });
+    else if (desiredIfGroup !== null) out.push({ op: "set", path: [...base, key, "group", desiredIfGroup] });
   }
 }
 
-export function diffRule(live: FirewallRule | null, u: RuleUpdate): VyosCommand[] {
+export function diffRule(live: FirewallRule | null, u: RuleUpdate, cfg: FirewallConfig): VyosCommand[] {
   const base = ruleBase(u.rule);
   const out: VyosCommand[] = [];
   const leaf = (sub: string[], liveV: string | null, desiredRaw: string | null) => {
@@ -478,8 +635,9 @@ export function diffRule(live: FirewallRule | null, u: RuleUpdate): VyosCommand[
   leaf(["action"], live?.action ?? null, u.action);
   leaf(["description"], live?.name ?? null, u.name);
 
-  diffEndpoint(out, base, "source", live?.from ?? null, u.from);
-  diffEndpoint(out, base, "destination", live?.to ?? null, u.to);
+  const ctx: AutoCtx = { autoGroups: cfg.auto_groups, taken: new Set(cfg.group_names) };
+  diffEndpoint(out, u.rule, "source", live?.from ?? null, u.from, ctx);
+  diffEndpoint(out, u.rule, "destination", live?.to ?? null, u.to, ctx);
 
   // Policy = destination port-group + matching protocol leaf.
   const livePolicy = live?.policy ?? null;
@@ -505,13 +663,26 @@ export function diffRule(live: FirewallRule | null, u: RuleUpdate): VyosCommand[
 }
 
 /// Apply a desired rule. Returns the number of changes applied.
-export function applyRule(live: FirewallRule | null, update: RuleUpdate): Promise<number> {
-  return commitAndSave(diffRule(live, update));
+export function applyRule(live: FirewallRule | null, update: RuleUpdate, cfg: FirewallConfig): Promise<number> {
+  return commitAndSave(diffRule(live, update, cfg));
 }
 
-/// Delete a forward-filter rule.
-export function deleteRule(rule: number): Promise<number> {
-  return commitAndSave([{ op: "delete", path: ruleBase(rule) }]);
+/// Delete a forward-filter rule, along with the auto-managed OR groups backing
+/// its sides (auto groups are per-side, so no other rule references them).
+export function deleteRule(rule: FirewallRule, autoGroups: AutoGroup[]): Promise<number> {
+  const out: VyosCommand[] = [{ op: "delete", path: ruleBase(rule.rule) }];
+  for (const e of [rule.from, rule.to]) {
+    const refs = [
+      e.group_type && e.group_name ? { node: e.group_type, name: e.group_name } : null,
+      e.iface_group ? { node: "interface-group", name: e.iface_group } : null,
+    ];
+    for (const ref of refs) {
+      if (ref && autoGroups.some((g) => g.node === ref.node && g.name === ref.name)) {
+        out.push({ op: "delete", path: ["firewall", "group", ref.node, ref.name] });
+      }
+    }
+  }
+  return commitAndSave(out);
 }
 
 /// Rule number for a newly created rule: appended after the last one.
