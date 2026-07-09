@@ -2,6 +2,9 @@
 packages = [
   "grub2",
   "grub-pc",
+  "grub-efi-amd64-signed",
+  "mokutil",
+  "shim-signed",
   "vyos-drivers-realtek-r8152",
   "vyos-linux-firmware",
   "vyos-intel-qat",
