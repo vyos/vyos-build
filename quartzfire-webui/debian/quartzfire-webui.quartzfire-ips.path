@@ -1,0 +1,13 @@
+[Unit]
+Description=Watch the QuartzFire IPS desired state for changes
+
+[Path]
+# The WebUI backend writes the desired state atomically (temp file + rename);
+# PathChanged fires on the rename-into-place. The directory may not exist
+# until the first apply run creates it — systemd watches the nearest existing
+# ancestor and re-arms as components appear.
+PathChanged=/config/quartzfire/ips.json
+Unit=quartzfire-ips.service
+
+[Install]
+WantedBy=multi-user.target

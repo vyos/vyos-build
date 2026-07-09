@@ -17,6 +17,8 @@ Depends:
  ${shlibs:Depends},
  ${misc:Depends},
  nginx,
+Recommends:
+ suricata,
 Description: QuartzFire web management interface
  Rust backend that serves the exported Next.js frontend and reverse-proxies
  requests to the local VyOS HTTP API, injecting the API key server-side.

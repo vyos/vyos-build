@@ -20,12 +20,15 @@ override_dh_auto_test:
 override_dh_installsystemd:
 	dh_installsystemd
 	dh_installsystemd --name=quartzfire-register-api-key
+	dh_installsystemd --name=quartzfire-ips
 
 override_dh_auto_install:
 	install -D -m0755 backend/target/release/quartzfire-webui \
 		debian/quartzfire-webui/usr/bin/quartzfire-webui
 	install -D -m0755 scripts/register-api-key \
 		debian/quartzfire-webui/usr/libexec/quartzfire/register-api-key
+	install -D -m0755 scripts/ips-apply \
+		debian/quartzfire-webui/usr/libexec/quartzfire/ips-apply
 	mkdir -p debian/quartzfire-webui/usr/share/quartzfire-webui/www
 	# Frontend export is optional at package time; warn but do not fail.
 	if [ -d backend/www ]; then \

@@ -1,0 +1,18 @@
+[Unit]
+Description=Apply QuartzFire IPS desired state to Suricata
+# Also triggered by quartzfire-ips.path whenever the WebUI edits
+# /config/quartzfire/ips.json; the boot run re-renders /etc/suricata from
+# /config after an image upgrade wipes the overlay.
+After=network-online.target vyos-router.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/quartzfire/ips-apply
+# Status report the unprivileged WebUI backend reads back; keep it around
+# after the oneshot exits.
+RuntimeDirectory=quartzfire-ips
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -255,6 +255,7 @@ export function RuleFormModal({
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   // New rules log by default so they show in the Traffic Monitor.
   const [log, setLog] = useState(initial?.log ?? true);
+  const [ips, setIps] = useState(initial?.ips ?? false);
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -293,6 +294,7 @@ export function RuleFormModal({
           policy,
           enabled,
           log,
+          ips,
         },
         config,
       );
@@ -406,6 +408,12 @@ export function RuleFormModal({
             <Switch on={log} onChange={setLog} />
             <span className="text-[13px] text-[var(--qz-fg-2)]">Log traffic (Traffic Monitor)</span>
           </label>
+          {action === "accept" && (
+            <label className="flex items-center gap-[10px] cursor-pointer select-none">
+              <Switch on={ips} onChange={setIps} />
+              <span className="text-[13px] text-[var(--qz-fg-2)]">Enable IPS</span>
+            </label>
+          )}
         </div>
 
         {error && (
