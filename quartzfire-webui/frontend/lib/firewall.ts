@@ -49,9 +49,27 @@ const GROUP_NODE_TO_TYPE: Record<string, AliasType> = {
 
 export interface FirewallAlias {
   name: string;
+  /** Friendly name shown in the UI (may contain spaces) — see DN_MARK. */
+  display: string;
   type: AliasType;
   description: string | null;
   members: string[];
+}
+
+/// Built-in alias derived from a configured interface (ethernet or VLAN),
+/// named by the interface description. Shown on the Aliases page but not
+/// stored as a VyOS group — selecting it in a rule is selecting the interface,
+/// so it always mirrors the interface config.
+export interface InterfaceAlias {
+  iface: string;
+  display: string;
+  description: string | null;
+}
+
+export function interfaceAliases(ifaces: { name: string; description: string | null }[]): InterfaceAlias[] {
+  return ifaces
+    .map((i) => ({ iface: i.name, display: i.description ?? i.name, description: i.description }))
+    .sort((a, b) => a.display.localeCompare(b.display));
 }
 
 export type PolicyProtocol = "tcp" | "udp" | "tcp_udp";
@@ -224,6 +242,41 @@ function encodePolicyDescription(protocol: PolicyProtocol, description: string |
   return d === "" ? `[${protocol}]` : `[${protocol}] ${d}`;
 }
 
+// ── alias display-name marker ─────────────────────────────────────────────────
+
+/// VyOS group names can't contain spaces, so an alias entered as "Approved DNS
+/// Servers" is stored as the group "Approved-DNS-Servers" with its friendly
+/// name kept in a `[dn:…]` marker at the front of the group description. An
+/// alias without a marker (created on the CLI) displays its group name.
+const DN_MARK = /^\[dn:([^\]]+)\]\s*/;
+
+function decodeAliasDescription(name: string, desc: string | null): { display: string; description: string | null } {
+  if (!desc) return { display: name, description: null };
+  const m = desc.match(DN_MARK);
+  if (!m) return { display: name, description: desc };
+  const rest = desc.slice(m[0].length).trim();
+  return { display: m[1], description: rest === "" ? null : rest };
+}
+
+function encodeAliasDescription(name: string, display: string, description: string | null): string | null {
+  const parts: string[] = [];
+  if (display.trim() !== name) parts.push(`[dn:${display.trim()}]`);
+  const d = description?.trim() ?? "";
+  if (d !== "") parts.push(d);
+  return parts.length ? parts.join(" ") : null;
+}
+
+/// The VyOS group name backing a friendly alias name — spaces become hyphens.
+export function sanitizeAliasName(display: string): string {
+  return display.trim().replace(/\s+/g, "-");
+}
+
+/// Display name of an alias group reference (falls back to the group name for
+/// groups this UI doesn't model, e.g. inside a stale rule).
+export function aliasDisplayName(aliases: FirewallAlias[], type: AliasType, name: string): string {
+  return aliases.find((a) => a.type === type && a.name === name)?.display ?? name;
+}
+
 // ── reads ─────────────────────────────────────────────────────────────────────
 
 /// The full running `firewall` config node ({} when nothing is configured).
@@ -245,17 +298,19 @@ function parseAliases(group: Cfg): FirewallAlias[] {
     const groups = childCfg(group, node) ?? {};
     for (const [name, raw] of Object.entries(groups)) {
       const cfg = (raw ?? {}) as Cfg;
-      const description = childStr(cfg, "description");
-      if (description?.startsWith(AUTO_MARK)) continue; // rule-editor internals
+      const rawDesc = childStr(cfg, "description");
+      if (rawDesc?.startsWith(AUTO_MARK)) continue; // rule-editor internals
+      const { display, description } = decodeAliasDescription(name, rawDesc);
       out.push({
         name,
+        display,
         type,
         description,
         members: childList(cfg, ALIAS_GROUP[type].memberLeaf),
       });
     }
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  return out.sort((a, b) => a.display.localeCompare(b.display));
 }
 
 const AUTO_NODES = ["address-group", "network-group", "interface-group"] as const;
@@ -400,6 +455,17 @@ export function aliasUsage(rules: FirewallRule[], autoGroups: AutoGroup[], alias
   return rules.filter((r) => matches(r.from) || matches(r.to)).map((r) => r.rule);
 }
 
+/// Rule numbers matching an interface in From or To, directly or through an
+/// auto-managed OR group that holds it — backs the built-in interface aliases.
+export function interfaceUsage(rules: FirewallRule[], autoGroups: AutoGroup[], iface: string): number[] {
+  const viaAuto = new Set(
+    autoGroups.filter((g) => g.node === "interface-group" && g.interfaces.includes(iface)).map((g) => g.name),
+  );
+  const matches = (e: RuleEndpoint) =>
+    e.iface === iface || (e.iface_group !== null && viaAuto.has(e.iface_group));
+  return rules.filter((r) => matches(r.from) || matches(r.to)).map((r) => r.rule);
+}
+
 /// Rule numbers referencing a policy (port-group).
 export function policyUsage(rules: FirewallRule[], name: string): number[] {
   return rules.filter((r) => r.policy === name).map((r) => r.rule);
@@ -413,6 +479,8 @@ const groupBase = (type: AliasType, name: string) => ["firewall", "group", ALIAS
 /// name or type is a move (old group deleted, new one built fresh).
 export interface AliasUpdate {
   name: string;
+  /** Friendly name (may contain spaces) — stored via the [dn:…] marker. */
+  display: string;
   type: AliasType;
   description: string | null;
   members: string[];
@@ -439,8 +507,11 @@ export function diffAlias(existing: FirewallAlias[], u: AliasUpdate): VyosComman
   const leaf = ALIAS_GROUP[u.type].memberLeaf;
   const body: VyosCommand[] = [];
 
-  const newDesc = u.description?.trim() || null;
-  if (newDesc !== (live?.description ?? null)) {
+  // Compare descriptions in their encoded form so a display-name change alone
+  // still writes the [dn:…] marker.
+  const newDesc = encodeAliasDescription(u.name, u.display, u.description);
+  const liveDesc = live ? encodeAliasDescription(live.name, live.display, live.description) : null;
+  if (newDesc !== liveDesc) {
     if (newDesc !== null) body.push({ op: "set", path: [...base, "description", newDesc] });
     else body.push({ op: "delete", path: [...base, "description"] });
   }

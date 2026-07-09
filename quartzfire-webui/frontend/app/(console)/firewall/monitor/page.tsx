@@ -51,10 +51,7 @@ function ActionPill({ action }: { action: Row["action"] }) {
   return <span className="badge badge-warn">Reject</span>;
 }
 
-function endpoint(addr?: string, port?: number): string {
-  if (!addr) return "—";
-  return port != null ? `${addr}:${port}` : addr;
-}
+const dash = <span className="text-[var(--qz-fg-4)]">—</span>;
 
 export default function TrafficMonitorPage() {
   const { setToast } = useDashboard();
@@ -101,9 +98,11 @@ export default function TrafficMonitorPage() {
   };
 
   // ── live stream ─────────────────────────────────────────────────────────────
-  // Entries accumulate in a ref (newest first) and flush to state on a short
-  // interval so a busy firewall doesn't force a render per packet. Pausing
-  // stops the flush, not the collection — resume shows what happened meanwhile.
+  // Entries accumulate in a ref (newest first) and render as soon as they
+  // arrive: the first entry after a quiet spell flushes immediately, and a
+  // burst then batches into one render per FLUSH_MS so a busy firewall doesn't
+  // force a render per packet. Pausing stops the flush, not the collection —
+  // resume shows what happened meanwhile.
   const rowsRef = useRef<Row[]>([]);
   const dirtyRef = useRef(false);
   const nextId = useRef(0);
@@ -112,26 +111,38 @@ export default function TrafficMonitorPage() {
   const pausedRef = useRef(false);
   const [stream, setStream] = useState<"connecting" | "live" | "reconnecting">("connecting");
 
+  const FLUSH_MS = 150;
+
   useEffect(() => {
     const es = new EventSource("/api/monitor/firewall-log");
     es.onopen = () => setStream("live");
     es.onerror = () => setStream("reconnecting"); // EventSource retries itself
+    let throttle: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      if (!dirtyRef.current || pausedRef.current) return;
+      dirtyRef.current = false;
+      setRows(rowsRef.current);
+    };
+    const scheduleFlush = () => {
+      if (throttle) return; // burst in progress — the trailing flush covers it
+      flush();
+      throttle = setTimeout(() => {
+        throttle = null;
+        flush();
+      }, FLUSH_MS);
+    };
     es.onmessage = (ev) => {
       try {
         const entry = JSON.parse(ev.data) as MonitorEntry;
         rowsRef.current = [{ ...entry, id: nextId.current++ }, ...rowsRef.current].slice(0, MAX_ROWS);
         dirtyRef.current = true;
+        scheduleFlush();
       } catch {
         // tolerate a malformed event rather than killing the stream
       }
     };
-    const flush = setInterval(() => {
-      if (!dirtyRef.current || pausedRef.current) return;
-      dirtyRef.current = false;
-      setRows(rowsRef.current);
-    }, 300);
     return () => {
-      clearInterval(flush);
+      if (throttle) clearTimeout(throttle);
       es.close();
     };
   }, []);
@@ -168,8 +179,8 @@ export default function TrafficMonitorPage() {
       if (actionFilter === "accept" && r.action !== "accept") return false;
       if (actionFilter === "blocked" && r.action === "accept") return false;
       if (!q) return true;
-      const hay = [ruleLabel(r), r.src, r.dst, r.proto, r.in, r.out, r.chain, r.action]
-        .filter(Boolean)
+      const hay = [ruleLabel(r), r.src, r.dst, r.spt, r.dpt, r.proto, r.in, r.out, r.chain, r.action]
+        .filter((v) => v != null && v !== "")
         .join(" ")
         .toLowerCase();
       return hay.includes(q);
@@ -273,7 +284,9 @@ export default function TrafficMonitorPage() {
                 <col style={{ width: 100 }} />
                 <col />
                 <col />
+                <col style={{ width: 70 }} />
                 <col />
+                <col style={{ width: 70 }} />
                 <col style={{ width: 90 }} />
                 <col style={{ width: 140 }} />
               </colgroup>
@@ -283,7 +296,9 @@ export default function TrafficMonitorPage() {
                   <th>Action</th>
                   <th>Rule</th>
                   <th>Source</th>
+                  <th>Port</th>
                   <th>Destination</th>
+                  <th>Port</th>
                   <th>Protocol</th>
                   <th>Interface</th>
                 </tr>
@@ -291,7 +306,7 @@ export default function TrafficMonitorPage() {
               <tbody>
                 {visible.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
+                    <td colSpan={9} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
                       {rows.length === 0
                         ? "Waiting for traffic… (only logged rules and default-log traffic appear here)"
                         : "No entries match the filter."}
@@ -317,11 +332,13 @@ export default function TrafficMonitorPage() {
                         )}
                       </td>
                       <td className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {endpoint(r.src, r.spt)}
+                        {r.src ?? dash}
                       </td>
+                      <td className="mono">{r.spt ?? dash}</td>
                       <td className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {endpoint(r.dst, r.dpt)}
+                        {r.dst ?? dash}
                       </td>
+                      <td className="mono">{r.dpt ?? dash}</td>
                       <td className="mono">
                         {r.proto ?? "—"}
                         {r.proto === "icmp" && r.icmp_type != null && (

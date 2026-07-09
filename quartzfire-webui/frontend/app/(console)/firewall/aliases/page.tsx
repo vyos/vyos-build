@@ -13,7 +13,11 @@ import {
   fetchFirewall,
   FirewallAlias,
   FirewallConfig,
+  InterfaceAlias,
+  interfaceAliases,
+  interfaceUsage,
 } from "@/lib/firewall";
+import { fetchEthernet, fetchVlans } from "@/lib/interfaces";
 import { useDashboard } from "@/lib/DashboardContext";
 import { RowActions } from "@/components/dashboard/RowActions";
 import { AliasFormModal } from "./AliasFormModal";
@@ -28,9 +32,15 @@ function TypePill({ type }: { type: AliasType }) {
   return <span className={`badge ${TYPE_BADGE[type]}`}>{ALIAS_GROUP[type].label}</span>;
 }
 
+/// Table row: a user-defined alias, or a built-in one derived from a
+/// configured interface (named by the interface description, edited by
+/// editing the interface).
+type AliasRow = { kind: "user"; alias: FirewallAlias } | { kind: "builtin"; alias: InterfaceAlias };
+
 export default function FirewallAliasesPage() {
   const { setToast } = useDashboard();
   const [data, setData] = useState<FirewallConfig>(emptyFirewallConfig);
+  const [builtins, setBuiltins] = useState<InterfaceAlias[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -40,7 +50,15 @@ export default function FirewallAliasesPage() {
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
     if (mode === "load") setStatus("loading");
     try {
-      setData(await fetchFirewall());
+      // Interface reads back the built-in aliases; tolerate their failure so
+      // the user-defined aliases still render.
+      const [fw, eth, vlans] = await Promise.all([
+        fetchFirewall(),
+        fetchEthernet().catch(() => []),
+        fetchVlans().catch(() => []),
+      ]);
+      setData(fw);
+      setBuiltins(interfaceAliases([...eth, ...vlans]));
       setStatus("ready");
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Failed to load firewall aliases.");
@@ -53,52 +71,77 @@ export default function FirewallAliasesPage() {
   }, [load]);
 
   const usedBy = (alias: FirewallAlias) => aliasUsage(data.rules, data.auto_groups, alias);
+  const rowUsage = (r: AliasRow) =>
+    r.kind === "user" ? usedBy(r.alias) : interfaceUsage(data.rules, data.auto_groups, r.alias.iface);
+
+  const rows: AliasRow[] = [
+    ...data.aliases.map((alias): AliasRow => ({ kind: "user", alias })),
+    ...builtins.map((alias): AliasRow => ({ kind: "builtin", alias })),
+  ];
 
   const remove = async (alias: FirewallAlias) => {
     const rules = usedBy(alias);
     if (rules.length > 0) {
-      setToast(`Cannot delete ${alias.name} — used by rule${rules.length === 1 ? "" : "s"} ${rules.join(", ")}.`);
+      setToast(`Cannot delete ${alias.display} — used by rule${rules.length === 1 ? "" : "s"} ${rules.join(", ")}.`);
       return;
     }
     try {
       await deleteAlias(alias);
-      setToast(`Deleted alias ${alias.name} and saved to boot config.`);
+      setToast(`Deleted alias ${alias.display} and saved to boot config.`);
       await load("refresh");
     } catch (e) {
-      setToast(e instanceof Error ? e.message : `Failed to delete alias ${alias.name}.`);
+      setToast(e instanceof Error ? e.message : `Failed to delete alias ${alias.display}.`);
     }
   };
 
-  const columns: Column<FirewallAlias>[] = [
-    { key: "name", header: "Name", value: (a) => a.name, mono: true, sortable: true, width: 180 },
+  const columns: Column<AliasRow>[] = [
+    {
+      key: "name",
+      header: "Name",
+      value: (r) => r.alias.display,
+      render: (r) => (
+        <span title={r.kind === "user" ? `Device name: ${r.alias.name}` : `Interface ${r.alias.iface}`}>
+          {r.alias.display}
+        </span>
+      ),
+      mono: true,
+      sortable: true,
+      width: 180,
+    },
     {
       key: "type",
       header: "Type",
-      value: (a) => a.type,
-      render: (a) => <TypePill type={a.type} />,
+      value: (r) => (r.kind === "user" ? r.alias.type : "interface"),
+      render: (r) =>
+        r.kind === "user" ? <TypePill type={r.alias.type} /> : <span className="badge badge-muted">Interface</span>,
       sortable: true,
       width: 110,
     },
     {
       key: "members",
       header: "Members",
-      value: (a) => a.members.join(", "),
-      render: (a) => (a.members.length ? a.members.join(", ") : "—"),
+      value: (r) => (r.kind === "user" ? r.alias.members.join(", ") : r.alias.iface),
+      render: (r) => (r.kind === "user" ? (r.alias.members.length ? r.alias.members.join(", ") : "—") : r.alias.iface),
       mono: true,
     },
     {
       key: "description",
       header: "Description",
-      value: (a) => a.description ?? "",
-      render: (a) => a.description ?? "—",
+      value: (r) => (r.kind === "user" ? r.alias.description ?? "" : "Built-in"),
+      render: (r) =>
+        r.kind === "user" ? (
+          r.alias.description ?? "—"
+        ) : (
+          <span className="text-[var(--qz-fg-4)]">Built-in — edit under Interfaces</span>
+        ),
       sortable: true,
     },
     {
       key: "used",
       header: "In Use",
-      value: (a) => usedBy(a).length,
-      render: (a) => {
-        const n = usedBy(a).length;
+      value: (r) => rowUsage(r).length,
+      render: (r) => {
+        const n = rowUsage(r).length;
         return n > 0 ? (
           <span className="badge badge-ok">{n} rule{n === 1 ? "" : "s"}</span>
         ) : (
@@ -110,12 +153,15 @@ export default function FirewallAliasesPage() {
     },
   ];
 
-  const filters: FilterDef<FirewallAlias>[] = [
+  const filters: FilterDef<AliasRow>[] = [
     {
       key: "type",
       label: "Type",
-      options: (Object.keys(ALIAS_GROUP) as AliasType[]).map((t) => ({ value: t, label: ALIAS_GROUP[t].label })),
-      predicate: (a, v) => a.type === v,
+      options: [
+        ...(Object.keys(ALIAS_GROUP) as AliasType[]).map((t) => ({ value: t, label: ALIAS_GROUP[t].label })),
+        { value: "interface", label: "Interface" },
+      ],
+      predicate: (r, v) => (v === "interface" ? r.kind === "builtin" : r.kind === "user" && r.alias.type === v),
     },
   ];
 
@@ -126,7 +172,8 @@ export default function FirewallAliasesPage() {
           Aliases
         </h1>
         <p className="text-[13px] text-[var(--qz-fg-4)] mt-1">
-          Named hosts, networks, and FQDNs used as From/To targets in firewall rules
+          Named hosts, networks, and FQDNs used as From/To targets in firewall rules — every configured interface
+          and VLAN gets a built-in alias named by its description
         </p>
       </div>
 
@@ -145,9 +192,9 @@ export default function FirewallAliasesPage() {
         )}
         {status === "ready" && (
           <DataTable
-            rows={data.aliases}
+            rows={rows}
             columns={columns}
-            rowId={(a) => `${a.type}:${a.name}`}
+            rowId={(r) => (r.kind === "user" ? `${r.alias.type}:${r.alias.name}` : `iface:${r.alias.iface}`)}
             filters={filters}
             storageKey="firewall-aliases"
             searchPlaceholder="Search aliases…"
@@ -158,13 +205,15 @@ export default function FirewallAliasesPage() {
                 Create alias
               </Button>
             }
-            actions={(row) => (
-              <RowActions
-                label={`alias ${row.name}`}
-                onEdit={() => setModal({ alias: row })}
-                onDelete={() => remove(row)}
-              />
-            )}
+            actions={(row) =>
+              row.kind === "user" ? (
+                <RowActions
+                  label={`alias ${row.alias.display}`}
+                  onEdit={() => setModal({ alias: row.alias })}
+                  onDelete={() => remove(row.alias)}
+                />
+              ) : null
+            }
           />
         )}
       </div>

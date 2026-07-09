@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
 import { Segmented } from "@/components/ui/Segmented";
-import { ALIAS_GROUP, AliasType, applyAlias, FirewallAlias } from "@/lib/firewall";
+import { ALIAS_GROUP, AliasType, applyAlias, FirewallAlias, sanitizeAliasName } from "@/lib/firewall";
 
 const inputCls = "w-full rounded-md px-3 py-[9px] text-[13px] text-[var(--qz-fg-1)] outline-none";
 const inputSt = { background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" } as const;
@@ -26,7 +26,9 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-const NAME_RE = /^[A-Za-z][A-Za-z0-9_-]*$/;
+// Friendly names may contain spaces — the backing VyOS group name can't, so
+// spaces become hyphens on save (see sanitizeAliasName).
+const NAME_RE = /^[A-Za-z][A-Za-z0-9 _-]*$/;
 const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 const IPV4_RANGE_RE = /^(\d{1,3}\.){3}\d{1,3}-(\d{1,3}\.){3}\d{1,3}$/;
 const CIDR_RE = /^(\d{1,3}\.){3}\d{1,3}\/([0-9]|[12][0-9]|3[0-2])$/;
@@ -72,7 +74,7 @@ export function AliasFormModal({
   const isEdit = !!initial;
   const locked = isEdit && usedByRules.length > 0;
 
-  const [name, setName] = useState(initial?.name ?? "");
+  const [name, setName] = useState(initial?.display ?? "");
   const [type, setType] = useState<AliasType>(initial?.type ?? "host");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [membersText, setMembersText] = useState(initial?.members.join("\n") ?? "");
@@ -84,17 +86,19 @@ export function AliasFormModal({
     e.preventDefault();
     setError("");
 
-    const n = name.trim();
-    if (!NAME_RE.test(n)) {
-      setError("Name must start with a letter and use only letters, digits, hyphens, and underscores.");
+    const display = name.trim().replace(/\s+/g, " ");
+    if (!NAME_RE.test(display)) {
+      setError("Name must start with a letter and use only letters, digits, spaces, hyphens, and underscores.");
       return;
     }
+    // The device name is the hyphenated form — VyOS group names can't hold spaces.
+    const n = sanitizeAliasName(display);
     // Same VyOS group node = same namespace; different alias types don't clash.
     const clash = existing.some(
       (a) => a.name === n && a.type === type && !(isEdit && a.name === initial!.name && a.type === initial!.type),
     );
     if (clash) {
-      setError(`A ${ALIAS_GROUP[type].label.toLowerCase()} alias named ${n} already exists.`);
+      setError(`A ${ALIAS_GROUP[type].label.toLowerCase()} alias named ${display} already exists (device name ${n}).`);
       return;
     }
 
@@ -116,6 +120,7 @@ export function AliasFormModal({
     try {
       const applied = await applyAlias(existing, {
         name: n,
+        display,
         type,
         description: description.trim() || null,
         members,
@@ -125,7 +130,7 @@ export function AliasFormModal({
       onSaved(
         applied === 0
           ? "No changes — config already matches."
-          : `Applied ${applied} change${applied === 1 ? "" : "s"} to alias ${n} and saved to boot config.`,
+          : `Applied ${applied} change${applied === 1 ? "" : "s"} to alias ${display} and saved to boot config.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply alias.");
@@ -160,11 +165,18 @@ export function AliasFormModal({
           </div>
         </Field>
 
-        <Field label="Name">
+        <Field
+          label="Name"
+          hint={
+            /\s/.test(name.trim())
+              ? `Spaces are fine here — stored on the device as ${sanitizeAliasName(name)}.`
+              : undefined
+          }
+        >
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="LAN-Servers"
+            placeholder="Approved DNS Servers"
             disabled={locked}
             className={inputCls}
             style={{ ...monoSt, opacity: locked ? 0.5 : 1 }}

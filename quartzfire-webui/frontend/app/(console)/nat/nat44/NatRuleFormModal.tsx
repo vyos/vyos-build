@@ -99,7 +99,7 @@ export function NatRuleFormModal({
     .filter((a) => a.type === "host" || a.type === "network")
     .map((a) => ({
       value: `${ALIAS_GROUP[a.type].node} ${a.name}`,
-      label: `${a.name} (${ALIAS_GROUP[a.type].label})`,
+      label: `${a.display} (${ALIAS_GROUP[a.type].label})`,
     }));
   // Keep a group configured outside the Aliases page (CLI, other type) selectable.
   if (sourceGroup && !aliasOptions.some((o) => o.value === sourceGroup)) {

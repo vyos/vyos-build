@@ -59,12 +59,22 @@ const CHAIN_LABEL: Record<RuleChain, string> = {
   output: "Output filter",
 };
 
-function entryLabel(e: EndpointEntry): { main: string; sub: string } {
+/// List-entry label: friendly name first (interface description or alias
+/// display name), with the technical name in the sub line.
+function entryLabel(
+  e: EndpointEntry,
+  descriptions: Record<string, string> | undefined,
+  aliases: FirewallConfig["aliases"],
+): { main: string; sub: string } {
   switch (e.kind) {
-    case "alias":
-      return { main: e.name, sub: ALIAS_GROUP[e.type].label };
-    case "interface":
-      return { main: e.name, sub: "Interface" };
+    case "alias": {
+      const display = aliases.find((a) => a.type === e.type && a.name === e.name)?.display ?? e.name;
+      return { main: display, sub: ALIAS_GROUP[e.type].label };
+    }
+    case "interface": {
+      const desc = descriptions?.[e.name];
+      return desc ? { main: desc, sub: `${e.name} · Interface` } : { main: e.name, sub: "Interface" };
+    }
     case "firewall":
       return { main: "Firewall", sub: "This device" };
     case "ifgroup":
@@ -140,7 +150,7 @@ function EndpointField({
           <div className="flex items-center justify-center h-[96px] text-[13px] text-[var(--qz-fg-4)]">Any</div>
         ) : (
           value.map((e, i) => {
-            const { main, sub } = entryLabel(e);
+            const { main, sub } = entryLabel(e, descriptions, aliases);
             return (
               <div
                 key={`${e.kind}:${main}:${i}`}
@@ -183,7 +193,7 @@ function EndpointField({
           <optgroup label="Interfaces">
             {addableIfaces.map((n) => (
               <option key={ifaceKey(n)} value={ifaceKey(n)}>
-                {descriptions?.[n] ? `${n} — ${descriptions[n]}` : n}
+                {descriptions?.[n] ? `${descriptions[n]} (${n})` : n}
               </option>
             ))}
           </optgroup>
@@ -192,7 +202,7 @@ function EndpointField({
           <optgroup label="Aliases">
             {addableAliases.map((a) => (
               <option key={aliasKey(a.type, a.name)} value={aliasKey(a.type, a.name)}>
-                {a.name} ({ALIAS_GROUP[a.type].label})
+                {a.display} ({ALIAS_GROUP[a.type].label})
               </option>
             ))}
           </optgroup>

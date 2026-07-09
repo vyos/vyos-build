@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Check, GripVertical, Plus, RotateCw, Search, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
+  aliasDisplayName,
   applyRuleOrder,
-  AutoGroup,
   counterKey,
   deleteRule,
   emptyFirewallConfig,
@@ -35,13 +35,32 @@ function ActionPill({ action }: { action: FirewallRule["action"] }) {
 /// Stable row identity — rule numbers are only unique within a chain.
 const ruleKey = (r: FirewallRule) => `${r.chain}:${r.rule}`;
 
-function EndpointCell({ rule, side, autoGroups }: { rule: FirewallRule; side: "from" | "to"; autoGroups: AutoGroup[] }) {
-  const sel = ruleSelection(rule, side, autoGroups);
+function EndpointCell({
+  rule,
+  side,
+  config,
+  descriptions,
+}: {
+  rule: FirewallRule;
+  side: "from" | "to";
+  config: FirewallConfig;
+  descriptions: Record<string, string>;
+}) {
+  const sel = ruleSelection(rule, side, config.auto_groups);
   if (sel.length === 0) return <span className="text-[var(--qz-fg-4)]">Any</span>;
-  const names = sel.map((e) => (e.kind === "address" ? e.address : e.kind === "firewall" ? "Firewall" : e.name));
+  // Friendly names — interface descriptions and alias display names; the
+  // tooltip keeps the technical names.
+  const raw = sel.map((e) => (e.kind === "address" ? e.address : e.kind === "firewall" ? "Firewall" : e.name));
+  const names = sel.map((e) => {
+    if (e.kind === "address") return e.address;
+    if (e.kind === "firewall") return "Firewall";
+    if (e.kind === "interface") return descriptions[e.name] ?? e.name;
+    if (e.kind === "alias") return aliasDisplayName(config.aliases, e.type, e.name);
+    return e.name;
+  });
   const allIfaces = sel.every((e) => e.kind === "interface" || e.kind === "ifgroup");
   return (
-    <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }} title={names.join(", ")}>
+    <span style={{ fontFamily: "var(--qz-font-mono)", color: "var(--qz-fg-1)" }} title={raw.join(", ")}>
       {names.join(", ")}
       {allIfaces && <span className="text-[var(--qz-fg-4)]"> · iface</span>}
     </span>
@@ -404,10 +423,10 @@ export default function FirewallRulesPage() {
                             {r.name ?? <span className="text-[var(--qz-fg-4)]">—</span>}
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <EndpointCell rule={r} side="from" autoGroups={data.auto_groups} />
+                            <EndpointCell rule={r} side="from" config={data} descriptions={ifaceDescriptions} />
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <EndpointCell rule={r} side="to" autoGroups={data.auto_groups} />
+                            <EndpointCell rule={r} side="to" config={data} descriptions={ifaceDescriptions} />
                           </td>
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {policyCell(r)}
