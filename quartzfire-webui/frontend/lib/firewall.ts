@@ -64,11 +64,37 @@ export interface InterfaceAlias {
   iface: string;
   display: string;
   description: string | null;
+  /** Connected IPv4 networks, from the interface addresses (172.16.1.1/24 → 172.16.1.0/24). */
+  networks: string[];
 }
 
-export function interfaceAliases(ifaces: { name: string; description: string | null }[]): InterfaceAlias[] {
+/// IPv4 network containing `cidr` (`172.16.1.10/24` → `172.16.1.0/24`); null
+/// for IPv6, `dhcp`, or anything else that isn't a literal IPv4 CIDR.
+function ipv4Network(cidr: string): string | null {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(cidr.trim());
+  if (!m) return null;
+  const prefix = Number(m[5]);
+  const octets = m.slice(1, 5).map(Number);
+  if (prefix > 32 || octets.some((o) => o > 255)) return null;
+  const addr = ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0;
+  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+  const net = (addr & mask) >>> 0;
+  return `${net >>> 24}.${(net >>> 16) & 255}.${(net >>> 8) & 255}.${net & 255}/${prefix}`;
+}
+
+export function interfaceAliases(
+  ifaces: { name: string; description: string | null; addresses: string[] }[],
+): InterfaceAlias[] {
   return ifaces
-    .map((i) => ({ iface: i.name, display: i.description ?? i.name, description: i.description }))
+    // Only interfaces actually set up (addressed or named) get a built-in
+    // alias — a bare NIC that exists in the config only as a hw-id doesn't.
+    .filter((i) => i.description !== null || i.addresses.length > 0)
+    .map((i) => ({
+      iface: i.name,
+      display: i.description ?? i.name,
+      description: i.description,
+      networks: [...new Set(i.addresses.map(ipv4Network).filter((n): n is string => n !== null))],
+    }))
     .sort((a, b) => a.display.localeCompare(b.display));
 }
 
@@ -1015,9 +1041,14 @@ export async function applyRuleOrder(orderedRules: FirewallRule[]): Promise<numb
 // ── writes: default action ────────────────────────────────────────────────────
 
 /// Set `firewall ipv4 forward filter default-action` (what happens to traffic
-/// no rule matches).
-export function setDefaultAction(action: "accept" | "drop"): Promise<number> {
-  return commitAndSave([{ op: "set", path: [...filterBase("forward"), "default-action", action] }]);
+/// no rule matches). Setting drop first seeds the hidden established/related
+/// baseline — without it a deny default would cut off the reply half of every
+/// connection already allowed out.
+export function setDefaultAction(cfg: FirewallConfig, action: "accept" | "drop"): Promise<number> {
+  const out: VyosCommand[] = [];
+  if (action === "drop") ensureForwardBaseline(out, cfg);
+  out.push({ op: "set", path: [...filterBase("forward"), "default-action", action] });
+  return commitAndSave(out);
 }
 
 // ── traffic logging (Traffic Monitor) ─────────────────────────────────────────

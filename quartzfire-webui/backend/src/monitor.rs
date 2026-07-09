@@ -20,6 +20,7 @@ use axum::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
     },
+    Json,
 };
 use serde::Serialize;
 use std::{convert::Infallible, process::Stdio};
@@ -105,13 +106,80 @@ fn parse_journal_line(line: &str) -> Option<LogEntry> {
     let v: serde_json::Value = serde_json::from_str(line).ok()?;
     // Non-UTF8 messages come through as byte arrays — as_str skips those.
     let msg = v.get("MESSAGE")?.as_str()?;
-    let ts = v
-        .get("__REALTIME_TIMESTAMP")
+    parse_message(msg, journal_ts(&v))
+}
+
+/// Journal receive time, milliseconds since the epoch (0 when absent).
+fn journal_ts(v: &serde_json::Value) -> u64 {
+    v.get("__REALTIME_TIMESTAMP")
         .and_then(|t| t.as_str())
         .and_then(|t| t.parse::<u64>().ok())
         .map(|us| us / 1000)
-        .unwrap_or(0);
-    parse_message(msg, ts)
+        .unwrap_or(0)
+}
+
+/// One system journal entry for the System → Audit Log page.
+#[derive(Serialize)]
+pub struct SystemLogEntry {
+    /// Journal receive time, milliseconds since the epoch.
+    ts: u64,
+    /// Syslog identifier (or systemd unit) that emitted the line.
+    unit: String,
+    /// Syslog priority 0–7, lower = more severe.
+    priority: u8,
+    message: String,
+}
+
+/// GET /api/monitor/system-log — the recent system journal as JSON, newest
+/// first. Firewall traffic lines are excluded (they belong to the Traffic
+/// Monitor); everything else — commits, daemons, kernel, auth — is the
+/// firewall OS's own story.
+pub async fn system_log() -> Response {
+    let output = match Command::new("journalctl")
+        .args(["-n", "2000", "-o", "json", "--no-pager"])
+        .output()
+        .await
+    {
+        Ok(o) => o,
+        Err(e) => {
+            tracing::error!("cannot start journalctl: {e}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "cannot read the system journal on this device",
+            )
+                .into_response();
+        }
+    };
+
+    let mut entries: Vec<SystemLogEntry> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(parse_system_line)
+        .collect();
+    entries.reverse(); // journalctl emits oldest-first
+    Json(entries).into_response()
+}
+
+/// Parse one `journalctl -o json` line into a system log entry; None for
+/// firewall traffic lines and non-text messages.
+fn parse_system_line(line: &str) -> Option<SystemLogEntry> {
+    let v: serde_json::Value = serde_json::from_str(line).ok()?;
+    let msg = v.get("MESSAGE")?.as_str()?;
+    let trimmed = msg.trim_start();
+    if trimmed.is_empty() || trimmed.starts_with("[ipv4-") || trimmed.starts_with("[ipv6-") {
+        return None;
+    }
+    let unit = v
+        .get("SYSLOG_IDENTIFIER")
+        .and_then(|x| x.as_str())
+        .or_else(|| v.get("_SYSTEMD_UNIT").and_then(|x| x.as_str()))
+        .unwrap_or("kernel")
+        .to_string();
+    let priority = v
+        .get("PRIORITY")
+        .and_then(|x| x.as_str())
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(6);
+    Some(SystemLogEntry { ts: journal_ts(&v), unit, priority, message: msg.to_string() })
 }
 
 /// Parse the nftables log text: `[family-HOOK-chain-rule-ACTION]KEY=VAL …`.

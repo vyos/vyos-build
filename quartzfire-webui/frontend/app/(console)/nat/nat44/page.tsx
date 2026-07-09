@@ -5,8 +5,8 @@ import { AlertTriangle, Pencil, Plus, RotateCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Column, DataTable } from "@/components/dashboard/DataTable";
 import { deleteNatRule, deleteStaticNat, fetchNat44, Nat44Config, NatRule, NatSection, StaticNatMapping } from "@/lib/nat";
-import { fetchFirewall, FirewallAlias } from "@/lib/firewall";
-import { fetchInterfaceDescriptions } from "@/lib/interfaces";
+import { fetchFirewall, FirewallAlias, InterfaceAlias, interfaceAliases } from "@/lib/firewall";
+import { fetchEthernet, fetchInterfaceDescriptions, fetchVlans } from "@/lib/interfaces";
 import { fetchInterfaceStats } from "@/lib/vyos";
 import { useDashboard } from "@/lib/DashboardContext";
 import { NatRuleFormModal } from "./NatRuleFormModal";
@@ -130,6 +130,7 @@ export default function Nat44Page() {
   const [interfaces, setInterfaces] = useState<string[]>([]);
   const [ifaceDescriptions, setIfaceDescriptions] = useState<Record<string, string>>({});
   const [aliases, setAliases] = useState<FirewallAlias[]>([]);
+  const [builtins, setBuiltins] = useState<InterfaceAlias[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [tab, setTab] = useState<Tab>("source");
@@ -142,16 +143,19 @@ export default function Nat44Page() {
   const fetchData = useCallback(async () => {
     // Interface names and aliases populate the rule form's pickers; tolerate
     // their failure so a NAT read still renders.
-    const [nat, ifs, descs, fw] = await Promise.all([
+    const [nat, ifs, descs, fw, eth, vlans] = await Promise.all([
       fetchNat44(),
       fetchInterfaceStats().catch(() => []),
       fetchInterfaceDescriptions().catch(() => ({})),
       fetchFirewall().catch(() => null),
+      fetchEthernet().catch(() => []),
+      fetchVlans().catch(() => []),
     ]);
     setData(nat);
     setInterfaces(ifs.map((i) => i.name).sort());
     setIfaceDescriptions(descs);
     setAliases(fw?.aliases ?? []);
+    setBuiltins(interfaceAliases([...eth, ...vlans]));
   }, []);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
@@ -301,6 +305,7 @@ export default function Nat44Page() {
           interfaces={interfaces}
           descriptions={ifaceDescriptions}
           aliases={aliases}
+          builtins={builtins}
           existing={modal.section === "source" ? data.source : data.destination}
           takenRules={data.static_nat.map((m) => m.rule)}
           onClose={() => setModal(null)}

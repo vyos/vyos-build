@@ -7,11 +7,15 @@ mod vyos;
 
 use anyhow::Result;
 use axum::{
-    middleware,
+    extract::Request,
+    http::{header, HeaderValue},
+    middleware::{self, Next},
+    response::Response,
     routing::{any, get, post},
     Router,
 };
 use std::sync::Arc;
+use tower::ServiceExt as _;
 use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
@@ -57,6 +61,7 @@ async fn main() -> Result<()> {
         .route("/api/auth/me", get(auth::me))
         // Static routes win over the `/api/*rest` proxy wildcard.
         .route("/api/monitor/firewall-log", get(monitor::firewall_log))
+        .route("/api/monitor/system-log", get(monitor::system_log))
         .route("/api", any(proxy::handler))
         .route("/api/*rest", any(proxy::handler))
         .layer(middleware::from_fn_with_state(
@@ -68,17 +73,66 @@ async fn main() -> Result<()> {
     // `ServeDir` falls back to index.html so client-side routing works.
     let static_service =
         ServeDir::new(&www_root).not_found_service(ServeFile::new(www_root.join("index.html")));
+    let static_router = Router::new()
+        .fallback_service(static_service)
+        .layer(middleware::from_fn(static_cache_control));
 
     let app = Router::new()
         .route("/api/auth/login", post(auth::login))
         .route("/api/auth/logout", post(auth::logout))
         .merge(protected)
-        .fallback_service(static_service)
+        .fallback_service(static_router)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(&listen).await?;
     tracing::info!("QuartzFire WebUI listening on {listen}");
-    axum::serve(listener, app).await?;
-    Ok(())
+
+    // Accept connections manually rather than via `axum::serve` so each
+    // socket gets TCP_NODELAY. The Traffic Monitor streams one small SSE
+    // frame per log entry; with Nagle on, those frames queue behind
+    // unacknowledged segments and arrive in delayed batches.
+    loop {
+        let (socket, _addr) = match listener.accept().await {
+            Ok(conn) => conn,
+            Err(e) => {
+                tracing::warn!("accept failed: {e}");
+                continue;
+            }
+        };
+        let _ = socket.set_nodelay(true);
+        let router = app.clone();
+        tokio::spawn(async move {
+            let service = hyper::service::service_fn(
+                move |request: hyper::Request<hyper::body::Incoming>| router.clone().oneshot(request),
+            );
+            if let Err(e) = hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+                .serve_connection_with_upgrades(hyper_util::rt::TokioIo::new(socket), service)
+                .await
+            {
+                tracing::debug!("connection error: {e}");
+            }
+        });
+    }
+}
+
+/// Cache policy for the static SPA. Without an explicit Cache-Control,
+/// browsers cache heuristically — after an upgrade a stale HTML shell then
+/// references content-hashed chunks that no longer exist and the page renders
+/// blank until a hard refresh. Hashed Next.js assets never change under the
+/// same name, so they cache forever; everything else (HTML shells, favicon)
+/// revalidates on every load, answered with a cheap 304 via the
+/// Last-Modified/ETag that `ServeDir` already emits.
+async fn static_cache_control(req: Request, next: Next) -> Response {
+    let immutable = req.uri().path().starts_with("/_next/static/");
+    let mut resp = next.run(req).await;
+    resp.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static(if immutable {
+            "public, max-age=31536000, immutable"
+        } else {
+            "no-cache"
+        }),
+    );
+    resp
 }

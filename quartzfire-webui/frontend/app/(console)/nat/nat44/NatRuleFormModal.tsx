@@ -4,13 +4,19 @@ import { useState } from "react";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
 import { Switch } from "@/components/ui/Switch";
 import { applyNatRule, NatRule, NatSection } from "@/lib/nat";
-import { ALIAS_GROUP, FirewallAlias } from "@/lib/firewall";
+import { ALIAS_GROUP, FirewallAlias, InterfaceAlias } from "@/lib/firewall";
 
 const inputCls = "w-full rounded-md px-3 py-[9px] text-[13px] text-[var(--qz-fg-1)] outline-none";
 const inputSt = { background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" } as const;
 const monoSt = { ...inputSt, fontFamily: "var(--qz-font-mono)" } as const;
 
 const PROTOCOLS = ["all", "tcp", "udp", "tcp_udp", "icmp", "esp", "gre"];
+
+/// Built-in interface aliases resolve to the interface's connected IPv4
+/// network — VyOS NAT has no interface match under `source`, so selecting one
+/// writes `source address <network>`. The prefix keeps these apart from
+/// `<type> <name>` group references in the same select.
+const NET_PREFIX = "network:";
 
 function focusBorder(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
   e.currentTarget.style.borderColor = "var(--qz-accent)";
@@ -37,6 +43,7 @@ export function NatRuleFormModal({
   interfaces,
   descriptions,
   aliases,
+  builtins,
   existing,
   takenRules,
   onClose,
@@ -51,6 +58,8 @@ export function NatRuleFormModal({
   descriptions?: Record<string, string>;
   /** Firewall aliases offered as source matches (host/network only). */
   aliases: FirewallAlias[];
+  /** Built-in interface aliases, offered as their connected IPv4 networks. */
+  builtins: InterfaceAlias[];
   /** Existing rules in this section, for duplicate detection and diffing. */
   existing: NatRule[];
   /** Rule numbers used by 1-to-1 mappings (unavailable here). */
@@ -66,12 +75,18 @@ export function NatRuleFormModal({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [iface, setIface] = useState(initial?.interface ?? interfaces[0] ?? "");
   const [sourceAddress, setSourceAddress] = useState(initial?.source ?? "");
-  // Source match is an address or an alias (firewall-group reference stored
-  // as `<type> <name>`), mutually exclusive.
+  // A rule whose source address is exactly a built-in interface network opens
+  // showing that alias, so a rule created from one round-trips.
+  const initialNet =
+    initial?.source && builtins.some((b) => b.networks.includes(initial.source!))
+      ? `${NET_PREFIX}${initial.source}`
+      : null;
+  // Source match is an address or an alias (a firewall-group reference stored
+  // as `<type> <name>`, or a built-in interface network), mutually exclusive.
   const [sourceMode, setSourceMode] = useState<"address" | "alias">(
-    initial?.source_group ? "alias" : "address",
+    initial?.source_group || initialNet ? "alias" : "address",
   );
-  const [sourceGroup, setSourceGroup] = useState(initial?.source_group ?? "");
+  const [sourceGroup, setSourceGroup] = useState(initial?.source_group ?? initialNet ?? "");
   const [sourcePort, setSourcePort] = useState(initial?.source_port ?? "");
   const [destAddress, setDestAddress] = useState(initial?.destination ?? "");
   const [destPort, setDestPort] = useState(initial?.destination_port ?? "");
@@ -93,6 +108,11 @@ export function NatRuleFormModal({
   // Keep the current value selectable even if it's missing from the list.
   const ifaceOptions = [...new Set([iface, ...interfaces].filter(Boolean))];
 
+  // Built-in interface aliases, one option per connected IPv4 network (an
+  // unaddressed or DHCP interface has none to offer).
+  const builtinOptions = builtins.flatMap((b) =>
+    b.networks.map((net) => ({ value: `${NET_PREFIX}${net}`, label: `${b.display} — ${net}` })),
+  );
   // Host/network aliases as `<type> <name>` group references. VyOS NAT also
   // accepts domain/mac groups, but subnets and hosts are what SNAT wants.
   const aliasOptions = aliases
@@ -102,9 +122,14 @@ export function NatRuleFormModal({
       label: `${a.display} (${ALIAS_GROUP[a.type].label})`,
     }));
   // Keep a group configured outside the Aliases page (CLI, other type) selectable.
-  if (sourceGroup && !aliasOptions.some((o) => o.value === sourceGroup)) {
+  if (
+    sourceGroup &&
+    !sourceGroup.startsWith(NET_PREFIX) &&
+    !aliasOptions.some((o) => o.value === sourceGroup)
+  ) {
     aliasOptions.unshift({ value: sourceGroup, label: sourceGroup });
   }
+  const hasAliasOptions = builtinOptions.length > 0 || aliasOptions.length > 0;
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -134,6 +159,10 @@ export function NatRuleFormModal({
       return;
     }
 
+    // A built-in interface alias is stored as a plain source address (its
+    // network); only user aliases become group references.
+    const netAlias = sourceGroup.startsWith(NET_PREFIX) ? sourceGroup.slice(NET_PREFIX.length) : null;
+
     setSaving(true);
     try {
       const applied = await applyNatRule(existing, {
@@ -141,8 +170,8 @@ export function NatRuleFormModal({
         rule: num,
         description: description.trim() || null,
         interface: iface.trim() || null,
-        source_address: sourceMode === "address" ? sourceAddress.trim() || null : null,
-        source_group: sourceMode === "alias" ? sourceGroup || null : null,
+        source_address: sourceMode === "address" ? sourceAddress.trim() || null : netAlias,
+        source_group: sourceMode === "alias" && !netAlias ? sourceGroup || null : null,
         source_port: sourcePort.trim() || null,
         destination_address: destAddress.trim() || null,
         destination_port: destPort.trim() || null,
@@ -255,7 +284,11 @@ export function NatRuleFormModal({
         <div className="grid gap-4" style={{ gridTemplateColumns: "2fr 1fr" }}>
           <Field
             label="Source"
-            hint={sourceMode === "alias" ? "Aliases are managed under Firewall → Aliases." : undefined}
+            hint={
+              sourceMode === "alias"
+                ? "Interface networks come from each interface's address; aliases are managed under Firewall → Aliases."
+                : undefined
+            }
           >
             <div className="flex gap-2">
               <div style={{ width: 104, flexShrink: 0 }}>
@@ -292,13 +325,26 @@ export function NatRuleFormModal({
                     onBlur={blurBorder}
                   >
                     <option value="" disabled>
-                      {aliasOptions.length ? "Select alias…" : "No aliases defined"}
+                      {hasAliasOptions ? "Select alias…" : "No aliases defined"}
                     </option>
-                    {aliasOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
+                    {builtinOptions.length > 0 && (
+                      <optgroup label="Interface networks">
+                        {builtinOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {aliasOptions.length > 0 && (
+                      <optgroup label="Aliases">
+                        {aliasOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 )}
               </div>

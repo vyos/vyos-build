@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -77,7 +77,15 @@ const ITEMS: NavItem[] = [
       { id: "dns-forwarding", label: "DNS Forwarding", href: "/services/dns-forwarding", icon: Globe },
     ],
   },
-  { id: "system",     label: "System",     icon: Settings,       href: "/system" },
+  {
+    id: "system",
+    label: "System",
+    icon: Settings,
+    href: "/system",
+    children: [
+      { id: "audit", label: "Audit Log", href: "/system/audit", icon: ScrollText },
+    ],
+  },
 ];
 
 export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {

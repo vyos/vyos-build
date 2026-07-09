@@ -33,6 +33,7 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-svc-dhcp-relay",     section: "Go to", label: "Services › DHCP Relay",     kbd: "", href: "/services/dhcp-relay" },
   { id: "nav-svc-dns-forwarding", section: "Go to", label: "Services › DNS Forwarding", kbd: "", href: "/services/dns-forwarding" },
   { id: "nav-system",     section: "Go to", label: "System",     kbd: "G S", href: "/system" },
+  { id: "nav-sys-audit",   section: "Go to", label: "System › Audit Log", kbd: "", href: "/system/audit" },
 ];
 
 export function CommandPalette({

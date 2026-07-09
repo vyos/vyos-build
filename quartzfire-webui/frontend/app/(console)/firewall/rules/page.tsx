@@ -206,7 +206,7 @@ export default function FirewallRulesPage() {
 
   const changeDefaultAction = async (action: "accept" | "drop") => {
     try {
-      await setDefaultAction(action);
+      await setDefaultAction(data, action);
       setToast(`Default action set to ${action === "accept" ? "Allow" : "Deny"} and saved to boot config.`);
       await load("refresh");
     } catch (e) {
@@ -304,8 +304,11 @@ export default function FirewallRulesPage() {
 
               <div className="flex items-center gap-2">
                 <span className="text-[12px] text-[var(--qz-fg-4)]">Default action</span>
+                {/* Unset means the VyOS base-chain default, accept — showing
+                    drop would both misreport it and make Deny unselectable
+                    (the change event never fires on an unchanged value). */}
                 <select
-                  value={data.default_action === "accept" ? "accept" : "drop"}
+                  value={data.default_action === "drop" ? "drop" : "accept"}
                   onChange={(e) => changeDefaultAction(e.target.value as "accept" | "drop")}
                   className="rounded-md px-2 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none cursor-pointer"
                   style={{ background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" }}

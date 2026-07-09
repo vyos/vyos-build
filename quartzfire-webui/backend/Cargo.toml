@@ -11,6 +11,11 @@ path = "src/main.rs"
 
 [dependencies]
 axum = "0.7"
+# Manual accept loop (instead of axum::serve) so sockets get TCP_NODELAY —
+# the Traffic Monitor SSE stream sends many tiny frames that Nagle would
+# otherwise hold back.
+hyper = "1"
+hyper-util = { version = "0.1", features = ["tokio", "server-auto"] }
 tokio = { version = "1", features = ["full"] }
 # LinesStream over journalctl's stdout for the Traffic Monitor SSE stream.
 tokio-stream = { version = "0.1", features = ["io-util"] }

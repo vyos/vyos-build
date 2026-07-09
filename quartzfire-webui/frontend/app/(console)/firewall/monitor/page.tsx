@@ -45,6 +45,9 @@ type Row = MonitorEntry & { id: number };
 
 const MAX_ROWS = 500;
 
+/// Protocols with their own filter entry; everything else falls under Other.
+const KNOWN_PROTOS = ["tcp", "udp", "icmp"];
+
 function ActionPill({ action }: { action: Row["action"] }) {
   if (action === "accept") return <span className="badge badge-ok">Allow</span>;
   if (action === "drop") return <span className="badge badge-crit">Deny</span>;
@@ -72,6 +75,20 @@ export default function TrafficMonitorPage() {
 
   useEffect(() => {
     loadConfig();
+    // Rule numbers change when rules are reordered, recreated, or deleted —
+    // a mapping fetched only at mount would then caption new log lines with
+    // the wrong rule name. Refresh it periodically and when the tab regains
+    // focus. (Backfilled lines older than the last renumber can still carry
+    // pre-renumber numbers; only live labels can be kept honest.)
+    const refetch = () => {
+      if (!document.hidden) loadConfig();
+    };
+    const timer = setInterval(refetch, 30_000);
+    document.addEventListener("visibilitychange", refetch);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refetch);
+    };
   }, [loadConfig]);
 
   const logging = useMemo(() => loggingStatus(config), [config]);
@@ -110,8 +127,11 @@ export default function TrafficMonitorPage() {
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   const [stream, setStream] = useState<"connecting" | "live" | "reconnecting">("connecting");
+  // Bumped by the Refresh button to tear down and reopen the stream (a fresh
+  // connection re-backfills from the journal).
+  const [streamGen, setStreamGen] = useState(0);
 
-  const FLUSH_MS = 150;
+  const FLUSH_MS = 75;
 
   useEffect(() => {
     const es = new EventSource("/api/monitor/firewall-log");
@@ -145,7 +165,7 @@ export default function TrafficMonitorPage() {
       if (throttle) clearTimeout(throttle);
       es.close();
     };
-  }, []);
+  }, [streamGen]);
 
   const togglePause = () => {
     setPaused((p) => {
@@ -161,9 +181,21 @@ export default function TrafficMonitorPage() {
     setRows([]);
   };
 
+  /// Start over: drop the table, reconnect the stream (which re-backfills
+  /// from the journal), and re-read rule names.
+  const refresh = () => {
+    clear();
+    setStream("connecting");
+    setStreamGen((g) => g + 1);
+    loadConfig();
+  };
+
   // ── filters ─────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState("");
   const [actionFilter, setActionFilter] = useState<"all" | "accept" | "blocked">("all");
+  const [protoFilter, setProtoFilter] = useState("all");
+  const [ifaceFilter, setIfaceFilter] = useState("all");
+  const [ruleFilter, setRuleFilter] = useState("all");
 
   const ruleLabel = useCallback(
     (r: Row): string => {
@@ -173,11 +205,40 @@ export default function TrafficMonitorPage() {
     [ruleNames],
   );
 
+  // Interfaces offered in the filter: whatever the entries have actually seen
+  // (plus the current selection, so it can't silently vanish).
+  const ifaceOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if (r.in) seen.add(r.in);
+      if (r.out) seen.add(r.out);
+    }
+    if (ifaceFilter !== "all") seen.add(ifaceFilter);
+    return [...seen].sort();
+  }, [rows, ifaceFilter]);
+
+  const ruleOptions = useMemo(
+    () =>
+      config.rules.map((r) => ({
+        value: `${r.chain}:${r.rule}`,
+        label: r.name ?? `Rule ${r.rule}`,
+      })),
+    [config.rules],
+  );
+
   const q = query.trim().toLowerCase();
   const visible = useMemo(() => {
     return rows.filter((r) => {
       if (actionFilter === "accept" && r.action !== "accept") return false;
       if (actionFilter === "blocked" && r.action === "accept") return false;
+      if (protoFilter !== "all") {
+        const p = r.proto ?? "";
+        if (protoFilter === "other" ? KNOWN_PROTOS.includes(p) : p !== protoFilter) return false;
+      }
+      if (ifaceFilter !== "all" && r.in !== ifaceFilter && r.out !== ifaceFilter) return false;
+      if (ruleFilter !== "all") {
+        if (ruleFilter === "default" ? r.rule !== null : `${r.chain}:${r.rule}` !== ruleFilter) return false;
+      }
       if (!q) return true;
       const hay = [ruleLabel(r), r.src, r.dst, r.spt, r.dpt, r.proto, r.in, r.out, r.chain, r.action]
         .filter((v) => v != null && v !== "")
@@ -185,7 +246,7 @@ export default function TrafficMonitorPage() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [rows, q, actionFilter, ruleLabel]);
+  }, [rows, q, actionFilter, protoFilter, ifaceFilter, ruleFilter, ruleLabel]);
 
   const time = (ts: number) =>
     ts ? new Date(ts).toLocaleTimeString(undefined, { hour12: false }) : "—";
@@ -251,7 +312,55 @@ export default function TrafficMonitorPage() {
               onChange={(v) => setActionFilter(v as typeof actionFilter)}
             />
 
+            <select
+              value={protoFilter}
+              onChange={(e) => setProtoFilter(e.target.value)}
+              title="Filter by protocol"
+              className="rounded-md px-2 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none cursor-pointer"
+              style={{ background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" }}
+            >
+              <option value="all">All protocols</option>
+              <option value="tcp">TCP</option>
+              <option value="udp">UDP</option>
+              <option value="icmp">ICMP</option>
+              <option value="other">Other</option>
+            </select>
+
+            <select
+              value={ifaceFilter}
+              onChange={(e) => setIfaceFilter(e.target.value)}
+              title="Filter by interface (matches either side)"
+              className="rounded-md px-2 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none cursor-pointer"
+              style={{ background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" }}
+            >
+              <option value="all">All interfaces</option>
+              {ifaceOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={ruleFilter}
+              onChange={(e) => setRuleFilter(e.target.value)}
+              title="Filter by the rule that fired"
+              className="rounded-md px-2 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none cursor-pointer"
+              style={{ background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)", maxWidth: 220 }}
+            >
+              <option value="all">All rules</option>
+              <option value="default">Default action</option>
+              {ruleOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+
             <div className="ml-auto flex items-center gap-3">
+              <Button kind="secondary" size="sm" icon={RotateCw} onClick={refresh}>
+                Refresh
+              </Button>
               <Button kind="secondary" size="sm" icon={paused ? Play : Pause} onClick={togglePause}>
                 {paused ? "Resume" : "Pause"}
               </Button>
