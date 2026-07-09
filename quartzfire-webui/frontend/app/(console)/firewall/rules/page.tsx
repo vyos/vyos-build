@@ -6,15 +6,20 @@ import { Button } from "@/components/ui/Button";
 import {
   applyRuleOrder,
   AutoGroup,
+  counterKey,
   deleteRule,
+  emptyFirewallConfig,
   fetchFirewall,
+  fetchRuleCounters,
   FirewallConfig,
   FirewallRule,
   PROTOCOL_LABEL,
+  RuleCounter,
   ruleSelection,
   setDefaultAction,
 } from "@/lib/firewall";
 import { fetchInterfaceDescriptions } from "@/lib/interfaces";
+import { formatBytes } from "@/lib/format";
 import { fetchInterfaceStats } from "@/lib/vyos";
 import { useDashboard } from "@/lib/DashboardContext";
 import { RowActions } from "@/components/dashboard/RowActions";
@@ -45,20 +50,10 @@ function EndpointCell({ rule, side, autoGroups }: { rule: FirewallRule; side: "f
 
 export default function FirewallRulesPage() {
   const { setToast } = useDashboard();
-  const [data, setData] = useState<FirewallConfig>({
-    aliases: [],
-    policies: [],
-    rules: [],
-    auto_groups: [],
-    group_names: [],
-    default_action: null,
-    setup: {
-      input: { baseline: false, default_action: null },
-      output: { baseline: false, default_action: null },
-    },
-  });
+  const [data, setData] = useState<FirewallConfig>(emptyFirewallConfig);
   const [interfaces, setInterfaces] = useState<string[]>([]);
   const [ifaceDescriptions, setIfaceDescriptions] = useState<Record<string, string>>({});
+  const [counters, setCounters] = useState<Map<string, RuleCounter>>(new Map());
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [query, setQuery] = useState("");
@@ -77,14 +72,16 @@ export default function FirewallRulesPage() {
     try {
       // Interface names populate the rule form's From/To pickers; tolerate
       // their failure so a firewall read still renders.
-      const [fw, ifs, descs] = await Promise.all([
+      const [fw, ifs, descs, hits] = await Promise.all([
         fetchFirewall(),
         fetchInterfaceStats().catch(() => []),
         fetchInterfaceDescriptions().catch(() => ({})),
+        fetchRuleCounters().catch(() => new Map<string, RuleCounter>()),
       ]);
       setData(fw);
       setInterfaces(ifs.map((i) => i.name).sort());
       setIfaceDescriptions(descs);
+      setCounters(hits);
       setOrder(fw.rules.map(ruleKey));
       setStatus("ready");
     } catch (e) {
@@ -196,6 +193,24 @@ export default function FirewallRulesPage() {
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Failed to set the default action.");
     }
+  };
+
+  // Live nftables packet counter for the rule — how often it has matched.
+  const hitFormat = useMemo(
+    () => new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }),
+    [],
+  );
+  const hitsCell = (r: FirewallRule) => {
+    const c = counters.get(counterKey(r.chain, r.rule));
+    if (!c) return <span className="text-[var(--qz-fg-4)]">—</span>;
+    return (
+      <span
+        style={{ fontFamily: "var(--qz-font-mono)", color: c.packets > 0 ? "var(--qz-fg-1)" : "var(--qz-fg-4)" }}
+        title={`${c.packets.toLocaleString()} packets · ${formatBytes(c.bytes)}`}
+      >
+        {hitFormat.format(c.packets)}
+      </span>
+    );
   };
 
   const policyCell = (r: FirewallRule) => {
@@ -327,6 +342,7 @@ export default function FirewallRulesPage() {
                   <col />
                   <col />
                   <col />
+                  <col style={{ width: 80 }} />
                   <col style={{ width: 100 }} />
                   <col style={{ width: 90 }} />
                 </colgroup>
@@ -338,6 +354,7 @@ export default function FirewallRulesPage() {
                     <th>From</th>
                     <th>To</th>
                     <th>Policy</th>
+                    <th>Hits</th>
                     <th>Status</th>
                     <th className="text-right">Actions</th>
                   </tr>
@@ -345,7 +362,7 @@ export default function FirewallRulesPage() {
                 <tbody>
                   {visibleRules.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
+                      <td colSpan={9} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
                         {q ? "No rules match the search." : "No firewall rules configured."}
                       </td>
                     </tr>
@@ -395,6 +412,7 @@ export default function FirewallRulesPage() {
                           <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {policyCell(r)}
                           </td>
+                          <td>{hitsCell(r)}</td>
                           <td>
                             <span className={r.enabled ? "badge badge-ok" : "badge badge-muted"}>
                               {r.enabled ? "Enabled" : "Disabled"}

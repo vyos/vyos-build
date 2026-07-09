@@ -9,6 +9,7 @@ import {
   ALIAS_GROUP,
   applyRule,
   AliasType,
+  BUILTIN_POLICIES,
   EndpointEntry,
   EndpointSelection,
   FirewallConfig,
@@ -46,9 +47,11 @@ const aliasKey = (type: AliasType, name: string) => `alias:${type}:${name}`;
 const ifaceKey = (name: string) => `iface:${name}`;
 const FIREWALL_KEY = "builtin:firewall";
 
-/// Built-in Ping policy sentinel for the policy select — a value no
-/// port-group can be named (VyOS group names can't contain brackets).
+/// Built-in policy sentinels for the policy select — values no port-group can
+/// be named (VyOS group names can't contain brackets). Ping writes `protocol
+/// icmp`; the others seed a real port-group of that name on first use.
 const PING_KEY = "[ping]";
+const builtinKey = (name: string) => `[builtin:${name}]`;
 
 const CHAIN_LABEL: Record<RuleChain, string> = {
   forward: "Forward filter",
@@ -240,6 +243,8 @@ export function RuleFormModal({
     initial?.policy ?? (initial?.protocol === "icmp" ? PING_KEY : ""),
   );
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
+  // New rules log by default so they show in the Traffic Monitor.
+  const [log, setLog] = useState(initial?.log ?? true);
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -249,8 +254,12 @@ export function RuleFormModal({
     setError("");
 
     let policy: RulePolicyChoice | null = null;
+    const builtin = Object.keys(BUILTIN_POLICIES).find((n) => builtinKey(n) === policyName);
     if (policyName === PING_KEY) {
       policy = { kind: "ping" };
+    } else if (builtin) {
+      // The diff seeds the port-group itself when it doesn't exist yet.
+      policy = { kind: "policy", name: builtin, protocol: BUILTIN_POLICIES[builtin].protocol };
     } else if (policyName) {
       const p = policies.find((pol) => pol.name === policyName);
       if (!p) {
@@ -273,6 +282,7 @@ export function RuleFormModal({
           to,
           policy,
           enabled,
+          log,
         },
         config,
       );
@@ -359,8 +369,16 @@ export function RuleFormModal({
             onFocus={focusBorder}
             onBlur={blurBorder}
           >
-            <option value="">Any (all traffic)</option>
-            <option value={PING_KEY}>Ping — icmp</option>
+            <option value="">Any</option>
+            <option value={PING_KEY}>Ping</option>
+            {/* Built-ins step aside for a user policy of the same name. */}
+            {Object.entries(BUILTIN_POLICIES)
+              .filter(([n]) => !policies.some((p) => p.name === n))
+              .map(([n, b]) => (
+                <option key={builtinKey(n)} value={builtinKey(n)}>
+                  {n} — {PROTOCOL_LABEL[b.protocol].toLowerCase()}:{b.ports.join(",")}
+                </option>
+              ))}
             {policies.map((p) => (
               <option key={p.name} value={p.name}>
                 {p.name} — {PROTOCOL_LABEL[p.protocol].toLowerCase()}:{p.ports.join(",")}
@@ -369,10 +387,16 @@ export function RuleFormModal({
           </select>
         </Field>
 
-        <label className="flex items-center gap-[10px] cursor-pointer select-none">
-          <Switch on={enabled} onChange={setEnabled} />
-          <span className="text-[13px] text-[var(--qz-fg-2)]">Enabled</span>
-        </label>
+        <div className="flex items-center gap-6">
+          <label className="flex items-center gap-[10px] cursor-pointer select-none">
+            <Switch on={enabled} onChange={setEnabled} />
+            <span className="text-[13px] text-[var(--qz-fg-2)]">Enabled</span>
+          </label>
+          <label className="flex items-center gap-[10px] cursor-pointer select-none">
+            <Switch on={log} onChange={setLog} />
+            <span className="text-[13px] text-[var(--qz-fg-2)]">Log traffic (Traffic Monitor)</span>
+          </label>
+        </div>
 
         {error && (
           <p className="text-[12px] m-0" style={{ color: "var(--qz-danger)" }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -54,6 +54,7 @@ const ITEMS: NavItem[] = [
       { id: "rules",    label: "Rules",    href: "/firewall/rules",    icon: ListOrdered },
       { id: "policies", label: "Policies", href: "/firewall/policies", icon: Boxes },
       { id: "aliases",  label: "Aliases",  href: "/firewall/aliases",  icon: BookMarked },
+      { id: "monitor",  label: "Traffic Monitor", href: "/firewall/monitor", icon: Activity },
     ],
   },
   {

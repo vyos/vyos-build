@@ -12,6 +12,8 @@ path = "src/main.rs"
 [dependencies]
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
+# LinesStream over journalctl's stdout for the Traffic Monitor SSE stream.
+tokio-stream = { version = "0.1", features = ["io-util"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "trace"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Column, DataTable, FilterDef } from "@/components/dashboard/DataTable";
 import {
   deletePolicy,
+  emptyFirewallConfig,
   fetchFirewall,
   FirewallConfig,
   FirewallPolicy,
@@ -23,18 +24,7 @@ function ProtocolPill({ protocol }: { protocol: PolicyProtocol }) {
 
 export default function FirewallPoliciesPage() {
   const { setToast } = useDashboard();
-  const [data, setData] = useState<FirewallConfig>({
-    aliases: [],
-    policies: [],
-    rules: [],
-    auto_groups: [],
-    group_names: [],
-    default_action: null,
-    setup: {
-      input: { baseline: false, default_action: null },
-      output: { baseline: false, default_action: null },
-    },
-  });
+  const [data, setData] = useState<FirewallConfig>(emptyFirewallConfig);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 

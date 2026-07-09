@@ -25,6 +25,7 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-fw-rules",    section: "Go to", label: "Firewall › Rules",    kbd: "", href: "/firewall/rules" },
   { id: "nav-fw-policies", section: "Go to", label: "Firewall › Policies", kbd: "", href: "/firewall/policies" },
   { id: "nav-fw-aliases",  section: "Go to", label: "Firewall › Aliases",  kbd: "", href: "/firewall/aliases" },
+  { id: "nav-fw-monitor",  section: "Go to", label: "Firewall › Traffic Monitor", kbd: "", href: "/firewall/monitor" },
   { id: "nav-routing",    section: "Go to", label: "Routing",    kbd: "G R", href: "/routing" },
   { id: "nav-rt-static",   section: "Go to", label: "Routing › Static", kbd: "", href: "/routing/static" },
   { id: "nav-services",   section: "Go to", label: "Services",   kbd: "G V", href: "/services" },

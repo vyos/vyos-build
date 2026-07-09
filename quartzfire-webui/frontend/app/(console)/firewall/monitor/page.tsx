@@ -1,0 +1,364 @@
+"use client";
+
+// Traffic Monitor — a live, WatchGuard-style view of traffic and the firewall
+// rule (policy) each connection hit. The backend follows the kernel journal
+// and streams parsed firewall log entries over SSE (/api/monitor/firewall-log);
+// this page renders them and maps rule numbers back to the friendly rule names
+// from the firewall config.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { AlertTriangle, Eraser, Pause, Play, RotateCw, Search } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Segmented } from "@/components/ui/Segmented";
+import {
+  emptyFirewallConfig,
+  enableTrafficLogging,
+  fetchFirewall,
+  FirewallConfig,
+  loggingStatus,
+  RuleChain,
+} from "@/lib/firewall";
+import { useDashboard } from "@/lib/DashboardContext";
+
+/// One SSE payload from the backend (see backend/src/monitor.rs LogEntry).
+interface MonitorEntry {
+  ts: number;
+  family: string;
+  chain: RuleChain;
+  /** Rule number; null = the chain's default action fired. */
+  rule: number | null;
+  action: "accept" | "drop" | "reject";
+  in?: string;
+  out?: string;
+  src?: string;
+  dst?: string;
+  proto?: string;
+  spt?: number;
+  dpt?: number;
+  len?: number;
+  icmp_type?: number;
+}
+
+/// Entry plus a client-side id for stable React keys.
+type Row = MonitorEntry & { id: number };
+
+const MAX_ROWS = 500;
+
+function ActionPill({ action }: { action: Row["action"] }) {
+  if (action === "accept") return <span className="badge badge-ok">Allow</span>;
+  if (action === "drop") return <span className="badge badge-crit">Deny</span>;
+  return <span className="badge badge-warn">Reject</span>;
+}
+
+function endpoint(addr?: string, port?: number): string {
+  if (!addr) return "—";
+  return port != null ? `${addr}:${port}` : addr;
+}
+
+export default function TrafficMonitorPage() {
+  const { setToast } = useDashboard();
+
+  // ── firewall config (rule names + logging status) ───────────────────────────
+  const [config, setConfig] = useState<FirewallConfig>(emptyFirewallConfig);
+  const [configState, setConfigState] = useState<"loading" | "ready" | "error">("loading");
+  const [enabling, setEnabling] = useState(false);
+
+  const loadConfig = useCallback(async () => {
+    try {
+      setConfig(await fetchFirewall());
+      setConfigState("ready");
+    } catch {
+      setConfigState("error"); // names/banner degrade; the stream still works
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
+  const logging = useMemo(() => loggingStatus(config), [config]);
+  const ruleNames = useMemo(
+    () => new Map(config.rules.map((r) => [`${r.chain}:${r.rule}`, r.name])),
+    [config.rules],
+  );
+
+  const enableLogging = async () => {
+    setEnabling(true);
+    try {
+      const n = await enableTrafficLogging(config);
+      setToast(
+        n === 0
+          ? "Traffic logging is already fully enabled."
+          : `Enabled traffic logging (${n} change${n === 1 ? "" : "s"}) and saved to boot config.`,
+      );
+      await loadConfig();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Failed to enable traffic logging.");
+    } finally {
+      setEnabling(false);
+    }
+  };
+
+  // ── live stream ─────────────────────────────────────────────────────────────
+  // Entries accumulate in a ref (newest first) and flush to state on a short
+  // interval so a busy firewall doesn't force a render per packet. Pausing
+  // stops the flush, not the collection — resume shows what happened meanwhile.
+  const rowsRef = useRef<Row[]>([]);
+  const dirtyRef = useRef(false);
+  const nextId = useRef(0);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  const [stream, setStream] = useState<"connecting" | "live" | "reconnecting">("connecting");
+
+  useEffect(() => {
+    const es = new EventSource("/api/monitor/firewall-log");
+    es.onopen = () => setStream("live");
+    es.onerror = () => setStream("reconnecting"); // EventSource retries itself
+    es.onmessage = (ev) => {
+      try {
+        const entry = JSON.parse(ev.data) as MonitorEntry;
+        rowsRef.current = [{ ...entry, id: nextId.current++ }, ...rowsRef.current].slice(0, MAX_ROWS);
+        dirtyRef.current = true;
+      } catch {
+        // tolerate a malformed event rather than killing the stream
+      }
+    };
+    const flush = setInterval(() => {
+      if (!dirtyRef.current || pausedRef.current) return;
+      dirtyRef.current = false;
+      setRows(rowsRef.current);
+    }, 300);
+    return () => {
+      clearInterval(flush);
+      es.close();
+    };
+  }, []);
+
+  const togglePause = () => {
+    setPaused((p) => {
+      pausedRef.current = !p;
+      if (p) setRows(rowsRef.current); // resuming — catch up immediately
+      return !p;
+    });
+  };
+
+  const clear = () => {
+    rowsRef.current = [];
+    dirtyRef.current = false;
+    setRows([]);
+  };
+
+  // ── filters ─────────────────────────────────────────────────────────────────
+  const [query, setQuery] = useState("");
+  const [actionFilter, setActionFilter] = useState<"all" | "accept" | "blocked">("all");
+
+  const ruleLabel = useCallback(
+    (r: Row): string => {
+      if (r.rule === null) return "Default action";
+      return ruleNames.get(`${r.chain}:${r.rule}`) ?? `Rule ${r.rule}`;
+    },
+    [ruleNames],
+  );
+
+  const q = query.trim().toLowerCase();
+  const visible = useMemo(() => {
+    return rows.filter((r) => {
+      if (actionFilter === "accept" && r.action !== "accept") return false;
+      if (actionFilter === "blocked" && r.action === "accept") return false;
+      if (!q) return true;
+      const hay = [ruleLabel(r), r.src, r.dst, r.proto, r.in, r.out, r.chain, r.action]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, q, actionFilter, ruleLabel]);
+
+  const time = (ts: number) =>
+    ts ? new Date(ts).toLocaleTimeString(undefined, { hour12: false }) : "—";
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-[36px] pt-[28px] pb-5 flex-shrink-0">
+        <h1 className="text-[28px] font-bold text-[var(--qz-fg-1)] m-0" style={{ letterSpacing: "-0.015em" }}>
+          Traffic Monitor
+        </h1>
+        <p className="text-[13px] text-[var(--qz-fg-4)] mt-1">
+          Live traffic and the firewall rule each connection hit — one entry per new connection
+        </p>
+      </div>
+
+      <div className="flex-1 overflow-auto px-[36px] pb-[28px]">
+        <div className="flex flex-col gap-3">
+          {/* Logging setup banner */}
+          {configState === "ready" && !logging.complete && (
+            <div
+              className="flex items-center gap-3 px-3 py-2 rounded-md flex-wrap"
+              style={{
+                background: "var(--qz-accent-soft)",
+                border: "1px solid color-mix(in oklab, var(--qz-accent) 30%, transparent)",
+              }}
+            >
+              <AlertTriangle size={15} className="text-[var(--qz-fg-2)] flex-shrink-0" />
+              <span className="text-[13px] text-[var(--qz-fg-1)]">
+                {logging.total_rules === 0 && logging.chains_without_default_log.length === 3
+                  ? "Traffic logging is off — nothing will appear here until it's enabled."
+                  : `Logging is only partially enabled (${logging.logged_rules} of ${logging.total_rules} rules) — some traffic won't appear here.`}
+              </span>
+              <div className="ml-auto">
+                <Button kind="primary" size="sm" onClick={enableLogging} disabled={enabling}>
+                  {enabling ? "Enabling…" : "Enable logging"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Controls */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search size={14} className="absolute left-[10px] top-1/2 -translate-y-1/2 text-[var(--qz-fg-4)]" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter traffic…"
+                className="rounded-md pl-8 pr-3 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none w-[240px]"
+                style={{ background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--qz-accent)")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "var(--qz-border)")}
+              />
+            </div>
+
+            <Segmented
+              items={[
+                { value: "all", label: "All" },
+                { value: "accept", label: "Allowed" },
+                { value: "blocked", label: "Blocked" },
+              ]}
+              value={actionFilter}
+              onChange={(v) => setActionFilter(v as typeof actionFilter)}
+            />
+
+            <div className="ml-auto flex items-center gap-3">
+              <Button kind="secondary" size="sm" icon={paused ? Play : Pause} onClick={togglePause}>
+                {paused ? "Resume" : "Pause"}
+              </Button>
+              <Button kind="secondary" size="sm" icon={Eraser} onClick={clear}>
+                Clear
+              </Button>
+              <span className="inline-flex items-center gap-[6px] text-[12px] text-[var(--qz-fg-4)]">
+                <span
+                  className="inline-block w-[7px] h-[7px] rounded-full"
+                  style={{
+                    background: paused
+                      ? "var(--qz-fg-4)"
+                      : stream === "live"
+                        ? "var(--qz-success)"
+                        : "var(--qz-warn)",
+                  }}
+                />
+                {paused ? "Paused" : stream === "live" ? "Live" : stream === "connecting" ? "Connecting…" : "Reconnecting…"}
+                {" · "}
+                {visible.length} {visible.length === 1 ? "entry" : "entries"}
+              </span>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-md overflow-hidden" style={{ border: "1px solid var(--qz-border)" }}>
+            <table className="qz-table" style={{ width: "100%" }}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col style={{ width: 100 }} />
+                <col />
+                <col />
+                <col />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 140 }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Action</th>
+                  <th>Rule</th>
+                  <th>Source</th>
+                  <th>Destination</th>
+                  <th>Protocol</th>
+                  <th>Interface</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
+                      {rows.length === 0
+                        ? "Waiting for traffic… (only logged rules and default-log traffic appear here)"
+                        : "No entries match the filter."}
+                    </td>
+                  </tr>
+                ) : (
+                  visible.map((r) => (
+                    <tr key={r.id} style={{ cursor: "default" }}>
+                      <td className="mono text-[var(--qz-fg-3)]">{time(r.ts)}</td>
+                      <td>
+                        <ActionPill action={r.action} />
+                      </td>
+                      <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <Link
+                          href="/firewall/rules"
+                          className="no-underline text-[var(--qz-fg-1)] hover:text-[var(--qz-accent)]"
+                          title={r.rule === null ? `${r.chain} default action` : `${r.chain} rule ${r.rule}`}
+                        >
+                          {ruleLabel(r)}
+                        </Link>
+                        {r.chain !== "forward" && (
+                          <span className="text-[11px] text-[var(--qz-fg-4)]"> · {r.chain}</span>
+                        )}
+                      </td>
+                      <td className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {endpoint(r.src, r.spt)}
+                      </td>
+                      <td className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {endpoint(r.dst, r.dpt)}
+                      </td>
+                      <td className="mono">
+                        {r.proto ?? "—"}
+                        {r.proto === "icmp" && r.icmp_type != null && (
+                          <span className="text-[var(--qz-fg-4)]"> t{r.icmp_type}</span>
+                        )}
+                      </td>
+                      <td className="mono text-[var(--qz-fg-3)]">
+                        {r.in ?? "—"}
+                        {r.out ? ` → ${r.out}` : ""}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-[12px] text-[var(--qz-fg-4)] m-0">
+            Entries stream from the firewall&apos;s kernel log; the newest {MAX_ROWS} are kept. Each rule&apos;s
+            logging can be toggled individually when editing it under{" "}
+            <Link href="/firewall/rules" className="text-[var(--qz-fg-3)]">
+              Rules
+            </Link>
+            .
+          </p>
+
+          {configState === "error" && (
+            <div className="flex items-center gap-2 text-[13px] text-[var(--qz-fg-4)]">
+              <AlertTriangle size={14} />
+              Couldn&apos;t read the firewall config — rule names are unavailable.
+              <Button kind="secondary" size="sm" icon={RotateCw} onClick={loadConfig}>
+                Retry
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

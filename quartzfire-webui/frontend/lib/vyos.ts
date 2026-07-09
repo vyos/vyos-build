@@ -53,7 +53,7 @@ export interface InterfaceStat {
 
 /// Run an operational `show` command and return its text payload, or null on
 /// any failure (unreachable, API error, missing data).
-async function showText(path: string[]): Promise<string | null> {
+export async function showText(path: string[]): Promise<string | null> {
   try {
     const resp = await vyosApi<VyosResponse<string | null>>("show", { op: "show", path });
     return resp.success ? resp.data ?? null : null;

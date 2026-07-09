@@ -1,6 +1,7 @@
 mod auth;
 mod config;
 mod error;
+mod monitor;
 mod proxy;
 mod vyos;
 
@@ -54,6 +55,8 @@ async fn main() -> Result<()> {
     // the VyOS API proxy is the crown jewels, so it sits behind `require_auth`.
     let protected = Router::new()
         .route("/api/auth/me", get(auth::me))
+        // Static routes win over the `/api/*rest` proxy wildcard.
+        .route("/api/monitor/firewall-log", get(monitor::firewall_log))
         .route("/api", any(proxy::handler))
         .route("/api/*rest", any(proxy::handler))
         .layer(middleware::from_fn_with_state(

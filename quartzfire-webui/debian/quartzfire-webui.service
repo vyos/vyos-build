@@ -9,9 +9,10 @@ ExecStart=/usr/bin/quartzfire-webui
 Environment=QUARTZFIRE_WEBUI_CONFIG=/etc/quartzfire/webui.toml
 Restart=on-failure
 RestartSec=2
-# Hardening — the backend only needs to read its config/key and talk localhost.
+# Hardening — the backend only needs to read its config/key, talk localhost,
+# and follow the kernel journal (systemd-journal) for the Traffic Monitor.
 DynamicUser=yes
-SupplementaryGroups=quartzfire
+SupplementaryGroups=quartzfire systemd-journal
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes

@@ -30,6 +30,7 @@
 
 import { vyosApi } from "./api";
 import { commitAndSave, VyosCommand, VyosResponse } from "./interfaces";
+import { showText } from "./vyos";
 
 export type AliasType = "host" | "network" | "fqdn";
 
@@ -68,6 +69,15 @@ export interface FirewallPolicy {
   ports: string[];
   description: string | null;
 }
+
+/// Policies offered in the rule form without prior setup. Selecting one seeds
+/// a normal port-group of the same name on first use — it then shows on the
+/// Policies page and behaves like any user policy. (Ping is separate: ICMP
+/// can't be expressed as a port-group.)
+export const BUILTIN_POLICIES: Record<string, { protocol: PolicyProtocol; ports: string[] }> = {
+  HTTPS: { protocol: "tcp", ports: ["443"] },
+  SSH: { protocol: "tcp", ports: ["22"] },
+};
 
 export type RuleAction = "accept" | "drop" | "reject";
 
@@ -122,18 +132,22 @@ export interface FirewallRule {
   policy: string | null;
   protocol: string | null;
   enabled: boolean;
+  /** Whether matches are logged (feeds the Traffic Monitor). */
+  log: boolean;
   /** Full raw config subtree — used to rebuild the rule when renumbering so
-   *  leaves this UI doesn't model (log, state, …) survive a reorder. */
+   *  leaves this UI doesn't model (state, log-options, …) survive a reorder. */
   raw: Cfg;
 }
 
-/// What already exists in a non-forward chain — used to seed the hidden
-/// safety baseline exactly once (see ensureChainSetup).
+/// What already exists in a base chain — used to seed the hidden safety
+/// baseline exactly once (see ensureChainSetup / ensureForwardBaseline).
 export interface ChainSetup {
   /** Baseline rules present (or their rule numbers already taken). */
   baseline: boolean;
   /** The chain's configured default-action (null = not set). */
   default_action: string | null;
+  /** Whether `default-log` is set (default-action hits reach the monitor). */
+  default_log: boolean;
 }
 
 export interface FirewallConfig {
@@ -147,8 +161,23 @@ export interface FirewallConfig {
   group_names: string[];
   /** `firewall ipv4 forward filter default-action` (null = VyOS default). */
   default_action: string | null;
-  /** Input/output chain state backing the built-in Firewall endpoint. */
-  setup: { input: ChainSetup; output: ChainSetup };
+  /** Per-chain baseline/logging state (input/output back the built-in
+   *  Firewall endpoint; forward backs the traffic-monitor baseline). */
+  setup: Record<RuleChain, ChainSetup>;
+}
+
+/// Empty config used as the initial page state before the first fetch.
+export function emptyFirewallConfig(): FirewallConfig {
+  const chain = (): ChainSetup => ({ baseline: false, default_action: null, default_log: false });
+  return {
+    aliases: [],
+    policies: [],
+    rules: [],
+    auto_groups: [],
+    group_names: [],
+    default_action: null,
+    setup: { forward: chain(), input: chain(), output: chain() },
+  };
 }
 
 // ── parse helpers ─────────────────────────────────────────────────────────────
@@ -319,6 +348,7 @@ function parseChain(filter: Cfg, chain: RuleChain): { rules: FirewallRule[]; set
       policy: childStr(dstGroup, "port-group"),
       protocol: childStr(cfg, "protocol"),
       enabled: !("disable" in cfg),
+      log: "log" in cfg,
       raw: cfg,
     });
   }
@@ -328,6 +358,7 @@ function parseChain(filter: Cfg, chain: RuleChain): { rules: FirewallRule[]; set
       // CLI-created rules 1/2 also count — the baseline must never clobber them.
       baseline: sys || "1" in ruleCfg || "2" in ruleCfg,
       default_action: childStr(filter, "default-action"),
+      default_log: "default-log" in filter,
     },
   };
 }
@@ -351,7 +382,7 @@ export async function fetchFirewall(): Promise<FirewallConfig> {
     auto_groups: parseAutoGroups(group),
     group_names: parseGroupNames(group),
     default_action: forward.setup.default_action,
-    setup: { input: input.setup, output: output.setup },
+    setup: { forward: forward.setup, input: input.setup, output: output.setup },
   };
 }
 
@@ -582,6 +613,8 @@ export interface RuleUpdate {
   /** Traffic match, or null = any port/protocol. */
   policy: RulePolicyChoice | null;
   enabled: boolean;
+  /** Log matches so they show in the Traffic Monitor. */
+  log: boolean;
 }
 
 /// Shared allocation context for both sides of a rule diff.
@@ -734,6 +767,19 @@ function ensureChainSetup(out: VyosCommand[], chain: "input" | "output", cfg: Fi
   }
 }
 
+/// Seed the hidden established/related accept at the top of the forward chain
+/// (once). Logged rules then only ever see each connection's first packet —
+/// one monitor line per connection instead of one per packet — and replies of
+/// accepted flows can't be cut off mid-connection by a later deny.
+function ensureForwardBaseline(out: VyosCommand[], cfg: FirewallConfig): void {
+  if (cfg.setup.forward.baseline) return;
+  const r1 = [...filterBase("forward"), "rule", "1"];
+  out.push({ op: "set", path: [...r1, "action", "accept"] });
+  out.push({ op: "set", path: [...r1, "state", "established"] });
+  out.push({ op: "set", path: [...r1, "state", "related"] });
+  out.push({ op: "set", path: [...r1, "description", `${SYS_MARK} allow established/related replies`] });
+}
+
 /// Deletes for the auto-managed OR groups backing a rule's sides (auto groups
 /// are per-side, so no other rule references them).
 function autoGroupDeletes(rule: FirewallRule, autoGroups: AutoGroup[]): VyosCommand[] {
@@ -792,6 +838,13 @@ export function diffRule(liveIn: FirewallRule | null, u: RuleUpdate, cfg: Firewa
       out.push({ op: "delete", path: [...base, "destination", "group", "port-group"] });
     }
     if (newPolicy !== null) {
+      // First use of a built-in policy seeds its port-group.
+      const builtin = BUILTIN_POLICIES[newPolicy];
+      if (builtin && !cfg.policies.some((p) => p.name === newPolicy)) {
+        const gp = policyBase(newPolicy);
+        out.push({ op: "set", path: [...gp, "description", encodePolicyDescription(builtin.protocol, "Built-in")] });
+        for (const port of builtin.ports) out.push({ op: "set", path: [...gp, "port", port] });
+      }
       out.push({ op: "set", path: [...base, "destination", "group", "port-group", newPolicy] });
     }
   }
@@ -804,6 +857,15 @@ export function diffRule(liveIn: FirewallRule | null, u: RuleUpdate, cfg: Firewa
     if (u.enabled) out.push({ op: "delete", path: [...base, "disable"] });
     else out.push({ op: "set", path: [...base, "disable"] });
   }
+
+  // Traffic logging — a valueless `log` leaf; matches then reach the Traffic
+  // Monitor through the kernel log.
+  const liveLog = live?.log ?? false;
+  if (u.log !== liveLog) {
+    if (u.log) out.push({ op: "set", path: [...base, "log"] });
+    else out.push({ op: "delete", path: [...base, "log"] });
+  }
+  if (u.log && chain === "forward") ensureForwardBaseline(out, cfg);
 
   return out;
 }
@@ -885,4 +947,94 @@ export async function applyRuleOrder(orderedRules: FirewallRule[]): Promise<numb
 /// no rule matches).
 export function setDefaultAction(action: "accept" | "drop"): Promise<number> {
   return commitAndSave([{ op: "set", path: [...filterBase("forward"), "default-action", action] }]);
+}
+
+// ── traffic logging (Traffic Monitor) ─────────────────────────────────────────
+
+const ALL_CHAINS: RuleChain[] = ["forward", "input", "output"];
+
+/// How completely traffic logging is enabled — drives the monitor page's
+/// setup banner.
+export interface LoggingStatus {
+  total_rules: number;
+  logged_rules: number;
+  /** Chains still missing `default-log`. */
+  chains_without_default_log: RuleChain[];
+  forward_baseline: boolean;
+  /** Every rule logs, every chain default-logs, and the forward baseline is in. */
+  complete: boolean;
+}
+
+export function loggingStatus(cfg: FirewallConfig): LoggingStatus {
+  const logged = cfg.rules.filter((r) => r.log).length;
+  const noDefaultLog = ALL_CHAINS.filter((c) => !cfg.setup[c].default_log);
+  return {
+    total_rules: cfg.rules.length,
+    logged_rules: logged,
+    chains_without_default_log: noDefaultLog,
+    forward_baseline: cfg.setup.forward.baseline,
+    complete: logged === cfg.rules.length && noDefaultLog.length === 0 && cfg.setup.forward.baseline,
+  };
+}
+
+/// Turn on traffic logging everywhere: the hidden established/related baseline
+/// in every chain (so each connection logs once and default-log can't flood on
+/// reply packets), `log` on every user rule, and `default-log` on every chain
+/// so traffic matching no rule shows up too.
+export function enableTrafficLoggingCommands(cfg: FirewallConfig): VyosCommand[] {
+  const out: VyosCommand[] = [];
+  ensureForwardBaseline(out, cfg);
+  ensureChainSetup(out, "input", cfg);
+  ensureChainSetup(out, "output", cfg);
+  for (const chain of ALL_CHAINS) {
+    if (!cfg.setup[chain].default_log) out.push({ op: "set", path: [...filterBase(chain), "default-log"] });
+  }
+  for (const r of cfg.rules) {
+    if (!r.log) out.push({ op: "set", path: [...ruleBase(r.chain, r.rule), "log"] });
+  }
+  return out;
+}
+
+/// Enable logging on all rules and chains. Returns the number of changes.
+export function enableTrafficLogging(cfg: FirewallConfig): Promise<number> {
+  return commitAndSave(enableTrafficLoggingCommands(cfg));
+}
+
+// ── rule hit counters ─────────────────────────────────────────────────────────
+
+export interface RuleCounter {
+  packets: number;
+  bytes: number;
+}
+
+/// Key into the counters map (`default` = the chain's default action).
+export const counterKey = (chain: RuleChain, rule: number | "default") => `${chain}:${rule}`;
+
+/// A data row of the op-mode rule table: rule number (or `default`), action,
+/// protocol, then the packet and byte counters. Header/separator/condition
+/// rows don't match the numeric columns.
+const COUNTER_LINE = /^(\d+|default)\s+\S+\s+\S+\s+([\d,]+)\s+([\d,]+)/;
+
+function parseCounters(chain: RuleChain, text: string, out: Map<string, RuleCounter>): void {
+  for (const line of text.split("\n")) {
+    const m = line.trim().match(COUNTER_LINE);
+    if (!m) continue;
+    const packets = Number(m[2].replace(/,/g, ""));
+    const bytes = Number(m[3].replace(/,/g, ""));
+    if (!Number.isFinite(packets) || !Number.isFinite(bytes)) continue;
+    out.set(counterKey(chain, m[1] === "default" ? "default" : Number(m[1])), { packets, bytes });
+  }
+}
+
+/// Live per-rule packet/byte counters (from `show firewall ipv4 <chain>
+/// filter`), keyed by counterKey. Best-effort: a chain that fails to read or
+/// parse contributes nothing.
+export async function fetchRuleCounters(): Promise<Map<string, RuleCounter>> {
+  const texts = await Promise.all(ALL_CHAINS.map((c) => showText(["firewall", "ipv4", c, "filter"])));
+  const out = new Map<string, RuleCounter>();
+  ALL_CHAINS.forEach((c, i) => {
+    const t = texts[i];
+    if (t) parseCounters(c, t, out);
+  });
+  return out;
 }

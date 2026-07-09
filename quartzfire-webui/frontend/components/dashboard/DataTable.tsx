@@ -92,10 +92,19 @@ export function DataTable<T>({
     }
   }, [persistKey]);
 
+  // Stored widths are only usable if they cover every currently-shown column; a
+  // column added since they were saved would fall back to its default width and
+  // overflow the fixed layout, pushing the actions cell out of the visible box.
+  const storedWidths = useMemo(() => {
+    const w = stored.widths ?? {};
+    const hiddenKeys = new Set(stored.hidden ?? []);
+    return columns.every((c) => hiddenKeys.has(c.key) || c.key in w) ? w : {};
+  }, [stored, columns]);
+
   const [order, setOrder] = useState<string[]>(stored.order ?? defaultOrder);
-  const [widths, setWidths] = useState<Record<string, number>>(stored.widths ?? {});
+  const [widths, setWidths] = useState<Record<string, number>>(storedWidths);
   const [hidden, setHidden] = useState<Set<string>>(new Set(stored.hidden ?? []));
-  const [seeded, setSeeded] = useState(Object.keys(stored.widths ?? {}).length > 0);
+  const [seeded, setSeeded] = useState(Object.keys(storedWidths).length > 0);
 
   // Reconcile order with the actual column set (columns added/removed across versions).
   const orderedKeys = useMemo(() => {
@@ -499,7 +508,7 @@ export function DataTable<T>({
 
       {/* Table */}
       <div
-        className="rounded-md overflow-hidden"
+        className="rounded-md overflow-x-auto"
         style={{
           border: "1px solid var(--qz-border)",
           userSelect: isDragging ? "none" : "auto",
