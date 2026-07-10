@@ -110,7 +110,12 @@ exit
 - `--privileged` is required — `live-build`/`debootstrap` create device nodes and
   loop-mount the squashfs.
 - The `quartzfire` flavor is defined in `data/build-flavors/quartzfire.toml`.
-- Output: **`build/live-image-amd64.hybrid.iso`**.
+- The image version comes from the top-level `VERSION` file — bump it there for
+  a new release. It also becomes the version reported by `show version` and the
+  WebUI dashboard.
+- Output: **`build/quartzfire-<version>-amd64.iso`** (e.g.
+  `quartzfire-0.1.0-amd64.iso`; `live-image-amd64.hybrid.iso` is the raw
+  live-build output it is copied from).
 
 ---
 

@@ -46,6 +46,11 @@ pub struct Config {
     /// The helper's last apply report (read-only for us).
     #[serde(default = "default_ips_status_file")]
     pub ips_status_file: PathBuf,
+
+    /// Persistent EVE alert log Suricata writes (read-only for us) — where
+    /// alerts live across reboots; backs /api/ips/alerts/history.
+    #[serde(default = "default_ips_alerts_file")]
+    pub ips_alerts_file: PathBuf,
 }
 
 fn default_listen() -> String {
@@ -75,6 +80,9 @@ fn default_ips_settings_file() -> PathBuf {
 }
 fn default_ips_status_file() -> PathBuf {
     PathBuf::from("/run/quartzfire-ips/status.json")
+}
+fn default_ips_alerts_file() -> PathBuf {
+    PathBuf::from("/var/log/quartzfire/ips-alerts.json")
 }
 fn default_session_hours() -> u64 {
     24

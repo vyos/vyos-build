@@ -10,6 +10,10 @@
 
 image_format = "iso"
 
+# Artifact name: quartzfire-<version>-amd64.iso. The version comes from the
+# top-level VERSION file, passed as --version by the `make quartzfire` target.
+iso_name = "quartzfire-{version}-{architecture}"
+
 # QuartzFire identity marker, readable on the running system.
 [[includes_chroot]]
   path = 'usr/share/quartzfire/edition'
