@@ -11,12 +11,105 @@
 image_format = "iso"
 
 # Artifact name: quartzfire-<version>-amd64.iso. The version comes from the
-# top-level VERSION file, passed as --version by the `make quartzfire` target.
-iso_name = "quartzfire-{version}-{architecture}"
+# top-level VERSION file and already carries the quartzfire- prefix (the
+# `make quartzfire` target passes --version "quartzfire-<VERSION>"), which also
+# makes it the default image name offered by the installer.
+iso_name = "{version}-{architecture}"
+
+# Default configuration: identical to the vyos-1x default except for the
+# host name. The default user stays "vyos" because the vyos-1x installer
+# (image_installer.py) hardcodes that user when asking for a password during
+# `install image`; renaming it needs a vyos-1x change first.
+default_config = '''
+interfaces {
+    loopback lo {
+    }
+}
+service {
+    ntp {
+        allow-client {
+            address "127.0.0.0/8"
+            address "169.254.0.0/16"
+            address "10.0.0.0/8"
+            address "172.16.0.0/12"
+            address "192.168.0.0/16"
+            address "::1/128"
+            address "fe80::/10"
+            address "fc00::/7"
+        }
+        server time1.vyos.net {
+        }
+        server time2.vyos.net {
+        }
+        server time3.vyos.net {
+        }
+    }
+}
+system {
+    config-management {
+        commit-revisions "100"
+    }
+    host-name "quartzfire"
+    login {
+        operator-group default {
+            command-policy {
+                allow "*"
+            }
+        }
+        user vyos {
+            authentication {
+                encrypted-password "$6$QxPS.uk6mfo$9QBSo8u1FkH16gMyAVhus6fU3LOzvLR9Z9.82m3tiHFAxTtIkhaZSWssSgzt4v4dGAL8rhVQxTg0oAG9/q11h/"
+                plaintext-password ""
+            }
+        }
+    }
+    option {
+        reboot-on-upgrade-failure 5
+    }
+    syslog {
+        local {
+            facility all {
+                level "info"
+            }
+            facility local7 {
+                level "debug"
+            }
+        }
+    }
+}
+'''
 
 # QuartzFire identity marker, readable on the running system.
 [[includes_chroot]]
   path = 'usr/share/quartzfire/edition'
   data = '''
 QuartzFire — VyOS-based firewall OS
+'''
+
+# QuartzFire-branded post-login banner. Overrides the template shipped by
+# vyos-1x; rendered by system_login_banner.py with version.json data, so the
+# version stays dynamic. The quartzfire- prefix is stripped for display since
+# the banner already leads with the product name.
+[[includes_chroot]]
+  path = 'usr/share/vyos/templates/login/default_motd.j2'
+  data = '''
+Welcome to QuartzFire!
+
+   ◆ QuartzFire {{ version_data.version | replace('quartzfire-', '') }} ({{ version_data.release_train }})
+
+ * Documentation:  {{ version_data.documentation_url }}
+ * Bug reports:    {{ version_data.bugtracker_url }}
+
+You can change this banner using "set system login banner post-login" command.
+
+QuartzFire is built on VyOS and includes multiple software components,
+you can check individual component licenses under /usr/share/doc/*/copyright
+'''
+
+# Intentionally empty: suppresses the VyOS "not a stable long-term support
+# version" warning that vyos-1x appends to the MOTD on non-release builds.
+[[includes_chroot]]
+  path = 'usr/share/vyos/templates/login/motd_vyos_nonproduction.j2'
+  data = '''
+{# QuartzFire: non-production warning intentionally suppressed #}
 '''

@@ -50,9 +50,12 @@ function EndpointCell({
   if (sel.length === 0) return <span className="text-[var(--qz-fg-4)]">Any</span>;
   // Friendly names — interface descriptions and alias display names; the
   // tooltip keeps the technical names.
-  const raw = sel.map((e) => (e.kind === "address" ? e.address : e.kind === "firewall" ? "Firewall" : e.name));
+  const raw = sel.map((e) =>
+    e.kind === "address" ? e.address : e.kind === "inline" ? e.value : e.kind === "firewall" ? "Firewall" : e.name,
+  );
   const names = sel.map((e) => {
     if (e.kind === "address") return e.address;
+    if (e.kind === "inline") return e.value;
     if (e.kind === "firewall") return "Firewall";
     if (e.kind === "interface") return descriptions[e.name] ?? e.name;
     if (e.kind === "alias") return aliasDisplayName(config.aliases, e.type, e.name);

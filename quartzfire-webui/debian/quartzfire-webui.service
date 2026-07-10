@@ -1,7 +1,10 @@
 [Unit]
 Description=QuartzFire WebUI backend
-After=network-online.target quartzfire-register-api-key.service
-Wants=network-online.target quartzfire-register-api-key.service
+# quartzfire-ips.service must run first: its boot run creates
+# /config/quartzfire, and with ProtectSystem=strict the ReadWritePaths= bind
+# below is only set up if the directory already exists when we start.
+After=network-online.target quartzfire-register-api-key.service quartzfire-ips.service
+Wants=network-online.target quartzfire-register-api-key.service quartzfire-ips.service
 
 [Service]
 Type=simple

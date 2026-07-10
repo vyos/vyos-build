@@ -76,11 +76,16 @@ async fn main() -> Result<()> {
         ));
 
     // Static SPA (public — it's just the login shell until a session exists).
-    // `ServeDir` falls back to index.html so client-side routing works.
-    let static_service =
+    // `ServeDir` falls back to index.html so client-side routing works —
+    // but only for page navigations. Asset paths (/_next/*) must 404 honestly
+    // when a hashed file is gone (e.g. a stale shell after an image upgrade):
+    // serving the HTML fallback there hands the browser HTML where it expects
+    // CSS/JS, and it renders the page unstyled.
+    let spa_service =
         ServeDir::new(&www_root).not_found_service(ServeFile::new(www_root.join("index.html")));
     let static_router = Router::new()
-        .fallback_service(static_service)
+        .nest_service("/_next", ServeDir::new(www_root.join("_next")))
+        .fallback_service(spa_service)
         .layer(middleware::from_fn(static_cache_control));
 
     let app = Router::new()
@@ -130,8 +135,13 @@ async fn main() -> Result<()> {
 /// revalidates on every load, answered with a cheap 304 via the
 /// Last-Modified/ETag that `ServeDir` already emits.
 async fn static_cache_control(req: Request, next: Next) -> Response {
-    let immutable = req.uri().path().starts_with("/_next/static/");
+    let hashed_asset = req.uri().path().starts_with("/_next/static/");
     let mut resp = next.run(req).await;
+    // Only successful asset responses may cache forever. A 404 (or the SPA
+    // fallback) marked immutable would poison the browser cache for a year
+    // under that URL — one bad fetch during an upgrade and the page stays
+    // broken until the user clears site data.
+    let immutable = hashed_asset && resp.status().is_success();
     resp.headers_mut().insert(
         header::CACHE_CONTROL,
         HeaderValue::from_static(if immutable {

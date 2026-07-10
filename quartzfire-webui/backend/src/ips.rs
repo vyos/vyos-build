@@ -151,10 +151,14 @@ fn store_settings(state: &AppState, settings: &IpsSettings) -> Result<()> {
     })?;
     let json = serde_json::to_string_pretty(settings)
         .map_err(|e| AppError::Internal(e.into()))?;
+    // The directory is normally created by the quartzfire-ips boot run; try
+    // to create it anyway for dev boxes running without the systemd sandbox.
+    let _ = std::fs::create_dir_all(dir);
     let tmp = dir.join(".ips.json.tmp");
     std::fs::write(&tmp, json.as_bytes()).map_err(|e| {
         AppError::BadRequest(format!(
-            "cannot write IPS settings ({}): {e} — is the IPS service installed on this device?",
+            "cannot write IPS settings ({}): {e} — run `sudo systemctl start quartzfire-ips.service`, \
+             then `sudo systemctl restart quartzfire-webui`, and try again",
             tmp.display()
         ))
     })?;

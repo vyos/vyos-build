@@ -20,6 +20,7 @@ import {
   RuleChain,
   RulePolicyChoice,
   ruleSelection,
+  validateInline,
 } from "@/lib/firewall";
 
 const inputCls = "w-full rounded-md px-3 py-[9px] text-[13px] text-[var(--qz-fg-1)] outline-none";
@@ -46,6 +47,12 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 const aliasKey = (type: AliasType, name: string) => `alias:${type}:${name}`;
 const ifaceKey = (name: string) => `iface:${name}`;
 const FIREWALL_KEY = "builtin:firewall";
+
+const INLINE_PLACEHOLDER: Record<AliasType, string> = {
+  host: "192.168.1.10",
+  network: "192.168.1.0/24",
+  fqdn: "example.com",
+};
 
 /// Built-in policy sentinels for the policy select — values no port-group can
 /// be named (VyOS group names can't contain brackets). Ping writes `protocol
@@ -75,6 +82,8 @@ function entryLabel(
       const desc = descriptions?.[e.name];
       return desc ? { main: desc, sub: `${e.name} · Interface` } : { main: e.name, sub: "Interface" };
     }
+    case "inline":
+      return { main: e.value, sub: `Custom ${ALIAS_GROUP[e.type].label}` };
     case "firewall":
       return { main: "Firewall", sub: "This device" };
     case "ifgroup":
@@ -87,11 +96,13 @@ function entryLabel(
 /// From/To picker, WatchGuard style: a list of the entries the side matches
 /// (any of them; empty = Any) with add/remove controls. The add dropdown only
 /// offers entries VyOS can OR with what's already listed — interfaces and
-/// aliases can't be mixed, alias types can't be combined, and FQDN aliases
-/// stand alone (domain groups have no include). The built-in Firewall entry
-/// (this device itself) stands alone too, and only one side can carry it.
-/// Legacy entries (a literal address or an interface-group written on the
-/// CLI) stay removable but can't be newly added.
+/// addresses can't be mixed, host/network/FQDN kinds can't be combined, and
+/// FQDN aliases stand alone (domain groups have no include). Below the
+/// dropdown, a free-form input adds one-off hosts, networks, or FQDNs without
+/// requiring an alias. The built-in Firewall entry (this device itself)
+/// stands alone too, and only one side can carry it. Legacy entries (a
+/// literal address or an interface-group written on the CLI) stay removable
+/// but can't be newly added.
 function EndpointField({
   label,
   interfaces,
@@ -112,23 +123,38 @@ function EndpointField({
 }) {
   const hasIface = value.some((e) => e.kind === "interface" || e.kind === "ifgroup");
   const hasFirewall = value.some((e) => e.kind === "firewall");
-  const aliasEntry = value.find((e) => e.kind === "alias");
-  const aliasType = aliasEntry?.kind === "alias" ? aliasEntry.type : null;
+  const aliasEntries = value.filter((e) => e.kind === "alias");
+  const inlineEntries = value.filter((e) => e.kind === "inline");
+  // Aliases and inline values share one family per side (they end up in one
+  // VyOS group) — host, network, or FQDN.
+  const familyType = aliasEntries[0]?.type ?? inlineEntries[0]?.type ?? null;
   // A legacy entry can't be OR-combined with anything — matches would AND.
   const hasLegacy = value.some((e) => e.kind === "ifgroup" || e.kind === "address");
 
   const addableIfaces =
-    aliasType || hasLegacy || hasFirewall
+    familyType || hasLegacy || hasFirewall
       ? []
       : interfaces.filter((n) => !value.some((e) => e.kind === "interface" && e.name === n));
   const addableAliases = hasIface || hasLegacy || hasFirewall
     ? []
     : aliases.filter((a) => {
         if (value.some((e) => e.kind === "alias" && e.type === a.type && e.name === a.name)) return false;
-        if (aliasType) return a.type === aliasType && aliasType !== "fqdn";
+        // FQDN aliases stand alone (domain groups have no include).
+        if (familyType) return a.type === familyType && familyType !== "fqdn";
         return true;
       });
   const firewallAddable = allowFirewall && value.length === 0;
+
+  // Inline values can join anything in the same family; an FQDN *alias*
+  // blocks further FQDN entries (its domain group can't be included).
+  const inlineAllowed =
+    !hasIface && !hasLegacy && !hasFirewall && !(familyType === "fqdn" && aliasEntries.length > 0);
+  const inlineTypes: AliasType[] = familyType ? [familyType] : ["host", "network", "fqdn"];
+  const [inlineType, setInlineType] = useState<AliasType>("host");
+  const [inlineValue, setInlineValue] = useState("");
+  const [inlineError, setInlineError] = useState("");
+  const effInlineType = inlineTypes.includes(inlineType) ? inlineType : inlineTypes[0];
+
   const canAdd = addableIfaces.length > 0 || addableAliases.length > 0 || firewallAddable;
 
   const add = (v: string) => {
@@ -138,6 +164,22 @@ function EndpointField({
       const [, type, ...rest] = v.split(":");
       onChange([...value, { kind: "alias", type: type as AliasType, name: rest.join(":") }]);
     }
+  };
+
+  const addInline = () => {
+    const v = inlineValue.trim();
+    const err = validateInline(effInlineType, v);
+    if (err) {
+      setInlineError(err);
+      return;
+    }
+    if (value.some((e) => e.kind === "inline" && e.type === effInlineType && e.value === v)) {
+      setInlineError("Already in the list.");
+      return;
+    }
+    setInlineError("");
+    setInlineValue("");
+    onChange([...value, { kind: "inline", type: effInlineType, value: v }]);
   };
 
   return (
@@ -208,6 +250,63 @@ function EndpointField({
           </optgroup>
         )}
       </select>
+      {inlineAllowed && (
+        <>
+          <div className="flex gap-2 mt-2">
+            <select
+              value={effInlineType}
+              onChange={(e) => {
+                setInlineType(e.target.value as AliasType);
+                setInlineError("");
+              }}
+              className={`${inputCls} cursor-pointer`}
+              style={{ ...monoSt, width: 110, flexShrink: 0 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
+            >
+              {inlineTypes.map((t) => (
+                <option key={t} value={t}>
+                  {ALIAS_GROUP[t].label}
+                </option>
+              ))}
+            </select>
+            <input
+              value={inlineValue}
+              onChange={(e) => setInlineValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addInline();
+                }
+              }}
+              placeholder={INLINE_PLACEHOLDER[effInlineType]}
+              className={inputCls}
+              style={monoSt}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
+            />
+            <button
+              type="button"
+              onClick={addInline}
+              disabled={!inlineValue.trim()}
+              className="px-3 rounded-md text-[13px] font-medium cursor-pointer flex-shrink-0"
+              style={{
+                background: "transparent",
+                border: "1px solid var(--qz-border)",
+                color: "var(--qz-fg-2)",
+                opacity: inlineValue.trim() ? 1 : 0.5,
+              }}
+            >
+              Add
+            </button>
+          </div>
+          {inlineError && (
+            <p className="text-[11px] m-0 mt-[5px]" style={{ color: "var(--qz-danger)" }}>
+              {inlineError}
+            </p>
+          )}
+        </>
+      )}
     </Field>
   );
 }
@@ -364,9 +463,10 @@ export function RuleFormModal({
           />
         </div>
         <p className="text-[11px] text-[var(--qz-fg-4)] m-0 -mt-2">
-          Traffic matches any entry in a list; an empty list matches everything. Interfaces and aliases can&apos;t be
-          mixed in one list, and aliases must share a type. The built-in Firewall entry matches this device itself —
-          use it to control management access, pings, and other traffic to or from the firewall.
+          Traffic matches any entry in a list; an empty list matches everything. Hosts, networks, and FQDNs can be
+          typed in directly or come from aliases, but one list holds a single kind — and interfaces can&apos;t be mixed
+          with addresses. The built-in Firewall entry matches this device itself — use it to control management
+          access, pings, and other traffic to or from the firewall.
         </p>
 
         <Field

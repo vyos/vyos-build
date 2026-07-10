@@ -447,13 +447,17 @@ def write_status(settings, state, rule_counts, error):
 
 
 def main():
+    # Create the desired-state directory unconditionally: the WebUI backend
+    # must be able to save settings even when suricata is missing, otherwise
+    # every PUT fails with ENOENT and the UI cannot report anything useful.
+    ensure_config_dir()
+
     if shutil.which("suricata") is None:
         # Not fatal for the boot unit on dev images; report and bow out.
         write_status({"enabled": False}, {}, None, "suricata is not installed")
         log("suricata not installed, nothing to apply")
         return 0
 
-    ensure_config_dir()
     settings = load_settings()
     state = load_state()
     error = None

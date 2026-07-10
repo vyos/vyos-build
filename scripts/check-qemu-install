@@ -84,8 +84,10 @@ qemu_name = 'VyOS-QEMU'
 
 test_timeout = 5 *3600 # 5 hours (in seconds) to complete individual testcases
 
-op_mode_prompt = r'vyos@vyos:~\$'
-cfg_mode_prompt = r'vyos@vyos#'
+# The quartzfire flavor sets the default host-name to "quartzfire",
+# the generic flavor keeps the vyos-1x default of "vyos"
+op_mode_prompt = r'vyos@(?:vyos|quartzfire):~\$'
+cfg_mode_prompt = r'vyos@(?:vyos|quartzfire)#'
 default_user = 'vyos'
 default_password = 'vyos'
 

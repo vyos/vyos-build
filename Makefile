@@ -10,13 +10,15 @@ all:
 	@echo "The most common target is 'generic'"
 
 # QuartzFire release version, single source of truth for the ISO name,
-# `show version` and the WebUI dashboard.
+# `show version` and the WebUI dashboard. The quartzfire- prefix is part of
+# the image version string so the installer's default image name becomes
+# quartzfire-<version> instead of the bare version number.
 QUARTZFIRE_VERSION := $(strip $(shell cat VERSION 2>/dev/null))
 
 .PHONY: quartzfire
 quartzfire:
 	@if [ -z "$(QUARTZFIRE_VERSION)" ]; then echo "VERSION file is missing or empty"; exit 1; fi
-	./build-vyos-image --version "$(QUARTZFIRE_VERSION)" quartzfire
+	./build-vyos-image --version "quartzfire-$(QUARTZFIRE_VERSION)" quartzfire
 
 %:
 	./build-vyos-image $*

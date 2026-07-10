@@ -136,12 +136,14 @@ const CHAIN_RANK: Record<RuleChain, number> = { forward: 0, input: 1, output: 2 
 /// Auto-managed OR group backing a multi-entry From/To side.
 export interface AutoGroup {
   name: string;
-  /** VyOS group node: address-group, network-group, or interface-group. */
+  /** VyOS group node: address-group, network-group, domain-group, or interface-group. */
   node: string;
   /** Included alias-group names (address/network groups). */
   includes: string[];
   /** Member interfaces (interface groups). */
   interfaces: string[];
+  /** Literal members — inline hosts/networks/FQDNs typed into the rule form. */
+  members: string[];
 }
 
 /// Description marker identifying auto-managed groups.
@@ -344,7 +346,14 @@ function parseAliases(group: Cfg): FirewallAlias[] {
   return out.sort((a, b) => a.display.localeCompare(b.display));
 }
 
-const AUTO_NODES = ["address-group", "network-group", "interface-group"] as const;
+const AUTO_NODES = ["address-group", "network-group", "domain-group", "interface-group"] as const;
+
+/// Leaf holding an auto group's literal members, per group node.
+const AUTO_MEMBER_LEAF: Record<string, string> = {
+  "address-group": "address",
+  "network-group": "network",
+  "domain-group": "address",
+};
 
 function parseAutoGroups(group: Cfg): AutoGroup[] {
   const out: AutoGroup[] = [];
@@ -353,7 +362,13 @@ function parseAutoGroups(group: Cfg): AutoGroup[] {
     for (const [name, raw] of Object.entries(groups)) {
       const cfg = (raw ?? {}) as Cfg;
       if (!(childStr(cfg, "description") ?? "").startsWith(AUTO_MARK)) continue;
-      out.push({ name, node, includes: childList(cfg, "include"), interfaces: childList(cfg, "interface") });
+      out.push({
+        name,
+        node,
+        includes: childList(cfg, "include"),
+        interfaces: childList(cfg, "interface"),
+        members: node in AUTO_MEMBER_LEAF ? childList(cfg, AUTO_MEMBER_LEAF[node]) : [],
+      });
     }
   }
   return out;
@@ -654,6 +669,10 @@ const ruleBase = (chain: RuleChain, rule: number) => [...filterBase(chain), "rul
 export type EndpointEntry =
   | { kind: "interface"; name: string }
   | { kind: "alias"; type: AliasType; name: string }
+  /** Inline value typed straight into the rule — an IPv4 host, network, or
+   *  FQDN that isn't worth a named alias. Stored as a literal member of the
+   *  side's auto group. */
+  | { kind: "inline"; type: AliasType; value: string }
   | { kind: "firewall" }
   | { kind: "address"; address: string }
   | { kind: "ifgroup"; name: string };
@@ -661,6 +680,41 @@ export type EndpointEntry =
 /// A From/To selection: the entries the side matches (any of them, WatchGuard
 /// style). Empty = Any.
 export type EndpointSelection = EndpointEntry[];
+
+const IPV4_OCTETS = (s: string) =>
+  /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(s) &&
+  s.split(".").every((o) => Number(o) <= 255 && String(Number(o)) === o);
+
+/// Validate an inline From/To value. Returns an error message, or null when
+/// the value is acceptable for its type.
+export function validateInline(type: AliasType, value: string): string | null {
+  const v = value.trim();
+  if (!v) return "Enter a value.";
+  switch (type) {
+    case "host": {
+      // Single IPv4 address or an a.b.c.d-e.f.g.h range (both valid
+      // address-group members).
+      const parts = v.split("-");
+      if (parts.length > 2 || !parts.every(IPV4_OCTETS)) {
+        return "Enter an IPv4 address like 192.168.1.10 (or a range like 192.168.1.10-192.168.1.20).";
+      }
+      return null;
+    }
+    case "network": {
+      const m = v.match(/^(.+)\/(\d{1,2})$/);
+      if (!m || !IPV4_OCTETS(m[1]) || Number(m[2]) > 32) {
+        return "Enter an IPv4 network in CIDR form, like 192.168.1.0/24.";
+      }
+      return null;
+    }
+    case "fqdn": {
+      if (!/^(?=.{1,253}$)([a-z0-9_]([a-z0-9_-]*[a-z0-9_])?\.)+[a-z]{2,}$/i.test(v)) {
+        return "Enter a domain name like example.com.";
+      }
+      return null;
+    }
+  }
+}
 
 /// Expand a stored endpoint into its list form, resolving auto-managed OR
 /// groups back into the aliases/interfaces they carry.
@@ -670,8 +724,10 @@ export function endpointToSelection(e: RuleEndpoint, autoGroups: AutoGroup[]): E
   if (e.group_type && e.group_name) {
     const type = GROUP_NODE_TO_TYPE[e.group_type];
     const auto = autoGroups.find((g) => g.node === e.group_type && g.name === e.group_name);
-    if (type && auto) for (const name of auto.includes) out.push({ kind: "alias", type, name });
-    else if (type) out.push({ kind: "alias", type, name: e.group_name });
+    if (type && auto) {
+      for (const name of auto.includes) out.push({ kind: "alias", type, name });
+      for (const value of auto.members) out.push({ kind: "inline", type, value });
+    } else if (type) out.push({ kind: "alias", type, name: e.group_name });
   }
   if (e.iface) out.push({ kind: "interface", name: e.iface });
   if (e.iface_group) {
@@ -758,6 +814,25 @@ function diffAutoMembers(
   for (const m of liveMembers ?? []) if (!desired.includes(m)) out.push({ op: "delete", path: [...gp, leaf, m] });
 }
 
+/// Create/update an alias-side auto group: alias includes plus literal
+/// members (inline hosts/networks/FQDNs) in one group.
+function diffAliasAutoGroup(
+  out: VyosCommand[],
+  node: string,
+  name: string,
+  live: AutoGroup | null,
+  includes: string[],
+  members: string[],
+): void {
+  const gp = ["firewall", "group", node, name];
+  const leaf = AUTO_MEMBER_LEAF[node];
+  if (live === null) out.push({ op: "set", path: [...gp, "description", AUTO_MARK] });
+  for (const m of includes) if (!live?.includes.includes(m)) out.push({ op: "set", path: [...gp, "include", m] });
+  for (const m of live?.includes ?? []) if (!includes.includes(m)) out.push({ op: "delete", path: [...gp, "include", m] });
+  for (const v of members) if (!live?.members.includes(v)) out.push({ op: "set", path: [...gp, leaf, v] });
+  for (const v of live?.members ?? []) if (!members.includes(v)) out.push({ op: "delete", path: [...gp, leaf, v] });
+}
+
 function diffEndpoint(
   out: VyosCommand[],
   chain: RuleChain,
@@ -773,13 +848,19 @@ function diffEndpoint(
   const findAuto = (node: string | null, name: string | null) =>
     (node && name && ctx.autoGroups.find((g) => g.node === node && g.name === name)) || null;
 
-  // ── aliases: one → direct group ref; several → auto OR group with includes.
+  // ── aliases & inline values: a single alias → direct group ref; anything
+  //    else → auto OR group carrying alias includes and/or literal members.
   const aliases = sel.filter((e) => e.kind === "alias");
-  const types = new Set(aliases.map((a) => a.type));
-  if (types.size > 1) throw new Error("From/To aliases must all be of the same type.");
-  const aliasType = aliases[0]?.type ?? null;
-  if (aliases.length > 1 && aliasType === "fqdn") {
-    throw new Error("FQDN aliases can't be combined — VyOS domain groups don't support includes.");
+  const inline = sel.filter((e) => e.kind === "inline");
+  const types = new Set([...aliases.map((a) => a.type), ...inline.map((i) => i.type)]);
+  if (types.size > 1) throw new Error("From/To entries must all be of the same type (host, network, or FQDN).");
+  const aliasType = aliases[0]?.type ?? inline[0]?.type ?? null;
+  if (aliasType === "fqdn" && aliases.length > 0 && aliases.length + inline.length > 1) {
+    throw new Error("An FQDN alias stands alone — VyOS domain groups don't support includes.");
+  }
+  for (const i of inline) {
+    const err = validateInline(i.type, i.value);
+    if (err) throw new Error(err);
   }
 
   const liveAuto = findAuto(live?.group_type ?? null, live?.group_name ?? null);
@@ -788,13 +869,20 @@ function diffEndpoint(
   let desiredName: string | null = null;
   if (aliasType !== null) {
     desiredNode = ALIAS_GROUP[aliasType].node;
-    if (aliases.length === 1) {
+    if (aliases.length === 1 && inline.length === 0) {
       desiredName = aliases[0].name;
     } else {
       // Reuse the side's existing auto group while its type still matches.
       const reuse = liveAuto !== null && liveAuto.node === desiredNode;
       desiredName = reuse ? liveAuto!.name : allocAutoName(rule, side, ctx.taken);
-      diffAutoMembers(out, desiredNode, desiredName, "include", reuse ? liveAuto!.includes : null, aliases.map((a) => a.name));
+      diffAliasAutoGroup(
+        out,
+        desiredNode,
+        desiredName,
+        reuse ? liveAuto : null,
+        aliases.map((a) => a.name),
+        inline.map((i) => i.value.trim()),
+      );
     }
   }
   // A live auto group this side no longer references is deleted outright.
