@@ -3,12 +3,18 @@ Description=Apply QuartzFire IPS desired state to Suricata
 # Also triggered by quartzfire-ips.path whenever the WebUI edits
 # /config/quartzfire/ips.json; the boot run re-renders /etc/suricata from
 # /config after an image upgrade wipes the overlay.
+# NB: vyos-router.service is Type=simple, so After= does NOT wait for it to
+# bind-mount /config — ips-apply polls for that mount itself.
 After=network-online.target vyos-router.service
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/libexec/quartzfire/ips-apply
+# Covers ips-apply's worst case: waiting for the /config mount (120s), a
+# first-enable signature download (600s), and a full suricata ruleset-parsing
+# start (660s); the systemd default of 90s would kill it mid-apply.
+TimeoutStartSec=1800
 # Status report the unprivileged WebUI backend reads back; keep it around
 # after the oneshot exits.
 RuntimeDirectory=quartzfire-ips

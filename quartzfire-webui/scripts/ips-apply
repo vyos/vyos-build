@@ -171,6 +171,10 @@ ExecStart=
 ExecStart=/usr/bin/suricata -D -q 0 -c /etc/suricata/suricata.yaml --pidfile /run/suricata.pid
 ExecReload=
 ExecReload=/bin/kill -USR2 $MAINPID
+# Daemon mode only signals readiness after the whole ruleset is parsed —
+# minutes for a full ET Open set on small hardware; the 90s default start
+# timeout kills it mid-load.
+TimeoutStartSec=600
 """
 
 
@@ -218,9 +222,26 @@ def write_if_changed(path, text, mode=0o644):
 # ── desired state / helper state ──────────────────────────────────────────────
 
 
+def wait_for_config_mount(timeout=120):
+    """Block until /config is the persistent VyOS config location. vyos-router
+    bind-mounts it late in its startup, and vyos-router.service is Type=simple,
+    so our After= only orders past its exec — the boot run can win the race and
+    see a bare (or absent) /config; anything created then is shadowed once the
+    mount lands. Non-VyOS dev boxes (no /opt/vyatta) don't wait."""
+    if not os.path.isdir("/opt/vyatta"):
+        return
+    deadline = time.monotonic() + timeout
+    while not (os.path.ismount("/config") or os.path.isfile("/config/.vyatta_config")):
+        if time.monotonic() >= deadline:
+            log(f"/config still not mounted after {timeout}s — proceeding anyway")
+            return
+        time.sleep(2)
+
+
 def ensure_config_dir():
     """Create /config/quartzfire group-writable so the DynamicUser backend
     (supplementary group quartzfire) can write the desired-state file."""
+    wait_for_config_mount()
     if not os.path.isdir("/config"):
         return  # not a VyOS system (dev box)
     os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -414,12 +435,15 @@ def suricata_active():
 
 
 def start_or_reload(config_changed, rules_changed):
+    # `systemctl restart` blocks until suricata reports ready, which takes as
+    # long as parsing the ruleset — wait a little past the unit's
+    # TimeoutStartSec (600, set in the drop-in) so systemd decides, not us.
     run(["systemctl", "enable", "suricata.service"])
     if config_changed or not suricata_active():
-        code, out = run(["systemctl", "restart", "suricata.service"], timeout=120)
+        code, out = run(["systemctl", "restart", "suricata.service"], timeout=660)
     elif rules_changed:
         # ExecReload sends USR2 — a live ruleset reload, no traffic gap.
-        code, out = run(["systemctl", "reload-or-restart", "suricata.service"], timeout=120)
+        code, out = run(["systemctl", "reload-or-restart", "suricata.service"], timeout=660)
     else:
         return None
     return None if code == 0 else (out or f"suricata start failed (exit {code})")

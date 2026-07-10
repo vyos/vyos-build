@@ -29,6 +29,8 @@ interface MonitorEntry {
   /** Rule number; null = the chain's default action fired. */
   rule: number | null;
   action: "accept" | "drop" | "reject";
+  /** True when the rule queues matches to the IPS engine (Allow with IPS on). */
+  ips: boolean;
   in?: string;
   out?: string;
   src?: string;
@@ -426,7 +428,14 @@ export default function TrafficMonitorPage() {
                     <tr key={r.id} style={{ cursor: "default" }}>
                       <td className="mono text-[var(--qz-fg-3)]">{time(r.ts)}</td>
                       <td>
-                        <ActionPill action={r.action} />
+                        <span className="inline-flex items-center gap-[5px]">
+                          <ActionPill action={r.action} />
+                          {r.ips && (
+                            <span className="badge badge-warn" title="Inspected by the IPS engine">
+                              IPS
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <Link

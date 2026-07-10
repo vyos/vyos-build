@@ -43,6 +43,9 @@ pub struct LogEntry {
     rule: Option<u32>,
     /// `accept`, `drop`, or `reject`.
     action: String,
+    /// True when the rule queues matches to the IPS engine (`action queue`)
+    /// — modeled as Allow with IPS on; Suricata gives the final verdict.
+    ips: bool,
     #[serde(rename = "in", skip_serializing_if = "Option::is_none")]
     in_if: Option<String>,
     #[serde(rename = "out", skip_serializing_if = "Option::is_none")]
@@ -204,10 +207,13 @@ fn parse_message(msg: &str, ts: u64) -> Option<LogEntry> {
         "OUT" => "output",
         _ => return None,
     };
-    let action = match *parts.last()? {
-        "A" => "accept",
-        "D" => "drop",
-        "R" => "reject",
+    // The letter is the first character of the rule's action. Rules with IPS
+    // enabled are stored as `action queue` and log with `Q`.
+    let (action, ips) = match *parts.last()? {
+        "A" => ("accept", false),
+        "Q" => ("accept", true),
+        "D" => ("drop", false),
+        "R" => ("reject", false),
         _ => return None,
     };
     let rule_part = parts[parts.len() - 2];
@@ -219,6 +225,7 @@ fn parse_message(msg: &str, ts: u64) -> Option<LogEntry> {
         chain: chain.to_string(),
         rule,
         action: action.to_string(),
+        ips,
         ..LogEntry::default()
     };
     for tok in fields.split_whitespace() {
@@ -259,10 +266,25 @@ mod tests {
         assert_eq!(e.chain, "forward");
         assert_eq!(e.rule, Some(10));
         assert_eq!(e.action, "accept");
+        assert!(!e.ips);
         assert_eq!(e.src.as_deref(), Some("10.0.0.5"));
         assert_eq!(e.dpt, Some(443));
         assert_eq!(e.proto.as_deref(), Some("tcp"));
         assert_eq!(e.len, Some(60));
+    }
+
+    #[test]
+    fn parses_ips_queue_as_accept() {
+        let e = parse_message(
+            "[ipv4-FWD-filter-10-Q]IN=eth1 OUT=eth6 SRC=10.0.0.5 DST=1.1.1.1 LEN=60 \
+             PROTO=TCP SPT=51000 DPT=443 SYN URGP=0",
+            1,
+        )
+        .expect("should parse");
+        assert_eq!(e.chain, "forward");
+        assert_eq!(e.rule, Some(10));
+        assert_eq!(e.action, "accept");
+        assert!(e.ips);
     }
 
     #[test]
