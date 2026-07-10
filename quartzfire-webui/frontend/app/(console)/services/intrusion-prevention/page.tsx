@@ -17,6 +17,8 @@ import { Segmented } from "@/components/ui/Segmented";
 import { Switch } from "@/components/ui/Switch";
 import { useDashboard } from "@/lib/DashboardContext";
 import {
+  alertKey,
+  fetchIpsAlertHistory,
   fetchIpsStatus,
   IpsAlert,
   IpsSettings,
@@ -525,7 +527,30 @@ function AlertsTab({ settings }: { settings: IpsSettings }) {
         // tolerate a malformed event rather than killing the stream
       }
     };
+
+    // The SSE stream is live-only; history comes from the persistent alert
+    // log on the device, so it's still here after a reboot. Deduped against
+    // whatever the live stream delivered while the fetch was in flight.
+    let cancelled = false;
+    fetchIpsAlertHistory()
+      .then((history) => {
+        if (cancelled || history.length === 0) return;
+        const seen = new Set(rowsRef.current.map(alertKey));
+        const merged = [
+          ...rowsRef.current,
+          ...history.filter((a) => !seen.has(alertKey(a))).map((a) => ({ ...a, id: nextId.current++ })),
+        ];
+        merged.sort((a, b) => b.ts - a.ts);
+        rowsRef.current = merged.slice(0, MAX_ALERTS);
+        dirtyRef.current = true;
+        scheduleFlush();
+      })
+      .catch(() => {
+        // best-effort — the live stream still works without history
+      });
+
     return () => {
+      cancelled = true;
       if (throttle) clearTimeout(throttle);
       es.close();
     };
@@ -712,7 +737,8 @@ function AlertsTab({ settings }: { settings: IpsSettings }) {
       </div>
 
       <p className="text-[12px] text-[var(--qz-fg-4)] m-0">
-        Alerts stream from the IPS engine&apos;s journal output; the newest {MAX_ALERTS} are kept. Levels
+        Live alerts stream from the IPS engine; history is read from the persistent alert log on the
+        device (survives reboots, rotated at 10&nbsp;MB). The newest {MAX_ALERTS} are shown. Levels
         with Log unchecked are hidden; levels with Alarm are highlighted. Add a false positive&apos;s SID
         to the Exceptions on the Settings tab to silence it.
       </p>

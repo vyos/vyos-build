@@ -13,9 +13,13 @@
 //! to Suricata for an inline accept/drop verdict (see the frontend firewall
 //! data layer). This module only manages the engine those packets reach.
 //!
-//! Alerts stream from the journal: the rendered suricata.yaml sends EVE alert
-//! records to syslog, so `journalctl -t suricata` yields one JSON document per
-//! alert — same transport the Traffic Monitor uses for firewall logs.
+//! Alerts have two paths. Live ones stream from the journal: the rendered
+//! suricata.yaml sends EVE alert records to syslog, so `journalctl -t
+//! suricata -f` yields one JSON document per alert — same transport the
+//! Traffic Monitor uses for firewall logs. History comes from the persistent
+//! EVE file Suricata also writes (`/var/log/quartzfire/ips-alerts.json`,
+//! rotated by logrotate) — the journal is volatile on VyOS, so that file is
+//! where alerts live across reboots.
 
 use axum::{
     extract::State,
@@ -27,7 +31,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::Infallible, process::Stdio, sync::Arc};
+use std::{convert::Infallible, path::Path, process::Stdio, sync::Arc};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
@@ -224,11 +228,16 @@ pub async fn request_update(State(state): State<Arc<AppState>>) -> Result<Json<I
 
 // ── alert stream ──────────────────────────────────────────────────────────────
 
-/// One EVE alert — the JSON payload of each SSE event.
+/// One EVE alert — the JSON payload of each SSE event and history row.
 #[derive(Serialize)]
 pub struct AlertEntry {
-    /// Journal receive time, milliseconds since the epoch.
+    /// Alert time, milliseconds since the epoch — from the EVE record's own
+    /// timestamp, so the live stream and the history file agree on it.
     ts: u64,
+    /// Suricata flow id; with ts+sid it lets the frontend dedupe the live
+    /// stream against fetched history.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    flow_id: Option<u64>,
     /// Threat level derived from the signature severity (see LEVELS).
     level: &'static str,
     /// EVE severity (1 = most severe).
@@ -263,11 +272,12 @@ pub fn severity_level(severity: u8) -> &'static str {
     }
 }
 
-/// GET /api/ips/alerts — SSE stream of EVE alerts from the journal, starting
-/// with a backfill of recent entries.
+/// GET /api/ips/alerts — SSE stream of EVE alerts from the journal, live
+/// only: backfill comes from /api/ips/alerts/history (the persistent file),
+/// so replaying the volatile journal here would only produce duplicates.
 pub async fn alerts() -> Response {
     let mut child = match Command::new("journalctl")
-        .args(["-t", "suricata", "-f", "-n", "500", "-o", "json", "--no-pager"])
+        .args(["-t", "suricata", "-f", "-n", "0", "-o", "json", "--no-pager"])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true)
@@ -314,8 +324,9 @@ fn parse_journal_line(line: &str) -> Option<AlertEntry> {
 }
 
 /// Parse one EVE JSON document into an alert entry; None for non-alert event
-/// types (stats, flow, …) and non-JSON suricata log chatter.
-fn parse_eve(msg: &str, ts: u64) -> Option<AlertEntry> {
+/// types (stats, flow, …) and non-JSON suricata log chatter. `fallback_ts`
+/// stands in when the record carries no parseable timestamp.
+fn parse_eve(msg: &str, fallback_ts: u64) -> Option<AlertEntry> {
     // EVE-over-syslog messages are bare JSON; suricata.log lines are not.
     let eve: serde_json::Value = serde_json::from_str(msg.trim()).ok()?;
     if eve.get("event_type")?.as_str()? != "alert" {
@@ -330,8 +341,17 @@ fn parse_eve(msg: &str, ts: u64) -> Option<AlertEntry> {
     let opt_port =
         |key: &str| eve.get(key).and_then(|x| x.as_u64()).and_then(|p| u32::try_from(p).ok());
 
+    // The record's own timestamp keeps the live stream and the history file
+    // agreeing on ts (used in the frontend's dedupe key).
+    let ts = eve
+        .get("timestamp")
+        .and_then(|t| t.as_str())
+        .and_then(eve_ts_ms)
+        .unwrap_or(fallback_ts);
+
     Some(AlertEntry {
         ts,
+        flow_id: eve.get("flow_id").and_then(|f| f.as_u64()),
         level: severity_level(severity),
         severity,
         action: opt_str(alert, "action").unwrap_or_else(|| "allowed".into()),
@@ -344,6 +364,100 @@ fn parse_eve(msg: &str, ts: u64) -> Option<AlertEntry> {
         dpt: opt_port("dest_port"),
         proto: opt_str(&eve, "proto").map(|p| p.to_ascii_lowercase()),
     })
+}
+
+/// EVE timestamp ("2026-07-09T12:34:56.789012+0200"; offset with or without a
+/// colon, or "Z") → milliseconds since the epoch. Hand-rolled — this is the
+/// only date parsing in the backend, not worth a chrono dependency.
+fn eve_ts_ms(s: &str) -> Option<u64> {
+    let (date, rest) = s.trim().split_once('T')?;
+
+    let mut d = date.split('-');
+    let year: i64 = d.next()?.parse().ok()?;
+    let month: i64 = d.next()?.parse().ok()?;
+    let day: i64 = d.next()?.parse().ok()?;
+    if d.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+
+    // The time part contains no '+' or '-', so any hit is the offset.
+    let (time, offset) = match rest.find(['+', '-']) {
+        Some(i) => (&rest[..i], &rest[i..]),
+        None => (rest.strip_suffix('Z').unwrap_or(rest), ""),
+    };
+
+    let mut t = time.split(':');
+    let hour: i64 = t.next()?.parse().ok()?;
+    let minute: i64 = t.next()?.parse().ok()?;
+    let sec_part = t.next()?;
+    let (sec_str, frac) = sec_part.split_once('.').unwrap_or((sec_part, ""));
+    let second: i64 = sec_str.parse().ok()?;
+    // First three fraction digits, right-padded: "789012" → 789, "5" → 500.
+    let ms: i64 = format!("{:0<3.3}", frac).parse().ok()?;
+
+    let offset_secs: i64 = if offset.is_empty() {
+        0
+    } else {
+        let sign = if offset.starts_with('-') { -1 } else { 1 };
+        let digits: String = offset[1..].chars().filter(|c| c.is_ascii_digit()).collect();
+        if digits.len() != 4 {
+            return None;
+        }
+        sign * (digits[..2].parse::<i64>().ok()? * 3600 + digits[2..].parse::<i64>().ok()? * 60)
+    };
+
+    // Days since the epoch for a civil date (Howard Hinnant's algorithm).
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let doy = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
+    let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+
+    let secs = days * 86400 + hour * 3600 + minute * 60 + second - offset_secs;
+    u64::try_from(secs * 1000 + ms).ok()
+}
+
+// ── alert history ─────────────────────────────────────────────────────────────
+
+/// GET /api/ips/alerts/history — the persisted alert log, newest first, read
+/// from the EVE file Suricata writes (survives reboots; the journal doesn't).
+/// Empty when the file doesn't exist yet — IPS never enabled, or a device
+/// predating the persistent log.
+pub async fn alerts_history(State(state): State<Arc<AppState>>) -> Result<Json<Vec<AlertEntry>>> {
+    let path = state.config.ips_alerts_file.clone();
+    let entries = tokio::task::spawn_blocking(move || read_alert_tail(&path, 2 * 1024 * 1024, 500))
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?;
+    Ok(Json(entries))
+}
+
+/// The last `max` alerts from the tail of the EVE file (one JSON document per
+/// line), newest first. Reads at most `tail_bytes` so a large file stays
+/// cheap; best-effort — any read problem yields an empty list.
+fn read_alert_tail(path: &Path, tail_bytes: u64, max: usize) -> Vec<AlertEntry> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let Ok(mut file) = std::fs::File::open(path) else { return Vec::new() };
+    let len = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let start = len.saturating_sub(tail_bytes);
+    if file.seek(SeekFrom::Start(start)).is_err() {
+        return Vec::new();
+    }
+    let mut bytes = Vec::new();
+    if file.read_to_end(&mut bytes).is_err() {
+        return Vec::new();
+    }
+    let text = String::from_utf8_lossy(&bytes);
+
+    let mut out: Vec<AlertEntry> = text
+        .lines()
+        // Seeking mid-file usually lands mid-line; drop the partial first line.
+        .skip(if start > 0 { 1 } else { 0 })
+        .filter_map(|line| parse_eve(line, 0))
+        .collect();
+    out.reverse();
+    out.truncate(max);
+    out
 }
 
 #[cfg(test)]
@@ -364,6 +478,57 @@ mod tests {
         assert_eq!(e.src.as_deref(), Some("10.0.0.5"));
         assert_eq!(e.dpt, Some(80));
         assert_eq!(e.proto.as_deref(), Some("tcp"));
+        // ts comes from the EVE timestamp, not the journal fallback.
+        assert_eq!(e.ts, eve_ts_ms("2026-07-09T12:00:00.000000+0000").unwrap());
+    }
+
+    #[test]
+    fn eve_timestamps_parse() {
+        // Anchor: one day after the epoch.
+        assert_eq!(eve_ts_ms("1970-01-02T00:00:00.000000+0000"), Some(86_400_000));
+        // Offsets shift correctly, with or without a colon, and Z = UTC.
+        let utc = eve_ts_ms("2026-07-09T12:00:00.000000+0000").unwrap();
+        assert_eq!(eve_ts_ms("2026-07-09T14:00:00.000000+0200"), Some(utc));
+        assert_eq!(eve_ts_ms("2026-07-09T14:00:00.000000+02:00"), Some(utc));
+        assert_eq!(eve_ts_ms("2026-07-09T05:00:00.000000-0700"), Some(utc));
+        assert_eq!(eve_ts_ms("2026-07-09T12:00:00Z"), Some(utc));
+        // Fractions truncate to milliseconds.
+        assert_eq!(eve_ts_ms("1970-01-01T00:00:00.789012+0000"), Some(789));
+        // Garbage is rejected, not misparsed.
+        assert_eq!(eve_ts_ms("not a timestamp"), None);
+        assert_eq!(eve_ts_ms("2026-13-40T99:00:00Z"), None);
+    }
+
+    #[test]
+    fn reads_alert_tail_newest_first() {
+        let alert = |ts: &str, sid: u64| {
+            format!(
+                r#"{{"timestamp":"{ts}","event_type":"alert","flow_id":7,"src_ip":"10.0.0.5","alert":{{"signature_id":{sid},"signature":"x","severity":3,"action":"allowed"}}}}"#
+            )
+        };
+        let dir = std::env::temp_dir().join(format!("qz-ips-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("ips-alerts.json");
+        std::fs::write(
+            &path,
+            format!(
+                "{}\n{}\n{{\"event_type\":\"stats\"}}\n{}\n",
+                alert("2026-07-09T10:00:00.000000+0000", 1),
+                alert("2026-07-09T11:00:00.000000+0000", 2),
+                alert("2026-07-09T12:00:00.000000+0000", 3),
+            ),
+        )
+        .unwrap();
+
+        let all = read_alert_tail(&path, 1024 * 1024, 500);
+        assert_eq!(all.iter().map(|a| a.sid).collect::<Vec<_>>(), vec![3, 2, 1]);
+        assert_eq!(all[0].flow_id, Some(7));
+
+        let capped = read_alert_tail(&path, 1024 * 1024, 2);
+        assert_eq!(capped.iter().map(|a| a.sid).collect::<Vec<_>>(), vec![3, 2]);
+
+        assert!(read_alert_tail(&dir.join("missing.json"), 1024, 10).is_empty());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

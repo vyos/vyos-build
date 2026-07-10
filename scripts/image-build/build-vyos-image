@@ -522,7 +522,13 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         iter(os.remove, artifacts)
 
         ## Create the target ISO file path
-        iso_file = f"vyos-{version_data['version']}-{build_config['build_flavor']}-{build_config['architecture']}.iso"
+        ## Flavors may override the artifact name with an `iso_name` template
+        ## ({version}, {build_flavor} and {architecture} are expanded)
+        iso_name_format = build_config.get("iso_name") or "vyos-{version}-{build_flavor}-{architecture}"
+        iso_file = iso_name_format.format(
+            version=version_data['version'],
+            build_flavor=build_config['build_flavor'],
+            architecture=build_config['architecture']) + ".iso"
 
         ## Create live-build configuration files
 

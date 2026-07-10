@@ -91,9 +91,14 @@ export function requestIpsUpdate(): Promise<IpsSettings> {
   return apiFetch<IpsSettings>("/ips/update", { method: "POST" });
 }
 
-/// One SSE payload from /api/ips/alerts (see backend/src/ips.rs AlertEntry).
+/// One alert (see backend/src/ips.rs AlertEntry) — the SSE payload of
+/// /api/ips/alerts and the rows of /api/ips/alerts/history.
 export interface IpsAlert {
+  /** Alert time (ms since epoch), from the EVE record itself — identical
+   *  whether the alert arrived live or from history. */
   ts: number;
+  /** Suricata flow id — part of the live/history dedupe key. */
+  flow_id?: number;
   level: ThreatLevel;
   severity: number;
   /** `allowed` (alert-only) or `blocked` (dropped inline). */
@@ -106,4 +111,15 @@ export interface IpsAlert {
   dst?: string;
   dpt?: number;
   proto?: string;
+}
+
+/// Persisted alert history, newest first — read from the EVE file on the
+/// device, so it survives reboots (the live stream's journal does not).
+export function fetchIpsAlertHistory(): Promise<IpsAlert[]> {
+  return apiFetch<IpsAlert[]>("/ips/alerts/history");
+}
+
+/// Identity for deduping live-stream alerts against fetched history.
+export function alertKey(a: IpsAlert): string {
+  return `${a.ts}:${a.sid}:${a.flow_id ?? ""}`;
 }

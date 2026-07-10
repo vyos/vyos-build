@@ -1,0 +1,15 @@
+# Persistent IPS alert log (EVE format), written by Suricata under
+# quartzfire-ips management. Size-based: alert volume varies wildly between
+# quiet sites and ones under active scan, and the flash-backed /var/log
+# shouldn't grow unbounded either way.
+/var/log/quartzfire/ips-alerts.json {
+    size 10M
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    postrotate
+        /bin/systemctl kill -s HUP suricata.service 2>/dev/null || true
+    endscript
+}

@@ -9,6 +9,15 @@ all:
 	@echo "Make what specifically?"
 	@echo "The most common target is 'generic'"
 
+# QuartzFire release version, single source of truth for the ISO name,
+# `show version` and the WebUI dashboard.
+QUARTZFIRE_VERSION := $(strip $(shell cat VERSION 2>/dev/null))
+
+.PHONY: quartzfire
+quartzfire:
+	@if [ -z "$(QUARTZFIRE_VERSION)" ]; then echo "VERSION file is missing or empty"; exit 1; fi
+	./build-vyos-image --version "$(QUARTZFIRE_VERSION)" quartzfire
+
 %:
 	./build-vyos-image $*
 
@@ -98,6 +107,7 @@ clean:
 	rm -f config/binary config/bootstrap config/chroot config/common config/source
 	rm -f build.log
 	rm -f vyos-*.iso
+	rm -f quartzfire-*.iso
 	rm -f *.img *.efivars
 	rm -f *.xz
 	rm -f *.vhd

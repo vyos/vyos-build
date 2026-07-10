@@ -50,6 +50,13 @@ SURICATA_YAML = "/etc/suricata/suricata.yaml"
 DROPIN_DIR = "/etc/systemd/system/suricata.service.d"
 DROPIN_FILE = DROPIN_DIR + "/quartzfire.conf"
 
+# Persistent alert log (the journal is volatile on VyOS). Suricata writes it
+# directly; the WebUI backend reads it for alert history, so the directory
+# must be traversable by the quartzfire group. Rotated by logrotate
+# (/etc/logrotate.d/quartzfire-webui, shipped with the package).
+ALERTS_DIR = "/var/log/quartzfire"
+ALERTS_FILE = ALERTS_DIR + "/ips-alerts.json"
+
 LEVELS = ["critical", "high", "medium", "low", "information"]
 
 DEFAULT_LEVEL_POLICY = {
@@ -126,6 +133,15 @@ outputs:
       identity: suricata
       facility: local5
       level: Info
+      types:
+        - alert
+  # …and to a persistent file (the journal is volatile on VyOS): alert
+  # history across reboots, served by the WebUI and consumable by any EVE-
+  # aware tooling. Rotated by logrotate; suricata reopens it on SIGHUP.
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: {alerts_file}
       types:
         - alert
 
@@ -358,8 +374,22 @@ def rewrite_rules(settings):
 # ── suricata service ──────────────────────────────────────────────────────────
 
 
+def ensure_alerts_dir():
+    """Create the persistent alert-log directory, traversable by the
+    quartzfire group so the (unprivileged) WebUI backend can read history."""
+    os.makedirs(ALERTS_DIR, exist_ok=True)
+    try:
+        import grp
+        gid = grp.getgrnam("quartzfire").gr_gid
+    except KeyError:
+        gid = 0
+    os.chown(ALERTS_DIR, 0, gid)
+    os.chmod(ALERTS_DIR, 0o750)
+
+
 def render_configs(settings):
     """Render suricata.yaml + the systemd drop-in. Returns True on change."""
+    ensure_alerts_dir()
     fast = settings.get("scan_mode") == "fast"
     classification = RULES_DIR + "/classification.config"
     if not os.path.isfile(classification):
@@ -367,6 +397,7 @@ def render_configs(settings):
     yaml = SURICATA_YAML_TEMPLATE.format(
         rules_dir=RULES_DIR,
         classification_file=classification,
+        alerts_file=ALERTS_FILE,
         stream_bypass="yes" if fast else "no",
         tls_handling="bypass" if fast else "default",
     )
