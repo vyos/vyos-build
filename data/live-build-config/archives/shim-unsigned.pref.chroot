@@ -1,0 +1,9 @@
+# Debian bookworm's shim 16.1 update made shim-helpers-amd64-signed depend on
+# shim-unsigned (>= 16.1-2~deb12u1), but the VyOS rolling repo still ships its
+# own shim-unsigned 16.0-1+vyos1 pinned above Debian, which makes vyos-1x ->
+# shim-signed -> shim-helpers-amd64-signed uninstallable. Prefer Debian's
+# shim-unsigned until the VyOS repo rebuilds shim against 16.1; the VyOS-signed
+# shim (shim-signed) itself still comes from the rolling repo.
+Package: shim-unsigned
+Pin: release o=Debian
+Pin-Priority: 1001
