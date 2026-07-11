@@ -5,6 +5,9 @@ Documentation=file:/usr/share/doc/qfappd/design.md
 [Path]
 # The WebUI (unprivileged) writes desired state here; this triggers the root
 # apply helper, which validates and publishes /run/qfappd/policy.json.
+# PathExists fires once at boot when the seeded file is already present (so the
+# policy is applied on first boot); PathChanged catches later WebUI edits.
+PathExists=/config/quartzfire/appcontrol.json
 PathChanged=/config/quartzfire/appcontrol.json
 Unit=quartzfire-appcontrol-apply.service
 

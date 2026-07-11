@@ -3,11 +3,14 @@
 End-to-end guide to build a QuartzFire ISO — the VyOS base **plus** the
 QuartzFire WebUI — from a Windows workstation using WSL2 and Docker.
 
-There are two build stages:
+There are three build stages:
 
 1. **The WebUI package** (`quartzfire-webui_*.deb`) — Rust backend + Next.js
    frontend, built in a Debian container with a current Rust toolchain.
-2. **The ISO** — the VyOS `live-build` process (in the `vyos/vyos-build`
+2. **The Application Control packages** (`qfappd_*.deb` +
+   `libndpi-quartzfire_*.deb`) — the nDPI app-control daemon and its bundled
+   nDPI library, built in the same kind of container.
+3. **The ISO** — the VyOS `live-build` process (in the `vyos/vyos-build`
    container) that bakes every `packages/*.deb` into a bootable image.
 
 > **Two hard requirements, learned the hard way** (see [Troubleshooting](#troubleshooting)):
@@ -51,10 +54,13 @@ docker run --rm hello-world                     # sanity check
 
 ```bash
 cd ~
-git clone https://github.com/quartzsystems/quartz-fire.git quartz-fire
+# Clone the application-control branch (contains qfappd + the Application
+# Control WebUI). Drop the -b flag once it is merged to the default branch.
+git clone -b application-control https://github.com/quartzsystems/quartz-fire.git quartz-fire
 cd quartz-fire
 
 findmnt -no FSTYPE -T .        # MUST print: ext4   (if it says 9p/drvfs, you are on /mnt/c — move it)
+git branch --show-current      # should print: application-control
 ```
 
 If you have an existing checkout on the Windows drive, copy it over once:
@@ -88,6 +94,33 @@ minutes. Success ends with the `.deb` listed under `packages/`.
 
 > The build script auto-installs everything in `packages/*.deb` into the ISO
 > (see `scripts/image-build/build-vyos-image`), so no other wiring is needed.
+
+---
+
+## 1b. Build the Application Control `.deb`s
+
+```bash
+bash qfappd/build-deb.sh
+```
+
+What it does (all inside a `rust:1-bookworm` container):
+
+- builds **libndpi** (ntop nDPI 4.8) from source — Debian has no recent enough
+  package — and packages its shared library as `libndpi-quartzfire_*.deb`
+- builds the **qfappd** daemon (`cargo build --release --features ndpi`) and
+  runs `dpkg-buildpackage` to produce `qfappd_*.deb`, which `Depends:` on the
+  libndpi package
+- copies **both** debs into `packages/`
+
+First run compiles libndpi + all Rust crates, so expect a few minutes. Success
+ends with both debs listed under `packages/`. Override the nDPI version with
+`NDPI_REF=4.9 bash qfappd/build-deb.sh` if needed.
+
+> Both debs land in `packages/`, so the ISO build installs them automatically —
+> `qfappd` and its libndpi are baked into the image with no extra wiring. The
+> `qfappd.service` unit enables on install; a default `Global` action is seeded
+> to `/config/quartzfire/appcontrol.json`. Configure it under
+> **Services › Application Control** in the WebUI.
 
 ---
 

@@ -1,10 +1,11 @@
 #!/usr/bin/make -f
 # qfappd Debian packaging.
 #
-# libndpi is installed from source under /usr/local on the QuartzFire build
-# host / image (it is not in Debian at a recent-enough version); we point
-# bindgen and the linker at it. If NDPI_INCLUDE_DIR / NDPI_LIB_DIR are set in
-# the environment they win (see crates/qfappd-sys/build.rs).
+# libndpi is installed from source under /usr/local on the build host (it is not
+# in Debian at a recent-enough version); we point bindgen and the linker at it.
+# If NDPI_INCLUDE_DIR / NDPI_LIB_DIR are set in the environment they win (see
+# crates/qfappd-sys/build.rs). The matching runtime libndpi package
+# (libndpi-quartzfire) is built separately by build-deb.sh.
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export CARGO_HOME = $(CURDIR)/debian/cargo
@@ -20,9 +21,13 @@ override_dh_auto_build:
 	cargo build --release --locked --features ndpi -p qfappd
 
 override_dh_auto_test:
-	# Pure-logic crates only; NFQUEUE/ctnetlink tests need a live kernel and
+	# Pure-logic crates only; NFQUEUE/nftables tests need a live kernel and
 	# run via `make integration-test` on-target.
 	cargo test --release --locked -p qfappd-core
+
+override_dh_auto_clean:
+	cargo clean || true
+	rm -rf debian/cargo
 
 override_dh_auto_install:
 	install -D -m0755 target/release/qfappd \
@@ -35,8 +40,6 @@ override_dh_auto_install:
 		debian/qfappd/usr/share/qfappd/appcontrol.default.json
 	install -D -m0644 templates/qfappd.nft \
 		debian/qfappd/usr/share/qfappd/qfappd.nft
-	install -D -m0644 etc/logrotate.d/qfappd \
-		debian/qfappd/etc/logrotate.d/qfappd
 	install -D -m0644 systemd/qfappd-sysusers.conf \
 		debian/qfappd/usr/lib/sysusers.d/qfappd.conf
 	install -D -m0644 docs/design.md \
@@ -46,12 +49,16 @@ override_dh_auto_install:
 	install -D -m0644 docs/vyos-integration.md \
 		debian/qfappd/usr/share/doc/qfappd/vyos-integration.md
 
+# dh_installsystemd auto-processes debian/qfappd.service (main daemon). The two
+# extra units are named debian/qfappd.<name>.<type> and must be handled by name:
+# the .path watcher is enabled+started; the apply oneshot is only triggered by
+# the .path unit, so it is installed but not enabled/started.
 override_dh_installsystemd:
-	dh_installsystemd --name=qfappd qfappd.service
-	dh_installsystemd --name=quartzfire-appcontrol quartzfire-appcontrol.path
-	dh_installsystemd --no-start --no-enable --name=quartzfire-appcontrol-apply quartzfire-appcontrol-apply.service
+	dh_installsystemd
+	dh_installsystemd --name=quartzfire-appcontrol
+	dh_installsystemd --no-enable --no-start --name=quartzfire-appcontrol-apply
 
 # libndpi lives in /usr/local/lib, which dpkg-shlibdeps doesn't scan; don't
-# fail the build hunting a dependency the image provides out-of-band.
+# fail the build hunting a dependency provided by the libndpi-quartzfire package.
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info

@@ -3,8 +3,6 @@ Section: net
 Priority: optional
 Maintainer: QuartzFire <cwellman@quartz.systems>
 Build-Depends: debhelper-compat (= 13),
-               cargo,
-               rustc,
                protobuf-compiler,
                clang,
                libclang-dev,
@@ -16,7 +14,10 @@ Package: qfappd
 Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         nftables
+         nftables,
+         libndpi-quartzfire,
+         libpcap0.8,
+         libgcrypt20
 Description: QuartzFire Application Control daemon
  Inline DPI application identification and per-application / per-category
  allow-block enforcement for QuartzFire (VyOS-based NGFW). Classifies new

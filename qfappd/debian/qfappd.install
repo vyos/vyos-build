@@ -1,3 +1,0 @@
-systemd/qfappd.service                       lib/systemd/system
-systemd/quartzfire-appcontrol.path           lib/systemd/system
-systemd/quartzfire-appcontrol-apply.service  lib/systemd/system
