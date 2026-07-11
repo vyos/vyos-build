@@ -30,6 +30,7 @@ fn main() {
             .allowlist_function("ndpi_init_detection_module")
             .allowlist_function("ndpi_exit_detection_module")
             .allowlist_function("ndpi_finalize_initialization")
+            .allowlist_function("ndpi_set_protocol_detection_bitmask2")
             .allowlist_function("ndpi_detection_get_sizeof_ndpi_flow_struct")
             .allowlist_function("ndpi_detection_process_packet")
             .allowlist_function("ndpi_detection_giveup")

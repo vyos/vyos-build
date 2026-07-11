@@ -52,6 +52,15 @@ export interface AcConfig {
   bindings: AcBinding[];
 }
 
+/// One row of the status snapshot's top-applications list (by bytes seen up to
+/// the classification decision — fast-path traffic is not counted).
+export interface AcTopApp {
+  app_id: number;
+  app: string;
+  bytes: number;
+  flows: number;
+}
+
 /// The daemon's runtime status snapshot (/run/qfappd/status.json).
 export interface AcRuntimeStatus {
   qfappd_version: string;
@@ -66,6 +75,9 @@ export interface AcRuntimeStatus {
   event_sink_drops: number;
   fail_mode: string;
   queues: { queue_num: number; packets: number; drops: number }[];
+  /** Absent from status files written by older daemons. */
+  top_apps?: AcTopApp[];
+  total_app_bytes?: number;
 }
 
 export interface AcStatus {

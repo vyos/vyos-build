@@ -9,7 +9,7 @@ export function LiveButton({ paused, onToggle }: { paused: boolean; onToggle: ()
     <button
       type="button"
       onClick={onToggle}
-      className="inline-flex items-center gap-[6px] px-[10px] py-[5px] rounded-full text-[11px] font-semibold cursor-pointer transition-colors"
+      className="inline-flex items-center gap-[5px] px-[8px] py-[3px] rounded-full text-[10.5px] font-semibold cursor-pointer transition-colors"
       style={
         paused
           ? { background: "var(--qz-surface-raised)", color: "var(--qz-fg-3)", border: "1px solid var(--qz-border)" }
@@ -17,7 +17,7 @@ export function LiveButton({ paused, onToggle }: { paused: boolean; onToggle: ()
       }
       title={paused ? "Resume live updates" : "Pause"}
     >
-      {paused ? <Pause size={12} /> : <RefreshCw size={12} />}
+      {paused ? <Pause size={12} strokeWidth={2.75} /> : <RefreshCw size={12} strokeWidth={2.75} />}
       {paused ? "Paused" : "Live"}
     </button>
   );

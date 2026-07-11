@@ -82,8 +82,33 @@ impl StatsAggregator {
 
     /// Top N applications by flow count (deterministic tie-break on app id).
     pub fn top_n(&self, n: usize, name_of: impl Fn(u16) -> String) -> Vec<TopApp> {
-        let mut all: Vec<(u16, AppStat)> = self.per_app.iter().map(|(&k, &v)| (k, v)).collect();
-        all.sort_by(|a, b| b.1.flows.cmp(&a.1.flows).then(a.0.cmp(&b.0)));
+        self.top_n_by(n, |s| s.flows, name_of)
+    }
+
+    /// Top N applications by pre-decision bytes (see [`AppStat::bytes`]).
+    pub fn top_n_by_bytes(&self, n: usize, name_of: impl Fn(u16) -> String) -> Vec<TopApp> {
+        self.top_n_by(n, |s| s.bytes, name_of)
+    }
+
+    /// Pre-decision bytes summed over every application, so a top-N list can
+    /// still express its share of the whole (the "Other" remainder).
+    pub fn total_bytes(&self) -> u64 {
+        self.per_app.values().map(|s| s.bytes).sum()
+    }
+
+    fn top_n_by(
+        &self,
+        n: usize,
+        key: impl Fn(&AppStat) -> u64,
+        name_of: impl Fn(u16) -> String,
+    ) -> Vec<TopApp> {
+        let mut all: Vec<(u16, AppStat)> = self
+            .per_app
+            .iter()
+            .filter(|(_, s)| key(s) > 0)
+            .map(|(&k, &v)| (k, v))
+            .collect();
+        all.sort_by(|a, b| key(&b.1).cmp(&key(&a.1)).then(a.0.cmp(&b.0)));
         all.truncate(n);
         all.into_iter()
             .map(|(app_id, stat)| TopApp { app_id, app: name_of(app_id), stat })
@@ -134,6 +159,23 @@ mod tests {
         assert_eq!(a.unknown, 1);
         assert_eq!(a.app_stat(244).flows, 2);
         assert_eq!(a.app_stat(244).bytes, 150);
+    }
+
+    #[test]
+    fn top_n_by_bytes_sorts_and_totals() {
+        let mut s = StatsAggregator::default();
+        s.record_decision(244, false, 100, 1); // few flows, few bytes
+        for _ in 0..5 {
+            s.record_decision(91, false, 10, 1); // many flows, few bytes
+        }
+        s.record_decision(37, false, 9000, 3); // one flow, most bytes
+
+        let top = s.top_n_by_bytes(2, |id| format!("app{id}"));
+        assert_eq!(top.len(), 2);
+        assert_eq!(top[0].app_id, 37);
+        assert_eq!(top[0].stat.bytes, 9000);
+        assert_eq!(top[1].app_id, 244);
+        assert_eq!(s.total_bytes(), 9150);
     }
 
     #[test]

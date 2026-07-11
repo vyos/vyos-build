@@ -159,9 +159,20 @@ pub mod ndpi {
                 if module.is_null() {
                     anyhow::bail!("ndpi_init_detection_module returned NULL");
                 }
-                // nDPI 4.x enables all protocols by default; the legacy
-                // set_protocol_detection_bitmask2 selection API is gone. Just
-                // finalize (required before processing packets).
+                // In nDPI 4.8, ndpi_set_protocol_detection_bitmask2 is what
+                // populates the protocol defaults table (names, categories,
+                // default ports) and registers the dissector callbacks —
+                // finalize alone leaves every protocol nameless and nothing
+                // detecting. Enable all protocols. (The call goes away in
+                // later majors, where init/finalize cover this.)
+                let mut all: sys::ndpi_protocol_bitmask_struct_t = std::mem::zeroed();
+                for word in all.fds_bits.iter_mut() {
+                    *word = !0;
+                }
+                if sys::ndpi_set_protocol_detection_bitmask2(module, &all) != 0 {
+                    sys::ndpi_exit_detection_module(module);
+                    anyhow::bail!("ndpi_set_protocol_detection_bitmask2 failed");
+                }
                 sys::ndpi_finalize_initialization(module);
                 let flow_size = sys::ndpi_detection_get_sizeof_ndpi_flow_struct() as usize;
                 Ok(Self { module, flow_size })

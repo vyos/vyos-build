@@ -1,6 +1,8 @@
 import { InterfaceStatsTile } from "./InterfaceStatsTile";
 import { NetworkSpeedTile } from "./NetworkSpeedTile";
+import { RecentIpsAlertsTile } from "./RecentIpsAlertsTile";
 import { SystemInfoPod } from "./SystemInfoPod";
+import { TopApplicationsTile } from "./TopApplicationsTile";
 
 /// A type of tile that can be placed on the dashboard. Sizes are in grid units
 /// (columns wide × rows tall) on the 4-column dashboard grid.
@@ -41,6 +43,24 @@ export const TILE_REGISTRY: Record<string, TileDef> = {
     minW: 2,
     minH: 4,
     render: () => <NetworkSpeedTile />,
+  },
+  "top-applications": {
+    type: "top-applications",
+    title: "Top Applications",
+    defaultW: 2,
+    defaultH: 5,
+    minW: 1,
+    minH: 4,
+    render: () => <TopApplicationsTile />,
+  },
+  "ips-alerts": {
+    type: "ips-alerts",
+    title: "IPS Alerts",
+    defaultW: 2,
+    defaultH: 5,
+    minW: 1,
+    minH: 4,
+    render: () => <RecentIpsAlertsTile />,
   },
 };
 

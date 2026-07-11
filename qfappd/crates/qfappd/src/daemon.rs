@@ -452,7 +452,25 @@ fn spawn_status_writer(config: Config, state: Arc<SharedState>) {
         loop {
             tick.tick().await;
             let snapshot = state.status_snapshot();
-            if let Ok(json) = serde_json::to_string(&StatusJson::from(&snapshot)) {
+            let mut status = StatusJson::from(&snapshot);
+            // Per-app traffic for the WebUI's Top Applications tile. Bytes are
+            // pre-decision only (the fast path bypasses userspace), so shares
+            // reflect classified traffic, not line totals.
+            let merged = state.merged_stats();
+            status.total_app_bytes = merged.total_bytes();
+            status.top_apps = merged
+                .top_n_by_bytes(TOP_APPS_N, |id| {
+                    state.catalog.app_name(id).unwrap_or("Unknown").to_string()
+                })
+                .into_iter()
+                .map(|t| TopAppJson {
+                    app_id: t.app_id,
+                    app: t.app,
+                    bytes: t.stat.bytes,
+                    flows: t.stat.flows,
+                })
+                .collect();
+            if let Ok(json) = serde_json::to_string(&status) {
                 let tmp = config.api.status_path.with_extension("json.tmp");
                 if std::fs::write(&tmp, json).is_ok() {
                     let _ = std::fs::rename(&tmp, &config.api.status_path);
@@ -461,6 +479,9 @@ fn spawn_status_writer(config: Config, state: Arc<SharedState>) {
         }
     });
 }
+
+/// How many applications status.json lists in `top_apps`.
+const TOP_APPS_N: usize = 8;
 
 /// Flat JSON mirror of the gRPC Status for the WebUI status.json fallback
 /// (same idea as quartzfire-ips status.json).
@@ -478,6 +499,18 @@ struct StatusJson {
     event_sink_drops: u64,
     fail_mode: String,
     queues: Vec<QueueJson>,
+    /// Top applications by pre-decision bytes, plus the all-app total so the
+    /// WebUI can chart the "Other" remainder.
+    top_apps: Vec<TopAppJson>,
+    total_app_bytes: u64,
+}
+
+#[derive(serde::Serialize)]
+struct TopAppJson {
+    app_id: u16,
+    app: String,
+    bytes: u64,
+    flows: u64,
 }
 
 #[derive(serde::Serialize)]
@@ -506,6 +539,9 @@ impl From<&grpc::PbStatusMsg> for StatusJson {
                 .iter()
                 .map(|q| QueueJson { queue_num: q.queue_num, packets: q.packets, drops: q.drops })
                 .collect(),
+            // Filled in by the status writer from the merged stats.
+            top_apps: Vec::new(),
+            total_app_bytes: 0,
         }
     }
 }
