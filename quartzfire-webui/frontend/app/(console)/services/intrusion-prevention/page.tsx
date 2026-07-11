@@ -801,6 +801,14 @@ export default function IntrusionPreventionPage() {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Deep-link support (?tab=alerts — used by the dashboard's IPS Alerts tile).
+  // Read on mount instead of useSearchParams to avoid the Suspense boundary
+  // the app router requires for search params during prerender.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "settings" || t === "policies" || t === "alerts") setTab(t);
+  }, []);
+
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
     if (mode === "load") setState("loading");
     try {

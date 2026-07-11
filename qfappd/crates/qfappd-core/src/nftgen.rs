@@ -24,6 +24,7 @@ use crate::policy::{CompiledBinding, L4Proto, MatchSpec, parse_cidr};
 pub const TABLE: &str = "inet qfappd";
 pub const BINDINGS_CHAIN: &str = "qf_bindings";
 pub const PERSIST_CHAIN: &str = "qf_persist";
+pub const VERDICT_CHAIN: &str = "forward_verdict";
 
 #[derive(Debug, Clone, Copy)]
 pub struct QueueSpec {
@@ -63,11 +64,15 @@ impl QueueSpec {
 ///     and queues them to qfappd.
 ///  3. qfappd ACCEPTs each verdict packet with the packet mark encoding the
 ///     verdict (CLASSIFIED [+ BLOCK] + APP_ID, keeping the ACTION_ID bits).
-///  4. On the reinjected packet, the persist rule copies the qfappd-owned mark
-///     bits from the PACKET mark into the CT mark (masked — other subsystems'
-///     low bits survive), and the block rule drops it if BLOCK is set. Both the
-///     persistence and the drop of the triggering packet happen here, so a
-///     blocked flow's very first classified packet is already dropped.
+///  4. An NF_ACCEPT verdict resumes traversal at the NEXT forward hook, NOT at
+///     the rule after the queue — the rest of the queueing base chain is
+///     skipped (`nf_reinject` continues at `hook_index + 1`). Persistence and
+///     blocking therefore live in a second base chain at `filter + 20`
+///     ([`VERDICT_CHAIN`]): it copies the qfappd-owned mark bits from the
+///     PACKET mark into the CT mark (masked — other subsystems' low bits
+///     survive), and drops the packet if BLOCK is set. Both the persistence
+///     and the drop of the triggering packet happen there, so a blocked flow's
+///     very first classified packet is already dropped.
 pub fn render_table(layout: &Layout, queues: QueueSpec, bindings: &[CompiledBinding]) -> String {
     let classified = layout.classified_mask();
     let block = layout.block_mask();
@@ -87,9 +92,15 @@ pub fn render_table(layout: &Layout, queues: QueueSpec, bindings: &[CompiledBind
         "        ct mark & {classified:#010x} == {classified:#010x} counter accept comment \"qfappd-allow-fastpath\"\n\n"
     ));
     out.push_str("        # only TCP/UDP flows are classified\n");
-    out.push_str(&format!("        meta l4proto {{ tcp, udp }} jump {BINDINGS_CHAIN}\n\n"));
-    out.push_str("        # persist qfappd's packet-mark verdict into the ct mark (masked),\n");
-    out.push_str("        # then drop the flow if it was a block — both on this same packet.\n");
+    out.push_str(&format!("        meta l4proto {{ tcp, udp }} jump {BINDINGS_CHAIN}\n"));
+    out.push_str("    }\n\n");
+    out.push_str("    # qfappd's NF_ACCEPT verdict reinjects the packet at the NEXT forward\n");
+    out.push_str("    # hook — the rest of the `forward` chain above is skipped. The verdict\n");
+    out.push_str("    # is enforced here, in a second base chain that reinjection does reach:\n");
+    out.push_str("    # persist the packet-mark verdict into the ct mark (masked), then drop\n");
+    out.push_str("    # the flow if it was a block — both on this same packet.\n");
+    out.push_str(&format!("    chain {VERDICT_CHAIN} {{\n"));
+    out.push_str("        type filter hook forward priority filter + 20; policy accept;\n\n");
     out.push_str(&format!(
         "        meta mark & {classified:#010x} == {classified:#010x} jump {PERSIST_CHAIN} comment \"qfappd-persist\"\n"
     ));
@@ -327,6 +338,25 @@ mod tests {
         assert!(out.contains("meta mark & 0xc0000000 == 0xc0000000 counter drop comment \"qfappd-block\""));
         // idempotent preamble
         assert!(out.contains("table inet qfappd {}\ndelete table inet qfappd"));
+    }
+
+    // An NF_ACCEPT verdict from NFQUEUE resumes at the next forward HOOK, not
+    // the next rule — rules placed after the queue jump in the same base chain
+    // are never evaluated for verdict packets. Persist + block must therefore
+    // live in a second base chain hooked after the queueing one.
+    #[test]
+    fn persist_and_block_live_in_a_later_base_chain() {
+        let out = render_table(&Layout::default(), queues(), &[]);
+        let queue_hook = out.find("priority filter + 10").expect("queue chain hook");
+        let verdict_chain = out.find("chain forward_verdict").expect("verdict chain");
+        let verdict_hook = out.find("priority filter + 20").expect("verdict chain hook");
+        let persist = out.find("comment \"qfappd-persist\"").expect("persist rule");
+        let block = out.find("comment \"qfappd-block\"").expect("block rule");
+        let bindings_jump = out.find("jump qf_bindings").expect("bindings jump");
+        assert!(queue_hook < bindings_jump, "queue chain comes first");
+        assert!(bindings_jump < verdict_chain, "verdict chain is declared after the queue chain's rules");
+        assert!(verdict_chain < verdict_hook && verdict_hook < persist && persist < block,
+            "persist then block inside the verdict chain");
     }
 
     // nftables < 1.1 rejects bitwise ops whose right-hand side is not a

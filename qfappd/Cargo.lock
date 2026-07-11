@@ -932,7 +932,7 @@ dependencies = [
 
 [[package]]
 name = "qfappd"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -956,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "qfappd-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "lru",
  "serde",
@@ -969,7 +969,7 @@ dependencies = [
 
 [[package]]
 name = "qfappd-proto"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "prost",
  "tonic",
@@ -978,7 +978,7 @@ dependencies = [
 
 [[package]]
 name = "qfappd-sys"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bindgen",
 ]

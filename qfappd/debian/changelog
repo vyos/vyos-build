@@ -1,3 +1,14 @@
+qfappd (0.1.1) unstable; urgency=medium
+
+  * Fix block enforcement: NF_ACCEPT verdicts reinject at the next forward
+    hook, skipping the rest of the queueing base chain, so the persist and
+    block rules placed there never ran — verdicts were computed and logged
+    but nothing was ever dropped. They now live in a second forward base
+    chain (`forward_verdict`, priority filter + 20) that reinjected packets
+    do traverse.
+
+ -- QuartzFire <cwellman@quartz.systems>  Sat, 11 Jul 2026 00:00:00 +0000
+
 qfappd (0.1.0) unstable; urgency=medium
 
   * Initial release: nDPI-based Application Control for QuartzFire.

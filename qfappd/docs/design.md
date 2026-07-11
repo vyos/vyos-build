@@ -306,6 +306,15 @@ table inet qfappd {
         jump qf_bindings
     }
 
+    # NF_ACCEPT verdicts reinject at the NEXT forward hook, so verdict
+    # persistence + blocking need their own, later base chain.
+    chain forward_verdict {
+        type filter hook forward priority filter + 20; policy accept;
+
+        meta mark & {{CLASSIFIED}}       == {{CLASSIFIED}}       jump qf_persist
+        meta mark & {{CLASSIFIED|BLOCK}} == {{CLASSIFIED|BLOCK}} counter drop
+    }
+
     chain qf_bindings {
         # one rule per binding, regenerated atomically on policy load, e.g.:
         # iifname "eth1" oifname "eth0" \
@@ -520,8 +529,12 @@ build container.
    `ATTR_MARK_MASK`, so a masked ct-mark write through that library isn't
    possible without hand-rolling raw ctnetlink or a racy read-modify-write.
    Instead, qfappd sets the **packet** mark on its NFQUEUE **ACCEPT** verdict
-   (always ACCEPT — even for blocks), and two nftables rules in the forward
-   chain do the rest, in-kernel and atomically:
+   (always ACCEPT — even for blocks), and two nftables rules do the rest,
+   in-kernel and atomically. They live in a **second forward base chain**
+   (`forward_verdict`, priority `filter + 20`), because an NF_ACCEPT verdict
+   reinjects the packet at the *next forward hook* — the remainder of the
+   base chain that queued it is skipped, so enforcement rules placed after
+   the queue jump in the same chain would never see verdict packets:
    - a *persist* rule jumps verdict packets (CLASSIFIED bit set) to a
      `qf_persist` chain that copies the qfappd-owned mark bits from the packet
      mark into the ct mark (other subsystems' low bits survive). The copy is

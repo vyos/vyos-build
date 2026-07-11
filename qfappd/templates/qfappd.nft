@@ -46,10 +46,17 @@ table inet qfappd {
 
         # only TCP/UDP flows are candidates for classification
         meta l4proto { tcp, udp } jump qf_bindings
+    }
 
-        # persist qfappd's packet-mark verdict into the ct mark (masked, so
-        # other subsystems' low bits survive), then drop the flow if it was a
-        # block — both on this same reinjected verdict packet.
+    # qfappd's NF_ACCEPT verdict reinjects the packet at the NEXT forward
+    # hook — the rest of the `forward` chain above is skipped, so enforcement
+    # cannot live there. This second base chain is what reinjection reaches:
+    # persist qfappd's packet-mark verdict into the ct mark (masked, so other
+    # subsystems' low bits survive), then drop the flow if it was a block —
+    # both on this same reinjected verdict packet.
+    chain forward_verdict {
+        type filter hook forward priority filter + 20; policy accept;
+
         meta mark & $QF_CLASSIFIED == $QF_CLASSIFIED jump qf_persist comment "qfappd-persist"
         meta mark & $QF_BLOCKED    == $QF_BLOCKED    counter drop comment "qfappd-block"
     }

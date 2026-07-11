@@ -110,7 +110,7 @@ export function RecentIpsAlertsTile() {
             IPS Alerts
           </h2>
           <Link
-            href="/services/intrusion-prevention"
+            href="/services/intrusion-prevention?tab=alerts"
             className="inline-flex items-center gap-[3px] text-[11px] text-[var(--qz-fg-4)] hover:text-[var(--qz-fg-2)] flex-shrink-0"
           >
             View all <ArrowRight size={11} />

@@ -16,8 +16,10 @@ qfappd therefore does **not** touch `vyos_filter`. It owns a separate table:
 
 ```
 table inet qfappd {
-    chain forward { type filter hook forward priority filter + 10; ... }
+    chain forward         { type filter hook forward priority filter + 10; ... }
+    chain forward_verdict { type filter hook forward priority filter + 20; ... }
     chain qf_bindings { ... }
+    chain qf_persist  { ... }
 }
 ```
 
@@ -40,9 +42,14 @@ before enabling.
 
 Note: qfappd does **not** use libnetfilter_conntrack/ctnetlink to write the
 mark. It sets the packet mark on its NFQUEUE ACCEPT verdict; nftables persists
-that into the ct mark and drops blocked flows, all in-kernel (see the persist
-and block rules in `templates/qfappd.nft`). This keeps the write masked and
-atomic and removes a C-library dependency.
+that into the ct mark and drops blocked flows, all in-kernel. This keeps the
+write masked and atomic and removes a C-library dependency.
+
+The persist and block rules live in a **second base chain**
+(`forward_verdict`, priority `filter + 20`), not after the queue jump in
+`forward`: an NF_ACCEPT verdict from NFQUEUE resumes packet traversal at the
+*next forward hook*, skipping the rest of the base chain that queued the
+packet, so enforcement rules placed there would never run for verdict packets.
 
 ## Proposed config nodes
 
