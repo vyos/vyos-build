@@ -34,7 +34,11 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-svc-dns-forwarding", section: "Go to", label: "Services › DNS Forwarding", kbd: "", href: "/services/dns-forwarding" },
   { id: "nav-svc-ips", section: "Go to", label: "Services › Intrusion Prevention", kbd: "", href: "/services/intrusion-prevention" },
   { id: "nav-system",     section: "Go to", label: "System",     kbd: "G S", href: "/system" },
-  { id: "nav-sys-audit",   section: "Go to", label: "System › Audit Log", kbd: "", href: "/system/audit" },
+  { id: "nav-sys-general",     section: "Go to", label: "System › General",     kbd: "", href: "/system/general" },
+  { id: "nav-sys-users",       section: "Go to", label: "System › Users",       kbd: "", href: "/system/users" },
+  { id: "nav-sys-ssh",         section: "Go to", label: "System › SSH",         kbd: "", href: "/system/ssh" },
+  { id: "nav-sys-maintenance", section: "Go to", label: "System › Maintenance", kbd: "", href: "/system/maintenance" },
+  { id: "nav-sys-audit",       section: "Go to", label: "System › Audit Log",   kbd: "", href: "/system/audit" },
 ];
 
 export function CommandPalette({

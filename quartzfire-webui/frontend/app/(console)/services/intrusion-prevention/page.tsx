@@ -351,7 +351,7 @@ function PoliciesTab() {
   const toggle = async (changes: { rule: FirewallRule; enabled: boolean }[]) => {
     setBusy(true);
     try {
-      const n = await applyRuleIps(changes);
+      const n = await applyRuleIps(changes, config);
       if (n > 0) setToast(`Updated IPS on ${changes.length} rule${changes.length === 1 ? "" : "s"}.`);
       await load();
     } catch (e) {

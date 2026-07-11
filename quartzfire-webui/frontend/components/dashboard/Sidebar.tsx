@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText, ShieldAlert } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText, ShieldAlert, SlidersHorizontal, Users, KeyRound, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -84,7 +84,11 @@ const ITEMS: NavItem[] = [
     icon: Settings,
     href: "/system",
     children: [
-      { id: "audit", label: "Audit Log", href: "/system/audit", icon: ScrollText },
+      { id: "general",     label: "General",     href: "/system/general",     icon: SlidersHorizontal },
+      { id: "users",       label: "Users",       href: "/system/users",       icon: Users },
+      { id: "ssh",         label: "SSH",         href: "/system/ssh",         icon: KeyRound },
+      { id: "maintenance", label: "Maintenance", href: "/system/maintenance", icon: Wrench },
+      { id: "audit",       label: "Audit Log",   href: "/system/audit",       icon: ScrollText },
     ],
   },
 ];

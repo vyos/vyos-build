@@ -153,6 +153,14 @@ export const AUTO_MARK = "[qz-rule]";
 /// seeded into the input/output chains (see ensureChainSetup).
 export const SYS_MARK = "[qz-sys]";
 
+/// Connection mark tagging flows selected for IPS inspection. An IPS-enabled
+/// rule sets it on the first packet it queues; the hidden flow rule at the
+/// top of the forward chain (ensureIpsFlowBaseline) then queues every later
+/// packet of the connection — both directions — to the engine. Without that,
+/// the established/related baseline would accept everything after the
+/// handshake and Suricata could never match content signatures.
+export const IPS_CONNMARK = 81;
+
 /// One side of a rule match as stored in the config: a group reference, an
 /// interface (by name or interface-group), a literal address, or none (= any).
 /// `iface`/`iface_group` map to the rule-level `inbound-interface` (From) /
@@ -195,6 +203,9 @@ export interface FirewallRule {
 export interface ChainSetup {
   /** Baseline rules present (or their rule numbers already taken). */
   baseline: boolean;
+  /** Hidden connmark→queue rule present (see ensureIpsFlowBaseline) — without
+   *  it the IPS engine only ever sees each connection's first packet. */
+  ips_flow: boolean;
   /** The chain's configured default-action (null = not set). */
   default_action: string | null;
   /** Whether `default-log` is set (default-action hits reach the monitor). */
@@ -219,7 +230,7 @@ export interface FirewallConfig {
 
 /// Empty config used as the initial page state before the first fetch.
 export function emptyFirewallConfig(): FirewallConfig {
-  const chain = (): ChainSetup => ({ baseline: false, default_action: null, default_log: false });
+  const chain = (): ChainSetup => ({ baseline: false, ips_flow: false, default_action: null, default_log: false });
   return {
     aliases: [],
     policies: [],
@@ -430,12 +441,14 @@ const asAction = (v: string | null): RuleAction | null =>
 function parseChain(filter: Cfg, chain: RuleChain): { rules: FirewallRule[]; setup: ChainSetup } {
   const ruleCfg = childCfg(filter, "rule") ?? {};
   let sys = false;
+  let ipsFlow = false;
   const rules: FirewallRule[] = [];
   for (const [num, raw] of Object.entries(ruleCfg)) {
     const cfg = (raw ?? {}) as Cfg;
     const name = childStr(cfg, "description");
     if (name?.startsWith(SYS_MARK)) {
       sys = true; // hidden baseline rule — not a user rule
+      if ("connection-mark" in cfg && childStr(cfg, "action") === "queue") ipsFlow = true;
       continue;
     }
     const dstGroup = childCfg(childCfg(cfg, "destination") ?? {}, "group") ?? {};
@@ -462,6 +475,7 @@ function parseChain(filter: Cfg, chain: RuleChain): { rules: FirewallRule[]; set
     setup: {
       // CLI-created rules 1/2 also count — the baseline must never clobber them.
       baseline: sys || "1" in ruleCfg || "2" in ruleCfg,
+      ips_flow: ipsFlow,
       default_action: childStr(filter, "default-action"),
       default_log: "default-log" in filter,
     },
@@ -964,17 +978,58 @@ function ensureChainSetup(out: VyosCommand[], chain: "input" | "output", cfg: Fi
   }
 }
 
-/// Seed the hidden established/related accept at the top of the forward chain
-/// (once). Logged rules then only ever see each connection's first packet —
-/// one monitor line per connection instead of one per packet — and replies of
-/// accepted flows can't be cut off mid-connection by a later deny.
+/// Seed the hidden two-rule baseline at the top of the forward chain (once):
+/// rule 1 queues every packet of IPS-marked connections to the engine (both
+/// directions — see IPS_CONNMARK), rule 2 accepts established/related. Logged
+/// rules then only ever see each connection's first packet — one monitor line
+/// per connection instead of one per packet — and replies of accepted flows
+/// can't be cut off mid-connection by a later deny.
 function ensureForwardBaseline(out: VyosCommand[], cfg: FirewallConfig): void {
   if (cfg.setup.forward.baseline) return;
-  const r1 = [...filterBase("forward"), "rule", "1"];
-  out.push({ op: "set", path: [...r1, "action", "accept"] });
-  out.push({ op: "set", path: [...r1, "state", "established"] });
-  out.push({ op: "set", path: [...r1, "state", "related"] });
-  out.push({ op: "set", path: [...r1, "description", `${SYS_MARK} allow established/related replies`] });
+  const fb = filterBase("forward");
+  ipsFlowRuleCommands(out, fb);
+  const r2 = [...fb, "rule", "2"];
+  out.push({ op: "set", path: [...r2, "action", "accept"] });
+  out.push({ op: "set", path: [...r2, "state", "established"] });
+  out.push({ op: "set", path: [...r2, "state", "related"] });
+  out.push({ op: "set", path: [...r2, "description", `${SYS_MARK} allow established/related replies`] });
+}
+
+/// Commands writing the hidden IPS flow rule at rule 1 of a chain.
+function ipsFlowRuleCommands(out: VyosCommand[], fb: string[]): void {
+  const r1 = [...fb, "rule", "1"];
+  out.push({ op: "set", path: [...r1, "action", "queue"] });
+  out.push({ op: "set", path: [...r1, "queue", "0"] });
+  out.push({ op: "set", path: [...r1, "queue-options", "bypass"] });
+  out.push({ op: "set", path: [...r1, "connection-mark", String(IPS_CONNMARK)] });
+  out.push({ op: "set", path: [...r1, "description", `${SYS_MARK} IPS: inspect flows selected by IPS rules`] });
+}
+
+/// Make sure the forward chain inspects whole flows for IPS rules, upgrading
+/// the pre-connmark baseline layout (rule 1 = established accept, no flow
+/// rule) in place when the low rule numbers are ours to rebuild. Chains where
+/// slots 1/2 hold CLI-created user rules are left alone rather than clobbered
+/// — IPS there degrades to first-packet-only inspection.
+function ensureIpsFlowBaseline(out: VyosCommand[], cfg: FirewallConfig): void {
+  const setup = cfg.setup.forward;
+  if (setup.ips_flow) return;
+  // Already emitted into this batch (e.g. several rules toggled at once).
+  if (out.some((c) => String(c.path[c.path.length - 1]).startsWith(`${SYS_MARK} IPS:`))) return;
+  if (!setup.baseline) {
+    ensureForwardBaseline(out, cfg);
+    return;
+  }
+  if (cfg.rules.some((r) => r.chain === "forward" && (r.rule === 1 || r.rule === 2))) return;
+  const fb = filterBase("forward");
+  // Old layout: rule 1 is the sys-marked established/related accept. Rebuild
+  // it as the flow rule and move the established accept to rule 2.
+  out.push({ op: "delete", path: [...fb, "rule", "1"] });
+  ipsFlowRuleCommands(out, fb);
+  const r2 = [...fb, "rule", "2"];
+  out.push({ op: "set", path: [...r2, "action", "accept"] });
+  out.push({ op: "set", path: [...r2, "state", "established"] });
+  out.push({ op: "set", path: [...r2, "state", "related"] });
+  out.push({ op: "set", path: [...r2, "description", `${SYS_MARK} allow established/related replies`] });
 }
 
 /// Deletes for the auto-managed OR groups backing a rule's sides (auto groups
@@ -1022,7 +1077,9 @@ export function diffRule(liveIn: FirewallRule | null, u: RuleUpdate, cfg: Firewa
   // IPS-inspected Allow rules are stored as `action queue`: matches are queued
   // to Suricata for the inline accept/drop verdict. `queue 0` names the
   // NFQUEUE the IPS engine listens on; `queue-options bypass` fails open so
-  // traffic still flows if Suricata is down.
+  // traffic still flows if Suricata is down. `set connection-mark` tags the
+  // flow so the hidden flow rule keeps queueing its later packets (both
+  // directions) — content signatures need more than the first packet.
   const wantIps = u.ips && u.action === "accept";
   const liveIps = live?.ips ?? false;
   const liveWireAction = live?.action === null ? null : liveIps ? "queue" : live?.action ?? null;
@@ -1030,9 +1087,12 @@ export function diffRule(liveIn: FirewallRule | null, u: RuleUpdate, cfg: Firewa
   if (wantIps && !liveIps) {
     out.push({ op: "set", path: [...base, "queue", "0"] });
     out.push({ op: "set", path: [...base, "queue-options", "bypass"] });
+    out.push({ op: "set", path: [...base, "set", "connection-mark", String(IPS_CONNMARK)] });
+    if (chain === "forward") ensureIpsFlowBaseline(out, cfg);
   } else if (!wantIps && liveIps) {
     out.push({ op: "delete", path: [...base, "queue"] });
     out.push({ op: "delete", path: [...base, "queue-options"] });
+    out.push({ op: "delete", path: [...base, "set", "connection-mark"] });
   }
   leaf(["description"], live?.name ?? null, u.name);
 
@@ -1089,26 +1149,34 @@ export function applyRule(live: FirewallRule | null, update: RuleUpdate, cfg: Fi
 /// Commands toggling IPS inspection on an existing Allow rule (see
 /// FirewallRule.ips). Empty when nothing would change or the rule isn't an
 /// Allow rule.
-export function ipsRuleCommands(rule: FirewallRule, enabled: boolean): VyosCommand[] {
+export function ipsRuleCommands(rule: FirewallRule, enabled: boolean, cfg: FirewallConfig): VyosCommand[] {
   if (rule.action !== "accept" || rule.ips === enabled) return [];
   const base = ruleBase(rule.chain, rule.rule);
   if (enabled) {
-    return [
+    const out: VyosCommand[] = [
       { op: "set", path: [...base, "action", "queue"] },
       { op: "set", path: [...base, "queue", "0"] },
       { op: "set", path: [...base, "queue-options", "bypass"] },
+      { op: "set", path: [...base, "set", "connection-mark", String(IPS_CONNMARK)] },
     ];
+    if (rule.chain === "forward") ensureIpsFlowBaseline(out, cfg);
+    return out;
   }
   return [
     { op: "set", path: [...base, "action", "accept"] },
     { op: "delete", path: [...base, "queue"] },
     { op: "delete", path: [...base, "queue-options"] },
+    { op: "delete", path: [...base, "set", "connection-mark"] },
   ];
 }
 
 /// Toggle IPS inspection on one or more rules. Returns the number of changes.
-export function applyRuleIps(changes: { rule: FirewallRule; enabled: boolean }[]): Promise<number> {
-  return commitAndSave(changes.flatMap((c) => ipsRuleCommands(c.rule, c.enabled)));
+export function applyRuleIps(
+  changes: { rule: FirewallRule; enabled: boolean }[],
+  cfg: FirewallConfig,
+): Promise<number> {
+  // The flow-baseline commands are idempotent sets — safe to emit per change.
+  return commitAndSave(changes.flatMap((c) => ipsRuleCommands(c.rule, c.enabled, cfg)));
 }
 
 /// Delete a filter rule, along with the auto-managed OR groups backing its

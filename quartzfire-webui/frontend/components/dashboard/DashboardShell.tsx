@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { SaveIndicator } from "@/components/dashboard/SaveIndicator";
 import { Toast } from "@/components/dashboard/Toast";
+import { DefaultPasswordGate } from "@/components/DefaultPasswordGate";
 import { DashboardProvider, useDashboard } from "@/lib/DashboardContext";
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         onNavigate={(href) => nextRouter.push(href)}
       />
       <SaveIndicator />
+      <DefaultPasswordGate />
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );

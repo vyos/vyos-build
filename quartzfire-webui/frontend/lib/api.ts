@@ -14,6 +14,9 @@ const USER_KEY = "quartzfire-user";
 export interface AuthUserInfo {
   username: string;
   role: string;
+  /** Set at login when the account still uses the factory-default password —
+   *  the console then forces a password change before anything else. */
+  default_password?: boolean;
 }
 
 export function setUser(user: AuthUserInfo): void {
@@ -70,6 +73,12 @@ export async function login(username: string, password: string): Promise<AuthUse
 /// the cached user. Rejects when there is no valid session.
 export async function fetchMe(): Promise<AuthUserInfo> {
   const user = await apiFetch<AuthUserInfo>("/auth/me");
+  // Only login can detect the default password (the config stores a hash) —
+  // carry the login-time flag forward until the password is changed.
+  const cached = getCurrentUser();
+  if (cached?.username === user.username && cached.default_password) {
+    user.default_password = true;
+  }
   setUser(user);
   return user;
 }

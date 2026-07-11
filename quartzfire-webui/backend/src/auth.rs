@@ -250,11 +250,16 @@ pub async fn login(
         state.config.session_hours * 3600,
     );
 
-    Ok((
-        [(SET_COOKIE, cookie)],
-        axum::Json(user_body(&body.username)),
-    )
-        .into_response())
+    // Signing in with the factory-default password ("vyos", as shipped for the
+    // built-in vyos account) is flagged so the SPA forces a password change
+    // before exposing the console. Only login can know this — the config
+    // stores a hash — so /auth/me carries the flag forward client-side.
+    let mut user = user_body(&body.username);
+    if body.password == "vyos" {
+        user["default_password"] = Value::Bool(true);
+    }
+
+    Ok(([(SET_COOKIE, cookie)], axum::Json(user)).into_response())
 }
 
 /// POST /api/auth/logout — public (clearing a cookie needs no session).

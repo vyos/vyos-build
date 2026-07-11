@@ -154,10 +154,36 @@ app-layer:
     tls:
       # Fast Scan bypasses flows once they go encrypted.
       encryption-handling: {tls_handling}
+    # Suricata disables the SCADA parsers by default, but the distribution
+    # event rules and ET Open's SCADA set use their keywords — with the
+    # parsers off, suricata-update's post-download `suricata -T` fails on
+    # those signatures and aborts every update. detection-ports is NOT
+    # optional for dnp3: its registration silently bails without it
+    # (app-layer-dnp3.c RegisterDNP3Parsers has no port fallback), leaving
+    # `alert dnp3` rules failing with "protocol dnp3 is disabled" even
+    # though enabled reads yes.
+    dnp3:
+      enabled: yes
+      detection-ports:
+        dp: 20000
+    modbus:
+      enabled: yes
+      detection-ports:
+        dp: 502
+    enip:
+      enabled: yes
+      detection-ports:
+        dp: 44818
+        sp: 44818
 
-# Control socket for live ruleset reloads (suricatasc).
+# Control socket for live ruleset reloads (suricatasc). The filename must
+# match the path Debian's unit passes to `suricatasc -c shutdown` in
+# ExecStop — with the socket elsewhere, every stop/restart fails its control
+# process and systemd abandons the unit half-stopped (a `restart` then never
+# reaches the start step, leaving the engine dead).
 unix-command:
   enabled: yes
+  filename: /run/suricata/suricata.socket
 """
 
 DROPIN_TEMPLATE = """\
@@ -166,9 +192,14 @@ DROPIN_TEMPLATE = """\
 # packets the firewall queues to it (rules with IPS enabled).
 [Service]
 ExecStartPre=
-ExecStartPre=/bin/rm -f /run/suricata.pid
+ExecStartPre=/bin/mkdir -p /run/suricata
+ExecStartPre=/bin/rm -f /run/suricata/suricata.pid
 ExecStart=
-ExecStart=/usr/bin/suricata -D -q 0 -c /etc/suricata/suricata.yaml --pidfile /run/suricata.pid
+ExecStart=/usr/bin/suricata -D -q 0 -c /etc/suricata/suricata.yaml --pidfile /run/suricata/suricata.pid
+# Must match --pidfile exactly: Type=forking only completes startup once
+# systemd reads this file — a mismatch strands a healthy daemon in
+# "activating" until the start timeout kills it.
+PIDFile=/run/suricata/suricata.pid
 ExecReload=
 ExecReload=/bin/kill -USR2 $MAINPID
 # Daemon mode only signals readiness after the whole ruleset is parsed —

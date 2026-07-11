@@ -309,6 +309,10 @@ pub async fn alerts() -> Response {
         let json = serde_json::to_string(&entry).ok()?;
         Some(Ok::<Event, Infallible>(Event::default().data(json)))
     });
+    // Immediate hello: EventSource only fires `open` once bytes arrive, and
+    // with no alerts flowing the first real bytes would be a keep-alive ping
+    // seconds away.
+    let stream = tokio_stream::once(Ok(Event::default().comment("connected"))).chain(stream);
 
     Sse::new(stream).keep_alive(KeepAlive::default()).into_response()
 }
