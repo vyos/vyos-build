@@ -1,0 +1,13 @@
+[package]
+name = "qfappd-proto"
+description = "Generated tonic/prost types for the qfappd v1 gRPC API (proto/qfappd/v1). Requires protoc at build time; only built on Linux as a dependency of the qfappd binary."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tonic = "0.11"
+prost = "0.12"
+
+[build-dependencies]
+tonic-build = "0.11"

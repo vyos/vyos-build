@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch QuartzFire Application Control desired state for changes
+Documentation=file:/usr/share/doc/qfappd/design.md
+
+[Path]
+# The WebUI (unprivileged) writes desired state here; this triggers the root
+# apply helper, which validates and publishes /run/qfappd/policy.json.
+PathChanged=/config/quartzfire/appcontrol.json
+Unit=quartzfire-appcontrol-apply.service
+
+[Install]
+WantedBy=multi-user.target

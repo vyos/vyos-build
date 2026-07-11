@@ -1,0 +1,14 @@
+# Rust build output
+/target/
+**/*.rs.bk
+
+# Debian packaging build artifacts (dpkg-buildpackage / debhelper)
+/debian/qfappd/
+/debian/.debhelper/
+/debian/cargo/
+/debian/files
+/debian/debhelper-build-stamp
+/debian/*.substvars
+/debian/*.log
+/debian/tmp/
+/*.deb

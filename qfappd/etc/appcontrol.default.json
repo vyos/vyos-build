@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "actions": {
+    "Global": {
+      "default_action": "allow",
+      "block_mode": "drop",
+      "categories": {},
+      "applications": {}
+    }
+  },
+  "bindings": []
+}

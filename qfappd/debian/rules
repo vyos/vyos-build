@@ -1,0 +1,57 @@
+#!/usr/bin/make -f
+# qfappd Debian packaging.
+#
+# libndpi is installed from source under /usr/local on the QuartzFire build
+# host / image (it is not in Debian at a recent-enough version); we point
+# bindgen and the linker at it. If NDPI_INCLUDE_DIR / NDPI_LIB_DIR are set in
+# the environment they win (see crates/qfappd-sys/build.rs).
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export CARGO_HOME = $(CURDIR)/debian/cargo
+export NDPI_INCLUDE_DIR ?= /usr/local/include/ndpi
+export NDPI_LIB_DIR ?= /usr/local/lib
+# Let the dynamic linker find libndpi.so at runtime.
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,-rpath,/usr/local/lib
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --locked --features ndpi -p qfappd
+
+override_dh_auto_test:
+	# Pure-logic crates only; NFQUEUE/ctnetlink tests need a live kernel and
+	# run via `make integration-test` on-target.
+	cargo test --release --locked -p qfappd-core
+
+override_dh_auto_install:
+	install -D -m0755 target/release/qfappd \
+		debian/qfappd/usr/sbin/qfappd
+	install -D -m0755 scripts/qfappd-apply \
+		debian/qfappd/usr/lib/qfappd/qfappd-apply
+	install -D -m0644 etc/qfappd.toml \
+		debian/qfappd/etc/qfappd/qfappd.toml
+	install -D -m0644 etc/appcontrol.default.json \
+		debian/qfappd/usr/share/qfappd/appcontrol.default.json
+	install -D -m0644 templates/qfappd.nft \
+		debian/qfappd/usr/share/qfappd/qfappd.nft
+	install -D -m0644 etc/logrotate.d/qfappd \
+		debian/qfappd/etc/logrotate.d/qfappd
+	install -D -m0644 systemd/qfappd-sysusers.conf \
+		debian/qfappd/usr/lib/sysusers.d/qfappd.conf
+	install -D -m0644 docs/design.md \
+		debian/qfappd/usr/share/doc/qfappd/design.md
+	install -D -m0644 docs/event-schema.md \
+		debian/qfappd/usr/share/doc/qfappd/event-schema.md
+	install -D -m0644 docs/vyos-integration.md \
+		debian/qfappd/usr/share/doc/qfappd/vyos-integration.md
+
+override_dh_installsystemd:
+	dh_installsystemd --name=qfappd qfappd.service
+	dh_installsystemd --name=quartzfire-appcontrol quartzfire-appcontrol.path
+	dh_installsystemd --no-start --no-enable --name=quartzfire-appcontrol-apply quartzfire-appcontrol-apply.service
+
+# libndpi lives in /usr/local/lib, which dpkg-shlibdeps doesn't scan; don't
+# fail the build hunting a dependency the image provides out-of-band.
+override_dh_shlibdeps:
+	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info

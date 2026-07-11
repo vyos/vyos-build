@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/qfappd-core",
+    "crates/qfappd-sys",
+    "crates/qfappd-proto",
+    "crates/qfappd",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["QuartzFire <cwellman@quartz.systems>"]
+repository = "https://github.com/zagdrath/quartz-fire"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+thiserror = "1"
+tracing = "0.1"
+anyhow = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

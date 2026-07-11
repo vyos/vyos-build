@@ -1,0 +1,71 @@
+#!/usr/sbin/nft -f
+#
+# qfappd — Application Control nftables template.
+#
+# This is a REFERENCE / documentation copy. At runtime qfappd generates the
+# live ruleset itself from crates/qfappd-core/src/nftgen.rs, substituting the
+# ct-mark layout from qfappd.toml and the bindings from the active policy, and
+# loads it with `nft -f`. Keep the two in sync if you hand-edit either.
+#
+# ── Why a separate table (not inside vyos_filter) ────────────────────────────
+# VyOS regenerates `table ip vyos_filter` on every `commit`, which would wipe
+# any foreign rules we added. Instead qfappd owns a dedicated `inet qfappd`
+# table with its own forward-hook base chain at `priority filter + 10`, so:
+#   * it survives VyOS commits untouched;
+#   * it runs AFTER the VyOS filter (only accepted traffic reaches it) and
+#     AFTER Suricata IPS (`action queue` rules inside vyos_filter at plain
+#     `priority filter`), so IPS verdicts happen first.
+#
+# ── Mark layout (defaults; must match [mark] in qfappd.toml) ──────────────────
+#   CLASSIFIED = bit 31  (0x80000000)
+#   BLOCK      = bit 30  (0x40000000)
+#   APP_ID     = bits 19..29
+#   ACTION_ID  = bits 16..18   (carried on the PACKET mark, set by bindings)
+# qfappd sets the PACKET mark on its ACCEPT verdict; the persist rule below
+# copies it (masked) into the CT mark, and the fast-path rules match that CT
+# mark. No ctnetlink/conntrack library is involved — the persist and the
+# block-drop are pure in-kernel nftables on the reinjected verdict packet.
+#
+# ── Hook points for VyOS wiring (see docs/vyos-integration.md) ────────────────
+# Interface / zone scoping lives entirely in the qf_bindings chain, generated
+# per policy binding. The variables below are illustrative only; the WebUI /
+# `set firewall app-control` layer supplies real matches.
+
+define QF_CLASSIFIED = 0x80000000
+define QF_BLOCK      = 0x40000000
+define QF_BLOCKED    = 0xc0000000   # CLASSIFIED|BLOCK
+define QF_ACTION_MASK = 0x00070000
+
+table inet qfappd {
+    chain forward {
+        type filter hook forward priority filter + 10; policy accept;
+
+        # ── fast paths: classified flows never re-enter userspace ──
+        ct mark & $QF_BLOCKED    == $QF_BLOCKED    counter drop   comment "qfappd-block-fastpath"
+        ct mark & $QF_CLASSIFIED == $QF_CLASSIFIED counter accept comment "qfappd-allow-fastpath"
+
+        # only TCP/UDP flows are candidates for classification
+        meta l4proto { tcp, udp } jump qf_bindings
+
+        # persist qfappd's packet-mark verdict into the ct mark (masked, so
+        # other subsystems' low bits survive), then drop the flow if it was a
+        # block — both on this same reinjected verdict packet.
+        meta mark & $QF_CLASSIFIED == $QF_CLASSIFIED \
+            ct mark set ct mark & 0x0000ffff | meta mark & 0xffff0000 counter comment "qfappd-persist"
+        meta mark & $QF_BLOCKED    == $QF_BLOCKED    counter drop comment "qfappd-block"
+    }
+
+    # Regenerated atomically by qfappd on every policy load. One rule per
+    # binding; a guard skips already-classified (reinjected) packets, then it
+    # sets the ACTION_ID into the packet mark (masked) and queues the flow with
+    # fanout across the configured NFQUEUE range.
+    #
+    # Example (action id 1, LAN→WAN, HTTPS) — do not edit by hand:
+    #
+    #   meta mark & 0x80000000 == 0x00000000 iifname "eth1" oifname "eth0" tcp dport 443 \
+    #       meta mark set meta mark & 0xfff8ffff | 0x00010000 \
+    #       counter queue flags fanout,bypass to 100-103 comment "qfappd-b1"
+    #
+    chain qf_bindings {
+    }
+}

@@ -1,0 +1,9 @@
+qfappd (0.1.0) unstable; urgency=medium
+
+  * Initial release: nDPI-based Application Control for QuartzFire.
+    - Named actions with per-application / per-category allow-block verdicts.
+    - Per-firewall-rule bindings via ct-mark ACTION_ID.
+    - NFQUEUE classification with conntrack-mark fast-path offload.
+    - gRPC introspection API + JSON event stream.
+
+ -- QuartzFire <cwellman@quartz.systems>  Sat, 11 Jul 2026 00:00:00 +0000

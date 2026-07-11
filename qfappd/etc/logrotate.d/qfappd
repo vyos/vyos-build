@@ -1,0 +1,11 @@
+/var/log/qfappd/events.json {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    # 0644 so the unprivileged WebUI can read decision-event history.
+    create 0644 qfappd qfappd
+    copytruncate
+}

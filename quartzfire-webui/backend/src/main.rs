@@ -1,3 +1,4 @@
+mod appcontrol;
 mod auth;
 mod config;
 mod error;
@@ -76,6 +77,11 @@ async fn main() -> Result<()> {
         .route("/api/ips/update", post(ips::request_update))
         .route("/api/ips/alerts", get(ips::alerts))
         .route("/api/ips/alerts/history", get(ips::alerts_history))
+        .route("/api/appcontrol/status", get(appcontrol::status))
+        .route("/api/appcontrol/settings", put(appcontrol::put_settings))
+        .route("/api/appcontrol/catalog", get(appcontrol::catalog))
+        .route("/api/appcontrol/alerts", get(appcontrol::alerts))
+        .route("/api/appcontrol/alerts/history", get(appcontrol::alerts_history))
         // Commit-confirm guard: risky changes apply here instead of raw
         // /configure so an unconfirmed change auto-reverts (see guard.rs).
         .route("/api/guard/apply", post(guard::apply))

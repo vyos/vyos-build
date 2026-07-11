@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+    purge)
+        # Leave /config/quartzfire/appcontrol.json in place (user data on the
+        # persistent partition); only remove volatile runtime state.
+        rm -rf /run/qfappd /var/log/qfappd || true
+        ;;
+esac
+
+exit 0

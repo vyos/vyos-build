@@ -1,0 +1,10 @@
+[Unit]
+Description=Apply QuartzFire Application Control desired state to qfappd
+Documentation=file:/usr/share/doc/qfappd/design.md
+After=qfappd.service
+
+[Service]
+Type=oneshot
+# Runs as root: validates the WebUI's desired state against the installed nDPI
+# catalog, renders /run/qfappd/policy.json, and signals qfappd to reload.
+ExecStart=/usr/lib/qfappd/qfappd-apply

@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Create the qfappd system user/group (sysusers file also does this on
+        # systemd hosts; this is the belt-and-braces path).
+        if command -v systemd-sysusers >/dev/null 2>&1; then
+            systemd-sysusers /usr/lib/sysusers.d/qfappd.conf >/dev/null 2>&1 || true
+        fi
+        if ! getent group qfappd >/dev/null; then
+            addgroup --system qfappd || true
+        fi
+        if ! getent passwd qfappd >/dev/null; then
+            adduser --system --no-create-home --ingroup qfappd \
+                --gecos "QuartzFire Application Control" qfappd || true
+        fi
+
+        # Persistent desired-state seed (WebUI overwrites this later). /config
+        # persists across image upgrades on QuartzFire.
+        if [ -d /config ] && [ ! -f /config/quartzfire/appcontrol.json ]; then
+            mkdir -p /config/quartzfire
+            cp /usr/share/qfappd/appcontrol.default.json \
+               /config/quartzfire/appcontrol.json
+        fi
+
+        chown -R qfappd:qfappd /var/log/qfappd 2>/dev/null || true
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
