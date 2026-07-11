@@ -11,6 +11,17 @@ export const API = "/api";
 
 const USER_KEY = "quartzfire-user";
 
+/// Error from the backend carrying the HTTP status, so callers can tell an
+/// invalid session (401) apart from a backend that is down or restarting
+/// (5xx / network failure, status 0). Only a 401 means "sign in again".
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 export interface AuthUserInfo {
   username: string;
   role: string;
@@ -93,19 +104,24 @@ export async function logout(): Promise<void> {
 /// Authenticated JSON fetch against the backend. On a 401 clears the session
 /// and bounces to the login page (enforcement is real on the server).
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API}${path}`, {
+      ...init,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw new ApiError("Could not reach the server.", 0);
+  }
 
   if (res.status === 401) {
     clearSession();
     redirectToLogin();
-    throw new Error("Session expired. Please sign in again.");
+    throw new ApiError("Session expired. Please sign in again.", 401);
   }
 
   if (!res.ok) {
@@ -114,7 +130,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       const body = await res.json();
       if (body?.error) message = body.error;
     } catch {}
-    throw new Error(message);
+    throw new ApiError(message, res.status);
   }
 
   const text = await res.text();

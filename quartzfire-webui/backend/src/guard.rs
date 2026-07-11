@@ -5,8 +5,10 @@
 //! changes (firewall, interfaces, NAT, routing, restores, rollbacks) therefore
 //! go through this module instead of straight to `/configure`:
 //!
-//!  1. `apply` snapshots the running config (`show configuration`), commits
-//!     the change, and arms a server-side revert timer.
+//!  1. `apply` snapshots the running config (`config-file save` to a file in
+//!     `guard_dir` — NOT `show configuration`, which masks secrets; see
+//!     `save_running_config`), commits the change, and arms a server-side
+//!     revert timer.
 //!  2. The user must `confirm` within the window (default 60s). Only then is
 //!     the change persisted to the boot config.
 //!  3. No confirmation — because the change cut the session, or the user
@@ -35,6 +37,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::net::IpAddr;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::Instant;
@@ -59,9 +62,11 @@ struct Pending {
     description: String,
     deadline: Instant,
     timeout_secs: u64,
-    /// Full pre-change running config (`show configuration` text) — what the
-    /// revert loads back.
-    snapshot: String,
+    /// Pre-change running config, saved to a file in `guard_dir` by the VyOS
+    /// API itself (`config-file save`) — what the revert loads back. A file
+    /// path rather than text: the API writes and reads it as root, so the
+    /// sandboxed backend never needs to touch the (secret-bearing) contents.
+    snapshot_path: PathBuf,
 }
 
 /// How the last guarded change ended — kept until the next one starts so the
@@ -172,28 +177,52 @@ fn clean_description(s: &str) -> String {
 
 // ── snapshot / revert plumbing ────────────────────────────────────────────────
 
-/// The full running config as text — the revert payload. `show configuration`
-/// prints the same curly format `config-file load` parses.
-async fn snapshot_running_config(state: &Arc<AppState>) -> Result<String> {
-    let body = vyos::api_request(
+/// Save the running config to `name` under `guard_dir` via the VyOS API
+/// (`config-file save` with a file argument) and return the path.
+///
+/// This must NOT be `show configuration`: that op runs
+/// `cli-shell-api showCfg --show-hide-secrets`, which replaces every secret
+/// (API keys, password hashes, PSKs, …) with a `****************` mask.
+/// Loading such a snapshot back would commit the mask literals over the real
+/// values — bricking, among other things, the very API key this backend uses
+/// and every user's login password. `config-file save` writes the real config
+/// (with the version footer `config-file load` migration wants).
+async fn save_running_config(state: &Arc<AppState>, name: &str) -> Result<PathBuf> {
+    let dir = &state.config.guard_dir;
+    let _ = std::fs::create_dir_all(dir);
+    let path = dir.join(name);
+    // Best-effort removal so a stale file from an earlier run can never pass
+    // the freshness check below. The API's save overwrites as root anyway.
+    let _ = std::fs::remove_file(&path);
+
+    vyos::api_request(
         state,
-        "show",
-        &json!({ "op": "show", "path": ["configuration"] }),
+        "config-file",
+        &json!({ "op": "save", "file": path.to_string_lossy() }),
     )
     .await?;
-    let text = body
-        .get("data")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    // An empty snapshot could never be restored — refuse to arm a guard that
-    // cannot revert.
-    if text.trim().is_empty() {
-        return Err(AppError::Gateway(
+
+    // An empty (or unwritten) snapshot could never be restored — refuse to
+    // arm a guard that cannot revert.
+    match std::fs::metadata(&path) {
+        Ok(m) if m.len() > 0 => Ok(path),
+        _ => Err(AppError::Gateway(
             "could not snapshot the running configuration; change not applied".into(),
-        ));
+        )),
     }
-    Ok(text)
+}
+
+/// Load the config file at `path` as the full running config via the VyOS
+/// API (load + commit). `path` must be under `guard_dir` — the one directory
+/// both the sandboxed backend and the root VyOS API process can reach.
+async fn load_config_file(state: &Arc<AppState>, path: &std::path::Path) -> Result<()> {
+    vyos::api_request(
+        state,
+        "config-file",
+        &json!({ "op": "load", "file": path.to_string_lossy() }),
+    )
+    .await
+    .map(|_| ())
 }
 
 /// Load `config_text` as the full running config via the VyOS API (load +
@@ -208,21 +237,16 @@ async fn load_config_text(state: &Arc<AppState>, config_text: &str, name: &str) 
         AppError::Internal(anyhow::anyhow!("writing {}: {e}", path.display()))
     })?;
 
-    let result = vyos::api_request(
-        state,
-        "config-file",
-        &json!({ "op": "load", "file": path.to_string_lossy() }),
-    )
-    .await;
+    let result = load_config_file(state, &path).await;
     let _ = std::fs::remove_file(&path);
-    result.map(|_| ())
+    result
 }
 
 /// Register a pending change and arm its revert timer. Caller must have
 /// already committed the change successfully.
 fn begin_pending(
     state: &Arc<AppState>,
-    snapshot: String,
+    snapshot_path: PathBuf,
     description: String,
     timeout_secs: u64,
 ) -> PendingInfo {
@@ -236,7 +260,7 @@ fn begin_pending(
         description,
         deadline,
         timeout_secs,
-        snapshot,
+        snapshot_path,
     };
     let info = pending_info(&pending);
     state.guard.inner.lock().unwrap().pending = Some(pending);
@@ -274,10 +298,11 @@ async fn expire(state: Arc<AppState>, id: String) {
 /// timer and the manual revert endpoint (caller has already detached the
 /// `Pending` and set `reverting`).
 async fn revert_pending(state: &Arc<AppState>, pending: Pending) -> LastOutcome {
-    let result = load_config_text(state, &pending.snapshot, "guard-revert.boot").await;
+    let result = load_config_file(state, &pending.snapshot_path).await;
     let outcome = match result {
         Ok(()) => {
             tracing::info!(change = %pending.description, "reverted unconfirmed change");
+            let _ = std::fs::remove_file(&pending.snapshot_path);
             LastOutcome {
                 outcome: "reverted",
                 description: pending.description,
@@ -504,12 +529,12 @@ pub async fn apply(
         }
     }
 
-    let snapshot = snapshot_running_config(&state).await?;
+    let snapshot_path = save_running_config(&state, "guard-snapshot.boot").await?;
     vyos::api_request(&state, "configure", &Value::Array(commands)).await?;
 
     let info = begin_pending(
         &state,
-        snapshot,
+        snapshot_path,
         clean_description(&req.description),
         clamp_timeout(req.timeout_secs),
     );
@@ -522,10 +547,10 @@ pub async fn confirm(
     State(state): State<Arc<AppState>>,
     Json(req): Json<IdRequest>,
 ) -> Result<Response> {
-    let description = {
+    let confirmed = {
         let mut inner = state.guard.inner.lock().unwrap();
         match &inner.pending {
-            Some(p) if p.id == req.id => inner.pending.take().unwrap().description,
+            Some(p) if p.id == req.id => inner.pending.take().unwrap(),
             Some(_) => return Ok(conflict("A different change is pending.")),
             None => {
                 return Ok(conflict(
@@ -534,6 +559,10 @@ pub async fn confirm(
             }
         }
     };
+    let description = confirmed.description;
+    // The snapshot is no longer a revert target — don't leave secret-bearing
+    // config files lying around longer than needed.
+    let _ = std::fs::remove_file(&confirmed.snapshot_path);
 
     // The change is now permanent in the running config; persist it so it
     // survives a reboot. A save failure doesn't un-confirm — report it.
@@ -608,12 +637,17 @@ pub async fn pending(State(state): State<Arc<AppState>>) -> Result<Response> {
 // ── endpoints: backup / restore / rollback ────────────────────────────────────
 
 /// GET /api/config/backup — the running configuration as a downloadable
-/// config.boot-style file. Sourced from `show configuration` (always current,
-/// no filesystem permissions involved); the version trailer from
-/// /config/config.boot is appended when readable so the backup migrates
-/// cleanly if restored onto a newer release.
+/// config.boot-style file. Sourced from `config-file save` into `guard_dir`
+/// so it carries real secret values and the version trailer — a backup made
+/// from the masked `show configuration` output would silently wipe every
+/// secret on the box when restored.
 pub async fn backup(State(state): State<Arc<AppState>>) -> Result<Response> {
-    let mut text = snapshot_running_config(&state).await?;
+    let path = save_running_config(&state, "backup.boot").await?;
+    let read = std::fs::read_to_string(&path);
+    let _ = std::fs::remove_file(&path);
+    let mut text = read.map_err(|e| {
+        AppError::Internal(anyhow::anyhow!("reading {}: {e}", path.display()))
+    })?;
     if !text.ends_with('\n') {
         text.push('\n');
     }
@@ -660,6 +694,15 @@ fn validate_config_text(content: &str) -> std::result::Result<(), String> {
             continue;
         }
         significant = true;
+        // A "****************" value is showCfg's secret mask — the file came
+        // from a secrets-hidden export. Loading it would commit the mask
+        // literal over every real key/password on the box.
+        if t.contains("****************") {
+            return Err(
+                "this file has masked-out secrets (\"****************\") and cannot be restored — download a fresh backup, which includes real values"
+                    .into(),
+            );
+        }
         if t.starts_with("set ") || t.starts_with("delete ") {
             return Err(
                 "this looks like a list of `set` commands — restore expects a config.boot-style file (the format the backup download produces)"
@@ -699,9 +742,9 @@ async fn guarded_load(
             "Another change is awaiting confirmation — confirm or revert it first.",
         ));
     }
-    let snapshot = snapshot_running_config(state).await?;
+    let snapshot_path = save_running_config(state, "guard-snapshot.boot").await?;
     load_config_text(state, new_config, "guard-load.boot").await?;
-    let info = begin_pending(state, snapshot, description, clamp_timeout(timeout_secs));
+    let info = begin_pending(state, snapshot_path, description, clamp_timeout(timeout_secs));
     Ok(Json(info).into_response())
 }
 
@@ -808,6 +851,11 @@ mod tests {
         assert!(validate_config_text("").is_err());
         assert!(validate_config_text("// only comments\n").is_err());
         assert!(validate_config_text("set interfaces ethernet eth0 address 1.2.3.4/24").is_err());
+        // showCfg's secret mask — a secrets-hidden export must be refused.
+        assert!(validate_config_text(
+            "service {\n https {\n api {\n keys {\n id quartzfire {\n key ****************\n }\n }\n }\n }\n}\n"
+        )
+        .is_err());
         assert!(validate_config_text("interfaces {\n").is_err()); // truncated
         assert!(validate_config_text("}\ninterfaces {").is_err()); // unbalanced
     }
