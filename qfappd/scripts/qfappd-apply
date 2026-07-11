@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+# qfappd-apply — publish the WebUI's desired Application Control state to the
+# running daemon. Triggered by quartzfire-appcontrol.path on changes to the
+# persistent desired-state file. Runs as root (oneshot unit).
+#
+# Flow (mirrors the QuartzFire IPS apply pattern):
+#   1. wait for the desired-state file (may lag /config mounting at boot),
+#   2. validate it against the installed nDPI catalog with `qfappd check-policy`,
+#   3. atomically publish it to /run/qfappd/policy.json (last-known-good: a bad
+#      file is refused here and the previous runtime policy is left in place),
+#   4. SIGHUP qfappd so it reloads immediately (inotify also catches it).
+set -euo pipefail
+
+DESIRED=/config/quartzfire/appcontrol.json
+RUNTIME_DIR=/run/qfappd
+RUNTIME=${RUNTIME_DIR}/policy.json
+QFAPPD=/usr/sbin/qfappd
+
+log() { echo "qfappd-apply: $*" >&2; }
+
+# /config mounts late on VyOS; give it a bounded chance to appear.
+for _ in $(seq 1 30); do
+    [ -f "$DESIRED" ] && break
+    sleep 1
+done
+if [ ! -f "$DESIRED" ]; then
+    log "no desired-state file at $DESIRED; nothing to apply"
+    exit 0
+fi
+
+mkdir -p "$RUNTIME_DIR"
+
+# Validate before publishing. On failure we DO NOT touch the runtime policy —
+# qfappd keeps enforcing the last-known-good one.
+if ! "$QFAPPD" check-policy "$DESIRED"; then
+    log "desired state failed validation; keeping current runtime policy"
+    exit 1
+fi
+
+# Publish atomically.
+tmp="${RUNTIME}.tmp.$$"
+cp "$DESIRED" "$tmp"
+chmod 0640 "$tmp"
+chgrp qfappd "$tmp" 2>/dev/null || true
+mv -f "$tmp" "$RUNTIME"
+log "published $RUNTIME"
+
+# Nudge the daemon (inotify will also fire; SIGHUP makes it prompt).
+if systemctl is-active --quiet qfappd.service; then
+    systemctl kill -s HUP qfappd.service || true
+fi

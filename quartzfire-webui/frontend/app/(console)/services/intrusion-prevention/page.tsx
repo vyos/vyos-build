@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Eraser, Pause, Play, RotateCw, Search, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Eraser, Pause, Play, Plus, RotateCw, Search, ShieldAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { Switch } from "@/components/ui/Switch";
@@ -68,34 +68,43 @@ function SettingsTab({
 }) {
   const { setToast } = useDashboard();
   const [draft, setDraft] = useState<IpsSettings>(status.settings);
-  const [exceptionsText, setExceptionsText] = useState(status.settings.exceptions.join(", "));
+  const [newSid, setNewSid] = useState("");
   const [saving, setSaving] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   // A fresh status (after save/apply) becomes the new baseline.
   useEffect(() => {
     setDraft(status.settings);
-    setExceptionsText(status.settings.exceptions.join(", "));
+    setNewSid("");
   }, [status.settings]);
 
   const setLevel = (level: ThreatLevel, patch: Partial<IpsSettings[ThreatLevel]>) =>
     setDraft((d) => ({ ...d, [level]: { ...d[level], ...patch } }));
 
-  const save = async () => {
-    const sids: number[] = [];
-    for (const tok of exceptionsText.split(/[,\s]+/)) {
-      if (tok === "") continue;
-      if (!/^\d+$/.test(tok)) {
-        setToast(`Exceptions must be signature IDs (numbers) — "${tok}" isn't one.`);
-        return;
-      }
-      sids.push(Number(tok));
+  const addException = () => {
+    const tok = newSid.trim();
+    if (tok === "") return;
+    if (!/^\d+$/.test(tok)) {
+      setToast(`Exceptions must be signature IDs (numbers) — "${tok}" isn't one.`);
+      return;
     }
+    const sid = Number(tok);
+    setDraft((d) =>
+      d.exceptions.includes(sid)
+        ? d
+        : { ...d, exceptions: [...d.exceptions, sid].sort((a, b) => a - b) },
+    );
+    setNewSid("");
+  };
+
+  const removeException = (sid: number) =>
+    setDraft((d) => ({ ...d, exceptions: d.exceptions.filter((s) => s !== sid) }));
+
+  const save = async () => {
     setSaving(true);
     try {
       await saveIpsSettings({
         ...draft,
-        exceptions: [...new Set(sids)].sort((a, b) => a - b),
         update_url: draft.update_url?.trim() || null,
       });
       setToast("IPS settings saved — applying on the device…");
@@ -265,16 +274,53 @@ function SettingsTab({
         {/* Exceptions */}
         <div className="flex items-start gap-4">
           <span className="text-[13px] text-[var(--qz-fg-3)] w-[100px] pt-[7px] flex-shrink-0">Exceptions:</span>
-          <div className="flex-1">
-            <input
-              value={exceptionsText}
-              onChange={(e) => setExceptionsText(e.target.value)}
-              placeholder="Signature IDs to exclude, e.g. 2100498, 2019401"
-              className="w-full rounded-md px-3 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none"
-              style={{ ...inputStyle, fontFamily: "var(--qz-font-mono)" }}
-            />
-            <p className="text-[12px] text-[var(--qz-fg-4)] mt-1 mb-0">
-              Excluded signatures are removed from the ruleset entirely (use the SID from an alert).
+          <div className="flex-1 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <input
+                value={newSid}
+                onChange={(e) => setNewSid(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addException();
+                  }
+                }}
+                inputMode="numeric"
+                placeholder="Signature ID, e.g. 2100498"
+                className="w-[220px] rounded-md px-3 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none"
+                style={{ ...inputStyle, fontFamily: "var(--qz-font-mono)" }}
+              />
+              <Button kind="secondary" size="sm" icon={Plus} onClick={addException} disabled={!newSid.trim()}>
+                Add
+              </Button>
+            </div>
+            {draft.exceptions.length > 0 && (
+              <div className="rounded-md overflow-hidden" style={{ border: "1px solid var(--qz-border)" }}>
+                {draft.exceptions.map((sid, i) => (
+                  <div
+                    key={sid}
+                    className="flex items-center gap-2 px-3 py-[6px]"
+                    style={{ borderTop: i > 0 ? "1px solid var(--qz-border)" : undefined }}
+                  >
+                    <span className="text-[13px] text-[var(--qz-fg-1)]" style={{ fontFamily: "var(--qz-font-mono)" }}>
+                      {sid}
+                    </span>
+                    <button
+                      type="button"
+                      title={`Remove exception ${sid}`}
+                      aria-label={`Remove exception ${sid}`}
+                      onClick={() => removeException(sid)}
+                      className="ml-auto grid place-items-center w-6 h-6 rounded-md bg-transparent border-0 text-[var(--qz-fg-4)] hover:text-[var(--qz-danger)] hover:bg-[color-mix(in_oklab,white_5%,transparent)] transition-colors cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-[12px] text-[var(--qz-fg-4)] m-0">
+              Excepted signatures are never blocked — matching traffic is allowed but still logged
+              as an alert (use the SID from an alert).
             </p>
           </div>
         </div>
@@ -740,7 +786,8 @@ function AlertsTab({ settings }: { settings: IpsSettings }) {
         Live alerts stream from the IPS engine; history is read from the persistent alert log on the
         device (survives reboots, rotated at 10&nbsp;MB). The newest {MAX_ALERTS} are shown. Levels
         with Log unchecked are hidden; levels with Alarm are highlighted. Add a false positive&apos;s SID
-        to the Exceptions on the Settings tab to silence it.
+        to the Exceptions on the Settings tab to stop it blocking traffic — matches are still logged
+        here.
       </p>
     </div>
   );
@@ -753,6 +800,14 @@ export default function IntrusionPreventionPage() {
   const [status, setStatus] = useState<IpsStatus | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Deep-link support (?tab=alerts — used by the dashboard's IPS Alerts tile).
+  // Read on mount instead of useSearchParams to avoid the Suspense boundary
+  // the app router requires for search params during prerender.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "settings" || t === "policies" || t === "alerts") setTab(t);
+  }, []);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
     if (mode === "load") setState("loading");

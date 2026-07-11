@@ -1,0 +1,18 @@
+[package]
+name = "qfappd-sys"
+description = "Raw FFI bindings (bindgen, build-time) to libndpi and libnetfilter_conntrack. Feature-gated: without features this is an empty crate so the workspace builds on non-Linux dev machines."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "qfappdsys"
+build = "build.rs"
+
+[features]
+default = []
+# Bind against system libndpi (>= 4.8, installed from source under /usr/local).
+ndpi = ["dep:bindgen"]
+# Bind against libnetfilter_conntrack (Debian: libnetfilter-conntrack-dev).
+nfct = ["dep:bindgen"]
+
+[build-dependencies]
+bindgen = { version = "0.69", optional = true }

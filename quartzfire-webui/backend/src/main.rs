@@ -1,9 +1,12 @@
+mod appcontrol;
 mod auth;
 mod config;
 mod error;
 mod guard;
+mod image;
 mod ips;
 mod monitor;
+mod phy;
 mod proxy;
 mod vyos;
 
@@ -76,6 +79,11 @@ async fn main() -> Result<()> {
         .route("/api/ips/update", post(ips::request_update))
         .route("/api/ips/alerts", get(ips::alerts))
         .route("/api/ips/alerts/history", get(ips::alerts_history))
+        .route("/api/appcontrol/status", get(appcontrol::status))
+        .route("/api/appcontrol/settings", put(appcontrol::put_settings))
+        .route("/api/appcontrol/catalog", get(appcontrol::catalog))
+        .route("/api/appcontrol/alerts", get(appcontrol::alerts))
+        .route("/api/appcontrol/alerts/history", get(appcontrol::alerts_history))
         // Commit-confirm guard: risky changes apply here instead of raw
         // /configure so an unconfirmed change auto-reverts (see guard.rs).
         .route("/api/guard/apply", post(guard::apply))
@@ -85,6 +93,15 @@ async fn main() -> Result<()> {
         .route("/api/config/backup", get(guard::backup))
         .route("/api/config/restore", post(guard::restore))
         .route("/api/config/rollback", post(guard::rollback))
+        .route("/api/interfaces/phy", get(phy::ethernet_phy))
+        // ISO uploads are far past the default 2 MB body cap; image::upload
+        // enforces its own 4 GB ceiling while streaming.
+        .route(
+            "/api/image/upload",
+            post(image::upload)
+                .delete(image::cleanup)
+                .layer(axum::extract::DefaultBodyLimit::disable()),
+        )
         .route("/api", any(proxy::handler))
         .route("/api/*rest", any(proxy::handler))
         .layer(middleware::from_fn_with_state(

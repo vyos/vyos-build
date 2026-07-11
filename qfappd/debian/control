@@ -1,0 +1,31 @@
+Source: qfappd
+Section: net
+Priority: optional
+Maintainer: QuartzFire <cwellman@quartz.systems>
+Build-Depends: debhelper-compat (= 13),
+               protobuf-compiler,
+               clang,
+               libclang-dev,
+               pkg-config
+Standards-Version: 4.6.2
+Homepage: https://github.com/zagdrath/quartz-fire
+
+Package: qfappd
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         nftables,
+         libndpi-quartzfire,
+         libpcap0.8,
+         libgcrypt20
+Description: QuartzFire Application Control daemon
+ Inline DPI application identification and per-application / per-category
+ allow-block enforcement for QuartzFire (VyOS-based NGFW). Classifies new
+ flows with nDPI over NFQUEUE, then offloads the verdict to the conntrack
+ mark so established flows stay on the pure-nftables fast path.
+ .
+ Provides a gRPC introspection API and JSON event stream consumed by the
+ QuartzFire WebUI (Application Control: Actions / Policies / Alerts) and the
+ qfagent cloud controller.
+ .
+ Requires libndpi (>= 4.8) installed on the target; see the package docs.

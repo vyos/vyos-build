@@ -1,0 +1,37 @@
+[package]
+name = "qfappd"
+description = "QuartzFire Application Control daemon: inline nDPI classification over NFQUEUE with conntrack-mark flow offload."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Real nDPI classification (requires libndpi >= 4.8 headers/lib on the build
+# host). Without it the daemon runs with a stub classifier that marks
+# everything Unknown — useful only for development and tests.
+ndpi = ["qfappd-sys/ndpi"]
+
+[dependencies]
+qfappd-core = { path = "../qfappd-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+clap = { version = "4", features = ["derive"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+qfappd-sys = { path = "../qfappd-sys", default-features = false }
+qfappd-proto = { path = "../qfappd-proto" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "net", "fs", "io-util"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+tonic = "0.11"
+nfq = "0.2"
+notify = "6"
+sd-notify = "0.4"
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"

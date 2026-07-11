@@ -94,7 +94,8 @@ pub struct IpsSettings {
     pub medium: LevelPolicy,
     pub low: LevelPolicy,
     pub information: LevelPolicy,
-    /// Signature IDs excluded from the ruleset (Exceptions…).
+    /// Excepted signature IDs: kept in the ruleset alert-only, so matching
+    /// traffic is never blocked but still shows up in the Alerts view.
     #[serde(default)]
     pub exceptions: Vec<u64>,
     /// suricata-update source URL; null = suricata-update's default source

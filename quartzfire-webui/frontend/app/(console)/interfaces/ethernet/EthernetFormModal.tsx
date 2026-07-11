@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
 import { Switch } from "@/components/ui/Switch";
-import { applyEthernet, EthernetInterface } from "@/lib/interfaces";
+import { applyEthernet, EthernetInterface, PhyInfo } from "@/lib/interfaces";
 
 const inputCls = "w-full rounded-md px-3 py-[9px] text-[13px] text-[var(--qz-fg-1)] outline-none";
 const inputSt = { background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" } as const;
@@ -33,6 +33,7 @@ const toRows = (values: string[]): AddrRow[] => values.map((value) => ({ key: ne
 export function EthernetFormModal({
   initial,
   freeNames,
+  phyByName = {},
   onClose,
   onSaved,
 }: {
@@ -40,6 +41,9 @@ export function EthernetFormModal({
   initial?: EthernetInterface;
   /** Physical NICs free to configure (used only when adding). */
   freeNames: string[];
+  /** Phy capabilities by NIC name — limits the Speed choices to what the
+   *  selected port actually supports (unknown port = every speed). */
+  phyByName?: Record<string, PhyInfo>;
   onClose: () => void;
   /** Called after a successful apply with a toast-able summary. */
   onSaved: (message: string) => void;
@@ -203,20 +207,31 @@ export function EthernetFormModal({
         <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
           <div>
             <label className="block text-[12px] text-[var(--qz-fg-3)] mb-[6px]">Speed</label>
-            <select
-              value={speed}
-              onChange={(e) => setSpeed(e.target.value)}
-              className={`${inputCls} cursor-pointer`}
-              style={monoSt}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            >
-              {(SPEED_OPTIONS.includes(speed) ? SPEED_OPTIONS : [speed, ...SPEED_OPTIONS]).map((s) => (
-                <option key={s} value={s}>
-                  {s === "auto" ? "Auto" : s}
-                </option>
-              ))}
-            </select>
+            {(() => {
+              // Offer only the speeds this port reports supporting; a port
+              // with no phy data (or none reported) gets the full list. The
+              // currently-configured value always stays selectable.
+              const supported = phyByName[name]?.supported_speeds ?? [];
+              const options = supported.length
+                ? SPEED_OPTIONS.filter((s) => s === "auto" || supported.includes(Number(s)))
+                : SPEED_OPTIONS;
+              return (
+                <select
+                  value={speed}
+                  onChange={(e) => setSpeed(e.target.value)}
+                  className={`${inputCls} cursor-pointer`}
+                  style={monoSt}
+                  onFocus={focusBorder}
+                  onBlur={blurBorder}
+                >
+                  {(options.includes(speed) ? options : [speed, ...options]).map((s) => (
+                    <option key={s} value={s}>
+                      {s === "auto" ? "Auto" : s}
+                    </option>
+                  ))}
+                </select>
+              );
+            })()}
           </div>
           <div>
             <label className="block text-[12px] text-[var(--qz-fg-3)] mb-[6px]">Duplex</label>

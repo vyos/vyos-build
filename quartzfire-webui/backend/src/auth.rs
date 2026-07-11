@@ -159,7 +159,12 @@ fn extract_token(headers: &HeaderMap) -> Option<String> {
 /// its `encrypted-password` crypt hash. Uniform `Unauthorized` for unknown
 /// users, locked accounts, and wrong passwords; a dummy hash round keeps the
 /// unknown-user timing indistinguishable from a real verification.
-async fn verify_vyos_user(state: &Arc<AppState>, username: &str, password: &str) -> Result<()> {
+/// On success returns the user's configured `full-name` (for display).
+async fn verify_vyos_user(
+    state: &Arc<AppState>,
+    username: &str,
+    password: &str,
+) -> Result<Option<String>> {
     let data = vyos::show_config(state, &["system", "login", "user"]).await?;
 
     // `showConfig` is backed by `cli-shell-api showConfig <path>`, whose output
@@ -172,6 +177,11 @@ async fn verify_vyos_user(state: &Arc<AppState>, username: &str, password: &str)
     let stored = user_entry
         .and_then(|u| u.get("authentication"))
         .and_then(|a| a.get("encrypted-password"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+
+    let full_name = user_entry
+        .and_then(|u| u.get("full-name"))
         .and_then(Value::as_str)
         .map(str::to_string);
 
@@ -207,7 +217,7 @@ async fn verify_vyos_user(state: &Arc<AppState>, username: &str, password: &str)
     .map_err(|e| AppError::Internal(anyhow::anyhow!("verify task failed: {e}")))?;
 
     if ok {
-        Ok(())
+        Ok(full_name)
     } else {
         if had_hash {
             tracing::warn!(user = %username, "login failed: password verification failed");
@@ -226,8 +236,25 @@ pub struct LoginRequest {
 
 /// The user object returned to the SPA. VyOS 1.4+ has no operator level — every
 /// login user is an administrator — so `role` is fixed until that changes.
-fn user_body(username: &str) -> Value {
-    serde_json::json!({ "username": username, "role": "admin" })
+fn user_body(username: &str, full_name: Option<&str>) -> Value {
+    let mut body = serde_json::json!({ "username": username, "role": "admin" });
+    if let Some(name) = full_name {
+        body["full_name"] = Value::String(name.to_string());
+    }
+    body
+}
+
+/// Best-effort lookup of the user's configured `full-name` (display only, so
+/// config-read failures just mean no name).
+async fn lookup_full_name(state: &Arc<AppState>, username: &str) -> Option<String> {
+    let data = vyos::show_config(state, &["system", "login", "user"])
+        .await
+        .ok()?;
+    data.get(username)
+        .or_else(|| data.get("user").and_then(|u| u.get(username)))
+        .and_then(|u| u.get("full-name"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 /// POST /api/auth/login — public.
@@ -239,7 +266,7 @@ pub async fn login(
         return Err(AppError::BadRequest("username and password are required".into()));
     }
 
-    verify_vyos_user(&state, &body.username, &body.password).await?;
+    let full_name = verify_vyos_user(&state, &body.username, &body.password).await?;
     tracing::info!(user = %body.username, "login ok");
 
     let claims = Claims::new(&body.username, state.config.session_hours);
@@ -254,7 +281,7 @@ pub async fn login(
     // built-in vyos account) is flagged so the SPA forces a password change
     // before exposing the console. Only login can know this — the config
     // stores a hash — so /auth/me carries the flag forward client-side.
-    let mut user = user_body(&body.username);
+    let mut user = user_body(&body.username, full_name.as_deref());
     if body.password == "vyos" {
         user["default_password"] = Value::Bool(true);
     }
@@ -273,12 +300,14 @@ pub async fn logout(State(state): State<Arc<AppState>>) -> Response {
 
 /// GET /api/auth/me — behind `require_auth`. The cookie is httpOnly, so this is
 /// how the SPA learns whether (and as whom) it is logged in.
-pub async fn me(req: Request) -> Result<axum::Json<Value>> {
+pub async fn me(State(state): State<Arc<AppState>>, req: Request) -> Result<axum::Json<Value>> {
     let claims = req
         .extensions()
         .get::<Claims>()
-        .ok_or(AppError::Unauthorized)?;
-    Ok(axum::Json(user_body(&claims.sub)))
+        .ok_or(AppError::Unauthorized)?
+        .clone();
+    let full_name = lookup_full_name(&state, &claims.sub).await;
+    Ok(axum::Json(user_body(&claims.sub, full_name.as_deref())))
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────

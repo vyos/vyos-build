@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText, ShieldAlert, SlidersHorizontal, Users, KeyRound, Wrench } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText, ShieldAlert, SlidersHorizontal, Users, KeyRound, Wrench, AppWindow } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -76,6 +76,7 @@ const ITEMS: NavItem[] = [
       { id: "dhcp-relay",     label: "DHCP Relay",     href: "/services/dhcp-relay",     icon: Forward },
       { id: "dns-forwarding", label: "DNS Forwarding", href: "/services/dns-forwarding", icon: Globe },
       { id: "intrusion-prevention", label: "Intrusion Prevention", href: "/services/intrusion-prevention", icon: ShieldAlert },
+      { id: "application-control", label: "Application Control", href: "/services/application-control", icon: AppWindow },
     ],
   },
   {
@@ -92,6 +93,16 @@ const ITEMS: NavItem[] = [
     ],
   },
 ];
+
+/// Avatar initials: first letters of the full name's words when configured
+/// ("Cody Wellman" → "CW"), otherwise the first two letters of the username.
+function userInitials(user: AuthUserInfo): string {
+  const words = (user.full_name ?? "").split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return (words[0] ?? user.username).slice(0, 2).toUpperCase();
+}
 
 export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   // Static export emits trailing-slash routes, so normalise before comparing.
@@ -229,11 +240,18 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
             background: "linear-gradient(135deg, var(--qz-green-700), var(--qz-green-500))",
           }}
         >
-          {user ? user.username.slice(0, 2).toUpperCase() : "…"}
+          {user ? userInitials(user) : "…"}
         </div>
-        <span className="text-[var(--qz-fg-1)] font-semibold text-[13px] truncate flex-1 min-w-0">
-          {user?.username ?? ""}
-        </span>
+        <div className="flex-1 min-w-0 flex flex-col">
+          <span className="text-[var(--qz-fg-1)] font-semibold text-[13px] truncate leading-tight">
+            {user ? user.full_name || user.username : ""}
+          </span>
+          {user?.full_name && (
+            <span className="text-[var(--qz-fg-4)] text-[11px] truncate leading-tight">
+              {user.username}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           title="Log out"

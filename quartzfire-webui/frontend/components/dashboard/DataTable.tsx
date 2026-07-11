@@ -133,7 +133,11 @@ export function DataTable<T>({
     }
   }, [persistKey, orderedKeys, widths, hidden]);
 
-  // Seed widths from the natural (auto-layout) render, then switch to fixed layout.
+  // Seed widths from the natural (auto-layout) render, then switch to fixed
+  // layout. Columns with a declared `width` keep it — the auto layout stretches
+  // everything to fill the table, and persisting those inflated measurements
+  // would override the deliberate compact widths (flexible columns without a
+  // declared width absorb the slack instead).
   const tableRef = useRef<HTMLTableElement>(null);
   useLayoutEffect(() => {
     if (seeded) return;
@@ -142,11 +146,11 @@ export function DataTable<T>({
     const measured: Record<string, number> = {};
     table.querySelectorAll<HTMLElement>("thead th[data-col-key]").forEach((th) => {
       const k = th.dataset.colKey!;
-      measured[k] = Math.round(th.getBoundingClientRect().width);
+      measured[k] = byKey.get(k)?.width ?? Math.round(th.getBoundingClientRect().width);
     });
     setWidths((prev) => ({ ...measured, ...prev }));
     setSeeded(true);
-  }, [seeded]);
+  }, [seeded, byKey]);
 
   const resetLayout = () => {
     setOrder(defaultOrder);

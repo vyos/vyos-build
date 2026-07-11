@@ -1,0 +1,63 @@
+[Unit]
+Description=QuartzFire Application Control daemon (qfappd)
+Documentation=file:/usr/share/doc/qfappd/design.md
+# /config mounts late on VyOS (vyos-router is Type=simple); qfappd-apply polls
+# for the desired-state file itself, so we only need networking up.
+After=network-pre.target vyos-router.service
+Wants=network-pre.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/sbin/qfappd --config /etc/qfappd/qfappd.toml run
+Restart=on-failure
+RestartSec=2
+WatchdogSec=15
+TimeoutStopSec=20
+
+# Dedicated unprivileged identity; the WebUI joins this group to reach the
+# gRPC socket (SupplementaryGroups=qfappd on the webui unit).
+User=qfappd
+Group=qfappd
+
+# Capabilities: NET_ADMIN for NFQUEUE verdicts + ctnetlink mark writes;
+# NET_RAW only for block_mode=reset (crafted RST on a raw socket).
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+NoNewPrivileges=yes
+
+# Runtime + log dirs (tmpfs / persistent respectively). 0755 so the
+# unprivileged WebUI can read status.json / catalog.json (the gRPC socket
+# stays 0660, group qfappd).
+RuntimeDirectory=qfappd
+RuntimeDirectoryMode=0755
+LogsDirectory=qfappd
+LogsDirectoryMode=0755
+ConfigurationDirectory=qfappd
+
+# Sandboxing.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Needs netlink (NFQUEUE/ctnetlink) + raw (RST) + unix (gRPC/events).
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET
+# nft(8) is invoked to (re)load the qfappd table.
+ExecPaths=/usr/sbin/nft /sbin/nft
+
+# Event JSON goes to stdout → journal under this identifier (Alerts tab reads
+# `journalctl -t qfappd`); tracing diagnostics go to stderr.
+SyslogIdentifier=qfappd
+
+[Install]
+WantedBy=multi-user.target

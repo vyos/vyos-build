@@ -21,6 +21,13 @@ function shortUptime(s: string | null): string | null {
   return parts.length ? parts.join(" ") : s;
 }
 
+/// "quartzfire-0.1.0" → "QuartzFire v0.1.0" (unrecognized strings pass through).
+function prettyVersion(v: string | null): string {
+  if (!v) return "Unknown version";
+  const m = /^quartzfire-(.+)$/i.exec(v.trim());
+  return m ? `QuartzFire v${m[1]}` : v;
+}
+
 /// Bar colour by utilisation: green → amber → red.
 function barColor(pct: number | null): string {
   if (pct == null) return "var(--qz-fg-4)";
@@ -121,12 +128,11 @@ export function SystemInfoPod() {
         <>
           {/* Identity */}
           <div className="flex items-center gap-[10px] mb-1 flex-wrap">
-            {info.release_train && <span className="badge badge-muted">{info.release_train}</span>}
             <span
               className="text-[22px] font-bold"
               style={{ color: "var(--qz-accent)", fontFamily: "var(--qz-font-mono)" }}
             >
-              {info.version ?? "Unknown version"}
+              {prettyVersion(info.version)}
             </span>
           </div>
           {hardware && <div className="text-[13px] text-[var(--qz-fg-2)] mb-2">{hardware}</div>}

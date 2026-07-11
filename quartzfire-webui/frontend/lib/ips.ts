@@ -47,7 +47,7 @@ export interface IpsSettings {
   medium: LevelPolicy;
   low: LevelPolicy;
   information: LevelPolicy;
-  /** Signature IDs excluded from the ruleset. */
+  /** Excepted signature IDs — alert-only: never blocked, still logged. */
   exceptions: number[];
   /** Signature source URL; null = suricata-update's default (ET Open). */
   update_url: string | null;

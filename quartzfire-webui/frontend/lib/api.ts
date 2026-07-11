@@ -25,6 +25,8 @@ export class ApiError extends Error {
 export interface AuthUserInfo {
   username: string;
   role: string;
+  /** `system login user <name> full-name`, when configured (for display). */
+  full_name?: string;
   /** Set at login when the account still uses the factory-default password —
    *  the console then forces a password change before anything else. */
   default_password?: boolean;

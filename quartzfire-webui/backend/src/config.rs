@@ -58,6 +58,27 @@ pub struct Config {
     /// alerts live across reboots; backs /api/ips/alerts/history.
     #[serde(default = "default_ips_alerts_file")]
     pub ips_alerts_file: PathBuf,
+
+    /// Desired Application Control state, applied by the root `qfappd-apply`
+    /// helper. Lives under `/config` so it survives image upgrades (same
+    /// contract as the IPS settings file).
+    #[serde(default = "default_appcontrol_settings_file")]
+    pub appcontrol_settings_file: PathBuf,
+
+    /// qfappd's runtime status snapshot (read-only for us): policy generation,
+    /// last error, per-queue counters, classification stats.
+    #[serde(default = "default_appcontrol_status_file")]
+    pub appcontrol_status_file: PathBuf,
+
+    /// qfappd's nDPI application catalog, written at daemon startup (read-only
+    /// for us) — backs the Actions editor's category/app tree.
+    #[serde(default = "default_appcontrol_catalog_file")]
+    pub appcontrol_catalog_file: PathBuf,
+
+    /// qfappd's persistent decision-event log (read-only for us) — backs
+    /// /api/appcontrol/alerts/history across reboots.
+    #[serde(default = "default_appcontrol_events_file")]
+    pub appcontrol_events_file: PathBuf,
 }
 
 fn default_listen() -> String {
@@ -90,6 +111,18 @@ fn default_ips_status_file() -> PathBuf {
 }
 fn default_ips_alerts_file() -> PathBuf {
     PathBuf::from("/var/log/quartzfire/ips-alerts.json")
+}
+fn default_appcontrol_settings_file() -> PathBuf {
+    PathBuf::from("/config/quartzfire/appcontrol.json")
+}
+fn default_appcontrol_status_file() -> PathBuf {
+    PathBuf::from("/run/qfappd/status.json")
+}
+fn default_appcontrol_catalog_file() -> PathBuf {
+    PathBuf::from("/run/qfappd/catalog.json")
+}
+fn default_appcontrol_events_file() -> PathBuf {
+    PathBuf::from("/var/log/qfappd/events.json")
 }
 fn default_guard_dir() -> PathBuf {
     PathBuf::from("/config/quartzfire")

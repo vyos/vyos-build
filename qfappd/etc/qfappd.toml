@@ -1,0 +1,64 @@
+# qfappd — QuartzFire Application Control daemon configuration.
+# All values shown are the built-in defaults; delete anything you don't
+# override. See docs/design.md for the full rationale.
+
+[queues]
+# NFQUEUE numbers: workers bind start .. start+count-1. The binding rules
+# generated in templates/qfappd.nft fan out across this same range.
+start = 100
+count = 4
+# "open"  = kernel bypasses the queue if it is full / qfappd is down
+#           (fail-open — selected traffic still flows). This is the default.
+# "closed"= selected traffic is dropped instead when qfappd can't keep up.
+fail_mode = "open"
+
+[classify]
+# Give up classifying a flow after whichever of these comes first, then
+# apply the governing action's default ("when application does not match").
+max_packets = 12
+max_payload_bytes = 4096
+
+[flow_table]
+# Total in-flight (unclassified) flow entries across all workers. Classified
+# flows leave the table immediately (their state lives in the ct mark).
+max_entries = 524288
+# Unclassified flows idle longer than this are evicted.
+idle_timeout_secs = 120
+
+# ── conntrack-mark bit layout ────────────────────────────────────────────────
+# The single source of truth for the mark encoding. The nftables template is
+# rendered from these same numbers, so kernel and daemon can never disagree.
+# All qfappd writes are masked, so bits outside these fields (owned by other
+# QuartzFire subsystems) are preserved.
+#
+#   bit  classified_bit            flow has a final verdict
+#   bit  block_bit                 verdict was block (drop-rule match)
+#   bits [app_shift .. +app_bits)  nDPI app id (0 = unknown)
+#   bits [action_shift .. +action_bits)  named-action id (0 = not enabled)
+#
+# Default leaves bits 0..15 entirely for other subsystems.
+[mark]
+classified_bit = 31
+block_bit = 30
+app_shift = 19
+app_bits = 11
+action_shift = 16
+action_bits = 3      # → up to 7 concurrently-bound actions
+
+[events]
+socket = true
+socket_path = "/run/qfappd/events.sock"
+file = true
+file_path = "/var/log/qfappd/events.json"
+# Mirror events to stdout → captured by journald as SyslogIdentifier=qfappd;
+# this is what the WebUI Alerts tab streams.
+journald = true
+
+[policy]
+path = "/run/qfappd/policy.json"
+
+[api]
+socket_path = "/run/qfappd/qfappd.sock"
+# Unprivileged status fallback for the WebUI (mirrors quartzfire-ips).
+status_path = "/run/qfappd/status.json"
+status_interval_secs = 5

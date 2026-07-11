@@ -1,0 +1,108 @@
+// qfappd v1 introspection API, served on unix:/run/qfappd/qfappd.sock.
+// Consumers: quartzfire-webui (catalog/policy/status) and qfagent (cloud
+// controller). Additive changes only within v1.
+
+syntax = "proto3";
+
+package qfappd.v1;
+
+service Qfappd {
+  // Full application catalog from the loaded libndpi (tracks the installed
+  // signature set).
+  rpc GetCatalog(GetCatalogRequest) returns (Catalog);
+  // The currently-active compiled policy plus last load error, if any.
+  rpc GetPolicy(GetPolicyRequest) returns (PolicyStatus);
+  // Per-application counters and top-N applications.
+  rpc GetFlowStats(GetFlowStatsRequest) returns (FlowStats);
+  // Daemon health: queue drops, classification rate, unknown %, versions.
+  rpc GetStatus(GetStatusRequest) returns (Status);
+}
+
+message GetCatalogRequest {}
+message GetPolicyRequest {}
+message GetStatusRequest {}
+
+message GetFlowStatsRequest {
+  // Number of top applications to return; 0 = default (20).
+  uint32 top_n = 1;
+}
+
+message Catalog {
+  string ndpi_version = 1;
+  uint32 num_protocols = 2;
+  repeated CatalogApp applications = 3;
+}
+
+message CatalogApp {
+  uint32 id = 1;
+  string name = 2;
+  uint32 category_id = 3;
+  string category = 4;
+}
+
+message PolicyStatus {
+  // Monotonic generation of the active policy (0 = none loaded yet).
+  uint64 generation = 1;
+  // Error from the most recent load attempt; empty when the last push was
+  // accepted. The active policy is always the last-known-good one.
+  string last_error = 2;
+  repeated PolicyAction actions = 3;
+  repeated PolicyBinding bindings = 4;
+  repeated string warnings = 5;
+}
+
+message PolicyAction {
+  string name = 1;
+  uint32 action_id = 2; // ct-mark ACTION_ID
+  string default_action = 3; // "allow" | "block"
+  string block_mode = 4; // "drop" | "reset"
+}
+
+message PolicyBinding {
+  uint32 binding_id = 1;
+  uint32 action_id = 2;
+  string action_name = 3;
+  string description = 4;
+}
+
+message FlowStats {
+  uint64 total_decisions = 1;
+  uint64 total_blocked = 2;
+  uint64 total_unknown = 3;
+  repeated AppFlowStat top_apps = 4;
+}
+
+message AppFlowStat {
+  uint32 app_id = 1;
+  string app = 2;
+  uint64 flows = 3;
+  uint64 blocked_flows = 4;
+  uint64 bytes = 5;
+  uint64 pkts = 6;
+}
+
+message Status {
+  string qfappd_version = 1;
+  string ndpi_version = 2;
+  uint64 policy_generation = 3;
+  string policy_last_error = 4;
+  // One entry per NFQUEUE worker.
+  repeated QueueStatus queues = 5;
+  uint64 decisions = 6;
+  uint64 blocked = 7;
+  double unknown_pct = 8;
+  // Decisions in the last 60 seconds.
+  uint64 classification_rate_per_min = 9;
+  uint64 flowtable_entries = 10;
+  uint64 flowtable_lru_evictions = 11;
+  uint64 flowtable_idle_evictions = 12;
+  uint64 event_sink_drops = 13;
+  string fail_mode = 14; // "open" | "closed"
+}
+
+message QueueStatus {
+  uint32 queue_num = 1;
+  uint64 packets = 2;
+  // Kernel-side drops observed for this queue (queue full).
+  uint64 drops = 3;
+}

@@ -5,7 +5,7 @@
 // the VyOS HTTP API through the authenticated backend proxy, commit
 // immediately, and are saved to the boot config in the background.
 
-import { vyosApi } from "./api";
+import { apiFetch, vyosApi } from "./api";
 import { scheduleBootSave } from "./bootSave";
 import { guardedCommitAndSave } from "./guard";
 
@@ -349,6 +349,34 @@ function parseEthernetTable(text: string): PhysicalEthernet[] {
   return [...out.entries()]
     .map(([name, link]) => ({ name, link }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/// Operational phy state of one physical NIC (backend `/api/interfaces/phy`:
+/// sysfs + ethtool). `supported_speeds` is empty when the port doesn't report
+/// its capabilities — offer every speed then.
+export interface PhyInfo {
+  name: string;
+  link: boolean | null;
+  /** Negotiated speed in Mb/s; null when the link is down. */
+  speed_mbps: number | null;
+  duplex: string | null;
+  /** Speeds (Mb/s) the port supports, ascending. */
+  supported_speeds: number[];
+}
+
+/// Phy capabilities + negotiated state of every physical NIC. Best-effort:
+/// callers treat a failure as "no phy data" (columns show — and the speed
+/// picker offers everything).
+export function fetchEthernetPhy(): Promise<PhyInfo[]> {
+  return apiFetch<PhyInfo[]>("/interfaces/phy");
+}
+
+/// Human display of a negotiated/configured speed in Mb/s.
+export function formatSpeed(mbps: number | null): string | null {
+  if (mbps == null) return null;
+  if (mbps < 1000) return `${mbps} Mb/s`;
+  const g = mbps / 1000;
+  return `${Number.isInteger(g) ? g : g.toFixed(1)} Gb/s`;
 }
 
 /// All physical ethernet NICs present on the device (configured or not), with

@@ -366,6 +366,41 @@ export function addImage(url: string): Promise<void> {
   return opApi("image", { op: "add", url: url.trim() }, "install the image");
 }
 
+/// Upload an ISO from the browser to the device's staging area. XHR rather
+/// than fetch so upload progress can be reported (a 500 MB ISO over a LAN
+/// still takes a while). Resolves to the on-device path — hand it to
+/// `addImage` (the image op accepts local paths as its url).
+export function uploadImageFile(
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API}/image/upload`);
+    xhr.withCredentials = true;
+    xhr.responseType = "json";
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onProgress) onProgress(ev.loaded / ev.total);
+    };
+    xhr.onerror = () => reject(new Error("Upload failed — connection to the firewall lost."));
+    xhr.onload = () => {
+      const body = xhr.response as { path?: string; error?: string } | null;
+      if (xhr.status >= 200 && xhr.status < 300 && body?.path) resolve(body.path);
+      else if (xhr.status === 401) reject(new Error("Session expired. Please sign in again."));
+      else reject(new Error(body?.error || `Upload failed (${xhr.status}).`));
+    };
+    xhr.send(file);
+  });
+}
+
+/// Remove the staged ISO after an install attempt (idempotent, best-effort —
+/// a leftover is overwritten by the next upload anyway).
+export async function cleanupImageUpload(): Promise<void> {
+  try {
+    await fetch(`${API}/image/upload`, { method: "DELETE", credentials: "include" });
+  } catch {}
+}
+
 /// Remove an installed (non-running) system image.
 export function deleteImage(name: string): Promise<void> {
   return opApi("image", { op: "delete", name }, "delete the image");

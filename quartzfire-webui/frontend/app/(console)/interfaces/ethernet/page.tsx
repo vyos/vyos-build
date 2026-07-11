@@ -4,12 +4,21 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Pencil, Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Column, DataTable, FilterDef } from "@/components/dashboard/DataTable";
-import { EthernetInterface, LinkState, fetchEthernet, fetchPhysicalEthernet } from "@/lib/interfaces";
+import {
+  EthernetInterface,
+  LinkState,
+  PhyInfo,
+  fetchEthernet,
+  fetchEthernetPhy,
+  fetchPhysicalEthernet,
+  formatSpeed,
+} from "@/lib/interfaces";
 import { useDashboard } from "@/lib/DashboardContext";
 import { EthernetFormModal } from "./EthernetFormModal";
 
-/// Configured interface plus its operational link (carrier) state.
-type EthRow = EthernetInterface & { link: LinkState };
+/// Configured interface plus its operational link (carrier) state and
+/// negotiated speed.
+type EthRow = EthernetInterface & { link: LinkState; phy: PhyInfo | null };
 
 function StatePill({ enabled }: { enabled: boolean }) {
   return <span className={enabled ? "badge badge-ok" : "badge badge-muted"}>{enabled ? "Enabled" : "Disabled"}</span>;
@@ -38,6 +47,19 @@ const columns: Column<EthRow>[] = [
     header: "Link",
     value: (r) => r.link,
     render: (r) => <LinkPill link={r.link} />,
+    sortable: true,
+    width: 100,
+  },
+  {
+    key: "speed",
+    header: "Speed",
+    value: (r) => r.phy?.speed_mbps ?? 0,
+    render: (r) => {
+      const s = formatSpeed(r.phy?.speed_mbps ?? null);
+      if (!s) return <span className="text-[var(--qz-fg-4)]">—</span>;
+      return <span title={r.phy?.duplex ? `${r.phy.duplex} duplex` : undefined}>{s}</span>;
+    },
+    mono: true,
     sortable: true,
     width: 100,
   },
@@ -76,6 +98,7 @@ export default function EthernetPage() {
   const { setToast } = useDashboard();
   const [rows, setRows] = useState<EthRow[]>([]);
   const [physical, setPhysical] = useState<string[]>([]);
+  const [phyByName, setPhyByName] = useState<Record<string, PhyInfo>>({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -83,9 +106,23 @@ export default function EthernetPage() {
   const [modal, setModal] = useState<{ eth?: EthernetInterface } | null>(null);
 
   const fetchData = useCallback(async () => {
-    const [eths, phys] = await Promise.all([fetchEthernet(), fetchPhysicalEthernet()]);
-    setRows(eths.map((e) => ({ ...e, link: phys.find((p) => p.name === e.name)?.link ?? "unknown" })));
+    const [eths, phys, phyInfos] = await Promise.all([
+      fetchEthernet(),
+      fetchPhysicalEthernet(),
+      // Best-effort: without phy data the Speed column shows — and the
+      // editor offers every speed.
+      fetchEthernetPhy().catch(() => [] as PhyInfo[]),
+    ]);
+    const phy = Object.fromEntries(phyInfos.map((p) => [p.name, p]));
+    setRows(
+      eths.map((e) => ({
+        ...e,
+        link: phys.find((p) => p.name === e.name)?.link ?? "unknown",
+        phy: phy[e.name] ?? null,
+      })),
+    );
     setPhysical(phys.map((p) => p.name));
+    setPhyByName(phy);
   }, []);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
@@ -177,6 +214,7 @@ export default function EthernetPage() {
         <EthernetFormModal
           initial={modal.eth}
           freeNames={freeNames}
+          phyByName={phyByName}
           onClose={() => setModal(null)}
           onSaved={(msg) => {
             setModal(null);
