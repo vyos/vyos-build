@@ -88,8 +88,8 @@ export default function LoginPage() {
         }}
       >
         {/* Logo + heading */}
-        <div className="flex flex-col items-center gap-3 text-center">
-          <img src="/logo-mark.png" alt="Quartz Systems" className="w-10 h-10" />
+        <div className="flex items-center justify-center gap-3">
+          <img src="/logo-mark.png" alt="Quartz Systems" className="w-9 h-9" />
           <h1
             className="text-[22px] font-bold text-[var(--qz-fg-1)] m-0"
             style={{ letterSpacing: "-0.02em" }}

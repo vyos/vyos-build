@@ -50,9 +50,35 @@ table inet qfappd {
         # persist qfappd's packet-mark verdict into the ct mark (masked, so
         # other subsystems' low bits survive), then drop the flow if it was a
         # block — both on this same reinjected verdict packet.
-        meta mark & $QF_CLASSIFIED == $QF_CLASSIFIED \
-            ct mark set ct mark & 0x0000ffff | meta mark & 0xffff0000 counter comment "qfappd-persist"
+        meta mark & $QF_CLASSIFIED == $QF_CLASSIFIED jump qf_persist comment "qfappd-persist"
         meta mark & $QF_BLOCKED    == $QF_BLOCKED    counter drop comment "qfappd-block"
+    }
+
+    # ct mark = (ct mark & 0x0000ffff) | (meta mark & 0xffff0000), decomposed:
+    # the nftables on-target (1.0.6) only accepts bitwise ops with a CONSTANT
+    # right-hand side, so the masked pkt→ct merge is a clear followed by one
+    # conditional OR per qfappd-owned bit (16 rules for the default layout).
+    # Only verdict packets enter (CLASSIFIED guard above), so this runs once
+    # per flow. Generated from the [mark] layout; the listing below is the
+    # default-layout rendering.
+    chain qf_persist {
+        ct mark set ct mark & 0x0000ffff counter
+        meta mark & 0x80000000 == 0x80000000 ct mark set ct mark | 0x80000000
+        meta mark & 0x40000000 == 0x40000000 ct mark set ct mark | 0x40000000
+        meta mark & 0x20000000 == 0x20000000 ct mark set ct mark | 0x20000000
+        meta mark & 0x10000000 == 0x10000000 ct mark set ct mark | 0x10000000
+        meta mark & 0x08000000 == 0x08000000 ct mark set ct mark | 0x08000000
+        meta mark & 0x04000000 == 0x04000000 ct mark set ct mark | 0x04000000
+        meta mark & 0x02000000 == 0x02000000 ct mark set ct mark | 0x02000000
+        meta mark & 0x01000000 == 0x01000000 ct mark set ct mark | 0x01000000
+        meta mark & 0x00800000 == 0x00800000 ct mark set ct mark | 0x00800000
+        meta mark & 0x00400000 == 0x00400000 ct mark set ct mark | 0x00400000
+        meta mark & 0x00200000 == 0x00200000 ct mark set ct mark | 0x00200000
+        meta mark & 0x00100000 == 0x00100000 ct mark set ct mark | 0x00100000
+        meta mark & 0x00080000 == 0x00080000 ct mark set ct mark | 0x00080000
+        meta mark & 0x00040000 == 0x00040000 ct mark set ct mark | 0x00040000
+        meta mark & 0x00020000 == 0x00020000 ct mark set ct mark | 0x00020000
+        meta mark & 0x00010000 == 0x00010000 ct mark set ct mark | 0x00010000
     }
 
     # Regenerated atomically by qfappd on every policy load. One rule per

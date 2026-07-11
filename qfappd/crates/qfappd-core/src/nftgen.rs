@@ -23,6 +23,7 @@ use crate::policy::{CompiledBinding, L4Proto, MatchSpec, parse_cidr};
 
 pub const TABLE: &str = "inet qfappd";
 pub const BINDINGS_CHAIN: &str = "qf_bindings";
+pub const PERSIST_CHAIN: &str = "qf_persist";
 
 #[derive(Debug, Clone, Copy)]
 pub struct QueueSpec {
@@ -90,12 +91,26 @@ pub fn render_table(layout: &Layout, queues: QueueSpec, bindings: &[CompiledBind
     out.push_str("        # persist qfappd's packet-mark verdict into the ct mark (masked),\n");
     out.push_str("        # then drop the flow if it was a block — both on this same packet.\n");
     out.push_str(&format!(
-        "        meta mark & {classified:#010x} == {classified:#010x} ct mark set ct mark & {:#010x} | meta mark & {qfmask:#010x} counter comment \"qfappd-persist\"\n",
-        !qfmask
+        "        meta mark & {classified:#010x} == {classified:#010x} jump {PERSIST_CHAIN} comment \"qfappd-persist\"\n"
     ));
     out.push_str(&format!(
         "        meta mark & {both:#010x} == {both:#010x} counter drop comment \"qfappd-block\"\n"
     ));
+    out.push_str("    }\n\n");
+    out.push_str(&format!("    chain {PERSIST_CHAIN} {{\n"));
+    out.push_str("        # ct mark = (ct mark & !qf_mask) | (meta mark & qf_mask), decomposed:\n");
+    out.push_str("        # nftables < 1.1 only accepts bitwise ops with a CONSTANT right-hand\n");
+    out.push_str("        # side, so the pkt→ct merge is one clear plus one conditional OR per\n");
+    out.push_str("        # qfappd-owned bit. Only verdict packets enter (CLASSIFIED guard above).\n");
+    out.push_str(&format!("        ct mark set ct mark & {:#010x} counter\n", !qfmask));
+    for bit in (0..32).rev() {
+        let m = 1u32 << bit;
+        if qfmask & m != 0 {
+            out.push_str(&format!(
+                "        meta mark & {m:#010x} == {m:#010x} ct mark set ct mark | {m:#010x}\n"
+            ));
+        }
+    }
     out.push_str("    }\n\n");
     out.push_str(&format!("    chain {BINDINGS_CHAIN} {{\n"));
     for rule in binding_rules(layout, queues, bindings) {
@@ -307,13 +322,43 @@ mod tests {
         assert!(out.contains("ct mark & 0xc0000000 == 0xc0000000 counter drop"));
         assert!(out.contains("ct mark & 0x80000000 == 0x80000000 counter accept"));
         assert!(out.contains("meta l4proto { tcp, udp } jump qf_bindings"));
-        // persist packet-mark verdict into ct mark (masked), then block-drop
-        assert!(out.contains(
-            "meta mark & 0x80000000 == 0x80000000 ct mark set ct mark & 0x0000ffff | meta mark & 0xffff0000 counter"
-        ));
+        // persist packet-mark verdict into ct mark via the qf_persist chain
+        assert!(out.contains("meta mark & 0x80000000 == 0x80000000 jump qf_persist comment \"qfappd-persist\""));
         assert!(out.contains("meta mark & 0xc0000000 == 0xc0000000 counter drop comment \"qfappd-block\""));
         // idempotent preamble
         assert!(out.contains("table inet qfappd {}\ndelete table inet qfappd"));
+    }
+
+    // nftables < 1.1 rejects bitwise ops whose right-hand side is not a
+    // constant ("Right hand side of binary operation (|) must be constant"),
+    // so the persist merge must never OR two runtime values.
+    #[test]
+    fn persist_chain_uses_constant_operands_only() {
+        let layout = Layout::default();
+        let out = render_table(&layout, queues(), &[]);
+        assert!(!out.contains("| meta mark"), "variable RHS in bitwise op:\n{out}");
+        // clear qfappd's bits, keeping the low 16 foreign bits…
+        assert!(out.contains("ct mark set ct mark & 0x0000ffff counter"));
+        // …then one conditional OR per owned bit, every bit of qf_mask covered.
+        for bit in 0..32u8 {
+            let m = 1u32 << bit;
+            let rule = format!("meta mark & {m:#010x} == {m:#010x} ct mark set ct mark | {m:#010x}");
+            assert_eq!(
+                layout.qf_mask() & m != 0,
+                out.contains(&rule),
+                "bit {bit} persist rule presence mismatch"
+            );
+        }
+    }
+
+    #[test]
+    fn persist_chain_tracks_custom_layout_mask() {
+        // 10 app bits + 4 action bits → same 0xFFFF0000 span, different fields;
+        // a narrower layout must not emit rules for bits it doesn't own.
+        let layout = Layout::new(31, 30, 20, 10, 16, 3).unwrap();
+        let out = render_table(&layout, queues(), &[]);
+        assert!(out.contains(&format!("ct mark set ct mark & {:#010x} counter", !layout.qf_mask())));
+        assert!(!out.contains("meta mark & 0x00080000 == 0x00080000 ct mark set"), "bit 19 is unowned in this layout");
     }
 
     #[test]

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
 import {
   addImage,
+  cleanupImageUpload,
   deleteImage,
   downloadConfigBackup,
   fetchImages,
@@ -21,6 +22,7 @@ import {
   restoreConfigBackup,
   shutdownSystem,
   SystemImage,
+  uploadImageFile,
 } from "@/lib/system";
 import { useDashboard } from "@/lib/DashboardContext";
 
@@ -113,9 +115,10 @@ function PowerConfirmModal({
   );
 }
 
-/// Install a new system image from a URL. The call is long — the device
-/// downloads and unpacks the image before answering — so the modal stays up
-/// with a busy state until it finishes.
+/// Install a new system image, either from a URL the device downloads or
+/// from an ISO uploaded straight out of the browser (drag & drop or file
+/// picker). Both are long operations — the modal stays up with a busy state
+/// until the device answers.
 function AddImageModal({
   onClose,
   onSaved,
@@ -124,8 +127,14 @@ function AddImageModal({
   onSaved: (message: string) => void;
 }) {
   const [url, setUrl] = useState("");
-  const [working, setWorking] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "uploading" | "installing">("idle");
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
+  const isoInput = useRef<HTMLInputElement>(null);
+
+  const working = phase !== "idle";
 
   // An install in flight can't be cancelled from here — closing the modal
   // would just hide it, so the modal stays up until the device answers.
@@ -133,21 +142,51 @@ function AddImageModal({
     if (!working) onClose();
   };
 
+  const pickFile = (f: File | null) => {
+    setError("");
+    if (f && !/\.iso$/i.test(f.name)) {
+      setError(`"${f.name}" is not an .iso file.`);
+      return;
+    }
+    setFile(f);
+  };
+
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    const u = url.trim();
-    if (!/^https?:\/\/.+/i.test(u)) {
-      setError("Enter the http(s) URL of a QuartzFire/VyOS ISO image.");
+
+    if (file) {
+      setPhase("uploading");
+      setProgress(0);
+      try {
+        const path = await uploadImageFile(file, setProgress);
+        setPhase("installing");
+        try {
+          await addImage(path);
+        } finally {
+          // The staged ISO is dead weight either way once the install ends.
+          await cleanupImageUpload();
+        }
+        onSaved("Image installed. It becomes the default boot image — reboot to run it.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to install the image.");
+        setPhase("idle");
+      }
       return;
     }
-    setWorking(true);
+
+    const u = url.trim();
+    if (!/^https?:\/\/.+/i.test(u)) {
+      setError("Enter the http(s) URL of a QuartzFire/VyOS ISO image, or drop an .iso file below.");
+      return;
+    }
+    setPhase("installing");
     try {
       await addImage(u);
       onSaved("Image installed. It becomes the default boot image — reboot to run it.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to install the image.");
-      setWorking(false);
+      setPhase("idle");
     }
   };
 
@@ -155,7 +194,7 @@ function AddImageModal({
     <ModalShell onClose={close} maxWidth={520}>
       <ModalHeader
         title="Add System Image"
-        subtitle="Download and install an upgrade image alongside the running one"
+        subtitle="Install an upgrade image alongside the running one"
         onClose={close}
       />
       <form onSubmit={submit} className="flex flex-col gap-4">
@@ -165,21 +204,97 @@ function AddImageModal({
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://example.com/quartzfire-1.5-rolling.iso"
-            disabled={working}
-            className={inputCls}
+            disabled={working || file !== null}
+            className={`${inputCls} disabled:opacity-60`}
             style={monoSt}
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--qz-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--qz-border)")}
           />
-          <p className="text-[11px] text-[var(--qz-fg-4)] m-0 mt-[5px]">
-            The image installs next to the current one, so the running system is untouched until you reboot —
-            and the previous image stays available as a rollback boot entry.
-          </p>
         </div>
 
-        {working && (
+        {/* Upload alternative: drag & drop or pick a local ISO. */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!working) setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (!working) pickFile(e.dataTransfer.files?.[0] ?? null);
+          }}
+          onClick={() => !working && isoInput.current?.click()}
+          role="button"
+          aria-label="Upload an ISO file"
+          className="rounded-md px-4 py-4 text-center cursor-pointer select-none"
+          style={{
+            border: `1px dashed ${dragOver ? "var(--qz-accent)" : "var(--qz-border-strong)"}`,
+            background: dragOver ? "var(--qz-accent-soft)" : "var(--qz-input-bg)",
+            opacity: working ? 0.6 : 1,
+          }}
+        >
+          {file ? (
+            <div className="flex items-center justify-center gap-2 text-[13px] text-[var(--qz-fg-1)]">
+              <span style={{ fontFamily: "var(--qz-font-mono)" }}>{file.name}</span>
+              <span className="text-[12px] text-[var(--qz-fg-4)]">
+                {(file.size / (1024 * 1024)).toFixed(0)} MB
+              </span>
+              {!working && (
+                <button
+                  type="button"
+                  aria-label="Remove selected file"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickFile(null);
+                  }}
+                  className="grid place-items-center w-6 h-6 rounded-md bg-transparent border-0 text-[var(--qz-fg-4)] hover:text-[var(--qz-danger)] transition-colors cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-[13px] text-[var(--qz-fg-3)] m-0">
+              …or drop a QuartzFire <span style={{ fontFamily: "var(--qz-font-mono)" }}>.iso</span> here
+              (or click to browse)
+            </p>
+          )}
+          <input
+            ref={isoInput}
+            type="file"
+            accept=".iso"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              e.target.value = "";
+              if (f) pickFile(f);
+            }}
+          />
+        </div>
+
+        <p className="text-[11px] text-[var(--qz-fg-4)] m-0">
+          The image installs next to the current one, so the running system is untouched until you reboot —
+          and the previous image stays available as a rollback boot entry.
+        </p>
+
+        {phase === "uploading" && (
+          <div className="flex flex-col gap-1">
+            <div className="h-[6px] rounded-full overflow-hidden" style={{ background: "var(--qz-border)" }}>
+              <div
+                className="h-full rounded-full transition-[width]"
+                style={{ width: `${Math.round(progress * 100)}%`, background: "var(--qz-accent)" }}
+              />
+            </div>
+            <p className="text-[12px] m-0 text-[var(--qz-fg-3)]">
+              Uploading… {Math.round(progress * 100)}%. Keep this page open.
+            </p>
+          </div>
+        )}
+        {phase === "installing" && (
           <p className="text-[12px] m-0 text-[var(--qz-fg-3)]">
-            Downloading and installing… this can take several minutes. Keep this page open.
+            {file ? "Installing the uploaded image…" : "Downloading and installing…"} this can take
+            several minutes. Keep this page open.
           </p>
         )}
         {error && (
@@ -200,11 +315,11 @@ function AddImageModal({
           </button>
           <button
             type="submit"
-            disabled={working}
-            className="px-4 py-[9px] rounded-md text-[13px] font-semibold cursor-pointer border-0"
+            disabled={working || (!file && url.trim() === "")}
+            className="px-4 py-[9px] rounded-md text-[13px] font-semibold cursor-pointer border-0 disabled:opacity-50"
             style={{ background: "var(--qz-accent)", color: "var(--qz-fg-on-accent)", opacity: working ? 0.7 : 1 }}
           >
-            {working ? "Installing…" : "Install image"}
+            {phase === "uploading" ? "Uploading…" : phase === "installing" ? "Installing…" : file ? "Upload & install" : "Install image"}
           </button>
         </div>
       </form>

@@ -94,6 +94,16 @@ const ITEMS: NavItem[] = [
   },
 ];
 
+/// Avatar initials: first letters of the full name's words when configured
+/// ("Cody Wellman" → "CW"), otherwise the first two letters of the username.
+function userInitials(user: AuthUserInfo): string {
+  const words = (user.full_name ?? "").split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return (words[0] ?? user.username).slice(0, 2).toUpperCase();
+}
+
 export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   // Static export emits trailing-slash routes, so normalise before comparing.
   const pathname = (usePathname() ?? "/").replace(/\/+$/, "") || "/";
@@ -230,11 +240,18 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
             background: "linear-gradient(135deg, var(--qz-green-700), var(--qz-green-500))",
           }}
         >
-          {user ? user.username.slice(0, 2).toUpperCase() : "…"}
+          {user ? userInitials(user) : "…"}
         </div>
-        <span className="text-[var(--qz-fg-1)] font-semibold text-[13px] truncate flex-1 min-w-0">
-          {user?.username ?? ""}
-        </span>
+        <div className="flex-1 min-w-0 flex flex-col">
+          <span className="text-[var(--qz-fg-1)] font-semibold text-[13px] truncate leading-tight">
+            {user ? user.full_name || user.username : ""}
+          </span>
+          {user?.full_name && (
+            <span className="text-[var(--qz-fg-4)] text-[11px] truncate leading-tight">
+              {user.username}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           title="Log out"

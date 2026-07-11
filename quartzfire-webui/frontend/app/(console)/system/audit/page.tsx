@@ -65,9 +65,9 @@ const logColumns: Column<SystemLogEntry>[] = [
     value: (r) => r.priority,
     render: (r) => <PriorityPill priority={r.priority} />,
     sortable: true,
-    width: 100,
+    width: 90,
   },
-  { key: "unit", header: "Source", value: (r) => r.unit, mono: true, sortable: true, width: 160 },
+  { key: "unit", header: "Source", value: (r) => r.unit, mono: true, sortable: true, width: 130 },
   { key: "message", header: "Message", value: (r) => r.message, mono: true },
 ];
 
@@ -340,7 +340,9 @@ export default function AuditLogPage() {
                 columns={logColumns}
                 rowId={(r) => String(r.id)}
                 filters={logFilters}
-                storageKey="system-audit-log"
+                // v2: reset persisted layouts that seeded from the old
+                // stretched-to-fit measurements (unreadably wide columns).
+                storageKey="system-audit-log-v2"
                 searchPlaceholder="Search log messages…"
                 emptyMessage="No system log entries readable on this device."
                 onRefresh={() => load("refresh")}

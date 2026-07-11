@@ -522,9 +522,15 @@ build container.
    Instead, qfappd sets the **packet** mark on its NFQUEUE **ACCEPT** verdict
    (always ACCEPT — even for blocks), and two nftables rules in the forward
    chain do the rest, in-kernel and atomically:
-   - a *persist* rule copies the qfappd-owned mark bits from the packet mark
-     into the ct mark with a masked `ct mark set` (other subsystems' low bits
-     survive);
+   - a *persist* rule jumps verdict packets (CLASSIFIED bit set) to a
+     `qf_persist` chain that copies the qfappd-owned mark bits from the packet
+     mark into the ct mark (other subsystems' low bits survive). The copy is
+     decomposed into one constant-mask clear plus one conditional OR per owned
+     bit, because the nftables shipped on the target (1.0.6, Debian bookworm)
+     rejects bitwise ops with a non-constant right-hand side — a single
+     `ct mark set ct mark & !QF | meta mark & QF` fails to parse until
+     nftables 1.1 (plus kernel ≥ 6.10), and it kept qfappd from booting at
+     all until decomposed;
    - a *block* rule drops the reinjected verdict packet when its mark carries
      the BLOCK bit — so a blocked flow's first classified packet is already
      dropped, and every later packet dies at the top-of-chain ct-mark fast

@@ -19,7 +19,8 @@
 #     signature's priority (explicit `priority:` keyword, else its classtype's
 #     classification.config priority) onto WatchGuard-style threat levels
 #     (1 critical / 2 high / 3 medium / 4 low / else information) and apply
-#     the per-level action — alert, drop, or disabled — plus SID exceptions;
+#     the per-level action — alert, drop, or disabled. SID exceptions stay in
+#     the ruleset as alert-only: matching traffic passes but is still logged;
 #   * start/stop/reload suricata.service accordingly;
 #   * report to /run/quartzfire-ips/status.json for the WebUI to read back.
 #
@@ -390,6 +391,7 @@ def rewrite_rules(settings):
     exceptions = {int(s) for s in settings.get("exceptions", [])}
     counts = {lvl: 0 for lvl in LEVELS}
     counts["disabled"] = 0
+    counts["excepted"] = 0
 
     out_lines = []
     with open(PRISTINE_FILE) as f:
@@ -411,12 +413,19 @@ def rewrite_rules(settings):
             sid = int(sid_m.group(1)) if sid_m else None
             action = settings[level]["action"]
 
-            if action == "disable" or (sid is not None and sid in exceptions):
+            if action == "disable":
                 counts["disabled"] += 1
                 out_lines.append(DISABLED_MARK + line)
                 continue
             counts[level] += 1
-            desired = "drop" if action == "drop" else "alert"
+            # Excepted SIDs stay in the ruleset but never block: forced to
+            # alert-only, so matching traffic passes yet still shows up in
+            # the Alerts view (and can be un-excepted from there).
+            if sid is not None and sid in exceptions:
+                counts["excepted"] += 1
+                desired = "alert"
+            else:
+                desired = "drop" if action == "drop" else "alert"
             out_lines.append(RULE_LINE.sub(desired + " ", line, count=1))
 
     write_atomic(RULES_FILE, "\n".join(out_lines) + "\n")

@@ -637,17 +637,33 @@ pub async fn pending(State(state): State<Arc<AppState>>) -> Result<Response> {
 // ── endpoints: backup / restore / rollback ────────────────────────────────────
 
 /// GET /api/config/backup — the running configuration as a downloadable
-/// config.boot-style file. Sourced from `config-file save` into `guard_dir`
-/// so it carries real secret values and the version trailer — a backup made
-/// from the masked `show configuration` output would silently wipe every
-/// secret on the box when restored.
+/// config.boot-style file.
+///
+/// Sourced from the commit archive (`show system commit file 0` — the most
+/// recent commit, which through the API always equals the running config,
+/// since every API change commits). NOT `config-file save` to a file: the
+/// VyOS API writes that as root via write_file_atomic (temp + rename), with
+/// a mode the sandboxed backend cannot read back (the snapshot flow never
+/// reads its files — only backup does). And NOT `show configuration`, whose
+/// output masks every secret — restoring such a backup would commit the mask
+/// literals over the real values.
 pub async fn backup(State(state): State<Arc<AppState>>) -> Result<Response> {
-    let path = save_running_config(&state, "backup.boot").await?;
-    let read = std::fs::read_to_string(&path);
-    let _ = std::fs::remove_file(&path);
-    let mut text = read.map_err(|e| {
-        AppError::Internal(anyhow::anyhow!("reading {}: {e}", path.display()))
+    let body = vyos::api_request(
+        &state,
+        "show",
+        &json!({ "op": "show", "path": ["system", "commit", "file", "0"] }),
+    )
+    .await
+    .map_err(|e| {
+        AppError::Gateway(format!("could not read the current configuration: {e}"))
     })?;
+    let text = body.get("data").and_then(Value::as_str).unwrap_or("");
+    if text.trim().is_empty() {
+        return Err(AppError::Gateway(
+            "the device returned an empty configuration for the current commit".into(),
+        ));
+    }
+    let mut text = text.to_string();
     if !text.ends_with('\n') {
         text.push('\n');
     }
