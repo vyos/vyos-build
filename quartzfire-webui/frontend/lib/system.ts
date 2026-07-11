@@ -10,7 +10,8 @@
 // endpoints (`/reboot`, `/poweroff`, `/image`) — they are operational, not
 // config, so nothing is diffed or saved.
 
-import { vyosApi } from "./api";
+import { API, apiFetch, vyosApi } from "./api";
+import { PendingWire, registerPending } from "./guard";
 import { commitAndSave, VyosCommand, VyosResponse } from "./interfaces";
 import { showText } from "./vyos";
 
@@ -378,4 +379,45 @@ export function rebootSystem(): Promise<void> {
 /// Power the firewall off immediately.
 export function shutdownSystem(): Promise<void> {
   return opApi("poweroff", { op: "poweroff", path: [] }, "shut down");
+}
+
+// ══ maintenance: configuration backup / restore ═══════════════════════════════
+
+/// Download the running configuration as a config.boot-style file, named
+/// client-side (the appliance's clock isn't trusted for timestamps).
+export async function downloadConfigBackup(): Promise<void> {
+  const res = await fetch(`${API}/config/backup`, { credentials: "include" });
+  if (!res.ok) {
+    let message = `Backup failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {}
+    throw new Error(message);
+  }
+  const blob = await res.blob();
+
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `quartzfire-config-${stamp}.boot`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/// Replace the entire configuration with an uploaded config.boot. Runs under
+/// commit-confirm with a long window (the blast radius is the whole config) —
+/// the shell banner asks for confirmation and auto-reverts without one.
+export async function restoreConfigBackup(content: string): Promise<void> {
+  const wire = await apiFetch<PendingWire>("/config/restore", {
+    method: "POST",
+    body: JSON.stringify({ content, timeout_secs: 120 }),
+  });
+  registerPending(wire);
 }

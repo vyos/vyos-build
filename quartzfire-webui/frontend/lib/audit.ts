@@ -4,6 +4,7 @@
 // Traffic Monitor page.
 
 import { apiFetch, vyosApi } from "./api";
+import { PendingWire, registerPending } from "./guard";
 import { VyosResponse } from "./interfaces";
 
 /// One configuration commit, from `show system commit`. Revision 0 is the
@@ -80,4 +81,17 @@ export async function fetchCommitDiff(revision: number): Promise<string> {
 /// Recent system journal entries, newest first, traffic lines excluded.
 export function fetchSystemLog(): Promise<SystemLogEntry[]> {
   return apiFetch<SystemLogEntry[]>("/monitor/system-log");
+}
+
+/// Return to the configuration of a previous commit revision. No reboot
+/// (unlike the CLI's `rollback`): the backend loads and commits that
+/// revision's config under commit-confirm, so the shell banner asks for
+/// confirmation and auto-reverts if none arrives — rolling back a rollback
+/// that cut the session off.
+export async function rollbackToRevision(revision: number): Promise<void> {
+  const wire = await apiFetch<PendingWire>("/config/rollback", {
+    method: "POST",
+    body: JSON.stringify({ revision, timeout_secs: 120 }),
+  });
+  registerPending(wire);
 }

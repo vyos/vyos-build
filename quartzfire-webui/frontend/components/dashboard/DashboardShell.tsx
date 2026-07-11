@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
+import { CommitGuard } from "@/components/dashboard/CommitGuard";
 import { SaveIndicator } from "@/components/dashboard/SaveIndicator";
 import { Toast } from "@/components/dashboard/Toast";
 import { DefaultPasswordGate } from "@/components/DefaultPasswordGate";
@@ -41,6 +42,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         onNavigate={(href) => nextRouter.push(href)}
       />
       <SaveIndicator />
+      <CommitGuard />
       <DefaultPasswordGate />
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>

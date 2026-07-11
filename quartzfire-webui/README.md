@@ -73,6 +73,42 @@ no-op. It deliberately does **not** open a runtime `ConfigSession`/commit at
 boot: a leaked boot-time session can wedge every subsequent config session on
 the box ("can't initialize output").
 
+### Commit-confirm guard (don't lock yourself out)
+
+Risky changes — firewall, interfaces, NAT, routing, config restores and
+rollbacks — do not go straight to `/configure`. They apply through
+`POST /api/guard/apply` (`backend/src/guard.rs`), which:
+
+1. snapshots the running config (`show configuration`),
+2. commits the change (it is live immediately),
+3. arms a server-side revert timer (default 60 s).
+
+The shell shows a countdown banner with **Confirm** / **Revert now**. Without
+a confirmation — because the change severed the session, or the user walked
+away — the backend loads the snapshot back (`config-file load`, which
+commits), restoring access. The boot config is only written on confirm, so a
+power-cycle mid-window also comes back in the old state. While a change is
+pending, raw `/configure` and `/config-file` proxy calls are refused (409).
+
+`apply` additionally runs a static **anti-lockout check**: commands that
+delete or disable the interface/address the management session rides on
+(derived from the `Host` header) are refused with the reasons; the UI offers
+an explicit override, which still runs under commit-confirm. Firewall-rule
+reachability is not statically analysed — the revert timer covers it.
+
+Related config-lifecycle endpoints (same module):
+
+- `GET /api/config/backup` — running config as a downloadable config.boot
+  (version trailer appended when readable, for cross-release restores).
+- `POST /api/config/restore` — replace the whole config with an uploaded
+  backup, under commit-confirm (Maintenance page).
+- `POST /api/config/rollback` — load a previous commit revision's config
+  without a reboot, under commit-confirm (Audit Log page).
+
+The snapshot/target files are staged in `guard_dir` (default
+`/config/quartzfire`) because the sandboxed backend and the root VyOS API
+process need a shared path (`PrivateTmp` rules out `/tmp`).
+
 ## Build
 
 For the full Windows/WSL2 workflow (environment setup, ISO build, flashing,
@@ -102,6 +138,7 @@ www_root      = "/usr/share/quartzfire-webui/www"
 jwt_secret_file = "/var/lib/quartzfire-webui/jwt.secret"
 cookie_secure = true               # set false only for plain-HTTP local dev
 session_hours = 24
+guard_dir     = "/config/quartzfire"  # commit-confirm staging (see guard.rs)
 ```
 
 ## Status

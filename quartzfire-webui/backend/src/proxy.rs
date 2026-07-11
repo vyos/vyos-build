@@ -26,6 +26,23 @@ const STRIP_HEADERS: &[&str] = &[
 ///
 /// The incoming path `/api/retrieve` maps to `<vyos_api_url>/retrieve`.
 pub async fn handler(State(state): State<Arc<AppState>>, req: Request) -> Response {
+    // While a commit-confirm change is awaiting confirmation, raw config
+    // writes are refused: another /configure would muddy the revert snapshot,
+    // and a /config-file save would persist the unconfirmed change to the
+    // boot config — defeating the guard (see guard.rs).
+    let path = req.uri().path();
+    if (path.starts_with("/api/configure") || path.starts_with("/api/config-file"))
+        && state.guard.is_pending()
+    {
+        return (
+            StatusCode::CONFLICT,
+            axum::Json(serde_json::json!({
+                "success": false,
+                "error": "A change is awaiting confirmation — confirm or revert it first.",
+            })),
+        )
+            .into_response();
+    }
     match forward(state, req).await {
         Ok(resp) => resp,
         Err(e) => {

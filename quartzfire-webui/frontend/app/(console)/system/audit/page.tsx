@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, FileDiff, RotateCw } from "lucide-react";
+import { AlertTriangle, FileDiff, History, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Column, DataTable, FilterDef } from "@/components/dashboard/DataTable";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
@@ -10,8 +10,10 @@ import {
   fetchCommitDiff,
   fetchCommitHistory,
   fetchSystemLog,
+  rollbackToRevision,
   SystemLogEntry,
 } from "@/lib/audit";
+import { useDashboard } from "@/lib/DashboardContext";
 
 type Tab = "config" | "system";
 
@@ -135,7 +137,80 @@ function CommitDiffModal({ revision, onClose }: { revision: number; onClose: () 
   );
 }
 
+/// Confirmation dialog for rolling the config back to a previous revision.
+/// The rollback itself runs under commit-confirm, so a bad call auto-reverts.
+function RollbackModal({
+  commit,
+  onClose,
+  onStarted,
+}: {
+  commit: CommitEntry;
+  onClose: () => void;
+  onStarted: () => void;
+}) {
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+
+  const run = async () => {
+    setWorking(true);
+    setError("");
+    try {
+      await rollbackToRevision(commit.revision);
+      onStarted();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Rollback failed.");
+      setWorking(false);
+    }
+  };
+
+  return (
+    <ModalShell onClose={onClose} maxWidth={480}>
+      <ModalHeader
+        title={`Roll back to revision ${commit.revision}`}
+        subtitle={`Configuration as committed ${commit.date} by ${commit.user}`}
+        onClose={onClose}
+      />
+      <div className="flex flex-col gap-4">
+        <p className="text-[13px] text-[var(--qz-fg-2)] m-0">
+          The entire configuration returns to the state of this revision — every change committed since
+          (by the WebUI, CLI, or API) is undone. No reboot is needed.
+        </p>
+        <p className="text-[12px] text-[var(--qz-fg-4)] m-0">
+          The rollback applies under commit-confirm: it must be confirmed in the banner within 2 minutes,
+          otherwise the current configuration is restored automatically.
+        </p>
+        {error && (
+          <p className="text-[12px] m-0" style={{ color: "var(--qz-danger)" }}>
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={working}
+            className="px-4 py-[9px] rounded-md text-[13px] font-medium cursor-pointer disabled:opacity-50"
+            style={{ background: "transparent", border: "1px solid var(--qz-border)", color: "var(--qz-fg-2)" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={working}
+            onClick={run}
+            className="px-4 py-[9px] rounded-md text-[13px] font-semibold cursor-pointer border-0"
+            style={{ background: "var(--qz-danger)", color: "white", opacity: working ? 0.7 : 1 }}
+          >
+            {working ? "Rolling back…" : "Roll back"}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 export default function AuditLogPage() {
+  const { setToast } = useDashboard();
   const [commits, setCommits] = useState<CommitEntry[]>([]);
   // Journal lines carry no unique key of their own (identical messages can
   // land in the same millisecond), so rows get an index id.
@@ -144,6 +219,7 @@ export default function AuditLogPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [tab, setTab] = useState<Tab>("config");
   const [diffRevision, setDiffRevision] = useState<number | null>(null);
+  const [rollbackTarget, setRollbackTarget] = useState<CommitEntry | null>(null);
 
   const load = useCallback(async (mode: "load" | "refresh" = "load") => {
     if (mode === "load") setStatus("loading");
@@ -233,15 +309,29 @@ export default function AuditLogPage() {
                 emptyMessage="No commit history recorded on this device."
                 onRefresh={() => load("refresh")}
                 actions={(row) => (
-                  <button
-                    type="button"
-                    title={`Show what revision ${row.revision} changed`}
-                    aria-label="Show diff"
-                    onClick={() => setDiffRevision(row.revision)}
-                    className="grid place-items-center w-7 h-7 rounded-md bg-transparent border-0 text-[var(--qz-fg-4)] hover:text-[var(--qz-accent)] hover:bg-[color-mix(in_oklab,white_5%,transparent)] transition-colors cursor-pointer"
-                  >
-                    <FileDiff size={14} />
-                  </button>
+                  <span className="inline-flex items-center gap-1 justify-end">
+                    <button
+                      type="button"
+                      title={`Show what revision ${row.revision} changed`}
+                      aria-label="Show diff"
+                      onClick={() => setDiffRevision(row.revision)}
+                      className="grid place-items-center w-7 h-7 rounded-md bg-transparent border-0 text-[var(--qz-fg-4)] hover:text-[var(--qz-accent)] hover:bg-[color-mix(in_oklab,white_5%,transparent)] transition-colors cursor-pointer"
+                    >
+                      <FileDiff size={14} />
+                    </button>
+                    {/* Revision 0 IS the current config — nothing to roll back to. */}
+                    {row.revision > 0 && (
+                      <button
+                        type="button"
+                        title={`Roll the configuration back to revision ${row.revision}`}
+                        aria-label="Roll back to this revision"
+                        onClick={() => setRollbackTarget(row)}
+                        className="grid place-items-center w-7 h-7 rounded-md bg-transparent border-0 text-[var(--qz-fg-4)] hover:text-[var(--qz-danger)] hover:bg-[color-mix(in_oklab,white_5%,transparent)] transition-colors cursor-pointer"
+                      >
+                        <History size={14} />
+                      </button>
+                    )}
+                  </span>
                 )}
               />
             ) : (
@@ -262,6 +352,18 @@ export default function AuditLogPage() {
 
       {diffRevision !== null && (
         <CommitDiffModal revision={diffRevision} onClose={() => setDiffRevision(null)} />
+      )}
+
+      {rollbackTarget && (
+        <RollbackModal
+          commit={rollbackTarget}
+          onClose={() => setRollbackTarget(null)}
+          onStarted={() => {
+            setRollbackTarget(null);
+            setToast("Rollback applied — confirm it in the banner to keep it.");
+            load("refresh");
+          }}
+        />
       )}
     </div>
   );

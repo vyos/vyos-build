@@ -9,6 +9,9 @@
     delaycompress
     missingok
     notifempty
+    # Recreate group-readable for the WebUI backend (group quartzfire) —
+    # matches what ips-apply sets up; suricata itself would create it 0600.
+    create 0640 root quartzfire
     postrotate
         /bin/systemctl kill -s HUP suricata.service 2>/dev/null || true
     endscript

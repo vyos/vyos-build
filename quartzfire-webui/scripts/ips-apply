@@ -437,6 +437,16 @@ def ensure_alerts_dir():
         gid = 0
     os.chown(ALERTS_DIR, 0, gid)
     os.chmod(ALERTS_DIR, 0o750)
+    # Pre-create the alert log itself group-readable: suricata appends to an
+    # existing file, so this pins the permissions no matter what mode suricata
+    # would create it with (its own create mode is not group-readable, which
+    # would leave the WebUI's history endpoint permission-denied). logrotate
+    # recreates rotated files with the same owner/mode (`create` directive in
+    # /etc/logrotate.d/quartzfire-webui).
+    if not os.path.isfile(ALERTS_FILE):
+        os.close(os.open(ALERTS_FILE, os.O_CREAT | os.O_WRONLY, 0o640))
+    os.chown(ALERTS_FILE, 0, gid)
+    os.chmod(ALERTS_FILE, 0o640)
 
 
 def render_configs(settings):

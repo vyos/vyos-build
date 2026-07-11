@@ -7,6 +7,7 @@
 
 import { vyosApi } from "./api";
 import { scheduleBootSave } from "./bootSave";
+import { guardedCommitAndSave } from "./guard";
 
 /// Every VyOS API endpoint answers `{success, data, error}`.
 export interface VyosResponse<T = unknown> {
@@ -371,11 +372,15 @@ const trimmed = (s: string | null) => {
   return t === "" ? null : t;
 };
 
-/// Commit a command list in one transaction. The change is live once this
-/// resolves; persisting it to the boot config is a second slow VyOS API round
-/// trip the user shouldn't wait on, so it runs in the background (the shell's
-/// SaveIndicator shows progress and surfaces failures with a retry). Returns
-/// the number of changes applied.
+/// Commit a command list in one transaction — the DIRECT path, for domains
+/// that can't sever the management session (services, system settings).
+/// Firewall/interface/NAT/routing writes go through `guardedCommitAndSave`
+/// (lib/guard) instead, which adds a confirm-or-revert window.
+///
+/// The change is live once this resolves; persisting it to the boot config is
+/// a second slow VyOS API round trip the user shouldn't wait on, so it runs
+/// in the background (the shell's SaveIndicator shows progress and surfaces
+/// failures with a retry). Returns the number of changes applied.
 export async function commitAndSave(commands: VyosCommand[]): Promise<number> {
   if (commands.length === 0) return 0;
 
@@ -387,6 +392,12 @@ export async function commitAndSave(commands: VyosCommand[]): Promise<number> {
   scheduleBootSave();
   return commands.length;
 }
+
+/// Interface changes CAN sever the management session (deleting the address
+/// you're connected through), so this module's own writes go through
+/// commit-confirm — live immediately, auto-reverted unless confirmed.
+const guardedApply = (commands: VyosCommand[]) =>
+  guardedCommitAndSave(commands, "Interface configuration change");
 
 /// Diff description + addresses + MTU + enabled against a live row — the leaf
 /// set every interface type shares. Returns whether any `set` was emitted.
@@ -472,7 +483,7 @@ export function applyEthernet(
   live: EthernetInterface | null,
   update: EthernetConfigUpdate,
 ): Promise<number> {
-  return commitAndSave(diffEthernet(live, update));
+  return guardedApply(diffEthernet(live, update));
 }
 
 // ── VLAN ──────────────────────────────────────────────────────────────────────
@@ -516,12 +527,12 @@ export function diffVlan(existing: VlanInterface[], u: VlanConfigUpdate): VyosCo
 
 /// Apply a desired VLAN config. Returns the number of changes applied.
 export function applyVlan(existing: VlanInterface[], update: VlanConfigUpdate): Promise<number> {
-  return commitAndSave(diffVlan(existing, update));
+  return guardedApply(diffVlan(existing, update));
 }
 
 /// Delete a VLAN sub-interface.
 export function deleteVlan(parent: string, vlanId: number): Promise<number> {
-  return commitAndSave([{ op: "delete", path: vifBase(parent, vlanId) }]);
+  return guardedApply([{ op: "delete", path: vifBase(parent, vlanId) }]);
 }
 
 // ── loopback ──────────────────────────────────────────────────────────────────
@@ -557,7 +568,7 @@ export function applyLoopback(
   live: LoopbackInterface | null,
   update: LoopbackConfigUpdate,
 ): Promise<number> {
-  return commitAndSave(diffLoopback(live, update));
+  return guardedApply(diffLoopback(live, update));
 }
 
 // ── bond / bridge ─────────────────────────────────────────────────────────────
@@ -596,12 +607,12 @@ export function diffBond(live: BondInterface | null, u: BondConfigUpdate): VyosC
 
 /// Apply a desired bond config. Returns the number of changes applied.
 export function applyBond(live: BondInterface | null, update: BondConfigUpdate): Promise<number> {
-  return commitAndSave(diffBond(live, update));
+  return guardedApply(diffBond(live, update));
 }
 
 /// Delete a bond interface.
 export function deleteBond(name: string): Promise<number> {
-  return commitAndSave([{ op: "delete", path: ["interfaces", "bonding", name] }]);
+  return guardedApply([{ op: "delete", path: ["interfaces", "bonding", name] }]);
 }
 
 /// Diff a desired bridge config against the live row into a minimal set/delete
@@ -622,10 +633,10 @@ export function applyBridge(
   live: BridgeInterface | null,
   update: BridgeConfigUpdate,
 ): Promise<number> {
-  return commitAndSave(diffBridge(live, update));
+  return guardedApply(diffBridge(live, update));
 }
 
 /// Delete a bridge interface.
 export function deleteBridge(name: string): Promise<number> {
-  return commitAndSave([{ op: "delete", path: ["interfaces", "bridge", name] }]);
+  return guardedApply([{ op: "delete", path: ["interfaces", "bridge", name] }]);
 }

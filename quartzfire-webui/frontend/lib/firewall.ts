@@ -29,8 +29,15 @@
 // straight to the VyOS API, and save to the boot config in the background.
 
 import { vyosApi } from "./api";
-import { commitAndSave, VyosCommand, VyosResponse } from "./interfaces";
+import { VyosCommand, VyosResponse } from "./interfaces";
+import { guardedCommitAndSave } from "./guard";
 import { showText } from "./vyos";
+
+/// A bad firewall change can sever the management session, so firewall writes
+/// commit under commit-confirm: live immediately, auto-reverted unless the
+/// user confirms in the shell banner (see lib/guard).
+const commitAndSave = (commands: VyosCommand[]) =>
+  guardedCommitAndSave(commands, "Firewall configuration change");
 
 export type AliasType = "host" | "network" | "fqdn";
 

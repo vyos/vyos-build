@@ -170,10 +170,36 @@ fn store_settings(state: &AppState, settings: &IpsSettings) -> Result<()> {
 
 // ── status ────────────────────────────────────────────────────────────────────
 
+/// Pidfile the quartzfire systemd drop-in makes suricata write (see
+/// scripts/ips-apply DROPIN_TEMPLATE — the paths must stay in sync).
+const SURICATA_PIDFILE: &str = "/run/suricata/suricata.pid";
+
+/// Whether the suricata daemon is alive, judged by its pidfile. This runs in
+/// the sandboxed backend, where `systemctl is-active` is NOT reliable: an
+/// unprivileged caller needs the D-Bus system bus, which the appliance image
+/// doesn't necessarily run (root's systemctl — ips-apply — uses
+/// /run/systemd/private instead, so the helper never notices). The pidfile +
+/// /proc check works with no privileges at all.
+fn suricata_pid_alive() -> bool {
+    let Ok(pid) = std::fs::read_to_string(SURICATA_PIDFILE) else {
+        return false;
+    };
+    let pid = pid.trim();
+    if pid.is_empty() || !pid.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    // Guard against a stale pidfile whose pid was recycled: the process must
+    // actually be suricata ("Suricata-Main").
+    match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
+        Ok(comm) => comm.trim().to_ascii_lowercase().starts_with("suricata"),
+        Err(_) => false,
+    }
+}
+
 #[derive(Serialize)]
 pub struct IpsStatus {
     pub settings: IpsSettings,
-    /// Whether suricata.service is active right now.
+    /// Whether the suricata daemon is alive right now.
     pub running: bool,
     /// The helper's last apply report (`/run/quartzfire-ips/status.json`):
     /// rule counts per level, last update time, last error. Null until the
@@ -189,13 +215,16 @@ pub async fn status(State(state): State<Arc<AppState>>) -> Result<Json<IpsStatus
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok());
 
-    // Read-only systemd query; works unprivileged.
-    let running = Command::new("systemctl")
-        .args(["is-active", "--quiet", "suricata.service"])
-        .status()
-        .await
-        .map(|s| s.success())
-        .unwrap_or(false);
+    // Pidfile first (see suricata_pid_alive); systemctl only as a fallback
+    // for layouts without our drop-in (e.g. dev boxes running the distro
+    // default unit, whose pidfile lives elsewhere).
+    let running = suricata_pid_alive()
+        || Command::new("systemctl")
+            .args(["is-active", "--quiet", "suricata.service"])
+            .status()
+            .await
+            .map(|s| s.success())
+            .unwrap_or(false);
 
     Ok(Json(IpsStatus { settings, running, apply }))
 }
@@ -433,28 +462,33 @@ fn eve_ts_ms(s: &str) -> Option<u64> {
 /// predating the persistent log.
 pub async fn alerts_history(State(state): State<Arc<AppState>>) -> Result<Json<Vec<AlertEntry>>> {
     let path = state.config.ips_alerts_file.clone();
+    let display = path.display().to_string();
     let entries = tokio::task::spawn_blocking(move || read_alert_tail(&path, 2 * 1024 * 1024, 500))
         .await
-        .map_err(|e| AppError::Internal(e.into()))?;
+        .map_err(|e| AppError::Internal(e.into()))?
+        // A real read failure (typically permissions on the log file) must
+        // surface, not masquerade as "no alerts yet".
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("reading the alert log {display}: {e}")))?;
     Ok(Json(entries))
 }
 
 /// The last `max` alerts from the tail of the EVE file (one JSON document per
 /// line), newest first. Reads at most `tail_bytes` so a large file stays
-/// cheap; best-effort — any read problem yields an empty list.
-fn read_alert_tail(path: &Path, tail_bytes: u64, max: usize) -> Vec<AlertEntry> {
-    use std::io::{Read, Seek, SeekFrom};
+/// cheap. A missing file is an empty history (IPS never enabled); any other
+/// read problem is an error.
+fn read_alert_tail(path: &Path, tail_bytes: u64, max: usize) -> std::io::Result<Vec<AlertEntry>> {
+    use std::io::{ErrorKind, Read, Seek, SeekFrom};
 
-    let Ok(mut file) = std::fs::File::open(path) else { return Vec::new() };
-    let len = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let mut file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e),
+    };
+    let len = file.metadata()?.len();
     let start = len.saturating_sub(tail_bytes);
-    if file.seek(SeekFrom::Start(start)).is_err() {
-        return Vec::new();
-    }
+    file.seek(SeekFrom::Start(start))?;
     let mut bytes = Vec::new();
-    if file.read_to_end(&mut bytes).is_err() {
-        return Vec::new();
-    }
+    file.read_to_end(&mut bytes)?;
     let text = String::from_utf8_lossy(&bytes);
 
     let mut out: Vec<AlertEntry> = text
@@ -465,7 +499,7 @@ fn read_alert_tail(path: &Path, tail_bytes: u64, max: usize) -> Vec<AlertEntry> 
         .collect();
     out.reverse();
     out.truncate(max);
-    out
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -528,14 +562,15 @@ mod tests {
         )
         .unwrap();
 
-        let all = read_alert_tail(&path, 1024 * 1024, 500);
+        let all = read_alert_tail(&path, 1024 * 1024, 500).unwrap();
         assert_eq!(all.iter().map(|a| a.sid).collect::<Vec<_>>(), vec![3, 2, 1]);
         assert_eq!(all[0].flow_id, Some(7));
 
-        let capped = read_alert_tail(&path, 1024 * 1024, 2);
+        let capped = read_alert_tail(&path, 1024 * 1024, 2).unwrap();
         assert_eq!(capped.iter().map(|a| a.sid).collect::<Vec<_>>(), vec![3, 2]);
 
-        assert!(read_alert_tail(&dir.join("missing.json"), 1024, 10).is_empty());
+        // Absent file = empty history, not an error.
+        assert!(read_alert_tail(&dir.join("missing.json"), 1024, 10).unwrap().is_empty());
         std::fs::remove_dir_all(&dir).ok();
     }
 

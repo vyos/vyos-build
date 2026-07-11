@@ -4,7 +4,14 @@
 // backend proxy, commit immediately, and are saved to the boot config.
 
 import { vyosApi } from "./api";
-import { commitAndSave, VyosCommand, VyosResponse } from "./interfaces";
+import { VyosCommand, VyosResponse } from "./interfaces";
+import { guardedCommitAndSave } from "./guard";
+
+/// A bad route change can sever the management session, so routing writes
+/// commit under commit-confirm: live immediately, auto-reverted unless the
+/// user confirms in the shell banner (see lib/guard).
+const commitAndSave = (commands: VyosCommand[]) =>
+  guardedCommitAndSave(commands, "Static route change");
 
 export type RouteFamily = "ipv4" | "ipv6";
 

@@ -5,7 +5,14 @@
 // to the VyOS API, and save to the boot config.
 
 import { vyosApi } from "./api";
-import { commitAndSave, VyosCommand, VyosResponse } from "./interfaces";
+import { VyosCommand, VyosResponse } from "./interfaces";
+import { guardedCommitAndSave } from "./guard";
+
+/// A bad NAT change can sever the management session, so NAT writes commit
+/// under commit-confirm: live immediately, auto-reverted unless the user
+/// confirms in the shell banner (see lib/guard).
+const commitAndSave = (commands: VyosCommand[]) =>
+  guardedCommitAndSave(commands, "NAT configuration change");
 
 export type NatSection = "source" | "destination";
 

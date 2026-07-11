@@ -1,6 +1,7 @@
 mod auth;
 mod config;
 mod error;
+mod guard;
 mod ips;
 mod monitor;
 mod proxy;
@@ -30,6 +31,8 @@ pub struct AppState {
     pub http: reqwest::Client,
     /// Secret used to sign session JWTs (see `auth::load_jwt_secret`).
     pub jwt_secret: String,
+    /// Commit-confirm state: the (at most one) change awaiting confirmation.
+    pub guard: guard::Guard,
 }
 
 #[tokio::main]
@@ -54,7 +57,12 @@ async fn main() -> Result<()> {
     let listen = config.listen.clone();
     let www_root = config.www_root.clone();
     let jwt_secret = auth::load_jwt_secret(&config.jwt_secret_file);
-    let state = Arc::new(AppState { config, http, jwt_secret });
+    let state = Arc::new(AppState {
+        config,
+        http,
+        jwt_secret,
+        guard: guard::Guard::default(),
+    });
 
     // Everything except the SPA itself and login/logout requires a session:
     // the VyOS API proxy is the crown jewels, so it sits behind `require_auth`.
@@ -68,6 +76,15 @@ async fn main() -> Result<()> {
         .route("/api/ips/update", post(ips::request_update))
         .route("/api/ips/alerts", get(ips::alerts))
         .route("/api/ips/alerts/history", get(ips::alerts_history))
+        // Commit-confirm guard: risky changes apply here instead of raw
+        // /configure so an unconfirmed change auto-reverts (see guard.rs).
+        .route("/api/guard/apply", post(guard::apply))
+        .route("/api/guard/confirm", post(guard::confirm))
+        .route("/api/guard/revert", post(guard::revert))
+        .route("/api/guard/pending", get(guard::pending))
+        .route("/api/config/backup", get(guard::backup))
+        .route("/api/config/restore", post(guard::restore))
+        .route("/api/config/rollback", post(guard::rollback))
         .route("/api", any(proxy::handler))
         .route("/api/*rest", any(proxy::handler))
         .layer(middleware::from_fn_with_state(

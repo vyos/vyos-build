@@ -47,6 +47,13 @@ pub struct Config {
     #[serde(default = "default_ips_status_file")]
     pub ips_status_file: PathBuf,
 
+    /// Directory the commit-confirm guard stages config files in (snapshot
+    /// reverts, restores, rollbacks). Must be writable by us AND readable by
+    /// the root VyOS API process (`config-file load` takes a path) — the
+    /// shared `/config/quartzfire` dir fits; `PrivateTmp` rules out /tmp.
+    #[serde(default = "default_guard_dir")]
+    pub guard_dir: PathBuf,
+
     /// Persistent EVE alert log Suricata writes (read-only for us) — where
     /// alerts live across reboots; backs /api/ips/alerts/history.
     #[serde(default = "default_ips_alerts_file")]
@@ -83,6 +90,9 @@ fn default_ips_status_file() -> PathBuf {
 }
 fn default_ips_alerts_file() -> PathBuf {
     PathBuf::from("/var/log/quartzfire/ips-alerts.json")
+}
+fn default_guard_dir() -> PathBuf {
+    PathBuf::from("/config/quartzfire")
 }
 fn default_session_hours() -> u64 {
     24
