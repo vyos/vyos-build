@@ -51,12 +51,14 @@ override_dh_auto_install:
 
 # dh_installsystemd auto-processes debian/qfappd.service (main daemon). The two
 # extra units are named debian/qfappd.<name>.<type> and must be handled by name:
-# the .path watcher is enabled+started; the apply oneshot is only triggered by
-# the .path unit, so it is installed but not enabled/started.
+# the .path watcher is enabled+started; the apply oneshot is also enabled so it
+# performs the boot-time initial publish (policy.json is on tmpfs) — the .path
+# unit only fires on later changes (PathChanged; PathExists= would retrigger
+# a forever-existing file in a loop until start-limit-hit).
 override_dh_installsystemd:
 	dh_installsystemd
 	dh_installsystemd --name=quartzfire-appcontrol
-	dh_installsystemd --no-enable --no-start --name=quartzfire-appcontrol-apply
+	dh_installsystemd --name=quartzfire-appcontrol-apply
 
 # libndpi lives in /usr/local/lib, which dpkg-shlibdeps doesn't scan; don't
 # fail the build hunting a dependency provided by the libndpi-quartzfire package.

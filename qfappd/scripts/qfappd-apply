@@ -15,9 +15,30 @@ set -euo pipefail
 DESIRED=/config/quartzfire/appcontrol.json
 RUNTIME_DIR=/run/qfappd
 RUNTIME=${RUNTIME_DIR}/policy.json
+REPORT=${RUNTIME_DIR}/apply.json
 QFAPPD=/usr/sbin/qfappd
 
 log() { echo "qfappd-apply: $*" >&2; }
+
+# Last-run report for the WebUI (world-readable): validation failures happen
+# BEFORE the policy reaches qfappd, so without this file a refused desired
+# state is invisible — qfappd keeps enforcing the previous policy and its own
+# status shows no error. desired_mtime/size identify which revision of the
+# desired file this run processed (the WebUI compares against the current one
+# to detect a saved-but-never-applied state).
+write_report() { # $1 = true|false, $2 = error text ("" on success)
+    local ok=$1 err=$2 mtime=0 size=0
+    if [ -f "$DESIRED" ]; then
+        mtime=$(stat -c %Y "$DESIRED" 2>/dev/null || echo 0)
+        size=$(stat -c %s "$DESIRED" 2>/dev/null || echo 0)
+    fi
+    err=$(printf '%s' "$err" | tr -d '\r' | tr '\n\t' '  ' | sed 's/\\/\\\\/g; s/"/\\"/g')
+    local tmp="${REPORT}.tmp.$$"
+    printf '{"ok":%s,"error":"%s","time":%s,"desired_mtime":%s,"desired_size":%s}\n' \
+        "$ok" "$err" "$(date +%s)" "$mtime" "$size" > "$tmp"
+    chmod 0644 "$tmp"
+    mv -f "$tmp" "$REPORT"
+}
 
 # /config mounts late on VyOS; give it a bounded chance to appear.
 for _ in $(seq 1 30); do
@@ -33,8 +54,10 @@ mkdir -p "$RUNTIME_DIR"
 
 # Validate before publishing. On failure we DO NOT touch the runtime policy —
 # qfappd keeps enforcing the last-known-good one.
-if ! "$QFAPPD" check-policy "$DESIRED"; then
+if ! check_out=$("$QFAPPD" check-policy "$DESIRED" 2>&1); then
     log "desired state failed validation; keeping current runtime policy"
+    log "$check_out"
+    write_report false "desired state failed validation: $check_out"
     exit 1
 fi
 
@@ -50,3 +73,5 @@ log "published $RUNTIME"
 if systemctl is-active --quiet qfappd.service; then
     systemctl kill -s HUP qfappd.service || true
 fi
+
+write_report true ""

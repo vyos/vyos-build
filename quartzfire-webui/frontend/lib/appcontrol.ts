@@ -80,10 +80,29 @@ export interface AcRuntimeStatus {
   total_app_bytes?: number;
 }
 
+/// qfappd-apply's last-run report. Validation happens BEFORE the policy
+/// reaches qfappd, so `ok:false` means the saved config was refused and the
+/// previously applied policy is still enforced (qfappd's own status shows no
+/// error for this case).
+export interface AcApplyReport {
+  ok: boolean;
+  error: string;
+  /** Epoch seconds of the apply run. */
+  time: number;
+  /** mtime (epoch seconds) / size of the desired-state file that run saw. */
+  desired_mtime: number;
+  desired_size: number;
+}
+
 export interface AcStatus {
   settings: AcConfig;
   status: AcRuntimeStatus | null;
   running: boolean;
+  /** Null until qfappd-apply has run once; absent from older backends. */
+  apply?: AcApplyReport | null;
+  /** Current desired-state file mtime (epoch seconds). Newer than
+   *  `apply.desired_mtime` ⇒ saved changes have not been applied yet. */
+  settings_mtime?: number | null;
 }
 
 export function emptyAcConfig(): AcConfig {

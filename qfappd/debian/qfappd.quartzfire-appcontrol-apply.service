@@ -2,9 +2,18 @@
 Description=Apply QuartzFire Application Control desired state to qfappd
 Documentation=file:/usr/share/doc/qfappd/design.md
 After=qfappd.service
+# The apply is idempotent and triggered per save; a burst of WebUI saves must
+# not trip the default start-rate limit and take the path watcher down with it.
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
 # Runs as root: validates the WebUI's desired state against the installed nDPI
 # catalog, renders /run/qfappd/policy.json, and signals qfappd to reload.
+# The script itself waits (bounded) for /config to be mounted at boot.
 ExecStart=/usr/lib/qfappd/qfappd-apply
+
+[Install]
+# Boot-time initial apply (policy.json lives on tmpfs and must be re-published
+# every boot). Later WebUI saves are picked up by quartzfire-appcontrol.path.
+WantedBy=multi-user.target

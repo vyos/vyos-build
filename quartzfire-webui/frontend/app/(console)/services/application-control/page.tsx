@@ -901,7 +901,10 @@ export default function ApplicationControlPage() {
       try {
         await saveAcConfig(next);
         setToast("Application Control saved — applying on the device…");
+        // The root helper applies asynchronously: re-read once quickly and
+        // again after it has had time to run, so the apply banners settle.
         setTimeout(() => load("refresh"), 800);
+        setTimeout(() => load("refresh"), 3500);
       } catch (e) {
         setToast(e instanceof Error ? e.message : "Failed to save Application Control.");
         load("refresh");
@@ -934,8 +937,11 @@ export default function ApplicationControlPage() {
           value={tab}
           onChange={(v) => setTab(v as Tab)}
         />
-        {status?.status?.policy_last_error ? (
-          <span className="inline-flex items-center gap-[6px] text-[12px] text-[var(--qz-danger)]" title={status.status.policy_last_error}>
+        {status?.status?.policy_last_error || status?.apply?.ok === false ? (
+          <span
+            className="inline-flex items-center gap-[6px] text-[12px] text-[var(--qz-danger)]"
+            title={status?.status?.policy_last_error || status?.apply?.error}
+          >
             <AlertTriangle size={13} /> Last apply rejected
           </span>
         ) : status?.running ? (
@@ -944,6 +950,40 @@ export default function ApplicationControlPage() {
           <span className="badge badge-muted">qfappd not reporting</span>
         )}
       </div>
+
+      {status?.apply?.ok === false && (
+        <div
+          className="mx-[36px] mb-4 flex items-center gap-3 px-3 py-2 rounded-md flex-shrink-0"
+          style={{
+            background: "color-mix(in oklab, var(--qz-danger) 12%, transparent)",
+            border: "1px solid color-mix(in oklab, var(--qz-danger) 35%, transparent)",
+          }}
+        >
+          <AlertTriangle size={15} className="text-[var(--qz-danger)] flex-shrink-0" />
+          <span className="text-[13px] text-[var(--qz-fg-1)]">
+            The saved configuration failed validation and was <strong>not</strong> applied — the
+            previously applied policy is still enforced. {status.apply.error}
+          </span>
+        </div>
+      )}
+      {status?.apply?.ok === true &&
+        status.settings_mtime != null &&
+        status.settings_mtime > status.apply.desired_mtime && (
+          <div
+            className="mx-[36px] mb-4 flex items-center gap-3 px-3 py-2 rounded-md flex-shrink-0"
+            style={{
+              background: "color-mix(in oklab, var(--qz-warn, #d9a544) 12%, transparent)",
+              border: "1px solid color-mix(in oklab, var(--qz-warn, #d9a544) 35%, transparent)",
+            }}
+          >
+            <AlertTriangle size={15} className="text-[var(--qz-fg-2)] flex-shrink-0" />
+            <span className="text-[13px] text-[var(--qz-fg-1)]">
+              Saved changes have not been applied yet. This normally takes a second — if it
+              persists, check <span className="mono">journalctl -u quartzfire-appcontrol-apply</span>{" "}
+              on the device.
+            </span>
+          </div>
+        )}
 
       <div className="flex-1 overflow-auto px-[36px] pb-[28px]">
         {state === "loading" && <div className="text-[13px] text-[var(--qz-fg-4)]">Loading Application Control…</div>}

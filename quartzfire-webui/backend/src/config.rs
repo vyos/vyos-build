@@ -79,6 +79,12 @@ pub struct Config {
     /// /api/appcontrol/alerts/history across reboots.
     #[serde(default = "default_appcontrol_events_file")]
     pub appcontrol_events_file: PathBuf,
+
+    /// qfappd-apply's last-run report (read-only for us). Validation happens
+    /// before the policy reaches qfappd, so a refused desired state is only
+    /// visible here — qfappd's own status shows no error for it.
+    #[serde(default = "default_appcontrol_apply_file")]
+    pub appcontrol_apply_file: PathBuf,
 }
 
 fn default_listen() -> String {
@@ -123,6 +129,9 @@ fn default_appcontrol_catalog_file() -> PathBuf {
 }
 fn default_appcontrol_events_file() -> PathBuf {
     PathBuf::from("/var/log/qfappd/events.json")
+}
+fn default_appcontrol_apply_file() -> PathBuf {
+    PathBuf::from("/run/qfappd/apply.json")
 }
 fn default_guard_dir() -> PathBuf {
     PathBuf::from("/config/quartzfire")

@@ -186,6 +186,16 @@ pub struct AcStatus {
     pub status: Option<serde_json::Value>,
     /// Whether qfappd is alive (its status file is fresh / pidfile present).
     pub running: bool,
+    /// qfappd-apply's last-run report (`/run/qfappd/apply.json`): whether the
+    /// desired state was published, and the mtime/size of the desired file
+    /// that run processed. Null until the helper has run once. A failure here
+    /// means the PREVIOUS policy is still enforced — qfappd never saw the
+    /// refused file, so its own status shows no error.
+    pub apply: Option<serde_json::Value>,
+    /// Current desired-state file mtime (epoch seconds). Compared against
+    /// `apply.desired_mtime` to detect a saved-but-never-applied state (e.g.
+    /// the apply trigger not firing).
+    pub settings_mtime: Option<u64>,
 }
 
 const QFAPPD_PIDFILE: &str = "/run/qfappd/qfappd.pid";
@@ -214,7 +224,15 @@ pub async fn status(State(state): State<Arc<AppState>>) -> Result<Json<AcStatus>
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok());
     let running = qfappd_alive(&status);
-    Ok(Json(AcStatus { settings, status, running }))
+    let apply = std::fs::read_to_string(&state.config.appcontrol_apply_file)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok());
+    let settings_mtime = std::fs::metadata(&state.config.appcontrol_settings_file)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs());
+    Ok(Json(AcStatus { settings, status, running, apply, settings_mtime }))
 }
 
 /// PUT /api/appcontrol/settings — replace the desired state; qfappd-apply

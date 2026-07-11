@@ -6,6 +6,18 @@ qfappd (0.1.1) unstable; urgency=medium
     but nothing was ever dropped. They now live in a second forward base
     chain (`forward_verdict`, priority filter + 20) that reinjected packets
     do traverse.
+  * qfappd-apply now writes /run/qfappd/apply.json (ok/error + the desired
+    file's mtime/size) so the WebUI can surface refused desired states and
+    saved-but-never-applied policies — previously a check-policy failure
+    left the old policy enforced with no indication anywhere.
+  * Fix the apply trigger dying permanently: PathExists= in the .path unit
+    re-triggered the oneshot in a loop whenever it ran (the file always
+    exists), hitting the start-rate limit and failing BOTH units with
+    unit-start-limit-hit — after which WebUI saves were silently never
+    published. The watcher now uses PathChanged only (matching the IPS
+    module); the boot-time initial publish moves to the apply service
+    itself (WantedBy=multi-user.target), and the apply service sets
+    StartLimitIntervalSec=0 so bursts of saves cannot kill the watcher.
 
  -- QuartzFire <cwellman@quartz.systems>  Sat, 11 Jul 2026 00:00:00 +0000
 
