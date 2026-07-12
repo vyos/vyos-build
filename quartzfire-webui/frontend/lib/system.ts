@@ -436,14 +436,17 @@ export function deleteImage(name: string): Promise<void> {
   return opApi("image", { op: "delete", name }, "delete the image");
 }
 
-/// Reboot the firewall immediately.
+/// Reboot the firewall immediately. The `now` path selects the non-interactive
+/// form of the op-mode command; a bare `reboot` prompts for confirmation and
+/// hangs the API call, since there is no TTY behind the proxy.
 export function rebootSystem(): Promise<void> {
-  return opApi("reboot", { op: "reboot", path: [] }, "reboot");
+  return opApi("reboot", { op: "reboot", path: ["now"] }, "reboot");
 }
 
-/// Power the firewall off immediately.
+/// Power the firewall off immediately. `now` selects the non-interactive form
+/// (see rebootSystem).
 export function shutdownSystem(): Promise<void> {
-  return opApi("poweroff", { op: "poweroff", path: [] }, "shut down");
+  return opApi("poweroff", { op: "poweroff", path: ["now"] }, "shut down");
 }
 
 // ══ maintenance: configuration backup / restore ═══════════════════════════════
