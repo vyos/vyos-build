@@ -31,15 +31,22 @@ override_dh_auto_install:
 	set -e; for name in geoip-apply geoip-update geoip-lookup geoip-countries geoip-counters; do \
 		ln -s qzgeo debian/quartzfire-geoip/usr/libexec/quartzfire/$$name; \
 	done
+	# The .py suffix is mandatory even though the target is an ELF binary:
+	# vyos-configd regex-parses the committing script path and crashes the
+	# daemon (hanging the commit) on any conf_mode script not ending in .py.
 	install -d debian/quartzfire-geoip/usr/libexec/vyos/conf_mode
 	ln -s /usr/libexec/quartzfire/qzgeo \
-		debian/quartzfire-geoip/usr/libexec/vyos/conf_mode/service_geolocation
+		debian/quartzfire-geoip/usr/libexec/vyos/conf_mode/service_geolocation.py
 	# VyOS cstore command templates (the CLI grammar).
 	mkdir -p debian/quartzfire-geoip/opt/vyatta/share/vyatta-cfg/templates/service
 	cp -r vyos/templates/service/geolocation \
 		debian/quartzfire-geoip/opt/vyatta/share/vyatta-cfg/templates/service/
 	find debian/quartzfire-geoip/opt/vyatta -type f -exec chmod 0644 {} +
 	find debian/quartzfire-geoip/opt/vyatta -type d -exec chmod 0755 {} +
+	# XML interface definition mirroring the cstore templates; postinst
+	# registers it with the vyos-1x xml_ref cache so configd knows the path.
+	install -D -m0644 vyos/xml/service_geolocation.xml \
+		debian/quartzfire-geoip/usr/share/quartzfire/xml/service_geolocation.xml
 	# Docs.
 	install -D -m0644 docs/design.md \
 		debian/quartzfire-geoip/usr/share/doc/quartzfire-geoip/design.md
@@ -48,7 +55,9 @@ override_dh_auto_install:
 # dh_installsystemd only auto-processes debian/<pkg>.service, so each must be
 # installed+enabled explicitly by name or it is silently dropped.
 override_dh_installsystemd:
-	dh_installsystemd --name=quartzfire-geoip-update
+	# --no-start: the update service is timer/path-triggered only (no
+	# [Install] section); never kick a database download from a maintscript.
+	dh_installsystemd --no-start --name=quartzfire-geoip-update
 	dh_installsystemd --name=quartzfire-geoip-update-request
 	dh_installsystemd --name=quartzfire-geoip-resync
 	dh_installsystemd --name=quartzfire-geoip-counters

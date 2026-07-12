@@ -12,7 +12,8 @@ Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          nftables,
-         location
+         location,
+         vyos-1x
 Description: QuartzFire geolocation (country) traffic filtering
  Country-based allow/block filtering for QuartzFire (VyOS-based NGFW),
  equivalent to WatchGuard Fireware's Geolocation service. Uses the IPFire

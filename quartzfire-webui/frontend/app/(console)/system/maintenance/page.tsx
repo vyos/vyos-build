@@ -18,6 +18,7 @@ import {
   deleteImage,
   downloadConfigBackup,
   fetchImages,
+  imageNameFromIsoName,
   rebootSystem,
   restoreConfigBackup,
   shutdownSystem,
@@ -120,9 +121,11 @@ function PowerConfirmModal({
 /// picker). Both are long operations — the modal stays up with a busy state
 /// until the device answers.
 function AddImageModal({
+  installed,
   onClose,
   onSaved,
 }: {
+  installed: SystemImage[];
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
@@ -151,11 +154,28 @@ function AddImageModal({
     setFile(f);
   };
 
+  /// The installer names the image after the ISO's embedded version and
+  /// refuses to install over an existing name — catch the obvious collision
+  /// from the filename before spending minutes uploading the ISO.
+  const nameClash = (isoName: string): string | null => {
+    const candidate = imageNameFromIsoName(isoName);
+    const clash = candidate ? installed.find((i) => i.name === candidate) : undefined;
+    if (!clash) return null;
+    return clash.running
+      ? `The firewall is already running "${clash.name}" — an image can't be installed over itself. Build the ISO with a new version number first.`
+      : `An image named "${clash.name}" is already installed. Delete it from the System Images list, then retry.`;
+  };
+
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
     if (file) {
+      const clash = nameClash(file.name);
+      if (clash) {
+        setError(clash);
+        return;
+      }
       setPhase("uploading");
       setProgress(0);
       try {
@@ -178,6 +198,11 @@ function AddImageModal({
     const u = url.trim();
     if (!/^https?:\/\/.+/i.test(u)) {
       setError("Enter the http(s) URL of a QuartzFire/VyOS ISO image, or drop an .iso file below.");
+      return;
+    }
+    const clash = nameClash(u.split("?")[0].split("/").pop() ?? "");
+    if (clash) {
+      setError(clash);
       return;
     }
     setPhase("installing");
@@ -663,6 +688,7 @@ export default function MaintenancePage() {
 
       {addModal && (
         <AddImageModal
+          installed={images ?? []}
           onClose={() => setAddModal(false)}
           onSaved={(msg) => {
             setAddModal(false);

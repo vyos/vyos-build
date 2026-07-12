@@ -15,10 +15,17 @@ all:
 # quartzfire-<version> instead of the bare version number.
 QUARTZFIRE_VERSION := $(strip $(shell cat VERSION 2>/dev/null))
 
+# Builds append a UTC build stamp (like upstream rolling ISOs) so every ISO
+# gets a unique image name: the installer refuses to install an image whose
+# name already exists on the box — including the running one — which would
+# make upgrading to a rebuild of the same version impossible. Release builds
+# can drop the stamp with `make quartzfire BUILD_STAMP=`.
+BUILD_STAMP ?= $(shell date -u +%Y%m%d%H%M)
+
 .PHONY: quartzfire
 quartzfire:
 	@if [ -z "$(QUARTZFIRE_VERSION)" ]; then echo "VERSION file is missing or empty"; exit 1; fi
-	./build-vyos-image --version "quartzfire-$(QUARTZFIRE_VERSION)" quartzfire
+	./build-vyos-image --version "quartzfire-$(QUARTZFIRE_VERSION)$(if $(BUILD_STAMP),-$(BUILD_STAMP))" quartzfire
 
 %:
 	./build-vyos-image $*

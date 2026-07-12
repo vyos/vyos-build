@@ -58,8 +58,26 @@ set service geolocation policy <n> disable
 
 Shipped as hand-written cstore templates
 (`/opt/vyatta/share/vyatta-cfg/templates/service/geolocation/**/node.def`)
-owned by `/usr/libexec/vyos/conf_mode/service_geolocation` (priority 990,
-after the firewall) — a symlink to the qzgeo binary, whose `commit` mode
+whose root node runs `/usr/libexec/vyos/conf_mode/service_geolocation.py` at
+commit via the standard generated-template `end:` line (priority 990, after
+the firewall). Three hard-won constraints apply to out-of-tree config nodes:
+
+* `owner:` is NOT a cstore keyword — it exists only in vyos-1x XML, where
+  the generator turns it into exactly this `end:` line. An `owner:` line in
+  a node.def is a template SYNTAX ERROR that aborts every config load on
+  the box, including the boot one (no config, no serial getty, no network).
+* The conf-mode script name MUST end in `.py` even though ours is an ELF
+  binary: vyos-configd regex-parses the committing script path
+  (`process_node_data`) and crashes on any other suffix, which hangs the
+  commit forever (vyshim never gets a reply).
+* The nodes must also be registered in the vyos-1x Python XML reference
+  cache: configd resolves every commit diff path through `vyos.xml_ref`
+  during commit setup (`get_commit_scripts`) and dies on unknown paths —
+  same hang. Hence `vyos/xml/service_geolocation.xml` (kept in sync with
+  the node.defs by hand) and the postinst run of vyos-1x's
+  `xml_ref/generate_cache.py` + `update_cache.py`.
+
+The script is a symlink to the qzgeo binary, whose `commit` mode
 reads the session config through `cli-shell-api` (exists / listNodes /
 returnValue(s) / existsEffective), the same primitives vyos-1x's Python
 Config wraps. Because vyos-1x is consumed as a prebuilt .deb in this repo,

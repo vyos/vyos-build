@@ -18,5 +18,8 @@ TimeoutStartSec=1800
 RuntimeDirectory=quartzfire-geoip
 RuntimeDirectoryPreserve=yes
 
-[Install]
-WantedBy=multi-user.target
+# No [Install] section on purpose: this unit is started by the update timer
+# (which covers boot via OnBootSec) and the WebUI request path unit. Enabling
+# it at multi-user.target would start it during boot before vyos-router has
+# configured any interfaces (After=vyos-router.service returns immediately —
+# the unit is Type=simple), guaranteeing a FAILED download on the console.

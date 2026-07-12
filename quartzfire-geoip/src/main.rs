@@ -4,12 +4,14 @@
 //! the stable entry-point names every other component references (systemd
 //! units, node.def `allowed:` lines, the WebUI backend, the conf-mode owner):
 //!
-//!   geoip-apply          → apply      (standalone resync)
-//!   geoip-update         → update     (database update + set refresh)
-//!   geoip-lookup         → lookup     (IP → country JSON)
-//!   geoip-countries      → countries  (country list / --codes completion)
-//!   geoip-counters       → counters   (hit-counter dump)
-//!   service_geolocation  → commit     (conf-mode owner, in conf_mode/)
+//!   geoip-apply             → apply      (standalone resync)
+//!   geoip-update            → update     (database update + set refresh)
+//!   geoip-lookup            → lookup     (IP → country JSON)
+//!   geoip-countries         → countries  (country list / --codes completion)
+//!   geoip-counters          → counters   (hit-counter dump)
+//!   service_geolocation.py  → commit     (conf-mode owner, in conf_mode/;
+//!                             the .py suffix is required by vyos-configd's
+//!                             script-path regex and stripped by file_stem)
 //!
 //! Invoked as plain `qzgeo`, the first argument selects the same operations.
 

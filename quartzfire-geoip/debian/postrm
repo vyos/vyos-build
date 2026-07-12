@@ -2,6 +2,19 @@
 set -e
 
 case "$1" in
+    remove|purge)
+        # Drop our entry from the vyos-1x xml_ref cache (mirror of the
+        # postinst registration).
+        XML_REF=/usr/lib/python3/dist-packages/vyos/xml_ref
+        if [ -f "$XML_REF/update_cache.py" ]; then
+            rm -f "$XML_REF"/pkg_cache/quartzfire_geoip_cache.py*
+            (cd "$XML_REF" && python3 update_cache.py) 2>/dev/null || true
+            systemctl try-restart vyos-configd 2>/dev/null || true
+        fi
+        ;;
+esac
+
+case "$1" in
     purge)
         rm -rf /var/cache/quartzfire-geoip
         # Remove the loaded ruleset if nft is still around; ignore failures
