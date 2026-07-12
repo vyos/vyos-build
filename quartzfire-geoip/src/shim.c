@@ -88,26 +88,31 @@ typedef void (*qzgeo_net_cb)(const char *cidr, void *user);
 
 /* Enumerate networks as CIDR strings; cc == NULL means the whole database.
  * family is 4 or 6. Returns 0 on success. Flattening/merging is done on the
- * Rust side (collapse), so no enumerator flags are needed. */
+ * Rust side (collapse), so no enumerator flags are needed.
+ *
+ * The country filter is a plain strcmp on each network rather than the
+ * enumerator's own filter: libloc replaced set_country_code() with a
+ * loc_country_list-based set_countries(), and either way the filter is
+ * applied per-network during the walk, so doing it here costs the same and
+ * works across libloc versions. cc must be an uppercase ISO code (special
+ * flag codes like A1 are filtered out on the Rust side before this call). */
 int qzgeo_db_networks(void *p, const char *cc, int family, qzgeo_net_cb cb, void *user) {
     struct qzgeo_db *handle = p;
     struct loc_database_enumerator *e = NULL;
     if (loc_database_enumerator_new(&e, handle->db, LOC_DB_ENUMERATE_NETWORKS, 0) < 0)
         return -1;
-    if (cc && loc_database_enumerator_set_country_code(e, cc) < 0) {
-        loc_database_enumerator_unref(e);
-        return -1;
-    }
     if (loc_database_enumerator_set_family(e, family == 4 ? AF_INET : AF_INET6) < 0) {
         loc_database_enumerator_unref(e);
         return -1;
     }
     struct loc_network *net = NULL;
     while (loc_database_enumerator_next_network(e, &net) == 0 && net) {
-        char *s = loc_network_str(net);
-        if (s) {
-            cb(s, user);
-            free(s);
+        if (!cc || (loc_network_get_country_code(net) &&
+                    strcmp(loc_network_get_country_code(net), cc) == 0)) {
+            /* Owned by net (freed on unref) since libloc made it const. */
+            const char *s = loc_network_str(net);
+            if (s)
+                cb(s, user);
         }
         loc_network_unref(net);
         net = NULL;
@@ -150,9 +155,8 @@ int qzgeo_db_lookup(void *p, const char *ip, char *cc_buf, size_t cc_len,
         return 0;
     const char *code = loc_network_get_country_code(net);
     snprintf(cc_buf, cc_len, "%s", code ? code : "");
-    char *s = loc_network_str(net);
+    const char *s = loc_network_str(net); /* owned by net, freed on unref */
     snprintf(net_buf, net_len, "%s", s ? s : "");
-    free(s);
     loc_network_unref(net);
     return 1;
 }
