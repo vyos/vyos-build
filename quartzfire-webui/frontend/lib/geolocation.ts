@@ -466,3 +466,35 @@ export const CONTINENT_NAMES: Record<string, string> = {
 export function countryName(countries: GeoCountry[], code: string): string {
   return countries.find((c) => c.code === code.toUpperCase())?.name ?? code.toUpperCase();
 }
+
+/// True for addresses that never carry a country: RFC1918 / CGNAT / loopback /
+/// link-local (v4) and loopback / ULA / link-local (v6). Used to pick the
+/// remote endpoint of a block event — the side whose country was filtered.
+export function isPrivateIp(ip: string): boolean {
+  const s = ip.trim().toLowerCase();
+  if (s.includes(":")) {
+    if (s === "::1" || s === "::") return true;
+    if (/^fe[89ab]/.test(s)) return true; // fe80::/10 link-local
+    if (/^f[cd]/.test(s)) return true; // fc00::/7 unique-local
+    return false;
+  }
+  const p = s.split(".").map((n) => Number.parseInt(n, 10));
+  if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return false;
+  const [a, b] = p;
+  if (a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true; // link-local
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT (100.64.0.0/10)
+  return false;
+}
+
+/// The endpoint of a block event whose country was filtered — the remote,
+/// publicly-routable side. Prefer a public source (inbound/transit blocks),
+/// then a public destination (outbound blocks); a purely private pair (or an
+/// event missing addresses) has no country to resolve.
+export function blockedIp(e: GeoEvent): string | null {
+  if (e.src && !isPrivateIp(e.src)) return e.src;
+  if (e.dst && !isPrivateIp(e.dst)) return e.dst;
+  return null;
+}

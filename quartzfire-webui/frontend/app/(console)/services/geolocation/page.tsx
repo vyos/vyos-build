@@ -20,6 +20,7 @@ import {
   actionUsage,
   applyGeoAction,
   applyGeoPolicy,
+  blockedIp,
   countryName,
   deleteGeoAction,
   deleteGeoPolicy,
@@ -713,19 +714,50 @@ function AlertsTab() {
     };
   }, [streamGen]);
 
+  // Block-event log lines carry only IPs, so resolve the filtered country from
+  // the remote endpoint via the libloc lookup helper — memoized per IP, since
+  // the same foreign peers recur across a burst. `geoByIp[ip]` is undefined
+  // while a lookup is in flight, then the result (or null on failure).
+  const [geoByIp, setGeoByIp] = useState<Record<string, GeoLookupResult | null>>({});
+  const lookedUpRef = useRef<Set<string>>(new Set());
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    const pending = new Set<string>();
+    for (const r of rows) {
+      const ip = blockedIp(r);
+      if (ip && !lookedUpRef.current.has(ip)) {
+        lookedUpRef.current.add(ip);
+        pending.add(ip);
+      }
+    }
+    pending.forEach((ip) => {
+      geoLookup(ip)
+        .then((res) => mountedRef.current && setGeoByIp((m) => ({ ...m, [ip]: res })))
+        .catch(() => mountedRef.current && setGeoByIp((m) => ({ ...m, [ip]: null })));
+    });
+  }, [rows]);
+
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const visible = useMemo(
     () =>
       rows.filter((r) => {
         if (!q) return true;
-        const hay = [r.action_name, r.src, r.dst, r.proto, r.iif, r.oif]
+        const ip = blockedIp(r);
+        const geo = ip ? geoByIp[ip] : undefined;
+        const hay = [r.action_name, r.src, r.dst, r.proto, r.iif, r.oif, geo?.country, geo?.country_name]
           .filter((v) => v != null && v !== "")
           .join(" ")
           .toLowerCase();
         return hay.includes(q);
       }),
-    [rows, q],
+    [rows, q, geoByIp],
   );
 
   const togglePause = () =>
@@ -797,6 +829,7 @@ function AlertsTab() {
           <colgroup>
             <col style={{ width: 110 }} />
             <col style={{ width: 160 }} />
+            <col style={{ width: 170 }} />
             <col style={{ width: 90 }} />
             <col />
             <col />
@@ -806,6 +839,7 @@ function AlertsTab() {
             <tr>
               <th>Time</th>
               <th>Action</th>
+              <th>Country</th>
               <th>Proto</th>
               <th>Source</th>
               <th>Destination</th>
@@ -815,7 +849,7 @@ function AlertsTab() {
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
+                <td colSpan={7} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
                   {rows.length === 0
                     ? "No block events yet — they appear when an action with logging enabled drops traffic."
                     : "No alerts match the filter."}
@@ -827,6 +861,21 @@ function AlertsTab() {
                   <td className="mono text-[12px] text-[var(--qz-fg-3)]">{clock(r.ts)}</td>
                   <td>
                     <span className="badge badge-crit">{r.action_name}</span>
+                  </td>
+                  <td className="text-[13px] text-[var(--qz-fg-2)]">
+                    {(() => {
+                      const ip = blockedIp(r);
+                      if (!ip) return dash;
+                      const geo = geoByIp[ip];
+                      if (geo === undefined) return <span className="text-[var(--qz-fg-4)]">…</span>;
+                      if (!geo?.country) return dash;
+                      return (
+                        <span className="inline-flex items-center gap-[6px]">
+                          <span>{flagEmoji(geo.country)}</span>
+                          <span>{geo.country_name ?? geo.country}</span>
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="mono text-[12px] text-[var(--qz-fg-3)]">{r.proto ?? dash}</td>
                   <td className="mono text-[12px] text-[var(--qz-fg-2)]">{endpointText(r.src, r.spt)}</td>
