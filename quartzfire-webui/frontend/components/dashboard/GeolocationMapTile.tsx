@@ -104,9 +104,9 @@ export function GeolocationMapTile() {
       diffuse: 1.2,
       mapSamples: 16000,
       mapBrightness: 6,
-      baseColor: [0.26, 0.29, 0.34],
+      baseColor: [0.09, 0.42, 0.32],
       markerColor: [0.96, 0.35, 0.35],
-      glowColor: [0.14, 0.19, 0.27],
+      glowColor: [0.0, 0.55, 0.38],
       markers: markersRef.current,
     });
     globeRef.current = globe;

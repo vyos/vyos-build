@@ -16,6 +16,7 @@ use crate::apply;
 use crate::config::{self, CliShellApi, ConfigRead};
 use crate::db::{self, Database};
 use crate::model;
+use crate::render;
 
 fn log(msg: &str) {
     eprintln!("quartzfire-geoip: {msg}");
@@ -253,21 +254,39 @@ pub fn update() -> i32 {
     if let Err(e) = apply::write_countries(after.as_ref()) {
         log(&format!("writing countries.json failed: {e}"));
     }
-    if ok && changed {
-        match apply::refresh_sets(after.as_ref()) {
-            Ok(count) => log(&format!("reloaded {count} in-use set(s) from the new database")),
-            Err(e) => {
-                log(&format!("set reload failed — previous sets stay loaded: {e}"));
-                apply::update_status(json!({
-                    "update": {
-                        "time": apply::now(),
-                        "ok": false,
-                        "changed": changed,
-                        "message": format!("set reload failed: {e}"),
-                        "schedule": "daily",
-                    },
-                }));
-                return 1;
+    if ok {
+        // Enforcement can be *pending*: an earlier commit/apply was blocked
+        // because the database was missing, so apply_model returned early and
+        // never loaded the table (active_mark absent). Now that the DB is
+        // present, a full re-render from the committed snapshot installs it.
+        // refresh_sets alone cannot — it only swaps set CONTENTS into an
+        // already-active table. This also covers "Update now" when the DB was
+        // already current (changed == false), which otherwise no-ops.
+        let pending_install = !apply::active_mark().exists()
+            && apply::load_desired()
+                .ok()
+                .flatten()
+                .map(|d| !render::required_sets(&d.model).is_empty())
+                .unwrap_or(false);
+        if pending_install {
+            log("enforcement was pending a database — re-applying the full ruleset");
+            standalone_apply();
+        } else if changed {
+            match apply::refresh_sets(after.as_ref()) {
+                Ok(count) => log(&format!("reloaded {count} in-use set(s) from the new database")),
+                Err(e) => {
+                    log(&format!("set reload failed — previous sets stay loaded: {e}"));
+                    apply::update_status(json!({
+                        "update": {
+                            "time": apply::now(),
+                            "ok": false,
+                            "changed": changed,
+                            "message": format!("set reload failed: {e}"),
+                            "schedule": "daily",
+                        },
+                    }));
+                    return 1;
+                }
             }
         }
     }

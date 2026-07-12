@@ -76,9 +76,9 @@ export const TILE_REGISTRY: Record<string, TileDef> = {
   "geolocation-map": {
     type: "geolocation-map",
     title: "Geolocation Map",
-    defaultW: 2,
+    defaultW: 1,
     defaultH: 6,
-    minW: 2,
+    minW: 1,
     minH: 5,
     render: () => <GeolocationMapTile />,
   },
