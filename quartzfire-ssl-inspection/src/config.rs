@@ -99,6 +99,12 @@ fn join<'a>(base: &[&'a str], rest: &[&'a str]) -> Vec<&'a str> {
     base.iter().chain(rest.iter()).copied().collect()
 }
 
+/// Full path to the valueless `enable` node — used by the commit owner to
+/// detect the off→on transition (session has it, the active config did not).
+pub fn join_enable() -> Vec<&'static str> {
+    join(&BASE, &["enable"])
+}
+
 /// The `service quartzfire ssl-inspection` subtree as a normalized model.
 pub fn read_service(conf: &dyn ConfigRead) -> Model {
     let mut model = Model::default();

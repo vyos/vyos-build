@@ -64,9 +64,9 @@ const ITEMS: NavItem[] = [
     href: "/routing",
     children: [
       { id: "static", label: "Static", href: "/routing/static", icon: Milestone },
-      { id: "vpn",    label: "VPN",    href: "/routing/vpn",    icon: ShieldCheck },
     ],
   },
+  { id: "vpn", label: "VPN", icon: ShieldCheck, href: "/vpn" },
   {
     id: "services",
     label: "Services",

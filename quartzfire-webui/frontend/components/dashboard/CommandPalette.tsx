@@ -28,7 +28,7 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-fw-monitor",  section: "Go to", label: "Firewall › Traffic Monitor", kbd: "", href: "/firewall/monitor" },
   { id: "nav-routing",    section: "Go to", label: "Routing",    kbd: "G R", href: "/routing" },
   { id: "nav-rt-static",   section: "Go to", label: "Routing › Static", kbd: "", href: "/routing/static" },
-  { id: "nav-rt-vpn",      section: "Go to", label: "Routing › VPN", kbd: "", href: "/routing/vpn" },
+  { id: "nav-vpn",        section: "Go to", label: "VPN", kbd: "", href: "/vpn" },
   { id: "nav-services",   section: "Go to", label: "Services",   kbd: "G V", href: "/services" },
   { id: "nav-svc-dhcp-server",    section: "Go to", label: "Services › DHCP Server",    kbd: "", href: "/services/dhcp-server" },
   { id: "nav-svc-dhcp-relay",     section: "Go to", label: "Services › DHCP Relay",     kbd: "", href: "/services/dhcp-relay" },

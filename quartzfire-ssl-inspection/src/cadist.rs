@@ -132,10 +132,10 @@ fn landing_page() -> String {
     let fp = ca::fingerprint().unwrap_or_else(|| "the CA has not been generated yet".to_string());
     let have_ca = Path::new(ca::CA_CRT).exists();
     let dl = if have_ca {
-        r#"<p class="dl">
-            <a href="/ca.crt" download>Download ca.crt (PEM — macOS, Linux, iOS)</a>
-            <a href="/ca.der" download>Download ca.der (DER — Windows, Android)</a>
-        </p>"#
+        r#"<div class="dl">
+            <a href="/ca.crt" download>Download ca.crt<span>PEM — macOS, Linux, iOS</span></a>
+            <a href="/ca.der" download>Download ca.der<span>DER — Windows, Android</span></a>
+        </div>"#
     } else {
         r#"<p class="warn">The inspection CA has not been generated yet. Enable SSL Inspection in the WebUI first.</p>"#
     };
@@ -143,49 +143,85 @@ fn landing_page() -> String {
         r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>QuartzFire — Install the SSL Inspection CA</title>
 <style>
-  body {{ font-family: system-ui, sans-serif; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color:#111; }}
-  h1 {{ font-size: 1.4rem; }}
-  code, .fp {{ font-family: ui-monospace, monospace; }}
-  .fp {{ display:block; word-break: break-all; background:#f4f4f5; padding:.6rem .8rem; border-radius:.4rem; }}
-  .dl a {{ display:inline-block; margin:.3rem .8rem .3rem 0; padding:.5rem .9rem; background:#1f6feb; color:#fff; border-radius:.4rem; text-decoration:none; }}
-  .warn {{ background:#fff3cd; padding:.6rem .8rem; border-radius:.4rem; }}
-  ol {{ padding-left:1.2rem; }}
-  section {{ margin-top:1.4rem; }}
+  /* Palette mirrors the QuartzFire WebUI design tokens (app/globals.css). */
+  :root {{
+    --bg:#0f1117; --surface:#161920; --sunken:#1a1d26; --border:#252830;
+    --fg1:#f2f3f5; --fg3:#a2a6b0; --fg4:#6b6f7a;
+    --accent:#00d992; --accent-hover:#1aff9c; --on-accent:#062014; --warn:#e0b341;
+  }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; max-width: 46rem;
+          margin: 0 auto; padding: 2.5rem 1.25rem 3rem; line-height: 1.55; color: var(--fg1);
+          background: var(--bg); -webkit-font-smoothing: antialiased; }}
+  h1 {{ font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 .35rem; }}
+  h1 .brand {{ color: var(--accent); }}
+  h2 {{ font-size: 1rem; font-weight: 600; color: var(--fg1); margin: 0 0 .55rem; }}
+  p {{ color: var(--fg3); }}
+  .lead {{ color: var(--fg3); margin-top: 0; }}
+  .label {{ color: var(--fg4); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 .4rem; }}
+  code, .fp {{ font-family: ui-monospace, "SF Mono", Menlo, monospace; }}
+  .fp {{ display: block; word-break: break-all; background: var(--sunken); color: var(--fg1);
+         padding: .7rem .85rem; border-radius: .5rem; border: 1px solid var(--border); font-size: .85rem; }}
+  .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: .6rem;
+           padding: 1.1rem 1.25rem; margin-top: 1.25rem; }}
+  .dl {{ display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1rem; }}
+  .dl a {{ display: flex; flex-direction: column; gap: .15rem; padding: .6rem 1.05rem;
+           background: var(--accent); color: var(--on-accent); border-radius: .5rem;
+           text-decoration: none; font-weight: 600; font-size: .92rem; transition: background .12s ease; }}
+  .dl a span {{ font-weight: 500; font-size: .72rem; opacity: .8; }}
+  .dl a:hover {{ background: var(--accent-hover); }}
+  .warn {{ background: rgba(224,179,65,.12); border: 1px solid rgba(224,179,65,.35);
+           color: var(--warn); padding: .65rem .85rem; border-radius: .5rem; }}
+  ol {{ padding-left: 1.2rem; color: var(--fg3); margin: 0; }}
+  li {{ margin: .2rem 0; }}
+  li em {{ color: var(--fg1); font-style: normal; font-weight: 500; }}
+  code {{ background: var(--sunken); padding: .1rem .35rem; border-radius: .3rem; color: var(--fg1);
+          font-size: .85em; border: 1px solid var(--border); }}
+  a {{ color: var(--accent); }}
+  .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin-top: 1.25rem; }}
+  .grid .card {{ margin-top: 0; }}
 </style></head><body>
-<h1>QuartzFire SSL Inspection — Root CA</h1>
-<p>To browse HTTPS without warnings through this firewall, install and trust the
+<h1><span class="brand">QuartzFire</span> SSL Inspection — Root CA</h1>
+<p class="lead">To browse HTTPS without warnings through this firewall, install and trust the
 QuartzFire inspection root certificate below. Verify the fingerprint out-of-band
 before trusting it.</p>
-<p><strong>SHA-256 fingerprint:</strong></p>
-<span class="fp">{fp}</span>
-{dl}
-<section><h2>Windows</h2><ol>
-  <li>Download <code>ca.der</code>.</li>
-  <li>Double-click → <em>Install Certificate</em> → <em>Local Machine</em>.</li>
-  <li>Place in <em>Trusted Root Certification Authorities</em>.</li>
-</ol></section>
-<section><h2>macOS</h2><ol>
-  <li>Download <code>ca.crt</code> and open it in Keychain Access (System keychain).</li>
-  <li>Set it to <em>Always Trust</em> for SSL.</li>
-</ol></section>
-<section><h2>iOS / iPadOS</h2><ol>
-  <li>Download <code>ca.crt</code>; install the profile in Settings.</li>
-  <li>Enable it under <em>Settings → General → About → Certificate Trust Settings</em>.</li>
-</ol></section>
-<section><h2>Android</h2><ol>
-  <li>Download <code>ca.der</code>.</li>
-  <li><em>Settings → Security → Encryption &amp; credentials → Install a certificate → CA certificate</em>.</li>
-</ol></section>
-<section><h2>Firefox</h2><ol>
-  <li>Firefox uses its own store: <em>Settings → Privacy &amp; Security → Certificates → View Certificates → Authorities → Import</em>.</li>
-  <li>Import <code>ca.crt</code> and trust it for websites.</li>
-</ol></section>
-<section><h2>Linux (system trust)</h2><ol>
-  <li><code>sudo cp ca.crt /usr/local/share/ca-certificates/quartzfire-ssl-inspection.crt</code></li>
-  <li><code>sudo update-ca-certificates</code></li>
-</ol></section>
+
+<div class="card">
+  <p class="label">SHA-256 fingerprint</p>
+  <span class="fp">{fp}</span>
+  {dl}
+</div>
+
+<div class="grid">
+  <section class="card"><h2>Windows</h2><ol>
+    <li>Download <code>ca.der</code>.</li>
+    <li>Double-click → <em>Install Certificate</em> → <em>Local Machine</em>.</li>
+    <li>Place in <em>Trusted Root Certification Authorities</em>.</li>
+  </ol></section>
+  <section class="card"><h2>macOS</h2><ol>
+    <li>Download <code>ca.crt</code> and open it in Keychain Access (System keychain).</li>
+    <li>Set it to <em>Always Trust</em> for SSL.</li>
+  </ol></section>
+  <section class="card"><h2>iOS / iPadOS</h2><ol>
+    <li>Download <code>ca.crt</code>; install the profile in Settings.</li>
+    <li>Enable it under <em>Settings → General → About → Certificate Trust Settings</em>.</li>
+  </ol></section>
+  <section class="card"><h2>Android</h2><ol>
+    <li>Download <code>ca.der</code>.</li>
+    <li><em>Settings → Security → Encryption &amp; credentials → Install a certificate → CA certificate</em>.</li>
+  </ol></section>
+  <section class="card"><h2>Firefox</h2><ol>
+    <li>Firefox uses its own store: <em>Settings → Privacy &amp; Security → Certificates → View Certificates → Authorities → Import</em>.</li>
+    <li>Import <code>ca.crt</code> and trust it for websites.</li>
+  </ol></section>
+  <section class="card"><h2>Linux (system trust)</h2><ol>
+    <li><code>sudo cp ca.crt /usr/local/share/ca-certificates/quartzfire-ssl-inspection.crt</code></li>
+    <li><code>sudo update-ca-certificates</code></li>
+  </ol></section>
+</div>
 </body></html>
 "#,
         fp = html_escape(&fp),

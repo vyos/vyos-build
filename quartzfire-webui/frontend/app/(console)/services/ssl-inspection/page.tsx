@@ -342,6 +342,21 @@ export default function SslInspectionPage() {
   const dirty = useMemo(() => JSON.stringify(config) !== JSON.stringify(draft), [config, draft]);
 
   const onToggle = async (enabled: boolean) => {
+    // Enabling starts intercepting LAN HTTPS immediately. Any client that has
+    // not installed the QuartzFire CA will get certificate errors and be unable
+    // to load HTTPS sites, so require an explicit acknowledgement first.
+    if (
+      enabled &&
+      !window.confirm(
+        "Enable SSL inspection?\n\n" +
+          "Outbound HTTPS on the selected interface(s) will be intercepted and re-signed with the " +
+          "QuartzFire inspection CA. Any client that does NOT trust this CA will get certificate " +
+          "errors and be unable to load HTTPS sites.\n\n" +
+          "Make sure the inspection CA has already been distributed to and installed on your " +
+          "clients (download it from the Inspection root CA section below) before enabling.",
+      )
+    )
+      return;
     setToggling(true);
     try {
       await setSslEnabled(config, enabled);

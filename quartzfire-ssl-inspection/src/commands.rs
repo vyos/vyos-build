@@ -13,7 +13,7 @@ use crate::apply;
 use crate::ca;
 use crate::cadist;
 use crate::capcheck;
-use crate::config::{self, CliShellApi};
+use crate::config::{self, CliShellApi, ConfigRead};
 use crate::model;
 
 fn log(msg: &str) {
@@ -40,6 +40,29 @@ pub fn commit() -> i32 {
     if !problems.is_empty() {
         eprintln!("{}", problems.join("\n"));
         return 1;
+    }
+
+    // Loud warning on the enable transition (session has `enable`, the running
+    // config did not): turning inspection on starts intercepting LAN HTTPS, and
+    // every client that has not installed the QuartzFire CA will get
+    // certificate errors and fail to load HTTPS sites. Distributing the CA is a
+    // prerequisite, so make it impossible to miss on the commit output. This is
+    // a WARNING, never a commit abort — the operator may be enabling precisely
+    // because they have just rolled out the CA.
+    if model.enabled && !CliShellApi::active().exists(&config::join_enable()) {
+        eprintln!(
+            "\n\
+             ========================================================================\n\
+             WARNING: SSL inspection is being ENABLED — LAN HTTPS will be intercepted.\n\
+             \n\
+             Every client on the selected interface(s) MUST trust the QuartzFire\n\
+             inspection CA first, or HTTPS sites will fail with certificate errors.\n\
+             Distribute the CA (download from http://<box>:4126/ on a trusted\n\
+             interface and install it as a trusted root) BEFORE relying on this.\n\
+             \n\
+             To roll back: `delete service quartzfire ssl-inspection` then commit.\n\
+             ========================================================================\n"
+        );
     }
 
     if let Err(e) = apply::save_desired(&model) {
