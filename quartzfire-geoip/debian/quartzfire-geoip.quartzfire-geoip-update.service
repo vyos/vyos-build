@@ -1,0 +1,22 @@
+[Unit]
+Description=Update the QuartzFire geolocation database (IPFire libloc)
+Documentation=file:/usr/share/doc/quartzfire-geoip/design.md
+Wants=network-online.target
+After=network-online.target vyos-router.service
+# Triggered per WebUI request; a burst must not trip the start-rate limit and
+# take the path watcher down with it (see the qfappd apply unit).
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/quartzfire/geoip-update
+# Download of the full database on a slow uplink plus the one-off build of the
+# large "known" sets can take a while.
+TimeoutStartSec=1800
+# Status/countries files the unprivileged WebUI backend reads back; keep them
+# around after the oneshot exits.
+RuntimeDirectory=quartzfire-geoip
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target

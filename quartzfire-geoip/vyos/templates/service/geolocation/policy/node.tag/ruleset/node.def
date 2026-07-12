@@ -1,0 +1,7 @@
+type: txt
+help: Firewall ruleset (base chain) containing the target rule
+syntax:expression: $VAR(@) in "forward", "input", "output" ; "ruleset must be forward, input, or output"
+allowed: echo forward input output
+val_help: forward; firewall ipv4 forward filter
+val_help: input; firewall ipv4 input filter
+val_help: output; firewall ipv4 output filter

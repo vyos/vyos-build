@@ -1,0 +1,54 @@
+#!/usr/bin/make -f
+# quartzfire-geoip Debian packaging (Rust multi-call binary + config
+# templates). Built with the `libloc` feature so src/shim.c compiles against
+# the installed libloc-dev headers — any libloc API drift fails HERE, at
+# package build, never at runtime.
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export CARGO_HOME = $(CURDIR)/debian/cargo
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --locked --features libloc
+
+override_dh_auto_test:
+	# Pure-logic suite (model/match/render/pipeline); the libloc FFI and nft
+	# interaction are exercised on-target.
+	cargo test --release --locked
+
+override_dh_auto_clean:
+	cargo clean || true
+	rm -rf debian/cargo
+
+override_dh_auto_install:
+	# One multi-call binary; the helper names and the conf-mode owner are
+	# symlinks dispatched on argv[0] (see src/main.rs), so systemd units,
+	# node.def lines, and the WebUI backend reference stable paths.
+	install -D -m0755 target/release/qzgeo \
+		debian/quartzfire-geoip/usr/libexec/quartzfire/qzgeo
+	set -e; for name in geoip-apply geoip-update geoip-lookup geoip-countries geoip-counters; do \
+		ln -s qzgeo debian/quartzfire-geoip/usr/libexec/quartzfire/$$name; \
+	done
+	install -d debian/quartzfire-geoip/usr/libexec/vyos/conf_mode
+	ln -s /usr/libexec/quartzfire/qzgeo \
+		debian/quartzfire-geoip/usr/libexec/vyos/conf_mode/service_geolocation
+	# VyOS cstore command templates (the CLI grammar).
+	mkdir -p debian/quartzfire-geoip/opt/vyatta/share/vyatta-cfg/templates/service
+	cp -r vyos/templates/service/geolocation \
+		debian/quartzfire-geoip/opt/vyatta/share/vyatta-cfg/templates/service/
+	find debian/quartzfire-geoip/opt/vyatta -type f -exec chmod 0644 {} +
+	find debian/quartzfire-geoip/opt/vyatta -type d -exec chmod 0755 {} +
+	# Docs.
+	install -D -m0644 docs/design.md \
+		debian/quartzfire-geoip/usr/share/doc/quartzfire-geoip/design.md
+
+# All five units are named debian/quartzfire-geoip.<unit>.<type>;
+# dh_installsystemd only auto-processes debian/<pkg>.service, so each must be
+# installed+enabled explicitly by name or it is silently dropped.
+override_dh_installsystemd:
+	dh_installsystemd --name=quartzfire-geoip-update
+	dh_installsystemd --name=quartzfire-geoip-update-request
+	dh_installsystemd --name=quartzfire-geoip-resync
+	dh_installsystemd --name=quartzfire-geoip-counters

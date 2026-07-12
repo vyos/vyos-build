@@ -85,6 +85,32 @@ pub struct Config {
     /// visible here — qfappd's own status shows no error for it.
     #[serde(default = "default_appcontrol_apply_file")]
     pub appcontrol_apply_file: PathBuf,
+
+    /// Geolocation status report (read-only for us), merged by the root
+    /// geoip-apply/geoip-update helpers: database version, last update,
+    /// signature status, apply result, per-set entry counts, policy errors.
+    #[serde(default = "default_geoip_status_file")]
+    pub geoip_status_file: PathBuf,
+
+    /// Per-action geolocation hit counters (read-only), dumped by the
+    /// quartzfire-geoip-counters timer while the qz_geo table is loaded.
+    #[serde(default = "default_geoip_counters_file")]
+    pub geoip_counters_file: PathBuf,
+
+    /// Selectable country list dumped from the libloc database (read-only);
+    /// absent until the first successful database download.
+    #[serde(default = "default_geoip_countries_file")]
+    pub geoip_countries_file: PathBuf,
+
+    /// "Update now" trigger file watched by quartzfire-geoip-update-request
+    /// .path. Lives under /config/quartzfire (writable for us) like the other
+    /// desired-state files.
+    #[serde(default = "default_geoip_update_request_file")]
+    pub geoip_update_request_file: PathBuf,
+
+    /// The unprivileged IP → country lookup helper (quartzfire-geoip).
+    #[serde(default = "default_geoip_lookup_helper")]
+    pub geoip_lookup_helper: PathBuf,
 }
 
 fn default_listen() -> String {
@@ -132,6 +158,21 @@ fn default_appcontrol_events_file() -> PathBuf {
 }
 fn default_appcontrol_apply_file() -> PathBuf {
     PathBuf::from("/run/qfappd/apply.json")
+}
+fn default_geoip_status_file() -> PathBuf {
+    PathBuf::from("/run/quartzfire-geoip/status.json")
+}
+fn default_geoip_counters_file() -> PathBuf {
+    PathBuf::from("/run/quartzfire-geoip/counters.json")
+}
+fn default_geoip_countries_file() -> PathBuf {
+    PathBuf::from("/run/quartzfire-geoip/countries.json")
+}
+fn default_geoip_update_request_file() -> PathBuf {
+    PathBuf::from("/config/quartzfire/geoip-update-request")
+}
+fn default_geoip_lookup_helper() -> PathBuf {
+    PathBuf::from("/usr/libexec/quartzfire/geoip-lookup")
 }
 fn default_guard_dir() -> PathBuf {
     PathBuf::from("/config/quartzfire")

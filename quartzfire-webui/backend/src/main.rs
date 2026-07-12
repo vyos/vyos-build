@@ -2,6 +2,7 @@ mod appcontrol;
 mod auth;
 mod config;
 mod error;
+mod geolocation;
 mod guard;
 mod image;
 mod ips;
@@ -84,6 +85,13 @@ async fn main() -> Result<()> {
         .route("/api/appcontrol/catalog", get(appcontrol::catalog))
         .route("/api/appcontrol/alerts", get(appcontrol::alerts))
         .route("/api/appcontrol/alerts/history", get(appcontrol::alerts_history))
+        // Geolocation config is real VyOS config (service geolocation …) and
+        // flows through the /api proxy + commit guard; these endpoints cover
+        // the database/status side only (see geolocation.rs).
+        .route("/api/geolocation/status", get(geolocation::status))
+        .route("/api/geolocation/countries", get(geolocation::countries))
+        .route("/api/geolocation/update", post(geolocation::request_update))
+        .route("/api/geolocation/lookup", get(geolocation::lookup))
         // Commit-confirm guard: risky changes apply here instead of raw
         // /configure so an unconfirmed change auto-reverts (see guard.rs).
         .route("/api/guard/apply", post(guard::apply))

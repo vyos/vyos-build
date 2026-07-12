@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily QuartzFire geolocation database update
+
+[Timer]
+# Soon after boot (covers the fresh-image / first-boot "no database yet"
+# state as soon as the WAN is up), then daily with jitter so a fleet doesn't
+# stampede location.ipfire.org.
+OnBootSec=10min
+OnUnitInactiveSec=1d
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

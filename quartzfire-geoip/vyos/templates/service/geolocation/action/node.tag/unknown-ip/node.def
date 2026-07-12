@@ -1,0 +1,6 @@
+type: txt
+help: Handling of IPs not present in the location database
+syntax:expression: $VAR(@) in "allow", "block" ; "unknown-ip must be allow or block"
+allowed: echo allow block
+val_help: allow; Allow unclassified IPs (default)
+val_help: block; Block unclassified IPs

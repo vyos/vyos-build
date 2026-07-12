@@ -1,0 +1,5 @@
+tag:
+type: txt
+help: Named country policy (geolocation action)
+syntax:expression: pattern $VAR(@) "^[A-Za-z][A-Za-z0-9_]{0,31}$" ; "action name must start with a letter and contain only letters, digits, and underscores (at most 32 characters)"
+val_help: txt; Geolocation action name

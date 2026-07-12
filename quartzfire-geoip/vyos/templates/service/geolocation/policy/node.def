@@ -1,0 +1,5 @@
+tag:
+type: u32
+help: Geolocation policy (binds an action to a firewall rule)
+syntax:expression: $VAR(@) >= 1 && $VAR(@) <= 999999 ; "policy number must be 1-999999"
+val_help: u32:1-999999; Policy number

@@ -1,0 +1,3 @@
+help: Country-based traffic filtering (geolocation)
+priority: 990
+owner: /usr/libexec/vyos/conf_mode/service_geolocation

@@ -1,0 +1,6 @@
+type: txt
+help: Filtering mode
+syntax:expression: $VAR(@) in "block-listed", "allow-listed" ; "mode must be block-listed or allow-listed"
+allowed: echo block-listed allow-listed
+val_help: block-listed; Allow all countries except the listed ones
+val_help: allow-listed; Block all countries except the listed ones

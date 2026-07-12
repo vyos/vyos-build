@@ -1,0 +1,29 @@
+[package]
+name = "quartzfire-geoip"
+version = "0.1.0"
+edition = "2021"
+description = "QuartzFire geolocation (country) traffic filtering — IPFire libloc + nftables"
+license = "MIT"
+
+# One multi-call binary: the five /usr/libexec/quartzfire/geoip-* helper names
+# and the /usr/libexec/vyos/conf_mode/service_geolocation owner are symlinks
+# to qzgeo, dispatched on argv[0] (see src/main.rs), so the systemd units,
+# node.def templates, and the WebUI backend reference stable paths.
+[[bin]]
+name = "qzgeo"
+path = "src/main.rs"
+
+[features]
+default = []
+# Link the IPFire libloc C library (via src/shim.c, compiled against the real
+# headers at package build). Without it, database access reports "unavailable"
+# — pure-logic code and the test suite build anywhere, same split as qfappd's
+# `ndpi` feature.
+libloc = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+strip = true

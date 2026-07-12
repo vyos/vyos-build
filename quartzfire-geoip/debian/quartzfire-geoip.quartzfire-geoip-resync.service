@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-render the QuartzFire geolocation nftables ruleset
+Documentation=file:/usr/share/doc/quartzfire-geoip/design.md
+# Fired once per firewall commit; bursts must not trip the rate limit.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# Works from the last committed snapshot (/run/quartzfire-geoip/desired.json);
+# a no-op when geolocation has never been committed this boot, so racing the
+# boot-time config load is harmless.
+ExecStart=/usr/libexec/quartzfire/geoip-apply
+RuntimeDirectory=quartzfire-geoip
+RuntimeDirectoryPreserve=yes

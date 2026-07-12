@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # The WebUI's "Update now" trigger file lives here; the directory is
+        # normally created group-writable by the quartzfire-ips boot run, but
+        # be self-sufficient (same belt-and-braces as the qfappd package).
+        if [ -d /config ]; then
+            mkdir -p /config/quartzfire
+        fi
+        mkdir -p /var/cache/quartzfire-geoip
+
+        # The location package may ship its own update timer; two independent
+        # updaters would race on the database file and skew our status
+        # reporting, so ours (which also refreshes the nftables sets) is the
+        # only one left enabled.
+        if [ -e /lib/systemd/system/location-update.timer ] || \
+           [ -e /usr/lib/systemd/system/location-update.timer ]; then
+            systemctl disable --now location-update.timer 2>/dev/null || true
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

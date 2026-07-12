@@ -1,0 +1,7 @@
+type: txt
+help: Which address the country match applies to
+syntax:expression: $VAR(@) in "source", "destination", "both" ; "direction must be source, destination, or both"
+allowed: echo source destination both
+val_help: source; Match the source address against the action's countries
+val_help: destination; Match the destination address
+val_help: both; Match either address (default)

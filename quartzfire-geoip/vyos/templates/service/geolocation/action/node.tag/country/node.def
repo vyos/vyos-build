@@ -1,0 +1,6 @@
+multi:
+type: txt
+help: ISO 3166-1 alpha-2 country code
+syntax:expression: pattern $VAR(@) "^[A-Za-z][A-Za-z]$" ; "country must be a two-letter ISO 3166-1 code (e.g. US, CN)"
+allowed: /usr/libexec/quartzfire/geoip-countries --codes 2>/dev/null || echo ""
+val_help: txt; Two-letter country code (e.g. US)

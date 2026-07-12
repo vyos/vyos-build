@@ -1,0 +1,27 @@
+Source: quartzfire-geoip
+Section: net
+Priority: optional
+Maintainer: QuartzFire <cwellman@quartz.systems>
+Build-Depends: debhelper-compat (= 13),
+               libloc-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/zagdrath/quartz-fire
+
+Package: quartzfire-geoip
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         nftables,
+         location
+Description: QuartzFire geolocation (country) traffic filtering
+ Country-based allow/block filtering for QuartzFire (VyOS-based NGFW),
+ equivalent to WatchGuard Fireware's Geolocation service. Uses the IPFire
+ libloc location database (signed, free to redistribute — deliberately NOT
+ MaxMind GeoLite2) and enforces with per-country nftables sets in a dedicated
+ table, one set lookup per new connection.
+ .
+ A single Rust multi-call binary (qzgeo) provides the `service geolocation`
+ conf-mode owner, the standalone resync, the signed database updater
+ (wrapping the vendor `location update` tool, hence the dependency), the
+ IP-lookup diagnostic, and the status/counters plumbing the QuartzFire WebUI
+ reads. Links libloc directly for database queries.

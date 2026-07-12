@@ -1,0 +1,4 @@
+type: u32
+help: Target rule number in firewall ipv4 <ruleset> filter
+syntax:expression: $VAR(@) >= 1 && $VAR(@) <= 999999 ; "rule number must be 1-999999"
+val_help: u32:1-999999; Firewall rule number

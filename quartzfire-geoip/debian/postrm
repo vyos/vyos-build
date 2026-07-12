@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge)
+        rm -rf /var/cache/quartzfire-geoip
+        # Remove the loaded ruleset if nft is still around; ignore failures
+        # (table absent, nft gone).
+        nft delete table inet qz_geo 2>/dev/null || true
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

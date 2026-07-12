@@ -1,0 +1,18 @@
+# Rust build output
+/target/
+**/*.rs.bk
+
+# Debian packaging build artifacts (dpkg-buildpackage / debhelper)
+/debian/quartzfire-geoip/
+/debian/.debhelper/
+/debian/cargo/
+/debian/files
+/debian/debhelper-build-stamp
+/debian/*.substvars
+/debian/*.debhelper
+/debian/*.debhelper.log
+/debian/*.log
+/debian/tmp/
+/*.deb
+/*.buildinfo
+/*.changes
