@@ -116,6 +116,29 @@ pub struct Config {
     /// The unprivileged IP → country lookup helper (quartzfire-geoip).
     #[serde(default = "default_geoip_lookup_helper")]
     pub geoip_lookup_helper: PathBuf,
+
+    /// SSL-inspection status report (read-only for us), written by the root
+    /// qzssl helpers: squid/bump/icap/certgen state, ICAP health, CA metadata,
+    /// last apply result. Never contains key material.
+    #[serde(default = "default_ssl_status_file")]
+    pub ssl_status_file: PathBuf,
+
+    /// Public inspection-CA metadata (`ca-info.json`, read-only) — subject,
+    /// SHA-256 fingerprint, validity, serial. No private key.
+    #[serde(default = "default_ssl_ca_info_file")]
+    pub ssl_ca_info_file: PathBuf,
+
+    /// The PUBLIC inspection CA in PEM (`ca.crt`) and DER (`ca.der`) for client
+    /// download. Never point these at ca.key.
+    #[serde(default = "default_ssl_ca_crt")]
+    pub ssl_ca_crt: PathBuf,
+    #[serde(default = "default_ssl_ca_der")]
+    pub ssl_ca_der: PathBuf,
+
+    /// "Regenerate CA" trigger file watched by quartzfire-ssl-caregen.path.
+    /// Lives under /config/quartzfire (writable for us).
+    #[serde(default = "default_ssl_regen_request_file")]
+    pub ssl_regen_request_file: PathBuf,
 }
 
 fn default_listen() -> String {
@@ -181,6 +204,21 @@ fn default_geoip_update_request_file() -> PathBuf {
 }
 fn default_geoip_lookup_helper() -> PathBuf {
     PathBuf::from("/usr/libexec/quartzfire/geoip-lookup")
+}
+fn default_ssl_status_file() -> PathBuf {
+    PathBuf::from("/run/quartzfire-ssl/status.json")
+}
+fn default_ssl_ca_info_file() -> PathBuf {
+    PathBuf::from("/run/quartzfire-ssl/ca-info.json")
+}
+fn default_ssl_ca_crt() -> PathBuf {
+    PathBuf::from("/config/quartzfire/ssl-inspection/ca.crt")
+}
+fn default_ssl_ca_der() -> PathBuf {
+    PathBuf::from("/config/quartzfire/ssl-inspection/ca.der")
+}
+fn default_ssl_regen_request_file() -> PathBuf {
+    PathBuf::from("/config/quartzfire/ssl-regen-request")
 }
 fn default_guard_dir() -> PathBuf {
     PathBuf::from("/config/quartzfire")

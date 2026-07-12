@@ -1,0 +1,5 @@
+type: u32
+help: Local port Squid listens on for intercepted TLS (https_port intercept)
+syntax:expression: $VAR(@) >= 1024 && $VAR(@) <= 65535 ; "intercept-port must be 1024-65535"
+val_help: u32:1024-65535; Squid intercept port (default 3129)
+default: 3129

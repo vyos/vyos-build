@@ -9,6 +9,7 @@ mod ips;
 mod monitor;
 mod phy;
 mod proxy;
+mod ssl_inspection;
 mod vyos;
 
 use anyhow::Result;
@@ -95,6 +96,13 @@ async fn main() -> Result<()> {
         .route("/api/geolocation/lookup", get(geolocation::lookup))
         .route("/api/geolocation/alerts", get(geolocation::alerts))
         .route("/api/geolocation/alerts/history", get(geolocation::alerts_history))
+        // SSL Inspection config is real VyOS config (service quartzfire
+        // ssl-inspection …) and flows through the /api proxy + commit guard;
+        // these cover the status/CA/regenerate side only (ssl_inspection.rs).
+        .route("/api/ssl-inspection/status", get(ssl_inspection::status))
+        .route("/api/ssl-inspection/ca.crt", get(ssl_inspection::ca_crt))
+        .route("/api/ssl-inspection/ca.der", get(ssl_inspection::ca_der))
+        .route("/api/ssl-inspection/regenerate", post(ssl_inspection::regenerate))
         // Commit-confirm guard: risky changes apply here instead of raw
         // /configure so an unconfirmed change auto-reverts (see guard.rs).
         .route("/api/guard/apply", post(guard::apply))

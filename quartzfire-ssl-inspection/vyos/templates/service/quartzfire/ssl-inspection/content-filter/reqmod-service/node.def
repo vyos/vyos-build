@@ -1,0 +1,4 @@
+type: txt
+help: ICAP REQMOD service path
+val_help: txt; REQMOD service name (default request)
+default: "request"

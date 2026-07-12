@@ -1,0 +1,35 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|purge)
+        # Stop distributing the CA and tear down the steering table.
+        systemctl disable --now quartzfire-ssl-cadist.service 2>/dev/null || true
+        nft delete table inet qz_ssl 2>/dev/null || true
+        rm -f /etc/squid/conf.d/quartzfire-ssl-inspection.conf 2>/dev/null || true
+        systemctl try-reload-or-restart squid 2>/dev/null || true
+
+        # Drop our entry from the vyos-1x xml_ref cache (mirror of postinst).
+        XML_REF=/usr/lib/python3/dist-packages/vyos/xml_ref
+        if [ -f "$XML_REF/update_cache.py" ]; then
+            rm -f "$XML_REF"/pkg_cache/quartzfire_ssl_inspection_cache.py*
+            (cd "$XML_REF" && python3 update_cache.py) 2>/dev/null || true
+            systemctl try-restart vyos-configd 2>/dev/null || true
+        fi
+        ;;
+esac
+
+case "$1" in
+    purge)
+        # The inspection CA + generated-cert store are user data — remove on
+        # purge only (an upgrade/remove keeps them so re-enabling reuses the
+        # already-distributed CA).
+        rm -rf /config/quartzfire/ssl-inspection 2>/dev/null || true
+        rm -rf /var/lib/squid/ssl_db 2>/dev/null || true
+        rm -rf /run/quartzfire-ssl 2>/dev/null || true
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

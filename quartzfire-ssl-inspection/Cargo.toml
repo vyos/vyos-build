@@ -1,0 +1,22 @@
+[package]
+name = "quartzfire-ssl-inspection"
+version = "0.1.0"
+edition = "2021"
+description = "QuartzFire SSL Inspection — Squid ssl_bump TLS interception + CA lifecycle"
+license = "MIT"
+
+# One multi-call binary. The /usr/libexec/quartzfire/qzssl-* helper names and
+# the /usr/libexec/vyos/conf_mode/service_ssl_inspection owner are symlinks to
+# qzssl, dispatched on argv[0] (see src/main.rs), so the systemd units,
+# node.def templates, and the WebUI backend reference stable paths. Same
+# scheme as quartzfire-geoip's qzgeo.
+[[bin]]
+name = "qzssl"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+strip = true

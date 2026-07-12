@@ -1,0 +1,5 @@
+multi:
+type: txt
+help: Domain excluded from inspection (spliced — passes through undecrypted)
+syntax:expression: pattern $VAR(@) "^[*]?[.]?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?[.])*[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$" ; "must be a domain, .suffix, or *.wildcard (e.g. .bank.com, *.mozilla.org)"
+val_help: txt; Domain / .suffix / *.wildcard to splice (never decrypted)

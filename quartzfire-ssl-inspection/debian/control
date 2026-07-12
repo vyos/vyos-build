@@ -1,0 +1,31 @@
+Source: quartzfire-ssl-inspection
+Section: net
+Priority: optional
+Maintainer: QuartzFire <cwellman@quartz.systems>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/zagdrath/quartz-fire
+
+Package: quartzfire-ssl-inspection
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         squid-openssl,
+         openssl,
+         nftables,
+         vyos-1x
+Description: QuartzFire SSL inspection (Squid ssl_bump TLS interception)
+ TLS decryption/inspection for QuartzFire (VyOS-based NGFW), equivalent to
+ WatchGuard Fireware's Content Inspection. Squid is the SOLE TLS terminator on
+ the box: it owns ssl_bump, the inspection root CA, the private key, and the
+ generated-certificate store. Traffic on the configured interfaces is
+ transparently redirected to Squid, peeked for SNI, spliced (passed through)
+ for do-not-inspect domains, and bumped (decrypted) otherwise.
+ .
+ A single Rust multi-call binary (qzssl) provides the `service quartzfire
+ ssl-inspection` conf-mode owner, the CA lifecycle, the plain-HTTP CA
+ distribution page (:4126), the Squid build-capability probe, and the
+ status plumbing the QuartzFire WebUI reads. The ICAP adaptation seam is
+ pre-wired but idle — a future content-filter engine (e2guardian in ICAP mode,
+ c-icap/ClamAV) attaches behind Squid as a pure filtering consumer and must
+ NEVER enable its own TLS MITM or hold its own CA (see design.md).

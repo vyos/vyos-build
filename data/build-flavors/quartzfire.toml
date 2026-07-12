@@ -14,7 +14,13 @@ image_format = "iso"
 # libloc database: `location` is the vendor updater CLI (signed download +
 # atomic install) that geoip-update wraps; libloc1 itself arrives as a
 # dependency of both. From the Debian mirror.
-packages = ["location"]
+#
+# SSL Inspection (quartzfire-ssl-inspection, a local .deb) needs `squid-openssl`
+# — the OpenSSL-enabled Squid build (--with-openssl / --enable-ssl-crtd /
+# --enable-icap-client). Stock `squid` lacks ssl_bump support, so inspection
+# would fail; check-squid-caps and qzssl's commit-time verify() both refuse a
+# non-bump build loudly.
+packages = ["location", "squid-openssl"]
 
 # Artifact name: quartzfire-<version>-amd64.iso. The version comes from the
 # top-level VERSION file and already carries the quartzfire- prefix (the

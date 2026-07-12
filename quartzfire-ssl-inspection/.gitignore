@@ -1,0 +1,8 @@
+/target
+/debian/cargo
+/debian/quartzfire-ssl-inspection
+/debian/.debhelper
+/debian/files
+/debian/*.substvars
+/debian/*.log
+/debian/debhelper-build-stamp

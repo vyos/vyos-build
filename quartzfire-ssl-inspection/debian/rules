@@ -1,0 +1,66 @@
+#!/usr/bin/make -f
+# quartzfire-ssl-inspection Debian packaging (Rust multi-call binary + config
+# templates + systemd units). Same scheme as quartzfire-geoip.
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export CARGO_HOME = $(CURDIR)/debian/cargo
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --locked
+
+override_dh_auto_test:
+	# Pure-logic suite (model/render/ca-parse/capcheck/config). The openssl,
+	# squid, and nft interactions are exercised on-target and in the Docker
+	# smoke test (tests/icap-echo/smoke.sh).
+	cargo test --release --locked
+
+override_dh_auto_clean:
+	cargo clean || true
+	rm -rf debian/cargo
+
+override_dh_auto_install:
+	# One multi-call binary; the helper names and the conf-mode owner are
+	# symlinks dispatched on argv[0] (see src/main.rs), so systemd units,
+	# node.def lines, and the WebUI backend reference stable paths.
+	install -D -m0755 target/release/qzssl \
+		debian/quartzfire-ssl-inspection/usr/libexec/quartzfire/qzssl
+	set -e; for name in qzssl-apply qzssl-ca qzssl-cadist qzssl-capcheck qzssl-status; do \
+		ln -s qzssl debian/quartzfire-ssl-inspection/usr/libexec/quartzfire/$$name; \
+	done
+	# The .py suffix is mandatory even though the target is an ELF binary:
+	# vyos-configd regex-parses the committing script path and crashes the
+	# daemon (hanging the commit) on any conf_mode script not ending in .py.
+	install -d debian/quartzfire-ssl-inspection/usr/libexec/vyos/conf_mode
+	ln -s /usr/libexec/quartzfire/qzssl \
+		debian/quartzfire-ssl-inspection/usr/libexec/vyos/conf_mode/service_ssl_inspection.py
+	# ISO-build capability guard (fails loudly if squid lacks bump/ICAP).
+	install -D -m0755 scripts/check-squid-caps \
+		debian/quartzfire-ssl-inspection/usr/libexec/quartzfire/check-squid-caps
+	# VyOS cstore command templates (the CLI grammar).
+	mkdir -p debian/quartzfire-ssl-inspection/opt/vyatta/share/vyatta-cfg/templates/service
+	cp -r vyos/templates/service/quartzfire \
+		debian/quartzfire-ssl-inspection/opt/vyatta/share/vyatta-cfg/templates/service/
+	find debian/quartzfire-ssl-inspection/opt/vyatta -type f -exec chmod 0644 {} +
+	find debian/quartzfire-ssl-inspection/opt/vyatta -type d -exec chmod 0755 {} +
+	# XML interface definition mirroring the cstore templates; postinst
+	# registers it with the vyos-1x xml_ref cache so configd knows the path.
+	install -D -m0644 vyos/xml/service_quartzfire_ssl-inspection.xml \
+		debian/quartzfire-ssl-inspection/usr/share/quartzfire/xml/service_quartzfire_ssl-inspection.xml
+	# Docs.
+	install -D -m0644 docs/design.md \
+		debian/quartzfire-ssl-inspection/usr/share/doc/quartzfire-ssl-inspection/design.md
+
+# Units are named debian/quartzfire-ssl-inspection.<unit>.<type>;
+# dh_installsystemd only auto-processes debian/<pkg>.service, so each must be
+# installed (and, where it has an [Install] section, enabled) explicitly.
+override_dh_installsystemd:
+	# The CA-distribution listener is NOT enabled here — qzssl-apply enables
+	# it only while inspection is on, so :4126 is never bound when the feature
+	# is off. Installed + no-start.
+	dh_installsystemd --no-enable --no-start --name=quartzfire-ssl-cadist
+	dh_installsystemd --name=quartzfire-ssl-resync
+	dh_installsystemd --name=quartzfire-ssl-caregen
+	dh_installsystemd --name=quartzfire-ssl-apply

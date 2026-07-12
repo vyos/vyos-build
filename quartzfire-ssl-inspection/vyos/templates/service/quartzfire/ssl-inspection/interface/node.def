@@ -1,0 +1,5 @@
+multi:
+type: txt
+help: Interface whose outbound HTTPS is intercepted (inspection scope)
+allowed: local -a interfaces; interfaces=( $(cd /sys/class/net 2>/dev/null && echo *) ); echo "${interfaces[@]}"
+val_help: txt; Interface name (e.g. eth1)

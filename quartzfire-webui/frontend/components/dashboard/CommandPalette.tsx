@@ -35,6 +35,7 @@ const ACTIONS: PaletteAction[] = [
   { id: "nav-svc-ips", section: "Go to", label: "Services › Intrusion Prevention", kbd: "", href: "/services/intrusion-prevention" },
   { id: "nav-svc-appcontrol", section: "Go to", label: "Services › Application Control", kbd: "", href: "/services/application-control" },
   { id: "nav-svc-geolocation", section: "Go to", label: "Services › Geolocation", kbd: "", href: "/services/geolocation" },
+  { id: "nav-svc-ssl-inspection", section: "Go to", label: "Services › SSL Inspection", kbd: "", href: "/services/ssl-inspection" },
   { id: "nav-system",     section: "Go to", label: "System",     kbd: "G S", href: "/system" },
   { id: "nav-sys-general",     section: "Go to", label: "System › General",     kbd: "", href: "/system/general" },
   { id: "nav-sys-users",       section: "Go to", label: "System › Users",       kbd: "", href: "/system/users" },

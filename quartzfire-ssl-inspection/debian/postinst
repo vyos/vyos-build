@@ -1,0 +1,45 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Persistent home for the inspection CA + do-not-inspect list. Lives
+        # under /config so it survives VyOS image upgrades and signed-ISO
+        # updates. The CA key itself is created root:root 0600 by qzssl.
+        if [ -d /config ]; then
+            mkdir -p /config/quartzfire/ssl-inspection
+            chmod 0755 /config/quartzfire /config/quartzfire/ssl-inspection 2>/dev/null || true
+        fi
+
+        # Do NOT let the stock squid start on boot with its default config: an
+        # idle proxy with no purpose is needless attack surface. qzssl-apply
+        # starts squid (systemctl restart works on a disabled unit) only while
+        # SSL inspection is enabled.
+        systemctl disable squid 2>/dev/null || true
+
+        # Register `service quartzfire ssl-inspection` with the vyos-1x Python
+        # XML reference cache. The cstore templates alone are NOT enough:
+        # vyos-configd resolves every commit diff path through vyos.xml_ref and
+        # dies on paths missing from the cache, hanging the commit forever.
+        XML_REF=/usr/lib/python3/dist-packages/vyos/xml_ref
+        if [ -f "$XML_REF/generate_cache.py" ]; then
+            vyconf_tmp=$(mktemp)
+            if (cd "$XML_REF" && \
+                python3 generate_cache.py \
+                    --xml-dir /usr/share/quartzfire/xml \
+                    --package-name quartzfire-ssl-inspection \
+                    --internal-cache "$vyconf_tmp" >/dev/null && \
+                python3 update_cache.py); then
+                systemctl try-restart vyos-configd 2>/dev/null || true
+            else
+                echo "quartzfire-ssl-inspection: WARNING: xml_ref cache registration failed —" \
+                     "committing ssl-inspection config will hang vyos-configd" >&2
+            fi
+            rm -f "$vyconf_tmp"
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

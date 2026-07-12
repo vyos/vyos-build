@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-apply the QuartzFire SSL-inspection Squid/nftables state
+Documentation=file:/usr/share/doc/quartzfire-ssl-inspection/design.md
+# Fired once per firewall commit; bursts must not trip the start-rate limit.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# Works from the last committed snapshot (/run/quartzfire-ssl/desired.json);
+# a no-op when SSL inspection has never been committed this boot, so racing the
+# boot-time config load is harmless.
+ExecStart=/usr/libexec/quartzfire/qzssl-apply
+RuntimeDirectory=quartzfire-ssl
+RuntimeDirectoryPreserve=yes

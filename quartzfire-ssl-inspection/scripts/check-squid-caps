@@ -1,0 +1,38 @@
+#!/bin/sh
+# Fail loudly if the installed Squid cannot do what SSL inspection needs.
+#
+# Run at ISO build time (and installable at /usr/libexec/quartzfire/) so a
+# stock Squid built WITHOUT OpenSSL bump / ICAP support is caught at build,
+# not silently at runtime. Mirrors qzssl's own commit-time verify().
+set -e
+
+if ! command -v squid >/dev/null 2>&1; then
+    echo "check-squid-caps: FATAL: squid is not installed" >&2
+    exit 1
+fi
+
+v="$(squid -v 2>&1 || true)"
+
+fail=0
+case "$v" in
+    *--with-openssl*|*--enable-ssl-crtd*) : ;;
+    *)
+        echo "check-squid-caps: FATAL: this Squid was built WITHOUT OpenSSL ssl_bump" >&2
+        echo "  support (no --with-openssl / --enable-ssl-crtd). SSL inspection cannot" >&2
+        echo "  work. Install the 'squid-openssl' package instead of stock 'squid'." >&2
+        fail=1
+        ;;
+esac
+
+case "$v" in
+    *--enable-icap-client*) : ;;
+    *)
+        echo "check-squid-caps: WARNING: this Squid lacks --enable-icap-client — the" >&2
+        echo "  content-filter (ICAP) seam will be unavailable. squid-openssl includes it." >&2
+        # Non-fatal: TLS termination still works without a filter engine, but a
+        # build meant to host the filter later should ship the ICAP client.
+        ;;
+esac
+
+[ "$fail" -eq 0 ] && echo "check-squid-caps: OK — Squid supports ssl_bump."
+exit "$fail"

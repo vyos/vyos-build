@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText, ShieldAlert, SlidersHorizontal, Users, KeyRound, Wrench, AppWindow, Earth } from "lucide-react";
+import { Gauge, Settings, Search, LogOut, Network, Route, ArrowLeftRight, Shield, Server, LucideIcon, ChevronDown, ChevronRight, Cable, Tags, Repeat, Combine, Waypoints, Shuffle, ListOrdered, Boxes, BookMarked, Milestone, Router, Forward, Globe, Activity, ScrollText, ShieldAlert, SlidersHorizontal, Users, KeyRound, Wrench, AppWindow, Earth, Lock } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -78,6 +78,7 @@ const ITEMS: NavItem[] = [
       { id: "intrusion-prevention", label: "Intrusion Prevention", href: "/services/intrusion-prevention", icon: ShieldAlert },
       { id: "application-control", label: "Application Control", href: "/services/application-control", icon: AppWindow },
       { id: "geolocation", label: "Geolocation", href: "/services/geolocation", icon: Earth },
+      { id: "ssl-inspection", label: "SSL Inspection", href: "/services/ssl-inspection", icon: Lock },
     ],
   },
   {

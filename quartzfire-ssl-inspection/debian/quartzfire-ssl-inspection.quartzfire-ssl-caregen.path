@@ -1,0 +1,13 @@
+[Unit]
+Description=Watch for WebUI-requested inspection-CA regeneration
+
+[Path]
+# The (unprivileged) WebUI backend bumps this file atomically (temp + rename)
+# when the admin clicks "Regenerate" on the CA panel; PathChanged fires on the
+# rename-into-place. qzssl-ca regenerate mints a fresh CA (all previously
+# distributed copies become invalid) and reloads Squid.
+PathChanged=/config/quartzfire/ssl-regen-request
+Unit=quartzfire-ssl-caregen.service
+
+[Install]
+WantedBy=multi-user.target

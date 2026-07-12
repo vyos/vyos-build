@@ -1,0 +1,5 @@
+multi:
+type: txt
+help: Trusted interface the CA-download page (:4126) is reachable on (never WAN)
+allowed: local -a interfaces; interfaces=( $(cd /sys/class/net 2>/dev/null && echo *) ); echo "${interfaces[@]}"
+val_help: txt; Interface name (defaults to the inspection scope)

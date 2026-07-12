@@ -1,0 +1,12 @@
+[Unit]
+Description=Regenerate the QuartzFire SSL-inspection root CA
+Documentation=file:/usr/share/doc/quartzfire-ssl-inspection/design.md
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# Mints a fresh RSA-4096 CA under /config, clears the certgen cache, reloads
+# Squid, and refreshes status.json / ca-info.json.
+ExecStart=/usr/libexec/quartzfire/qzssl-ca regenerate
+RuntimeDirectory=quartzfire-ssl
+RuntimeDirectoryPreserve=yes

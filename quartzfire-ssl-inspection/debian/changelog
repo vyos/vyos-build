@@ -1,0 +1,9 @@
+quartzfire-ssl-inspection (0.1.0) unstable; urgency=medium
+
+  * Initial release: WatchGuard-style SSL inspection — Squid ssl_bump as the
+    sole TLS terminator, self-signed inspection CA lifecycle, transparent
+    interface-scoped interception, do-not-inspect (splice) list, a plain-HTTP
+    CA distribution page on :4126, `service quartzfire ssl-inspection` config
+    nodes, and the pre-wired (idle) ICAP content-filter seam.
+
+ -- QuartzFire <cwellman@quartz.systems>  Sun, 12 Jul 2026 12:00:00 +0000

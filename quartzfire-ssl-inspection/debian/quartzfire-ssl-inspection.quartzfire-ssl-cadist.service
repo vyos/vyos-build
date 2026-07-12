@@ -1,0 +1,24 @@
+[Unit]
+Description=QuartzFire SSL Inspection — CA distribution page (plain HTTP :4126)
+Documentation=file:/usr/share/doc/quartzfire-ssl-inspection/design.md
+After=network.target
+
+[Service]
+# Long-running listener. HTTP (not HTTPS) is intentional: a client that does
+# not yet trust our CA cannot validate our TLS. Reachability is restricted to
+# the trusted interfaces by the qz_ssl nftables input guard, loaded by
+# qzssl-apply before this is started. qzssl-apply owns enable/disable so :4126
+# is bound ONLY while inspection is enabled.
+ExecStart=/usr/libexec/quartzfire/qzssl-cadist
+Restart=on-failure
+RestartSec=2
+# Serves only public certificate files; no privileges needed beyond reading
+# the world-readable ca.crt/ca.der.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/config/quartzfire/ssl-inspection
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

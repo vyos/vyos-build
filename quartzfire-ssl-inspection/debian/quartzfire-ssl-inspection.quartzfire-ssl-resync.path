@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-apply the qz_ssl steering after VyOS firewall commits
+
+[Path]
+# VyOS rewrites and reloads this file on every firewall commit, which can flush
+# our dedicated qz_ssl table (the redirect + the CA-page guard). qzssl-apply
+# re-loads it from the last committed snapshot; a no-op when SSL inspection has
+# never been committed this boot. PathChanged only (never PathExists — a
+# condition on an always-present file re-triggers until start-limit-hit).
+PathChanged=/run/nftables.conf
+Unit=quartzfire-ssl-resync.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+type: txt
+help: Behavior when the ICAP filter service is unreachable
+syntax:expression: $VAR(@) in "closed", "open" ; "fail-mode must be closed or open"
+allowed: echo closed open
+val_help: closed; Fail closed — block traffic if the filter is down (default)
+val_help: open; Fail open — pass traffic uninspected if the filter is down
+default: "closed"

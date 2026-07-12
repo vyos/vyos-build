@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<!--
+QuartzFire SSL Inspection: vyos-1x XML interface definition.
+
+This does NOT generate the CLI grammar — the hand-written cstore templates
+under vyos/templates/ do that, and this file must be kept in sync with them.
+It exists because vyos-configd resolves every commit diff path through the
+vyos.xml_ref reference cache: a path missing from the cache raises inside
+get_commit_scripts(), configd dies, and the committing vyshim hangs forever
+waiting for a reply. postinst feeds this file to vyos-1x's
+xml_ref/generate_cache.py + update_cache.py so `service quartzfire
+ssl-inspection` is a known path (only node_type/multi/valueless/owner/priority
+survive into the cache — help texts are cosmetic here).
+
+The owner must match the node.def `end:` script and MUST end in .py: configd
+parses the script path with a regex hard-requiring the suffix
+(process_node_data) and crashes on anything else.
+-->
+<interfaceDefinition>
+  <node name="service">
+    <children>
+      <node name="quartzfire">
+        <properties>
+          <help>QuartzFire services</help>
+        </properties>
+        <children>
+          <node name="ssl-inspection" owner="${vyos_conf_scripts_dir}/service_ssl_inspection.py">
+            <properties>
+              <help>TLS interception (SSL inspection) via Squid ssl_bump</help>
+              <priority>991</priority>
+            </properties>
+            <children>
+              <leafNode name="enable">
+                <properties>
+                  <help>Enable SSL inspection</help>
+                  <valueless/>
+                </properties>
+              </leafNode>
+              <leafNode name="intercept-port">
+                <properties>
+                  <help>Local port Squid listens on for intercepted TLS</help>
+                </properties>
+              </leafNode>
+              <leafNode name="interface">
+                <properties>
+                  <help>Interface whose outbound HTTPS is intercepted</help>
+                  <multi/>
+                </properties>
+              </leafNode>
+              <leafNode name="default-action">
+                <properties>
+                  <help>Fall-through action (inspect or splice)</help>
+                </properties>
+              </leafNode>
+              <leafNode name="no-inspect">
+                <properties>
+                  <help>Domain excluded from inspection (spliced)</help>
+                  <multi/>
+                </properties>
+              </leafNode>
+              <leafNode name="disable-default-exclusions">
+                <properties>
+                  <help>Do not apply the shipped do-not-inspect baseline</help>
+                  <valueless/>
+                </properties>
+              </leafNode>
+              <leafNode name="upstream-invalid">
+                <properties>
+                  <help>Handling of origins with invalid TLS certificates</help>
+                </properties>
+              </leafNode>
+              <node name="content-filter">
+                <properties>
+                  <help>Attach a content-filter engine over ICAP</help>
+                </properties>
+                <children>
+                  <leafNode name="icap-host">
+                    <properties>
+                      <help>ICAP server host</help>
+                    </properties>
+                  </leafNode>
+                  <leafNode name="icap-port">
+                    <properties>
+                      <help>ICAP server port</help>
+                    </properties>
+                  </leafNode>
+                  <leafNode name="reqmod-service">
+                    <properties>
+                      <help>ICAP REQMOD service path</help>
+                    </properties>
+                  </leafNode>
+                  <leafNode name="respmod-service">
+                    <properties>
+                      <help>ICAP RESPMOD service path</help>
+                    </properties>
+                  </leafNode>
+                  <leafNode name="fail-mode">
+                    <properties>
+                      <help>Behavior when the ICAP service is unreachable</help>
+                    </properties>
+                  </leafNode>
+                </children>
+              </node>
+              <node name="ca-download">
+                <properties>
+                  <help>CA-download page (:4126) reachability scope</help>
+                </properties>
+                <children>
+                  <leafNode name="interface">
+                    <properties>
+                      <help>Trusted interface the CA-download page is reachable on</help>
+                      <multi/>
+                    </properties>
+                  </leafNode>
+                </children>
+              </node>
+            </children>
+          </node>
+        </children>
+      </node>
+    </children>
+  </node>
+</interfaceDefinition>

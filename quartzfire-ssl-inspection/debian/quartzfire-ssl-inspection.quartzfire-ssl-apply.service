@@ -1,0 +1,19 @@
+[Unit]
+Description=Apply QuartzFire SSL inspection at boot
+Documentation=file:/usr/share/doc/quartzfire-ssl-inspection/design.md
+After=vyos-router.service squid.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+# Belt-and-braces boot apply from the committed snapshot. The `service
+# quartzfire ssl-inspection` conf-mode owner already applies during the boot
+# config load; this re-applies afterwards (idempotent) once squid is up, and
+# is a no-op if inspection has never been committed. qzssl-apply reads
+# desired.json from /run and the CA from /config.
+ExecStart=/usr/libexec/quartzfire/qzssl-apply
+RuntimeDirectory=quartzfire-ssl
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target
