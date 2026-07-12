@@ -14,6 +14,7 @@ import Link from "next/link";
 import { AlertTriangle, Eraser, Pause, Play, Plus, RotateCw, Search, ShieldAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
+import { Tabs } from "@/components/ui/Tabs";
 import { Switch } from "@/components/ui/Switch";
 import { useDashboard } from "@/lib/DashboardContext";
 import {
@@ -848,7 +849,7 @@ export default function IntrusionPreventionPage() {
       </div>
 
       <div className="px-[36px] pb-4 flex-shrink-0">
-        <Segmented
+        <Tabs
           items={[
             { value: "settings", label: "Settings" },
             { value: "policies", label: "Policies" },

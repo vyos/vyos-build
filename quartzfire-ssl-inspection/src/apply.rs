@@ -155,13 +155,35 @@ fn ensure_certgen_db() -> Result<(), ApplyError> {
     if certgen_db_ready() {
         return Ok(());
     }
+    // security_file_certgen -c creates the ssl_db directory itself, but NOT its
+    // parent, and it refuses to run if the target directory already exists. On
+    // a real box /var/lib/squid is often absent (the Debian squid cache lives
+    // under /var/spool/squid, not here) and a previous half-init can leave a
+    // partial ssl_db with no index.txt — either one makes `-c` fail with the
+    // opaque error the operator saw. Create the parent and clear any partial
+    // store first, exactly as the proven container smoke test does.
+    if let Some(parent) = Path::new(SSL_DB_DIR).parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| ApplyError(format!("creating {}: {e}", parent.display())))?;
+    }
+    if Path::new(SSL_DB_DIR).exists() {
+        let _ = fs::remove_dir_all(SSL_DB_DIR);
+    }
     // security_file_certgen -c creates the DB; -M 8MB caps the on-disk store.
-    let status = Command::new(SECURITY_FILE_CERTGEN)
+    let out = Command::new(SECURITY_FILE_CERTGEN)
         .args(["-c", "-s", SSL_DB_DIR, "-M", "8MB"])
-        .status()
+        .output()
         .map_err(|e| ApplyError(format!("running security_file_certgen: {e}")))?;
-    if !status.success() {
-        return Err(ApplyError("security_file_certgen -c failed".to_string()));
+    if !out.status.success() {
+        // Surface the helper's own stderr — the bare "…-c failed" that shipped
+        // before gave the operator nothing to act on.
+        let detail = String::from_utf8_lossy(&out.stderr);
+        let detail = detail.trim();
+        return Err(ApplyError(if detail.is_empty() {
+            "security_file_certgen -c failed".to_string()
+        } else {
+            format!("security_file_certgen -c failed: {detail}")
+        }));
     }
     // The store must be owned by the squid runtime user.
     let _ = Command::new("chown").args(["-R", "proxy:proxy", SSL_DB_DIR]).status();

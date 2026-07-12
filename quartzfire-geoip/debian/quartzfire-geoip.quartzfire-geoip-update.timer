@@ -4,10 +4,13 @@ Description=Daily QuartzFire geolocation database update
 [Timer]
 # Soon after boot (covers the fresh-image / first-boot "no database yet"
 # state as soon as the WAN is up), then daily with jitter so a fleet doesn't
-# stampede location.ipfire.org.
-OnBootSec=10min
+# stampede location.ipfire.org. The boot run must be PROMPT: a fresh image has
+# no database, so the WebUI shows "not downloaded / not enforcing" until this
+# first update lands — keep the post-boot wait short and the jitter modest so a
+# just-installed box self-heals in minutes, not up to an hour.
+OnBootSec=2min
 OnUnitInactiveSec=1d
-RandomizedDelaySec=1h
+RandomizedDelaySec=10min
 Persistent=true
 
 [Install]

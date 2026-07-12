@@ -403,6 +403,20 @@ pub fn apply_model(
 ) -> Result<Report, ApplyError> {
     let mut report = Report { time: now(), ok: true, error: None };
 
+    // Reflect the on-disk database in status.json on every apply. status.json
+    // lives in /run and is wiped by a reboot, but the database in
+    // /var/lib/location survives it — without this the WebUI would report "not
+    // downloaded yet / never" after every reboot (and hence "not enforcing")
+    // until the update timer next ran, even though the persisted database is
+    // right there and enforcement was already re-applied by the boot commit.
+    // The `update` section (time/schedule) stays owned by geoip-update.
+    let db_status = json!({
+        "present": db.is_some(),
+        "version": db.map(|d| d.created_at()),
+        "signature_ok": db.and_then(|d| d.verify()),
+        "path": crate::db::DEFAULT_DB,
+    });
+
     let set_names = render::required_sets(model);
     let db = match (db, set_names.is_empty()) {
         (Some(db), _) => Some(db),
@@ -415,6 +429,7 @@ pub fn apply_model(
                     .into(),
             );
             update_status(json!({
+                "db": db_status,
                 "apply": report,
                 "policy_errors": problems,
             }));
@@ -445,6 +460,7 @@ pub fn apply_model(
     let set_counts: BTreeMap<&String, usize> =
         sets.iter().map(|(name, elements)| (name, elements.len())).collect();
     update_status(json!({
+        "db": db_status,
         "apply": report,
         "policy_errors": problems,
         "set_counts": set_counts,
