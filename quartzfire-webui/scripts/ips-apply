@@ -521,6 +521,11 @@ def write_status(settings, state, rule_counts, error):
 
 
 def main():
+    # `--update` forces a signature fetch this run regardless of update_seq:
+    # the daily quartzfire-ips-update.timer passes it so Emerging Threats
+    # rules age forward on their own, not only on enable / "Update now".
+    force_update = "--update" in sys.argv[1:]
+
     # Create the desired-state directory unconditionally: the WebUI backend
     # must be able to save settings even when suricata is missing, otherwise
     # every PUT fails with ENOENT and the UI cannot report anything useful.
@@ -543,9 +548,12 @@ def main():
         log("IPS disabled — suricata stopped")
         return 0
 
-    # Fetch signatures when explicitly requested (update_seq bumped) or when
-    # there is no ruleset at all yet (first enable).
-    need_update = settings.get("update_seq", 0) > state.get("update_seq_applied", 0)
+    # Fetch signatures when explicitly requested (update_seq bumped), when the
+    # daily timer forces it (--update), or when there is no ruleset at all yet
+    # (first enable).
+    need_update = force_update or settings.get("update_seq", 0) > state.get(
+        "update_seq_applied", 0
+    )
     if need_update or (not os.path.isfile(PRISTINE_FILE) and not os.path.isfile(RULES_FILE)):
         if not suricata_update(settings, state) and not os.path.isfile(PRISTINE_FILE):
             # No signatures at all — run the engine anyway (it passes traffic;

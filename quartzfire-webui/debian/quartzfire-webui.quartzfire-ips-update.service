@@ -1,0 +1,25 @@
+[Unit]
+Description=Refresh QuartzFire IPS signatures (suricata-update)
+# vyos-router.service is Type=simple, so After= does NOT wait for it to
+# bind-mount /config — ips-apply polls for that mount itself.
+After=network-online.target vyos-router.service
+Wants=network-online.target
+# Triggered by the daily timer; a burst must not trip the start-rate limit.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# --update forces a signature fetch regardless of update_seq; ips-apply
+# no-ops when IPS is disabled, so the timer is harmless when the feature is off.
+ExecStart=/usr/libexec/quartzfire/ips-apply --update
+# A first-enable signature download on a slow uplink plus a full ruleset
+# re-parse can take a while; the systemd default of 90s would kill it.
+TimeoutStartSec=1800
+# Shared with quartzfire-ips.service — keep the status report around after
+# the oneshot exits so the unprivileged WebUI backend can read it back.
+RuntimeDirectory=quartzfire-ips
+RuntimeDirectoryPreserve=yes
+
+# No [Install] section on purpose: this unit is started only by the update
+# timer, never enabled at multi-user.target (which would kick a signature
+# download during boot before vyos-router has configured any interfaces).

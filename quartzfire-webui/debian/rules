@@ -21,6 +21,10 @@ override_dh_installsystemd:
 	dh_installsystemd
 	dh_installsystemd --name=quartzfire-register-api-key
 	dh_installsystemd --name=quartzfire-ips
+	# --no-start: the update service has no [Install] and is timer-triggered
+	# only; the timer arms at boot (OnBootSec) so we never kick a signature
+	# download from a maintscript.
+	dh_installsystemd --no-start --name=quartzfire-ips-update
 
 override_dh_auto_install:
 	install -D -m0755 backend/target/release/quartzfire-webui \

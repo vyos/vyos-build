@@ -1,0 +1,16 @@
+[Unit]
+Description=Daily QuartzFire IPS signature update
+
+[Timer]
+# Emerging Threats rules change frequently; without this the ruleset only
+# ever refreshes on first-enable or a manual "Update now". Run shortly after
+# boot (covers the fresh-image "no rules yet" state once the WAN is up), then
+# daily with jitter so a fleet doesn't stampede the rules mirror. Persistent
+# catches up a run missed while the box was powered off.
+OnBootSec=5min
+OnUnitInactiveSec=1d
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

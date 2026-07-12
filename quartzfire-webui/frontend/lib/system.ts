@@ -318,9 +318,31 @@ export interface SystemImage {
 /// Parse `show system image`. Recent VyOS prints a table
 /// (`Name  Default boot  Running` with Yes/No cells); older releases print a
 /// numbered list (`1: <name> (default boot) (running image)`). Handle both.
+///
+/// The table is fixed-width, and only the default/running image carries any
+/// `Yes` cells — every other image leaves both cells blank, so its row is just
+/// a name. We therefore can't infer the columns from the data (a bare name is
+/// one whitespace-delimited token, not three); we read the `Default boot` and
+/// `Running` column offsets from the header and slice each row by position.
+/// That also keeps a default-but-not-running image (a staged upgrade before
+/// its first reboot) from being misread as running.
 export function parseSystemImages(text: string): SystemImage[] {
   const out: SystemImage[] = [];
-  for (const line of text.split("\n")) {
+  const lines = text.split("\n");
+
+  let defaultCol = -1;
+  let runningCol = -1;
+  for (const line of lines) {
+    const di = line.search(/Default boot/i);
+    const ri = line.search(/Running/i);
+    if (di >= 0 && ri >= 0) {
+      defaultCol = di;
+      runningCol = ri;
+      break;
+    }
+  }
+
+  for (const line of lines) {
     const t = line.trim();
     if (!t) continue;
     const legacy = /^\d+:\s+(\S+)(.*)$/.exec(t);
@@ -332,14 +354,27 @@ export function parseSystemImages(text: string): SystemImage[] {
       });
       continue;
     }
+    // Skip the header, the `----` separator, and any summary footer.
     if (/^name\b/i.test(t) || /^[-\s]+$/.test(t) || /image\(s\) installed/i.test(t)) continue;
-    const cols = t.split(/\s{2,}/);
-    if (cols.length < 2) continue;
-    out.push({
-      name: cols[0],
-      default_boot: /^y/i.test(cols[1] ?? ""),
-      running: /^y/i.test(cols[2] ?? ""),
-    });
+
+    const name = t.split(/\s+/)[0];
+    if (!name) continue;
+    if (defaultCol >= 0) {
+      // Fixed-width table: slice each cell out by the header's column offsets.
+      out.push({
+        name,
+        default_boot: /^y/i.test(line.slice(defaultCol, runningCol).trim()),
+        running: /^y/i.test(line.slice(runningCol).trim()),
+      });
+    } else {
+      // No header found — fall back to whitespace-delimited columns.
+      const cols = t.split(/\s{2,}/);
+      out.push({
+        name,
+        default_boot: /^y/i.test(cols[1] ?? ""),
+        running: /^y/i.test(cols[2] ?? ""),
+      });
+    }
   }
   return out;
 }

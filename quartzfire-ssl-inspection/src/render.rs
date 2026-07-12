@@ -119,6 +119,7 @@ pub fn squid_fragment(model: &Model) -> String {
     let intercept = model.intercept_port;
     s.push_str(&format!(
         "https_port {intercept} intercept ssl-bump \\\n    \
+         name=qz_ssl_intercept \\\n    \
          generate-host-certificates=on \\\n    \
          dynamic_cert_mem_cache_size=8MB \\\n    \
          tls-cert={crt} \\\n    \
@@ -149,6 +150,18 @@ pub fn squid_fragment(model: &Model) -> String {
         "acl noInspect ssl::server_name \"{}\"\n\n",
         crate::apply::NO_INSPECT_FILE
     ));
+
+    // Permit the intercepted traffic. The stock Debian squid.conf ships with
+    // `http_access allow localnet` COMMENTED OUT and `http_access deny all` as
+    // its final rule, so without an explicit allow here every bumped request
+    // dies on the default deny ("access control configuration prevents your
+    // request"). The conf.d include sits above that http_access section, so
+    // this scoped allow is evaluated first. Scope it to the intercept port
+    // (myportname) rather than `allow all`, so this drop-in can only ever
+    // widen access for traffic the nft redirect steered here — never for any
+    // other Squid listener that might exist on the box.
+    s.push_str("acl qz_ssl_intercepted myportname qz_ssl_intercept\n");
+    s.push_str("http_access allow qz_ssl_intercepted\n\n");
 
     s.push_str("ssl_bump peek step1\n");
     s.push_str("ssl_bump splice noInspect\n");
@@ -262,6 +275,11 @@ mod tests {
     fn enabled_fragment_bumps_and_splices() {
         let s = squid_fragment(&enabled());
         assert!(s.contains("https_port 3129 intercept ssl-bump"));
+        assert!(s.contains("name=qz_ssl_intercept"));
+        // Without an explicit allow, bumped traffic dies on squid.conf's
+        // default `http_access deny all` — the ERR_ACCESS_DENIED page.
+        assert!(s.contains("acl qz_ssl_intercepted myportname qz_ssl_intercept"));
+        assert!(s.contains("http_access allow qz_ssl_intercepted"));
         assert!(s.contains("ssl_bump peek step1"));
         assert!(s.contains("ssl_bump splice noInspect"));
         assert!(s.contains("ssl_bump bump all"));
