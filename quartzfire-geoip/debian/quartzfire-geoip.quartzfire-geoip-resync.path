@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-sync geolocation matches after VyOS firewall commits
+
+[Path]
+# VyOS rewrites this file on every firewall commit. Geolocation policies
+# replicate their target rule's match (group members flattened), so a group
+# edit or rule deletion in a commit that never touches `service geolocation`
+# must be picked up here — geoip-apply re-resolves from the active config and
+# re-renders only if the result actually changed.
+PathChanged=/run/nftables.conf
+Unit=quartzfire-geoip-resync.service
+
+[Install]
+WantedBy=multi-user.target

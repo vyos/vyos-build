@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample active connections by country for the QuartzFire geolocation map
+# Best-effort telemetry for the dashboard globe; needs conntrack loaded. Runs
+# regardless of whether any geo policy is enforcing (it reports ALL traffic).
+ConditionPathExists=/proc/net/nf_conntrack
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/quartzfire/geoip-traffic
+RuntimeDirectory=quartzfire-geoip
+RuntimeDirectoryPreserve=yes

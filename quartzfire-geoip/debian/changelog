@@ -1,0 +1,7 @@
+quartzfire-geoip (0.1.0) unstable; urgency=medium
+
+  * Initial release: WatchGuard-style geolocation filtering — libloc database
+    updater, per-country nftables sets, `service geolocation` config nodes,
+    and WebUI status/counters plumbing.
+
+ -- QuartzFire <cwellman@quartz.systems>  Sat, 11 Jul 2026 12:00:00 +0000

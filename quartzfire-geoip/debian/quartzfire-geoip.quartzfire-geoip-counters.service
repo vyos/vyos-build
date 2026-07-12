@@ -1,0 +1,11 @@
+[Unit]
+Description=Dump QuartzFire geolocation hit counters for the WebUI
+# Only meaningful while the qz_geo table is loaded; geoip-apply maintains the
+# marker so idle systems don't churn.
+ConditionPathExists=/run/quartzfire-geoip/active
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/quartzfire/geoip-counters
+RuntimeDirectory=quartzfire-geoip
+RuntimeDirectoryPreserve=yes

@@ -1,0 +1,14 @@
+[Unit]
+Description=Watch for WebUI-requested geolocation database updates
+
+[Path]
+# The (unprivileged) WebUI backend bumps this file atomically (temp + rename)
+# when the user clicks "Update now"; PathChanged fires on the rename-into-
+# place. PathChanged ONLY — never PathExists= (see the appcontrol path unit:
+# a PathExists= condition on a file that always exists re-triggers in a tight
+# loop until start-limit-hit kills both units).
+PathChanged=/config/quartzfire/geoip-update-request
+Unit=quartzfire-geoip-update.service
+
+[Install]
+WantedBy=multi-user.target

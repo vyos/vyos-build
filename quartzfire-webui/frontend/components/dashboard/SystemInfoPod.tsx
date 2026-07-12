@@ -22,10 +22,13 @@ function shortUptime(s: string | null): string | null {
 }
 
 /// "quartzfire-0.1.0" → "QuartzFire v0.1.0" (unrecognized strings pass through).
+/// A trailing build-timestamp segment ("-202607120222") is dropped — the build
+/// date is surfaced separately as "Built: …".
 function prettyVersion(v: string | null): string {
   if (!v) return "Unknown version";
   const m = /^quartzfire-(.+)$/i.exec(v.trim());
-  return m ? `QuartzFire v${m[1]}` : v;
+  if (!m) return v;
+  return `QuartzFire v${m[1].replace(/-\d{6,}$/, "")}`;
 }
 
 /// Bar colour by utilisation: green → amber → red.

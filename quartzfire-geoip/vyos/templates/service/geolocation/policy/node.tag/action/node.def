@@ -1,0 +1,4 @@
+type: txt
+help: Geolocation action applied by this policy
+allowed: cli-shell-api listNodes service geolocation action 2>/dev/null | tr -d "'"
+val_help: txt; Name of a configured geolocation action

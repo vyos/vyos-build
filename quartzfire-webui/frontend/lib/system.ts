@@ -358,12 +358,42 @@ async function opApi(endpoint: string, data: unknown, what: string): Promise<voi
   if (!resp.success) throw new Error(resp.error || `Device returned an error trying to ${what}.`);
 }
 
+/// The installer names the new image after the version embedded in the ISO
+/// and dies with a raw `[Errno 17] File exists: '.../boot/<name>/...'` when
+/// that name is already on the image partition (typically: installing a
+/// rebuild of the version currently running). Translate that into something
+/// actionable; anything else passes through unchanged.
+function translateImageAddError(msg: string): string {
+  const m = /\[Errno 17\][^']*'[^']*\/boot\/([^/']+)\//.exec(msg);
+  if (!m) return msg;
+  return (
+    `An image named "${m[1]}" already exists on the firewall, and the installer can't overwrite it. ` +
+    `If that's the running image, build the new ISO with a different version. If it's listed under ` +
+    `System Images (and not running), delete it there and retry. If it's in neither state, a previous ` +
+    `failed install left it behind — remove /usr/lib/live/mount/persistence/boot/${m[1]} at the CLI.`
+  );
+}
+
+/// Predict the image name the installer will derive from an ISO's filename.
+/// QuartzFire ISOs are named `<version>-<arch>.iso` with the image name equal
+/// to the version, so strip the trailing arch. Null when the filename doesn't
+/// match (renamed/foreign ISOs — the post-install error still catches those).
+export function imageNameFromIsoName(fileName: string): string | null {
+  const m = /^(.+)-(amd64|arm64|i386|armhf)\.iso$/i.exec(fileName.trim());
+  return m ? m[1] : null;
+}
+
 /// Download and install a new system image (`add system image <url>`). This
 /// is a long call — the device downloads and unpacks the image before
 /// answering — and the new image becomes the default boot entry; the running
 /// system is untouched until the next reboot.
-export function addImage(url: string): Promise<void> {
-  return opApi("image", { op: "add", url: url.trim() }, "install the image");
+export async function addImage(url: string): Promise<void> {
+  try {
+    await opApi("image", { op: "add", url: url.trim() }, "install the image");
+  } catch (e) {
+    if (e instanceof Error) throw new Error(translateImageAddError(e.message));
+    throw e;
+  }
 }
 
 /// Upload an ISO from the browser to the device's staging area. XHR rather
@@ -406,14 +436,17 @@ export function deleteImage(name: string): Promise<void> {
   return opApi("image", { op: "delete", name }, "delete the image");
 }
 
-/// Reboot the firewall immediately.
+/// Reboot the firewall immediately. The `now` path selects the non-interactive
+/// form of the op-mode command; a bare `reboot` prompts for confirmation and
+/// hangs the API call, since there is no TTY behind the proxy.
 export function rebootSystem(): Promise<void> {
-  return opApi("reboot", { op: "reboot", path: [] }, "reboot");
+  return opApi("reboot", { op: "reboot", path: ["now"] }, "reboot");
 }
 
-/// Power the firewall off immediately.
+/// Power the firewall off immediately. `now` selects the non-interactive form
+/// (see rebootSystem).
 export function shutdownSystem(): Promise<void> {
-  return opApi("poweroff", { op: "poweroff", path: [] }, "shut down");
+  return opApi("poweroff", { op: "poweroff", path: ["now"] }, "shut down");
 }
 
 // ══ maintenance: configuration backup / restore ═══════════════════════════════

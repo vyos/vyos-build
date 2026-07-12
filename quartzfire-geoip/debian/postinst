@@ -1,0 +1,53 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # The WebUI's "Update now" trigger file lives here; the directory is
+        # normally created group-writable by the quartzfire-ips boot run, but
+        # be self-sufficient (same belt-and-braces as the qfappd package).
+        if [ -d /config ]; then
+            mkdir -p /config/quartzfire
+        fi
+        mkdir -p /var/cache/quartzfire-geoip
+
+        # The location package may ship its own update timer; two independent
+        # updaters would race on the database file and skew our status
+        # reporting, so ours (which also refreshes the nftables sets) is the
+        # only one left enabled.
+        if [ -e /lib/systemd/system/location-update.timer ] || \
+           [ -e /usr/lib/systemd/system/location-update.timer ]; then
+            systemctl disable --now location-update.timer 2>/dev/null || true
+        fi
+
+        # Register `service geolocation` with the vyos-1x Python XML
+        # reference cache. The cstore templates alone are NOT enough:
+        # vyos-configd resolves every commit diff path through vyos.xml_ref
+        # and dies on paths missing from the cache, hanging the commit.
+        # generate_cache + update_cache are vyos-1x's own tools for merging
+        # per-package caches (pkg_cache/<pkg>_cache.py) into the runtime
+        # cache.py, so this is the supported registration path.
+        XML_REF=/usr/lib/python3/dist-packages/vyos/xml_ref
+        if [ -f "$XML_REF/generate_cache.py" ]; then
+            vyconf_tmp=$(mktemp)
+            if (cd "$XML_REF" && \
+                python3 generate_cache.py \
+                    --xml-dir /usr/share/quartzfire/xml \
+                    --package-name quartzfire-geoip \
+                    --internal-cache "$vyconf_tmp" >/dev/null && \
+                python3 update_cache.py); then
+                # Pick the new cache up if configd is already running (no-op
+                # in the image-build chroot).
+                systemctl try-restart vyos-configd 2>/dev/null || true
+            else
+                echo "quartzfire-geoip: WARNING: xml_ref cache registration failed —" \
+                     "committing geolocation config will hang vyos-configd" >&2
+            fi
+            rm -f "$vyconf_tmp"
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

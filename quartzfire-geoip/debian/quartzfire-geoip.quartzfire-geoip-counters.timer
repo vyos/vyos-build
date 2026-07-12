@@ -1,0 +1,9 @@
+[Unit]
+Description=Periodic QuartzFire geolocation counter dump
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target

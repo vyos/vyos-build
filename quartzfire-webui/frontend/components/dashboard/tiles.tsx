@@ -1,8 +1,10 @@
 import { InterfaceStatsTile } from "./InterfaceStatsTile";
 import { NetworkSpeedTile } from "./NetworkSpeedTile";
 import { RecentIpsAlertsTile } from "./RecentIpsAlertsTile";
+import { GeolocationMapTile } from "./GeolocationMapTile";
 import { SystemInfoPod } from "./SystemInfoPod";
 import { TopApplicationsTile } from "./TopApplicationsTile";
+import { TopBlockedCountriesTile } from "./TopBlockedCountriesTile";
 
 /// A type of tile that can be placed on the dashboard. Sizes are in grid units
 /// (columns wide × rows tall) on the 4-column dashboard grid.
@@ -61,6 +63,24 @@ export const TILE_REGISTRY: Record<string, TileDef> = {
     minW: 1,
     minH: 4,
     render: () => <RecentIpsAlertsTile />,
+  },
+  "top-blocked-countries": {
+    type: "top-blocked-countries",
+    title: "Top Blocked Countries",
+    defaultW: 2,
+    defaultH: 5,
+    minW: 1,
+    minH: 4,
+    render: () => <TopBlockedCountriesTile />,
+  },
+  "geolocation-map": {
+    type: "geolocation-map",
+    title: "Geolocation Map",
+    defaultW: 1,
+    defaultH: 6,
+    minW: 1,
+    minH: 5,
+    render: () => <GeolocationMapTile />,
   },
 };
 

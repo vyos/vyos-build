@@ -10,6 +10,12 @@
 
 image_format = "iso"
 
+# Geolocation (quartzfire-geoip, a local .deb like the WebUI) uses the IPFire
+# libloc database: `location` is the vendor updater CLI (signed download +
+# atomic install) that geoip-update wraps; libloc1 itself arrives as a
+# dependency of both. From the Debian mirror.
+packages = ["location"]
+
 # Artifact name: quartzfire-<version>-amd64.iso. The version comes from the
 # top-level VERSION file and already carries the quartzfire- prefix (the
 # `make quartzfire` target passes --version "quartzfire-<VERSION>"), which also
@@ -26,6 +32,12 @@ interfaces {
     }
 }
 service {
+    geolocation {
+        action Global {
+            description "Allow all countries (default); add country blocks or attach policies to enforce"
+            mode "block-listed"
+        }
+    }
     ntp {
         allow-client {
             address "127.0.0.0/8"
