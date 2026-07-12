@@ -9,14 +9,13 @@
 // The status card covers the database side: version, signed updates,
 // "Update now", and the IP → country lookup utility.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Earth, Pencil, Plus, RotateCw, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Earth, Eraser, Pause, Pencil, Play, Plus, RotateCw, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
-import { Switch } from "@/components/ui/Switch";
 import { useDashboard } from "@/lib/DashboardContext";
-import { emptyFirewallConfig, fetchFirewall, FirewallConfig } from "@/lib/firewall";
+import { emptyFirewallConfig, fetchFirewall, FirewallConfig, FirewallRule } from "@/lib/firewall";
 import {
   actionUsage,
   applyGeoAction,
@@ -25,6 +24,7 @@ import {
   deleteGeoAction,
   deleteGeoPolicy,
   emptyGeolocationConfig,
+  fetchGeoAlertHistory,
   fetchGeoCountries,
   fetchGeolocation,
   fetchGeoStatus,
@@ -33,18 +33,20 @@ import {
   GEO_MODE_LABEL,
   GeoAction,
   GeoCountries,
+  GeoDirection,
+  GeoEvent,
+  geoEventKey,
   GeolocationConfig,
   geoLookup,
   GeoLookupResult,
   GeoPolicy,
   GeoStatus,
+  nextPolicyId,
   requestGeoUpdate,
-  setGeoPolicyEnabled,
 } from "@/lib/geolocation";
 import { ActionFormModal } from "./ActionFormModal";
-import { PolicyFormModal, ruleSummary } from "./PolicyFormModal";
 
-type Tab = "actions" | "policies";
+type Tab = "actions" | "policies" | "alerts";
 
 const inputStyle = { background: "var(--qz-input-bg)", border: "1px solid var(--qz-border)" } as const;
 const dash = <span className="text-[var(--qz-fg-4)]">—</span>;
@@ -214,6 +216,9 @@ function ActionsTab({
   const hits = status?.counters?.actions ?? {};
 
   const summarize = (a: GeoAction) => {
+    if (a.countries.length === 0) {
+      return a.mode === "block-listed" ? "all countries allowed" : "none — blocks everything";
+    }
     const names = a.countries.slice(0, 3).map((c) => countryName(countries.countries, c));
     const more = a.countries.length - names.length;
     return names.join(", ") + (more > 0 ? ` +${more} more` : "");
@@ -309,7 +314,7 @@ function ActionsTab({
                     <td className="font-semibold text-[var(--qz-fg-1)]">{a.name}</td>
                     <td className="text-[var(--qz-fg-3)]">{a.mode ? GEO_MODE_LABEL[a.mode] : "(mode not set)"}</td>
                     <td className="text-[var(--qz-fg-3)]" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {a.countries.length} — {summarize(a)}
+                      {a.countries.length > 0 ? `${a.countries.length} — ` : ""}{summarize(a)}
                     </td>
                     <td>
                       {a.unknownIp === "block" ? (
@@ -374,6 +379,14 @@ function ActionsTab({
 
 // ── Policies tab ──────────────────────────────────────────────────────────────
 
+/// Interface/group/address a firewall rule side resolves to, for the From → To
+/// column (mirrors the Application Control policies table).
+function endpoint(side: { iface?: string | null; group_name?: string | null; address?: string | null }): string {
+  return side.iface ?? side.group_name ?? side.address ?? "any";
+}
+
+const CHAIN_LABEL: Record<string, string> = { forward: "Forward", input: "Input", output: "Output" };
+
 function PoliciesTab({
   config,
   status,
@@ -387,9 +400,7 @@ function PoliciesTab({
   const [fw, setFw] = useState<FirewallConfig>(emptyFirewallConfig);
   const [fwState, setFwState] = useState<"loading" | "ready" | "error">("loading");
   const [fwError, setFwError] = useState("");
-  const [editing, setEditing] = useState<GeoPolicy | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [toggling, setToggling] = useState<number | null>(null);
+  const [busyRule, setBusyRule] = useState<string | null>(null);
 
   const loadFw = useCallback(async () => {
     try {
@@ -404,11 +415,17 @@ function PoliciesTab({
     loadFw();
   }, [loadFw]);
 
-  const ruleByKey = useMemo(() => {
-    const m = new Map<string, (typeof fw.rules)[number]>();
-    for (const r of fw.rules) m.set(`${r.chain}:${r.rule}`, r);
+  // At most one policy per firewall rule in this view; prefer an enabled one if
+  // the raw config somehow points several policies at the same rule.
+  const policyByRule = useMemo(() => {
+    const m = new Map<string, GeoPolicy>();
+    for (const p of config.policies) {
+      const key = `${p.ruleset}:${p.rule}`;
+      const cur = m.get(key);
+      if (!cur || (!cur.enabled && p.enabled)) m.set(key, p);
+    }
     return m;
-  }, [fw.rules]);
+  }, [config.policies]);
 
   const policyErrors = useMemo(() => {
     const m = new Map<number, string>();
@@ -417,40 +434,61 @@ function PoliciesTab({
   }, [status]);
 
   const hits = status?.counters?.policies ?? {};
+  const actionNames = config.actions.map((a) => a.name);
 
-  const save = async (u: Parameters<typeof applyGeoPolicy>[1]) => {
+  // Attach/detach an action on a rule. Empty action removes the policy; any
+  // action (re)creates it, re-enabling a previously disabled one.
+  const setRuleAction = async (rule: FirewallRule, action: string) => {
+    const key = `${rule.chain}:${rule.rule}`;
+    const existing = policyByRule.get(key) ?? null;
+    setBusyRule(key);
     try {
-      await applyGeoPolicy(config.policies, u);
-      setToast("Geolocation policy saved — confirm the change in the banner.");
-      setEditing(null);
-      setCreating(false);
+      if (!action) {
+        if (existing) {
+          await deleteGeoPolicy(existing.id);
+          setToast("Policy removed — confirm the change in the banner.");
+        }
+      } else {
+        await applyGeoPolicy(config.policies, {
+          id: existing?.id ?? nextPolicyId(config.policies),
+          action,
+          ruleset: rule.chain,
+          rule: rule.rule,
+          direction: existing?.direction ?? "both",
+          enabled: true,
+          original_id: existing?.id ?? null,
+        });
+        setToast("Geolocation policy saved — confirm the change in the banner.");
+      }
       onChanged();
     } catch (e) {
-      setToast(e instanceof Error ? e.message : "Failed to save the policy.");
-    }
-  };
-
-  const remove = async (p: GeoPolicy) => {
-    if (!window.confirm(`Delete geolocation policy ${p.id}?`)) return;
-    try {
-      await deleteGeoPolicy(p.id);
-      setToast("Policy deleted — confirm the change in the banner.");
-      onChanged();
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "Failed to delete the policy.");
-    }
-  };
-
-  const toggle = async (p: GeoPolicy, enabled: boolean) => {
-    setToggling(p.id);
-    try {
-      await setGeoPolicyEnabled(p, enabled);
-      setToast(`Policy ${p.id} ${enabled ? "enabled" : "disabled"} — confirm the change in the banner.`);
-      onChanged();
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "Failed to toggle the policy.");
+      setToast(e instanceof Error ? e.message : "Failed to update the policy.");
     } finally {
-      setToggling(null);
+      setBusyRule(null);
+    }
+  };
+
+  const setRuleDirection = async (rule: FirewallRule, direction: GeoDirection) => {
+    const key = `${rule.chain}:${rule.rule}`;
+    const existing = policyByRule.get(key);
+    if (!existing) return;
+    setBusyRule(key);
+    try {
+      await applyGeoPolicy(config.policies, {
+        id: existing.id,
+        action: existing.action,
+        ruleset: existing.ruleset,
+        rule: existing.rule,
+        direction,
+        enabled: true,
+        original_id: existing.id,
+      });
+      setToast("Direction updated — confirm the change in the banner.");
+      onChanged();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Failed to update the direction.");
+    } finally {
+      setBusyRule(null);
     }
   };
 
@@ -471,76 +509,81 @@ function PoliciesTab({
       </div>
     );
 
+  // Every Allow rule, across the forward/input/output chains, is eligible to
+  // carry a geolocation policy. Ordered forward → input → output, then by rule
+  // number, so the table reads like the firewall.
+  const rank: Record<string, number> = { forward: 0, input: 1, output: 2 };
+  const eligible = fw.rules
+    .filter((r) => r.action === "accept")
+    .sort((a, b) => (rank[a.chain] - rank[b.chain]) || a.rule - b.rule);
+
+  const boundCount = new Set(config.policies.filter((p) => p.enabled).map((p) => `${p.ruleset}:${p.rule}`)).size;
+
   return (
-    <div className="flex flex-col gap-4 max-w-[1050px]">
-      <div className="flex items-center gap-3">
-        <p className="text-[13px] text-[var(--qz-fg-4)] m-0 flex-1">
-          A policy attaches an action to one firewall rule: traffic that rule handles is
-          country-filtered before the rule sees it. Create rules under{" "}
-          <Link href="/firewall/rules" className="text-[var(--qz-fg-3)]">
-            Firewall → Rules
-          </Link>
-          .
-        </p>
-        <Button
-          kind="primary"
-          size="sm"
-          icon={Plus}
-          onClick={() => { setCreating(true); setEditing(null); }}
-          disabled={config.actions.length === 0}
-        >
-          Add policy
-        </Button>
-      </div>
+    <div className="flex flex-col gap-3 max-w-[1050px]">
+      <p className="text-[13px] text-[var(--qz-fg-4)] m-0">
+        Attach a geolocation action to a firewall Allow rule and its traffic is country-filtered
+        before the rule sees it. Every Allow rule (forward, input, or output) is eligible
+        ({boundCount} enforced). Create rules under{" "}
+        <Link href="/firewall/rules" className="text-[var(--qz-fg-3)]">
+          Firewall → Rules
+        </Link>
+        .
+      </p>
 
       <div className="rounded-md overflow-hidden" style={{ border: "1px solid var(--qz-border)" }}>
         <table className="qz-table" style={{ width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />
-            <col style={{ width: 170 }} />
             <col />
-            <col style={{ width: 110 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 90 }} />
+            <col style={{ width: 150 }} />
             <col style={{ width: 80 }} />
+            <col style={{ width: 190 }} />
+            <col style={{ width: 150 }} />
+            <col style={{ width: 70 }} />
           </colgroup>
           <thead>
             <tr>
               <th>#</th>
+              <th>Name</th>
+              <th>From → To</th>
               <th>Action</th>
-              <th>Firewall rule</th>
+              <th>Geolocation</th>
               <th>Direction</th>
               <th>Hits</th>
-              <th>Enabled</th>
-              <th />
             </tr>
           </thead>
           <tbody>
-            {config.policies.length === 0 ? (
+            {eligible.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
-                  {config.actions.length === 0
-                    ? "Create an action on the Actions tab first, then attach it to a firewall rule here."
-                    : "No policies yet — add one to start enforcing an action."}
+                  No Allow rules yet — create them under{" "}
+                  <Link href="/firewall/rules" className="text-[var(--qz-fg-3)]">
+                    Firewall → Rules
+                  </Link>
+                  .
                 </td>
               </tr>
             ) : (
-              config.policies.map((p) => {
-                const rule = ruleByKey.get(`${p.ruleset}:${p.rule}`);
-                const error = policyErrors.get(p.id) ?? (rule ? null : "target firewall rule no longer exists");
-                const hit = hits[String(p.id)];
+              eligible.map((r) => {
+                const key = `${r.chain}:${r.rule}`;
+                const policy = policyByRule.get(key) ?? null;
+                const bound = policy?.action ?? "";
+                const busy = busyRule === key;
+                const error = policy ? policyErrors.get(policy.id) ?? null : null;
+                const hit = policy ? hits[String(policy.id)] : undefined;
+                const disabled = !!policy && !policy.enabled;
                 return (
-                  <tr key={p.id} style={{ cursor: "pointer", opacity: p.enabled ? 1 : 0.55 }} onClick={() => { setCreating(false); setEditing(p); }}>
-                    <td className="mono text-[var(--qz-fg-3)]">{p.id}</td>
-                    <td className="font-semibold text-[var(--qz-fg-1)]">{p.action}</td>
+                  <tr key={key} style={{ cursor: "default", opacity: r.enabled ? 1 : 0.55 }}>
+                    <td className="mono text-[var(--qz-fg-3)]">{r.rule}</td>
                     <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {rule ? (
-                        <span className="text-[var(--qz-fg-2)]">{ruleSummary(rule)}</span>
-                      ) : (
-                        <span className="text-[var(--qz-fg-4)] mono text-[12px]">
-                          {p.ruleset} rule {p.rule}
+                      {r.name ?? <span className="text-[var(--qz-fg-4)]">Rule {r.rule}</span>}
+                      {r.chain !== "forward" && (
+                        <span className="badge badge-muted ml-2" title={`${CHAIN_LABEL[r.chain]} chain`}>
+                          {CHAIN_LABEL[r.chain]}
                         </span>
                       )}
+                      {disabled && <span className="badge badge-muted ml-2">Disabled</span>}
                       {error && (
                         <span
                           className="inline-flex items-center gap-1 ml-2 text-[12px] text-[var(--qz-danger)]"
@@ -550,24 +593,48 @@ function PoliciesTab({
                         </span>
                       )}
                     </td>
-                    <td className="text-[var(--qz-fg-3)]">{GEO_DIRECTION_LABEL[p.direction]}</td>
+                    <td className="mono text-[12px] text-[var(--qz-fg-3)]">
+                      {endpoint(r.from)} → {endpoint(r.to)}
+                    </td>
+                    <td>
+                      <span className="badge badge-ok">Allow</span>
+                    </td>
+                    <td>
+                      <select
+                        value={bound}
+                        disabled={busy || actionNames.length === 0}
+                        onChange={(e) => setRuleAction(r, e.target.value)}
+                        className="rounded-md px-2 py-[6px] text-[13px] outline-none cursor-pointer w-full"
+                        style={{ ...inputStyle, color: bound ? "var(--qz-accent)" : "var(--qz-fg-4)" }}
+                      >
+                        <option value="">None</option>
+                        {actionNames.map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        value={policy?.direction ?? "both"}
+                        disabled={busy || !policy}
+                        onChange={(e) => setRuleDirection(r, e.target.value as GeoDirection)}
+                        className="rounded-md px-2 py-[6px] text-[13px] outline-none w-full"
+                        style={{
+                          ...inputStyle,
+                          color: policy ? "var(--qz-fg-1)" : "var(--qz-fg-4)",
+                          cursor: policy ? "pointer" : "not-allowed",
+                        }}
+                        title={policy ? undefined : "Attach an action first"}
+                      >
+                        <option value="source">{GEO_DIRECTION_LABEL.source}</option>
+                        <option value="destination">{GEO_DIRECTION_LABEL.destination}</option>
+                        <option value="both">{GEO_DIRECTION_LABEL.both}</option>
+                      </select>
+                    </td>
                     <td className="mono text-[var(--qz-fg-3)]" title="New connections checked against the action">
                       {hit && hit.packets > 0 ? hit.packets : dash}
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div style={{ opacity: toggling === p.id ? 0.5 : 1 }}>
-                        <Switch on={p.enabled} onChange={(v) => toggle(p, v)} />
-                      </div>
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="icon-btn"
-                        title="Delete"
-                        onClick={() => remove(p)}
-                        style={{ background: "transparent", border: 0, cursor: "pointer", color: "var(--qz-danger)" }}
-                      >
-                        <Trash2 size={15} />
-                      </button>
                     </td>
                   </tr>
                 );
@@ -576,17 +643,203 @@ function PoliciesTab({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
 
-      {(editing || creating) && (
-        <PolicyFormModal
-          initial={editing}
-          actions={config.actions}
-          policies={config.policies}
-          rules={fw.rules}
-          onCancel={() => { setEditing(null); setCreating(false); }}
-          onSave={save}
-        />
-      )}
+// ── Alerts tab ────────────────────────────────────────────────────────────────
+
+type AlertRow = GeoEvent & { key: string };
+const MAX_GEO_ALERTS = 500;
+
+function AlertsTab() {
+  const rowsRef = useRef<AlertRow[]>([]);
+  const dirtyRef = useRef(false);
+  const [rows, setRows] = useState<AlertRow[]>([]);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  const [stream, setStream] = useState<"connecting" | "live" | "reconnecting">("connecting");
+  const [streamGen, setStreamGen] = useState(0);
+
+  useEffect(() => {
+    const es = new EventSource("/api/geolocation/alerts");
+    es.onopen = () => setStream("live");
+    es.onerror = () => setStream("reconnecting");
+    let throttle: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      if (!dirtyRef.current || pausedRef.current) return;
+      dirtyRef.current = false;
+      setRows(rowsRef.current);
+    };
+    const scheduleFlush = () => {
+      if (throttle) return;
+      flush();
+      throttle = setTimeout(() => {
+        throttle = null;
+        flush();
+      }, 75);
+    };
+    es.onmessage = (ev) => {
+      try {
+        const e = JSON.parse(ev.data) as GeoEvent;
+        rowsRef.current = [{ ...e, key: `${geoEventKey(e)}:${Math.random()}` }, ...rowsRef.current].slice(0, MAX_GEO_ALERTS);
+        dirtyRef.current = true;
+        scheduleFlush();
+      } catch {
+        // tolerate a malformed event
+      }
+    };
+
+    let cancelled = false;
+    fetchGeoAlertHistory()
+      .then((history) => {
+        if (cancelled || history.length === 0) return;
+        const seen = new Set(rowsRef.current.map((r) => geoEventKey(r)));
+        const merged = [
+          ...rowsRef.current,
+          ...history.filter((e) => !seen.has(geoEventKey(e))).map((e) => ({ ...e, key: `${geoEventKey(e)}:${Math.random()}` })),
+        ];
+        merged.sort((a, b) => b.ts - a.ts);
+        rowsRef.current = merged.slice(0, MAX_GEO_ALERTS);
+        dirtyRef.current = true;
+        scheduleFlush();
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (throttle) clearTimeout(throttle);
+      es.close();
+    };
+  }, [streamGen]);
+
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const visible = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (!q) return true;
+        const hay = [r.action_name, r.src, r.dst, r.proto, r.iif, r.oif]
+          .filter((v) => v != null && v !== "")
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      }),
+    [rows, q],
+  );
+
+  const togglePause = () =>
+    setPaused((p) => {
+      pausedRef.current = !p;
+      if (p) setRows(rowsRef.current);
+      return !p;
+    });
+  const clear = () => {
+    rowsRef.current = [];
+    dirtyRef.current = false;
+    setRows([]);
+  };
+  const clock = (ts: number) => (ts ? new Date(ts).toLocaleTimeString(undefined, { hour12: false }) : "—");
+  const endpointText = (ip?: string, port?: number) => (ip ? (port ? `${ip}:${port}` : ip) : "—");
+
+  return (
+    <div className="flex flex-col gap-3 max-w-[1050px]">
+      <p className="text-[13px] text-[var(--qz-fg-4)] m-0">
+        Live country-block events — one row per connection dropped by an action with logging
+        enabled (the action&apos;s <span className="mono">Log</span> switch). Turn logging on for
+        an action on the Actions tab to see its blocks here.
+      </p>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative">
+          <Search size={14} className="absolute left-[10px] top-1/2 -translate-y-1/2 text-[var(--qz-fg-4)]" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter alerts…"
+            className="rounded-md pl-8 pr-3 py-[7px] text-[13px] text-[var(--qz-fg-1)] outline-none w-[240px]"
+            style={inputStyle}
+          />
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <Button
+            kind="secondary"
+            size="sm"
+            icon={RotateCw}
+            onClick={() => {
+              clear();
+              setStream("connecting");
+              setStreamGen((g) => g + 1);
+            }}
+          >
+            Refresh
+          </Button>
+          <Button kind="secondary" size="sm" icon={paused ? Play : Pause} onClick={togglePause}>
+            {paused ? "Resume" : "Pause"}
+          </Button>
+          <Button kind="secondary" size="sm" icon={Eraser} onClick={clear}>
+            Clear
+          </Button>
+          <span className="inline-flex items-center gap-[6px] text-[12px] text-[var(--qz-fg-4)]">
+            <span
+              className="inline-block w-[7px] h-[7px] rounded-full"
+              style={{ background: paused ? "var(--qz-fg-4)" : stream === "live" ? "var(--qz-success)" : "var(--qz-warn)" }}
+            />
+            {paused ? "Paused" : stream === "live" ? "Live" : stream === "connecting" ? "Connecting…" : "Reconnecting…"}
+            {" · "}
+            {visible.length} {visible.length === 1 ? "alert" : "alerts"}
+          </span>
+        </div>
+      </div>
+
+      <div className="rounded-md overflow-hidden" style={{ border: "1px solid var(--qz-border)" }}>
+        <table className="qz-table" style={{ width: "100%" }}>
+          <colgroup>
+            <col style={{ width: 110 }} />
+            <col style={{ width: 160 }} />
+            <col style={{ width: 90 }} />
+            <col />
+            <col />
+            <col style={{ width: 130 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Action</th>
+              <th>Proto</th>
+              <th>Source</th>
+              <th>Destination</th>
+              <th>Interfaces</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center text-[var(--qz-fg-4)]" style={{ cursor: "default" }}>
+                  {rows.length === 0
+                    ? "No block events yet — they appear when an action with logging enabled drops traffic."
+                    : "No alerts match the filter."}
+                </td>
+              </tr>
+            ) : (
+              visible.map((r) => (
+                <tr key={r.key} style={{ cursor: "default" }}>
+                  <td className="mono text-[12px] text-[var(--qz-fg-3)]">{clock(r.ts)}</td>
+                  <td>
+                    <span className="badge badge-crit">{r.action_name}</span>
+                  </td>
+                  <td className="mono text-[12px] text-[var(--qz-fg-3)]">{r.proto ?? dash}</td>
+                  <td className="mono text-[12px] text-[var(--qz-fg-2)]">{endpointText(r.src, r.spt)}</td>
+                  <td className="mono text-[12px] text-[var(--qz-fg-2)]">{endpointText(r.dst, r.dpt)}</td>
+                  <td className="mono text-[12px] text-[var(--qz-fg-4)]">
+                    {(r.iif ?? "—") + " → " + (r.oif ?? "—")}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -653,6 +906,7 @@ export default function GeolocationPage() {
           items={[
             { value: "actions", label: "Actions" },
             { value: "policies", label: "Policies" },
+            { value: "alerts", label: "Alerts" },
           ]}
           value={tab}
           onChange={(v) => setTab(v as Tab)}
@@ -702,6 +956,7 @@ export default function GeolocationPage() {
             {tab === "policies" && (
               <PoliciesTab config={config} status={status} onChanged={onChanged} />
             )}
+            {tab === "alerts" && <AlertsTab />}
           </>
         )}
       </div>

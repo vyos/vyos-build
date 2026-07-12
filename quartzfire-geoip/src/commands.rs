@@ -7,7 +7,7 @@
 //!   countries — selectable country dump (WebUI + CLI completion)
 //!   counters  — per-action/per-policy counter dump for the WebUI
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 
 use serde_json::json;
@@ -348,12 +348,20 @@ pub fn counters() -> i32 {
         .into_iter()
         .map(|(pid, (p, b))| (pid.to_string(), json!({ "packets": p, "bytes": b })))
         .collect();
+    let countries: BTreeMap<String, serde_json::Value> = apply::read_country_counters()
+        .into_iter()
+        .filter(|(_, (p, _))| *p > 0)
+        .map(|(cc, (p, b))| (cc, json!({ "packets": p, "bytes": b })))
+        .collect();
     let body = json!({
         "time": apply::now(),
         // Named per-action counters: packets/bytes DROPPED.
         "actions": actions,
         // Per-policy jump-rule counters: new connections CHECKED.
         "policies": policies,
+        // Per-country blocked packets/bytes (block-listed actions), for the
+        // Top Blocked Countries dashboard tile. Zero-hit countries are omitted.
+        "countries": countries,
     });
     match apply::write_atomic(&apply::counters_file(), &body.to_string()) {
         Ok(()) => 0,
@@ -361,5 +369,109 @@ pub fn counters() -> i32 {
             log(&e.0);
             1
         }
+    }
+}
+
+// ── traffic (conntrack country sampler) ───────────────────────────────────────
+
+/// The `src=`/`dst=` IPs on one conntrack line — the tuple addresses of both
+/// the original and reply directions. Deduplicated so one flow counts a
+/// country once, not once per tuple.
+fn conntrack_line_ips(line: &str) -> BTreeSet<String> {
+    let mut ips = BTreeSet::new();
+    for tok in line.split_whitespace() {
+        if let Some(ip) = tok.strip_prefix("src=").or_else(|| tok.strip_prefix("dst=")) {
+            ips.insert(ip.to_string());
+        }
+    }
+    ips
+}
+
+/// Aggregate active connections by country. `classify` maps an IP → country
+/// code (None for private/unclassified, which drop out). One count per
+/// (flow, country); a per-IP memo avoids re-classifying shared peers.
+fn count_conntrack_countries(
+    conntrack: &str,
+    mut classify: impl FnMut(&str) -> Option<String>,
+) -> BTreeMap<String, u64> {
+    let mut counts: BTreeMap<String, u64> = BTreeMap::new();
+    let mut memo: BTreeMap<String, Option<String>> = BTreeMap::new();
+    for line in conntrack.lines() {
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        for ip in conntrack_line_ips(line) {
+            let cc = memo.entry(ip.clone()).or_insert_with(|| classify(&ip)).clone();
+            if let Some(cc) = cc {
+                seen.insert(cc);
+            }
+        }
+        for cc in seen {
+            *counts.entry(cc).or_insert(0) += 1;
+        }
+    }
+    counts
+}
+
+/// Dump active-connection counts per country for the Geolocation Map globe.
+/// Runs as root from quartzfire-geoip-traffic.timer. Both endpoints of every
+/// conntrack flow are classified via libloc; private/unclassified addresses
+/// don't match a country and drop out, so what remains is the set of countries
+/// the box is currently exchanging traffic with.
+pub fn traffic() -> i32 {
+    let database = open_db();
+    let counts = match &database {
+        Some(db) => {
+            let conntrack = std::fs::read_to_string("/proc/net/nf_conntrack").unwrap_or_default();
+            count_conntrack_countries(&conntrack, |ip| db.lookup(ip).country)
+        }
+        None => BTreeMap::new(),
+    };
+
+    let mut ranked: Vec<(String, u64)> = counts.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let countries: Vec<serde_json::Value> = ranked
+        .into_iter()
+        .map(|(code, count)| json!({ "code": code, "count": count }))
+        .collect();
+
+    let body = json!({
+        "time": apply::now(),
+        "db_version": database.as_ref().map(|d| d.created_at()),
+        "countries": countries,
+    });
+    match apply::write_atomic(&apply::traffic_file(), &body.to_string()) {
+        Ok(()) => 0,
+        Err(e) => {
+            log(&e.0);
+            1
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conntrack_countries_dedup_per_flow() {
+        // Two flows to 8.8.8.8 (US) and one to 1.1.1.1 (AU). Each line lists the
+        // external peer twice (original dst + reply src) — must count once.
+        let sample = "\
+ipv4 2 tcp 6 431999 ESTABLISHED src=10.0.0.5 dst=8.8.8.8 sport=44001 dport=443 src=8.8.8.8 dst=203.0.113.7 sport=443 dport=44001 [ASSURED]
+ipv4 2 tcp 6 300 ESTABLISHED src=10.0.0.6 dst=8.8.8.8 sport=44002 dport=443 src=8.8.8.8 dst=203.0.113.7 sport=443 dport=44002 [ASSURED]
+ipv4 2 udp 17 29 src=10.0.0.7 dst=1.1.1.1 sport=5000 dport=53 src=1.1.1.1 dst=203.0.113.7 sport=53 dport=5000";
+        let classify = |ip: &str| match ip {
+            "8.8.8.8" => Some("US".to_string()),
+            "1.1.1.1" => Some("AU".to_string()),
+            _ => None, // private / the box's own public addr left unclassified here
+        };
+        let counts = count_conntrack_countries(sample, classify);
+        assert_eq!(counts.get("US"), Some(&2));
+        assert_eq!(counts.get("AU"), Some(&1));
+        assert_eq!(counts.len(), 2);
+    }
+
+    #[test]
+    fn conntrack_empty_input_is_empty() {
+        assert!(count_conntrack_countries("", |_| Some("US".into())).is_empty());
     }
 }

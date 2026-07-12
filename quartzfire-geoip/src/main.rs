@@ -9,6 +9,7 @@
 //!   geoip-lookup            → lookup     (IP → country JSON)
 //!   geoip-countries         → countries  (country list / --codes completion)
 //!   geoip-counters          → counters   (hit-counter dump)
+//!   geoip-traffic           → traffic    (conntrack country dump for the map)
 //!   service_geolocation.py  → commit     (conf-mode owner, in conf_mode/;
 //!                             the .py suffix is required by vyos-configd's
 //!                             script-path regex and stripped by file_stem)
@@ -33,6 +34,7 @@ fn dispatch(op: &str, rest: &[String]) -> Option<i32> {
         "lookup" | "geoip-lookup" => commands::lookup(rest),
         "countries" | "geoip-countries" => commands::countries(rest),
         "counters" | "geoip-counters" => commands::counters(),
+        "traffic" | "geoip-traffic" => commands::traffic(),
         _ => return None,
     })
 }
@@ -56,6 +58,6 @@ fn main() {
             std::process::exit(code);
         }
     }
-    eprintln!("usage: qzgeo <commit|apply|update|lookup <ip>|countries [--codes]|counters>");
+    eprintln!("usage: qzgeo <commit|apply|update|lookup <ip>|countries [--codes]|counters|traffic>");
     std::process::exit(2);
 }

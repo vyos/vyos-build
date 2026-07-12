@@ -50,6 +50,9 @@ pub fn countries_file() -> PathBuf {
 pub fn counters_file() -> PathBuf {
     Path::new(RUN_DIR).join("counters.json")
 }
+pub fn traffic_file() -> PathBuf {
+    Path::new(RUN_DIR).join("traffic.json")
+}
 pub fn active_mark() -> PathBuf {
     Path::new(RUN_DIR).join("active")
 }
@@ -322,6 +325,31 @@ pub fn read_counters() -> BTreeMap<String, (u64, u64)> {
     out
 }
 
+/// Live per-country blocked counters, {UPPER CC → (packets, bytes)}, from the
+/// `geoc_<cc>` named counters. Best-effort like read_counters; feeds both the
+/// re-render seed and the Top Blocked Countries dashboard dump.
+pub fn read_country_counters() -> BTreeMap<String, (u64, u64)> {
+    let mut out = BTreeMap::new();
+    let Some(doc) = nft_json(&["list", "counters", "table", render::TABLE_FAMILY, render::TABLE_NAME])
+    else {
+        return out;
+    };
+    for item in doc.get("nftables").and_then(Value::as_array).into_iter().flatten() {
+        let Some(counter) = item.get("counter") else { continue };
+        let Some(name) = counter.get("name").and_then(Value::as_str) else { continue };
+        if let Some(cc) = name.strip_prefix("geoc_") {
+            out.insert(
+                cc.to_ascii_uppercase(),
+                (
+                    counter.get("packets").and_then(Value::as_u64).unwrap_or(0),
+                    counter.get("bytes").and_then(Value::as_u64).unwrap_or(0),
+                ),
+            );
+        }
+    }
+    out
+}
+
 /// Per-policy hit counters (connections checked), {policy id → (packets,
 /// bytes)}, from the anonymous counters on the `comment "qz-geo-p<id>"` jump
 /// rules. Best-effort like read_counters.
@@ -398,7 +426,7 @@ pub fn apply_model(
         Some(db) if !set_names.is_empty() => build_sets(db, &set_names, Path::new(CACHE_DIR))?,
         _ => BTreeMap::new(),
     };
-    let text = render::render_full(model, matches, &sets, &read_counters());
+    let text = render::render_full(model, matches, &sets, &read_counters(), &read_country_counters());
 
     let previous = fs::read_to_string(last_applied()).unwrap_or_default();
     if force || text != previous {

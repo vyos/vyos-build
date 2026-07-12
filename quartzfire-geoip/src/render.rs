@@ -62,6 +62,30 @@ pub fn counter_name(action_name: &str) -> String {
     format!("geo_{action_name}")
 }
 
+/// Per-country blocked counter, e.g. `geoc_cn`. Deliberately NOT under the
+/// `geo_<action>` namespace (read_counters strips `geo_`), so the two counter
+/// families never collide when listed. Shared across actions, so the count is
+/// the total blocked from that country box-wide. Only ever attached to
+/// block-listed drop rules — an allow-listed action drops via one catch-all
+/// rule that can't be attributed to a country.
+pub fn country_counter_name(cc: &str) -> String {
+    format!("geoc_{}", cc.to_ascii_lowercase())
+}
+
+/// Countries that carry a per-country blocked counter for `model`: those
+/// dropped by an enabled block-listed action.
+pub fn blocked_countries(model: &Model) -> BTreeSet<String> {
+    let (_, _, used_actions) = in_use(model);
+    let mut ccs = BTreeSet::new();
+    for name in &used_actions {
+        let action = &model.actions[name];
+        if action.mode.as_deref() == Some("block-listed") {
+            ccs.extend(action.countries.iter().map(|c| c.to_ascii_uppercase()));
+        }
+    }
+    ccs
+}
+
 pub fn chain_name(action_name: &str, direction: &str) -> String {
     let suffix = if direction == "source" { "src" } else { "dst" };
     format!("act_{action_name}_{suffix}")
@@ -214,13 +238,16 @@ fn action_chain_rules(action_name: &str, action: &Action, direction: &str) -> Ve
     let mut rules = Vec::new();
     if action.mode.as_deref() == Some("block-listed") {
         for cc in &countries {
+            // Count per country (shared geoc_<cc>) as well as per action, so the
+            // dashboard can rank the most-blocked countries box-wide.
+            let per_country = format!("counter name {}", country_counter_name(cc));
             rules.push(format!(
-                "ip {field} @{} {}",
+                "ip {field} @{} {per_country} {}",
                 set_name(cc, 4),
                 verdict(action_name, action)
             ));
             rules.push(format!(
-                "ip6 {field} @{} {}",
+                "ip6 {field} @{} {per_country} {}",
                 set_name(cc, 6),
                 verdict(action_name, action)
             ));
@@ -254,11 +281,15 @@ fn action_chain_rules(action_name: &str, action: &Action, direction: &str) -> Ve
 /// surfaced through status.json.
 /// `counter_seed`: {action name → (packets, bytes)} from the live ruleset so
 /// a re-render doesn't zero the WebUI's hit counters.
+/// `country_seed`: {UPPER-case CC → (packets, bytes)} — the same preservation
+/// for the per-country geoc_<cc> counters that feed the Top Blocked Countries
+/// dashboard tile.
 pub fn render_full(
     model: &Model,
     matches: &BTreeMap<u32, Option<String>>,
     sets: &BTreeMap<String, Vec<String>>,
     counter_seed: &BTreeMap<String, (u64, u64)>,
+    country_seed: &BTreeMap<String, (u64, u64)>,
 ) -> String {
     // Enabled policies with a usable match, grouped by hook chain in policy
     // order. Direction "both" contributes a rule per direction.
@@ -316,8 +347,8 @@ pub fn render_full(
     lines.push(format!("table {TABLE} {{"));
 
     let counter_actions: BTreeSet<&String> = used.iter().map(|(a, _)| a).collect();
-    for name in counter_actions {
-        let (packets, bytes) = counter_seed.get(name).copied().unwrap_or((0, 0));
+    for name in &counter_actions {
+        let (packets, bytes) = counter_seed.get(*name).copied().unwrap_or((0, 0));
         if packets != 0 || bytes != 0 {
             lines.push(format!(
                 "    counter {} {{ packets {packets} bytes {bytes} }}",
@@ -325,6 +356,27 @@ pub fn render_full(
             ));
         } else {
             lines.push(format!("    counter {} {{ }}", counter_name(name)));
+        }
+    }
+
+    // Per-country blocked counters (block-listed actions only), seeded so their
+    // running totals survive re-renders. Referenced from action_chain_rules.
+    let mut country_counters: BTreeSet<String> = BTreeSet::new();
+    for name in &counter_actions {
+        let action = &model.actions[*name];
+        if action.mode.as_deref() == Some("block-listed") {
+            country_counters.extend(action.countries.iter().map(|c| c.to_ascii_uppercase()));
+        }
+    }
+    for cc in &country_counters {
+        let (packets, bytes) = country_seed.get(cc).copied().unwrap_or((0, 0));
+        if packets != 0 || bytes != 0 {
+            lines.push(format!(
+                "    counter {} {{ packets {packets} bytes {bytes} }}",
+                country_counter_name(cc)
+            ));
+        } else {
+            lines.push(format!("    counter {} {{ }}", country_counter_name(cc)));
         }
     }
 
@@ -439,7 +491,7 @@ mod tests {
         let sets = sets.unwrap_or_else(|| {
             required_sets(model).into_iter().map(|n| (n, Vec::new())).collect()
         });
-        render_full(model, &matches, &sets, &seed.unwrap_or_default())
+        render_full(model, &matches, &sets, &seed.unwrap_or_default(), &BTreeMap::new())
     }
 
     // ── collapse ──
@@ -542,8 +594,9 @@ mod tests {
         assert!(text.contains("auto-merge"));
         assert!(text.contains("1.0.0.0/23"));
         assert!(text.contains("chain act_Geo_src {"));
-        assert!(text.contains("ip saddr @geo4_cn counter name geo_Geo drop"));
-        assert!(text.contains("ip6 saddr @geo6_cn counter name geo_Geo drop"));
+        assert!(text.contains("counter geoc_cn { }"));
+        assert!(text.contains("ip saddr @geo4_cn counter name geoc_cn counter name geo_Geo drop"));
+        assert!(text.contains("ip6 saddr @geo6_cn counter name geoc_cn counter name geo_Geo drop"));
         assert!(text.contains("type filter hook forward priority filter - 10; policy accept;"));
         assert!(text.contains("ct state new counter jump act_Geo_src comment \"qz-geo-p10\""));
     }

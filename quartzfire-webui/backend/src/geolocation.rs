@@ -19,14 +19,28 @@
 //!     `location update` (signed download, atomic install) asynchronously.
 //!   * GET  /api/geolocation/lookup?ip=… — one-off IP → country diagnostic,
 //!     via the unprivileged geoip-lookup helper.
+//!   * GET  /api/geolocation/alerts[/history] — the block-event stream. Unlike
+//!     IPS/App Control there is no daemon emitting structured events: an
+//!     action with `log` set installs an nftables `log prefix "[GEO-<action>]"`
+//!     on its drop rule, so blocks land in the kernel log. We tail the journal
+//!     (`journalctl -k -g '\[GEO-' -o json`) and parse the netfilter LOG lines.
 
 use axum::{
     extract::{Query, State},
+    http::StatusCode,
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse, Response,
+    },
     Json,
 };
 use serde::{Deserialize, Serialize};
-use std::{path::Path, sync::Arc};
-use tokio::process::Command;
+use std::{convert::Infallible, path::Path, process::Stdio, sync::Arc};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
+};
+use tokio_stream::{wrappers::LinesStream, StreamExt};
 
 use crate::error::{AppError, Result};
 use crate::AppState;
@@ -57,6 +71,16 @@ pub async fn status(State(state): State<Arc<AppState>>) -> Result<Json<GeoStatus
         status: read_json(&state.config.geoip_status_file),
         counters: read_json(&state.config.geoip_counters_file),
     }))
+}
+
+/// GET /api/geolocation/traffic — active connections grouped by country
+/// (`traffic.json`, dumped by the quartzfire-geoip-traffic timer). Feeds the
+/// Geolocation Map globe. Empty shape before the first sample so the tile can
+/// render its idle state.
+pub async fn traffic(State(state): State<Arc<AppState>>) -> Result<Json<serde_json::Value>> {
+    Ok(Json(read_json(&state.config.geoip_traffic_file).unwrap_or_else(|| {
+        serde_json::json!({ "time": 0, "db_version": null, "countries": [] })
+    })))
 }
 
 // ── countries ─────────────────────────────────────────────────────────────────
@@ -140,8 +164,180 @@ pub async fn lookup(
     Ok(Json(body))
 }
 
+// ── alert stream ──────────────────────────────────────────────────────────────
+
+/// One geolocation block event — the SSE payload and history row, parsed from a
+/// netfilter LOG line (`[GEO-<action>] IN=… OUT=… SRC=… DST=… PROTO=… SPT=…
+/// DPT=…`). Every field beyond the action name is best-effort: the kernel LOG
+/// target omits ports for non-TCP/UDP traffic and interfaces on some chains.
+#[derive(Serialize)]
+pub struct GeoEvent {
+    /// Milliseconds since the Unix epoch (journal `__REALTIME_TIMESTAMP`).
+    ts: u64,
+    /// The action whose drop rule logged this — the `<name>` in `[GEO-<name>]`.
+    action_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    iif: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    oif: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    src: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dst: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proto: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    spt: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dpt: Option<u32>,
+}
+
+/// journalctl argument list selecting kernel `[GEO-…]` LOG lines as JSON.
+/// `extra` adds the follow/backlog flags the two endpoints differ on.
+fn journal_args(extra: &[&str]) -> Vec<String> {
+    let mut args: Vec<String> = ["-k", "-g", r"\[GEO-", "-o", "json", "--no-pager"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    args.extend(extra.iter().map(|s| s.to_string()));
+    args
+}
+
+/// GET /api/geolocation/alerts — SSE stream of block events from the journal
+/// (live only; history comes from /api/geolocation/alerts/history).
+pub async fn alerts() -> Response {
+    let mut child = match Command::new("journalctl")
+        .args(journal_args(&["-f", "-n", "0"]))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .kill_on_drop(true)
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!("cannot start journalctl: {e}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "cannot read the system journal on this device",
+            )
+                .into_response();
+        }
+    };
+    let Some(stdout) = child.stdout.take() else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "journalctl produced no output").into_response();
+    };
+
+    // Each line is one journal entry as JSON; parse_geo_event drops anything
+    // that is not a `[GEO-…]` netfilter LOG record.
+    let stream = LinesStream::new(BufReader::new(stdout).lines()).filter_map(move |line| {
+        let _keep_child_alive = &child;
+        let entry = parse_geo_event(&line.ok()?)?;
+        let json = serde_json::to_string(&entry).ok()?;
+        Some(Ok::<Event, Infallible>(Event::default().data(json)))
+    });
+    let stream = tokio_stream::once(Ok(Event::default().comment("connected"))).chain(stream);
+    Sse::new(stream).keep_alive(KeepAlive::default()).into_response()
+}
+
+/// GET /api/geolocation/alerts/history — recent block events, newest first,
+/// read from the journal's kernel backlog (survives reboots as far as the
+/// persistent journal reaches).
+pub async fn alerts_history() -> Result<Json<Vec<GeoEvent>>> {
+    let output = Command::new("journalctl")
+        .args(journal_args(&["--since", "-48h", "-n", "1000"]))
+        .stderr(Stdio::null())
+        .output()
+        .await
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("running journalctl: {e}")))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut events: Vec<GeoEvent> = text.lines().filter_map(parse_geo_event).collect();
+    events.sort_by(|a, b| b.ts.cmp(&a.ts));
+    events.truncate(500);
+    Ok(Json(events))
+}
+
+/// Parse one journal line (a JSON entry) into a block event, or None for
+/// anything that is not a `[GEO-<action>]` netfilter LOG record.
+fn parse_geo_event(line: &str) -> Option<GeoEvent> {
+    let v: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
+    let msg = v.get("MESSAGE")?.as_str()?;
+    let start = msg.find("[GEO-")?;
+    let rest = &msg[start + "[GEO-".len()..];
+    let end = rest.find(']')?;
+    let action_name = rest[..end].to_string();
+    if action_name.is_empty() {
+        return None;
+    }
+
+    let (mut iif, mut oif, mut src, mut dst, mut proto, mut spt, mut dpt) =
+        (None, None, None, None, None, None, None);
+    for tok in rest[end + 1..].split_whitespace() {
+        let Some((key, val)) = tok.split_once('=') else { continue };
+        match key {
+            "IN" => iif = Some(val.to_string()).filter(|s| !s.is_empty()),
+            "OUT" => oif = Some(val.to_string()).filter(|s| !s.is_empty()),
+            "SRC" => src = Some(val.to_string()),
+            "DST" => dst = Some(val.to_string()),
+            "PROTO" => proto = Some(val.to_string()),
+            "SPT" => spt = val.parse().ok(),
+            "DPT" => dpt = val.parse().ok(),
+            _ => {}
+        }
+    }
+
+    // __REALTIME_TIMESTAMP is microseconds-since-epoch as a decimal string.
+    let ts = v
+        .get("__REALTIME_TIMESTAMP")
+        .and_then(|t| t.as_str())
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(|us| us / 1000)
+        .unwrap_or(0);
+
+    Some(GeoEvent { ts, action_name, iif, oif, src, dst, proto, spt, dpt })
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_netfilter_geo_log_line() {
+        let line = r#"{"__REALTIME_TIMESTAMP":"1752284602117000","MESSAGE":"[GEO-China] IN=eth1 OUT=eth6 MAC=00:11 SRC=1.2.3.4 DST=5.6.7.8 LEN=60 PROTO=TCP SPT=443 DPT=51000 SYN"}"#;
+        let e = parse_geo_event(line).expect("should parse");
+        assert_eq!(e.action_name, "China");
+        assert_eq!(e.ts, 1_752_284_602_117);
+        assert_eq!(e.iif.as_deref(), Some("eth1"));
+        assert_eq!(e.oif.as_deref(), Some("eth6"));
+        assert_eq!(e.src.as_deref(), Some("1.2.3.4"));
+        assert_eq!(e.dst.as_deref(), Some("5.6.7.8"));
+        assert_eq!(e.proto.as_deref(), Some("TCP"));
+        assert_eq!(e.spt, Some(443));
+        assert_eq!(e.dpt, Some(51000));
+    }
+
+    #[test]
+    fn ignores_non_geo_and_malformed_lines() {
+        // A kernel line without our prefix.
+        assert!(parse_geo_event(r#"{"MESSAGE":"usb 1-1: new device"}"#).is_none());
+        // Not JSON.
+        assert!(parse_geo_event("[GEO-China] SRC=1.2.3.4").is_none());
+        // Empty action name.
+        assert!(parse_geo_event(r#"{"MESSAGE":"[GEO-] SRC=1.2.3.4"}"#).is_none());
+    }
+
+    #[test]
+    fn parses_input_chain_line_without_out_or_ports() {
+        // ICMP on the input chain: no OUT, no ports.
+        let line = r#"{"__REALTIME_TIMESTAMP":"1000000","MESSAGE":"[GEO-Block_RU] IN=eth0 SRC=9.9.9.9 DST=10.0.0.1 PROTO=ICMP TYPE=8"}"#;
+        let e = parse_geo_event(line).expect("should parse");
+        assert_eq!(e.action_name, "Block_RU");
+        assert_eq!(e.iif.as_deref(), Some("eth0"));
+        assert!(e.oif.is_none());
+        assert!(e.spt.is_none() && e.dpt.is_none());
+        assert_eq!(e.proto.as_deref(), Some("ICMP"));
+        assert_eq!(e.ts, 1000);
+    }
+
     #[test]
     fn lookup_ip_validation() {
         // The handler rejects before spawning; mirror its check here.

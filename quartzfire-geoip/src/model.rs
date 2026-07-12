@@ -104,10 +104,15 @@ pub fn validate(model: &Model, known_codes: Option<&BTreeSet<String>>) -> Vec<St
                 "{where_}: mode must be set to block-listed or allow-listed"
             )),
         }
-        if action.countries.is_empty() {
+        // An empty country list means "all countries": harmless for
+        // block-listed (allow all — the default Global action ships this way),
+        // but for allow-listed it would block every classified IP, which is
+        // almost always a mistake rather than an intent.
+        if action.countries.is_empty() && action.mode.as_deref() != Some("block-listed") {
             problems.push(format!(
-                "{where_}: at least one country is required — an action with no \
-                 countries matches nothing"
+                "{where_}: at least one country is required — an allow-listed \
+                 action with no countries blocks everything (use block-listed \
+                 to allow all countries)"
             ));
         }
         let mut seen = BTreeSet::new();
@@ -250,13 +255,23 @@ mod tests {
     }
 
     #[test]
-    fn zero_countries_rejected() {
+    fn zero_countries_rejected_for_allow_listed() {
         let mut action = make_action();
+        action.mode = Some("allow-listed".into());
         action.countries.clear();
         let model = model_of(&[("A", action)], vec![]);
         assert!(validate(&model, None)
             .iter()
             .any(|p| p.contains("at least one country")));
+    }
+
+    #[test]
+    fn zero_countries_allowed_for_block_listed() {
+        // block-listed + no countries = allow all (the default Global action).
+        let mut action = make_action();
+        action.countries.clear();
+        let model = model_of(&[("Global", action)], vec![]);
+        assert!(validate(&model, None).is_empty());
     }
 
     #[test]

@@ -222,7 +222,7 @@ fn full_pipeline() {
     assert_eq!(sets["geo4_cn"], vec!["1.0.0.0/23", "203.0.113.0/24"]);
     assert_eq!(sets["geo6_cn"], vec!["2001:db8:c::/48"]);
 
-    let text = render_full(&model, &matches, &sets, &BTreeMap::new());
+    let text = render_full(&model, &matches, &sets, &BTreeMap::new(), &BTreeMap::new());
     assert!(text.contains("add table inet qz_geo\ndelete table inet qz_geo"));
     assert!(text.contains("1.0.0.0/23, 203.0.113.0/24"));
     assert!(text.contains("2001:db8:c::/48"));
@@ -230,8 +230,10 @@ fn full_pipeline() {
         "ct state new iifname { \"eth0\" } ip daddr 192.0.2.0/24 counter \
          jump act_Block_CN_src comment \"qz-geo-p10\""
     ));
+    // Block-listed drop rules count per country (geoc_cn) and per action.
+    assert!(text.contains("    counter geoc_cn { }"));
     assert!(text.contains(
-        "ip saddr @geo4_cn counter name geo_Block_CN log prefix \"[GEO-Block_CN] \" drop"
+        "ip saddr @geo4_cn counter name geoc_cn counter name geo_Block_CN log prefix \"[GEO-Block_CN] \" drop"
     ));
 
     // Second build must come from the cache (mutate the db; result sticks).

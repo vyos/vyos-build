@@ -8,7 +8,12 @@ update machinery. Two concepts, mirroring the WebUI's tabs:
   countries except those listed) or `allow-listed` (block all except those
   listed), a country list, per-action handling of IPs *not in the database*
   (`unknown-ip allow|block`, default allow), and an optional log flag
-  (kernel-log prefix `[GEO-<action>]`).
+  (kernel-log prefix `[GEO-<action>]`). A `block-listed` action with an
+  **empty** country list allows everything — this is how the shipped default
+  **`Global`** action (present in the flavor default config) starts life: an
+  editable, allow-all template that admins narrow by adding country blocks or
+  attaching policies. An `allow-listed` action with no countries is rejected
+  (it would block everything).
 * **Policy** — binds an action to one firewall rule (`ruleset` forward /
   input / output + rule number, matching how the WebUI models
   `firewall ipv4 <chain> filter` rules), with a `direction` (source /
@@ -89,8 +94,10 @@ these nodes.
 Commit semantics:
 
 * verify() blocks the commit for: invalid/duplicate country codes (checked
-  against the database when present, format-only otherwise), an action with
-  zero countries, a missing mode, a policy referencing an undefined action,
+  against the database when present, format-only otherwise), an
+  **allow-listed** action with zero countries (block-listed with zero
+  countries is the valid allow-all case), a missing mode, a policy referencing
+  an undefined action,
   and **deleting an action that policies still reference** (explicit
   "cannot delete … still used by policy N" error).
 * A policy whose target rule is missing or unreplicable (see below) does

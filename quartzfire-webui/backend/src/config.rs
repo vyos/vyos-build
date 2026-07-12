@@ -102,6 +102,11 @@ pub struct Config {
     #[serde(default = "default_geoip_countries_file")]
     pub geoip_countries_file: PathBuf,
 
+    /// Active-connections-by-country sample (read-only), dumped by the
+    /// quartzfire-geoip-traffic timer; feeds the Geolocation Map globe.
+    #[serde(default = "default_geoip_traffic_file")]
+    pub geoip_traffic_file: PathBuf,
+
     /// "Update now" trigger file watched by quartzfire-geoip-update-request
     /// .path. Lives under /config/quartzfire (writable for us) like the other
     /// desired-state files.
@@ -167,6 +172,9 @@ fn default_geoip_counters_file() -> PathBuf {
 }
 fn default_geoip_countries_file() -> PathBuf {
     PathBuf::from("/run/quartzfire-geoip/countries.json")
+}
+fn default_geoip_traffic_file() -> PathBuf {
+    PathBuf::from("/run/quartzfire-geoip/traffic.json")
 }
 fn default_geoip_update_request_file() -> PathBuf {
     PathBuf::from("/config/quartzfire/geoip-update-request")

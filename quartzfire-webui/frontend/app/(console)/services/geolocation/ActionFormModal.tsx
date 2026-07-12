@@ -107,8 +107,10 @@ export function ActionFormModal({
     if ((initial === null || trimmed !== initial.name) && existingNames.includes(trimmed)) {
       return setToast(`An action named "${trimmed}" already exists.`);
     }
-    if (selected.size === 0) {
-      return setToast("Select at least one country — an action with no countries matches nothing.");
+    // block-listed with no countries = allow all (the default Global action);
+    // allow-listed with none would block everything, which is a mistake.
+    if (selected.size === 0 && mode !== "block-listed") {
+      return setToast("Select at least one country — an allow-listed action with no countries blocks everything.");
     }
     setBusy(true);
     try {

@@ -28,7 +28,7 @@ override_dh_auto_install:
 	# node.def lines, and the WebUI backend reference stable paths.
 	install -D -m0755 target/release/qzgeo \
 		debian/quartzfire-geoip/usr/libexec/quartzfire/qzgeo
-	set -e; for name in geoip-apply geoip-update geoip-lookup geoip-countries geoip-counters; do \
+	set -e; for name in geoip-apply geoip-update geoip-lookup geoip-countries geoip-counters geoip-traffic; do \
 		ln -s qzgeo debian/quartzfire-geoip/usr/libexec/quartzfire/$$name; \
 	done
 	# The .py suffix is mandatory even though the target is an ELF binary:
@@ -61,3 +61,4 @@ override_dh_installsystemd:
 	dh_installsystemd --name=quartzfire-geoip-update-request
 	dh_installsystemd --name=quartzfire-geoip-resync
 	dh_installsystemd --name=quartzfire-geoip-counters
+	dh_installsystemd --name=quartzfire-geoip-traffic

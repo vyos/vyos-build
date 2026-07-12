@@ -32,6 +32,12 @@ interfaces {
     }
 }
 service {
+    geolocation {
+        action Global {
+            description "Allow all countries (default); add country blocks or attach policies to enforce"
+            mode "block-listed"
+        }
+    }
     ntp {
         allow-client {
             address "127.0.0.0/8"

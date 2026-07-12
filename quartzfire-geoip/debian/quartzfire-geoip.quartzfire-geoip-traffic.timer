@@ -1,0 +1,9 @@
+[Unit]
+Description=Periodic QuartzFire geolocation traffic-by-country sample
+
+[Timer]
+OnBootSec=90sec
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target

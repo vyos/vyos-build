@@ -354,6 +354,10 @@ export interface GeoCounters {
   /** Per-policy jump-rule counters: new connections CHECKED (keyed by policy
    *  number as a string). Absent from dumps written by older helpers. */
   policies?: Record<string, { packets: number; bytes: number }>;
+  /** Per-country blocked packets/bytes (keyed by UPPER-case ISO code) from
+   *  block-listed actions — feeds the Top Blocked Countries tile. Zero-hit
+   *  countries are omitted; absent from dumps written by older helpers. */
+  countries?: Record<string, { packets: number; bytes: number }>;
 }
 
 export interface GeoStatus {
@@ -382,6 +386,56 @@ export interface GeoLookupResult {
 
 export function geoLookup(ip: string): Promise<GeoLookupResult> {
   return apiFetch<GeoLookupResult>(`/geolocation/lookup?ip=${encodeURIComponent(ip.trim())}`);
+}
+
+// ── backend API: block-event alerts ───────────────────────────────────────────
+
+/// One geolocation block event, parsed by the backend from a netfilter
+/// `[GEO-<action>]` kernel LOG line. Fields past the action name are
+/// best-effort (the kernel LOG target omits ports for non-TCP/UDP traffic and
+/// the outbound interface on the input chain). `ts` is ms since the epoch.
+export interface GeoEvent {
+  ts: number;
+  action_name: string;
+  iif?: string;
+  oif?: string;
+  src?: string;
+  dst?: string;
+  proto?: string;
+  spt?: number;
+  dpt?: number;
+}
+
+/// Stable-ish identity for de-duping the live stream against history.
+export function geoEventKey(e: GeoEvent): string {
+  return `${e.ts}|${e.action_name}|${e.src ?? ""}:${e.spt ?? ""}|${e.dst ?? ""}:${e.dpt ?? ""}|${e.proto ?? ""}`;
+}
+
+/// Persisted block events (newest first) from the journal's kernel backlog.
+/// Live events arrive over SSE at GET /api/geolocation/alerts.
+export function fetchGeoAlertHistory(): Promise<GeoEvent[]> {
+  return apiFetch<GeoEvent[]>("/geolocation/alerts/history");
+}
+
+// ── backend API: traffic-by-country (Geolocation Map globe) ────────────────────
+
+export interface GeoTrafficEntry {
+  /** UPPER-case ISO 3166-1 alpha-2 code. */
+  code: string;
+  /** Active connections observed to/from that country at the last sample. */
+  count: number;
+}
+
+export interface GeoTraffic {
+  time: number;
+  db_version: number | null;
+  countries: GeoTrafficEntry[];
+}
+
+/// Active connections grouped by country (sampled from conntrack by the
+/// quartzfire-geoip-traffic timer). Empty shape until the first sample.
+export function fetchGeoTraffic(): Promise<GeoTraffic> {
+  return apiFetch<GeoTraffic>("/geolocation/traffic");
 }
 
 // ── display helpers ───────────────────────────────────────────────────────────
