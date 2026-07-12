@@ -2,4 +2,3 @@ type: u32
 help: ICAP server port
 syntax:expression: $VAR(@) >= 1 && $VAR(@) <= 65535 ; "icap-port must be 1-65535"
 val_help: u32:1-65535; ICAP port (default 1344)
-default: 1344

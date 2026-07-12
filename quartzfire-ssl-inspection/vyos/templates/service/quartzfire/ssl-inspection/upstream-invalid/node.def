@@ -4,4 +4,3 @@ syntax:expression: $VAR(@) in "block", "allow" ; "upstream-invalid must be block
 allowed: echo block allow
 val_help: block; Reject connections to origins with invalid certs (default)
 val_help: allow; Proceed to origins with invalid certs (log only)
-default: block

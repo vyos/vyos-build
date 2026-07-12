@@ -1,4 +1,3 @@
 type: txt
 help: ICAP server host (the filter engine — e.g. e2guardian, c-icap)
 val_help: txt; ICAP host (default 127.0.0.1)
-default: "127.0.0.1"

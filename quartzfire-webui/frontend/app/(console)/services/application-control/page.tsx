@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, AppWindow, Copy, Eraser, Pause, Play, Plus, RotateCw, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, Eraser, Pause, Play, Plus, RotateCw, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { ModalShell, ModalHeader } from "@/components/ui/Modal";
@@ -918,8 +918,7 @@ export default function ApplicationControlPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="px-[36px] pt-[28px] pb-5 flex-shrink-0">
-        <h1 className="text-[28px] font-bold text-[var(--qz-fg-1)] m-0 flex items-center gap-2" style={{ letterSpacing: "-0.015em" }}>
-          <AppWindow size={26} className="text-[var(--qz-accent)]" />
+        <h1 className="text-[28px] font-bold text-[var(--qz-fg-1)] m-0" style={{ letterSpacing: "-0.015em" }}>
           Application Control
         </h1>
         <p className="text-[13px] text-[var(--qz-fg-4)] mt-1">

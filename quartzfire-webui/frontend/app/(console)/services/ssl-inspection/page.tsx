@@ -21,7 +21,6 @@ import {
   Check,
   Copy,
   Download,
-  Lock,
   Plus,
   RotateCw,
   ShieldCheck,
@@ -402,28 +401,28 @@ export default function SslInspectionPage() {
   };
 
   if (phase === "loading") {
-    return <div className="text-[13px] text-[var(--qz-fg-4)]">Loading…</div>;
+    return <div className="px-[36px] pt-[28px] text-[13px] text-[var(--qz-fg-4)]">Loading…</div>;
   }
   if (phase === "error") {
     return (
-      <div className="flex items-center gap-2 text-[13px] text-[var(--qz-danger)]">
+      <div className="px-[36px] pt-[28px] flex items-center gap-2 text-[13px] text-[var(--qz-danger)]">
         <AlertTriangle size={14} /> {errorMsg}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 max-w-[900px]">
-      {/* Header + enable */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Lock size={18} className="text-[var(--qz-fg-2)]" />
+    <div className="flex flex-col h-full">
+      <div className="px-[36px] pt-[28px] pb-5 flex-shrink-0 flex items-start gap-3">
         <div className="flex-1">
-          <h1 className="text-[16px] font-semibold text-[var(--qz-fg-1)] m-0">SSL Inspection</h1>
-          <p className="text-[12px] text-[var(--qz-fg-4)] m-0">
-            Decrypt, inspect, and re-encrypt outbound HTTPS on the selected interfaces (Squid ssl_bump).
+          <h1 className="text-[28px] font-bold text-[var(--qz-fg-1)] m-0" style={{ letterSpacing: "-0.015em" }}>
+            SSL Inspection
+          </h1>
+          <p className="text-[13px] text-[var(--qz-fg-4)] mt-1">
+            Decrypt, inspect, and re-encrypt outbound HTTPS on the selected interfaces (Squid ssl_bump)
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pt-1">
           <span className="text-[13px] text-[var(--qz-fg-3)]">{config.enabled ? "Enabled" : "Disabled"}</span>
           <span aria-disabled={toggling} style={{ opacity: toggling ? 0.5 : 1 }}>
             <Switch on={config.enabled} onChange={onToggle} />
@@ -431,8 +430,9 @@ export default function SslInspectionPage() {
         </div>
       </div>
 
-      <StatusCard status={status} />
-      <CaPanel status={status} onRegenerate={onRegenerate} regenerating={regenerating} />
+      <div className="px-[36px] pb-8 flex flex-col gap-4 overflow-auto max-w-[1000px]">
+        <StatusCard status={status} />
+        <CaPanel status={status} onRegenerate={onRegenerate} regenerating={regenerating} />
 
       {/* Inspection policy */}
       <section className="rounded-lg px-5 py-4 flex flex-col gap-4" style={cardStyle}>
@@ -544,6 +544,7 @@ export default function SslInspectionPage() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }

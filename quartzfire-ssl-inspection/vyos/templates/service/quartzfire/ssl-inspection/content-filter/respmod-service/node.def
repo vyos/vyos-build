@@ -1,4 +1,3 @@
 type: txt
 help: ICAP RESPMOD service path
 val_help: txt; RESPMOD service name (default response)
-default: "response"

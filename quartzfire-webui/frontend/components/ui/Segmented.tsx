@@ -27,7 +27,7 @@ export function Segmented({
           className={[
             "border-none font-medium text-[12.5px] px-3 py-[5px] rounded-[5px] cursor-pointer transition-all duration-[120ms]",
             value === it.value
-              ? "bg-[var(--qz-surface-raised)] text-[var(--qz-fg-1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+              ? "bg-[var(--qz-accent-soft)] text-[var(--qz-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
               : "bg-transparent text-[var(--qz-fg-3)] hover:text-[var(--qz-fg-2)]",
           ].join(" ")}
         >

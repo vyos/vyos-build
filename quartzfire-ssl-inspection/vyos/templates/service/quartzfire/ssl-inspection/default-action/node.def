@@ -4,4 +4,3 @@ syntax:expression: $VAR(@) in "inspect", "splice" ; "default-action must be insp
 allowed: echo inspect splice
 val_help: inspect; Bump (decrypt/inspect) everything not excluded
 val_help: splice; Pass through (do not decrypt) unless explicitly selected
-default: inspect
