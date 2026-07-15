@@ -72,6 +72,6 @@ fpm --input-type dir --output-type deb --name vyos-ipt-netflow \
     --description "ipt_NETFLOW module" \
     --depends linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} \
     --license "GPL2" -C ${IPT_NETFLOW_SRC}/tmp --after-install ${DEBIAN_POSTINST} \
-    ipt_NETFLOW.ko=/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra/ipt_NETFLOW.ko \
+    ipt_NETFLOW.ko.xz=/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra/ipt_NETFLOW.ko.xz \
     libipt_NETFLOW.so=/lib/$(uname -m)-linux-gnu/xtables/libipt_NETFLOW.so \
     libip6t_NETFLOW.so=/lib/$(uname -m)-linux-gnu/xtables/libip6t_NETFLOW.so

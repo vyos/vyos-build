@@ -58,8 +58,12 @@ cmake -DBUILD_IPOE_DRIVER=TRUE \
     -DCPACK_TYPE=Debian12 ..
 CPATH="${VPP_INCLUDE_PATH}" LIBRARY_PATH="${VPP_LIBRARY_PATH}" make
 
-# Sign generated Kernel modules
-${CWD}/sign-modules.sh .
+# Sign generated Kernel modules. Keep the uncompressed .ko next to the
+# resulting .ko.xz: cpack's DEB packaging re-runs "make all" as part of
+# its install step, and if the .ko CMake tracks as a build output were
+# removed by compression, it would be silently rebuilt unsigned before
+# being packaged.
+${CWD}/sign-modules.sh . --keep
 
 cpack -G DEB
 
