@@ -31,6 +31,7 @@ import datetime
 import functools
 import string
 import subprocess
+import tempfile
 
 class ImageBuildError(Exception):
     pass
@@ -156,6 +157,7 @@ def build():
            'qemu-utils',
            'gdisk',
            'kpartx',
+           'squashfs-tools',
            'dosfstools'
         ],
        'binaries': []
@@ -727,26 +729,37 @@ Pin-Priority: 600
         manifest['artifacts'].append(iso_file)
 
         # Now create SBOM
-        syft_target_dir = 'chroot'
-        syft_base_path = os.getcwd() + f'/{syft_target_dir}'
         base_filename = iso_file.rstrip('.iso')
-        syft_cmd = [['syft', syft_target_dir,
-                     '--source-name', 'VyOS', '--source-version', version,
-                     '-o', f'cyclonedx-json={base_filename}.cdx.json',
-                     '-o', f'spdx-json={base_filename}.spdx.json']]
+        syft_target_dir = tempfile.mkdtemp(prefix='unsquashfs_rootfs-', dir=os.getcwd())
+        syft_base_path = syft_target_dir
+        try:
+            # lb config builds the amd64 squashfs as xz with -Xbcj x86 (a BCJ pre-filter
+            # chained with LZMA2. Real unsquashfs/mksquashfs fully support multi-filter
+            # xz streams; syft's own Go-based squashfs/xz decoder apparently only handles
+            # plain single-filter. Extract squashfs first
+            print("I: Unpack squashfs for SBOM generation")
+            syft_cmd = [['unsquashfs', '-quiet', '-no-progress', '-force', '-dest', syft_target_dir, 'binary/live/filesystem.squashfs']]
+            # run syft on extracted content
+            syft_cmd.append(['syft', syft_target_dir,
+                         '--source-name', 'VyOS', '--source-version', version,
+                         '-o', f'cyclonedx-json={base_filename}.cdx.json',
+                         '-o', f'spdx-json={base_filename}.spdx.json'])
 
-        # syft bug for CycloneDX https://github.com/anchore/syft/issues/4592#issuecomment-4567247328
-        syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@@g', f'{base_filename}.cdx.json'])
-        syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@//@g', f'{base_filename}.spdx.json'])
+            # syft bug for CycloneDX https://github.com/anchore/syft/issues/4592#issuecomment-4567247328
+            syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@@g', f'{base_filename}.cdx.json'])
+            syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@//@g', f'{base_filename}.spdx.json'])
 
-        for c in syft_cmd:
-            with subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                  text=True, bufsize=1) as p:
-                for line in p.stdout:
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
-                p.wait()
-        print("I: Finished SBOM generation")
+            for c in syft_cmd:
+                with subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                      text=True, bufsize=1) as p:
+                    for line in p.stdout:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                    p.wait()
+            print("I: Finished SBOM generation")
+        finally:
+            # remove temporary unpacked squashfs, even on failure/interruption
+            shutil.rmtree(syft_target_dir, ignore_errors=True)
 
 
     # If the flavor has `image_format = "iso"`, then the work is done.
