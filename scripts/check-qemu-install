@@ -599,11 +599,19 @@ def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
         time.sleep(BOOTLOADER_SLEEP)
         child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
+        # GRUB submenus never time out on their own, so confirm we actually
+        # landed on this submenu before navigating further - otherwise a
+        # dropped keypress leaves the VM stuck here until the login wait
+        # elsewhere expires
+        child.expect('Select console type', timeout=BOOTLOADER_TMO)
+
         # Select console type
         child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
         child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
+        child.expect(r'ttyS \(serial\)', timeout=BOOTLOADER_TMO)
+
         # *ttyS (serial)
         child.send(KEY_DOWN)
         time.sleep(BOOTLOADER_SLEEP)
