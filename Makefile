@@ -4,6 +4,15 @@ build_dir := build
 ARCH := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 ISO_PATH := $(build_dir)/live-image-$(ARCH).hybrid.iso
 
+# Test targets forward extra CLI arguments (e.g. `make test -- --match foo`)
+# to their scripts via $(MAKECMDGOALS). Those extra words are also goals as
+# far as make is concerned, so without this they'd fall through to the `%:`
+# flavor rule below and run build-vyos-image with garbage arguments.
+TEST_TARGETS := test test-no-interfaces test-no-interfaces-no-vpp test-interfaces test-vpp testc testcvpp testraid testsb testtpm test-ci-qcow2 test-image-update qemu-live
+ifneq ($(filter $(TEST_TARGETS),$(firstword $(MAKECMDGOALS))),)
+$(eval $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS)):;@:)
+endif
+
 .PHONY: all
 all:
 	@echo "Make what specifically?"
