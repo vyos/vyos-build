@@ -1,0 +1,57 @@
+From: Christian Breunig <christian@breunig.cc>
+Date: Sat, 18 Jul 2026 18:30:00 +0000
+Subject: [PATCH] arm64: fix relative syscalltbl path in Makefile.syscalls
+
+Building the "linux-perf" Debian package (added by
+0002-build-linux-perf-package.patch, via install_perf() invoking
+"make -C tools/perf ... install") reproducibly fails on an arm64 build
+host with:
+
+  make[9]: *** No rule to make target
+  '.../tools/perf/libperf/arch/arm64/include/generated/uapi/asm/unistd_64.h'.
+  Stop.
+
+Root cause: tools/lib/perf/Makefile's "uapi-asm-generic:" recipe invokes
+scripts/Makefile.asm-headers without "-C $(srctree)", so it inherits
+whatever working directory tools/lib/perf/Makefile itself was invoked
+with - which is tools/lib/perf/, not the kernel source root. This is
+harmless for the generic default:
+
+  syscalltbl := $(srctree)/scripts/syscall.tbl
+
+...which is absolute and thus resolves correctly regardless of the
+working directory. arch/arm64/kernel/Makefile.syscalls, however,
+overrides this with a relative path:
+
+  syscalltbl = arch/arm64/tools/syscall_%.tbl
+
+When SRCARCH=arm64 (true both for the target kernel and, on a native
+arm64 build host, for tools/perf's own build), this relative path is
+looked up relative to tools/lib/perf/ instead of the kernel root, does
+not exist there, and the "unistd_%.h" pattern rule that depends on it
+can no longer be matched - so make reports no rule for the target at
+all, rather than a missing-prerequisite error.
+
+This only surfaces on a native arm64 build host: on x86_64 hosts (the
+common case for cross-building arm64 kernels) tools/perf builds for the
+x86_64 host architecture, which has no such override and always uses
+the safe, absolute default path.
+
+Fix by making arm64's override absolute too, matching the default and
+every other reference in this file's callers.
+---
+ arch/arm64/kernel/Makefile.syscalls | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kernel/Makefile.syscalls b/arch/arm64/kernel/Makefile.syscalls
+index 0542a718871a..958f2335ec1b 100644
+--- a/arch/arm64/kernel/Makefile.syscalls
++++ b/arch/arm64/kernel/Makefile.syscalls
+@@ -3,4 +3,4 @@
+ syscall_abis_32 +=
+ syscall_abis_64 += renameat rlimit memfd_secret
+
+-syscalltbl = arch/arm64/tools/syscall_%.tbl
++syscalltbl = $(srctree)/arch/arm64/tools/syscall_%.tbl
+--
+2.39.5
