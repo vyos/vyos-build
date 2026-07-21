@@ -33,6 +33,10 @@ copy_exec /usr/sbin/fsck.ext2
 copy_exec /usr/sbin/fsck.ext3
 copy_exec /usr/sbin/fsck.ext4
 
+# Azure VF helper used by udev rule 63-hyperv-vf-net.rules. It must be
+# present in initramfs so early VF add events can be renamed to vf_ethN.
+copy_exec /lib/udev/vyos_vf_name
+
 # copy other files ("other" here is a file type, so do not delete this keyword)
 copy_file other /etc/ssl/certs/ca-certificates.crt
 copy_file other /etc/ssl/openssl.cnf
