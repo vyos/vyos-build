@@ -731,6 +731,7 @@ def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0
             'Would you like to set the new image as the default one for boot',
             'An active configuration was found. Would you like to copy it to the new image',
             'Would you like to copy SSH host keys',
+            'Would you like to copy Bash history',
             'Would you like to save the SSH known hosts (fingerprints)',
             'Signature is not available. Do you want to continue with installation',
             'There are unsaved changes to the configuration',
@@ -755,9 +756,11 @@ def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0
             c.sendline('y')
         elif i == 7:
             c.sendline('y')
-        elif i == 8 or i == 9:
+        elif i == 8:
+            c.sendline('y')
+        elif i == 9 or i == 10:
             raise Exception('add system image reported an error')
-        elif i == 10:
+        elif i == 11:
             log.info('add system image completed')
             break
 
