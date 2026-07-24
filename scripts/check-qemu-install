@@ -1367,18 +1367,17 @@ try:
             log.info('Smoketests will be run using vyconfd/vyos-commitd')
 
         log.info('Executing VyOS smoketests')
+        c.sendline('ls /usr/bin/vyos-smoketest 2>/dev/null')
+        c.expect('/usr/bin/vyos-smoketest')
+        c.expect(op_mode_prompt)
         c.sendline('/usr/bin/vyos-smoketest')
         i = c.expect(['\n +Invalid command:', '\n +Set failed',
-                      'No such file or directory', r'\n\S+@\S+[$#]'], timeout=test_timeout)
+                      r'\n\S+@\S+[$#]'], timeout=test_timeout)
 
         if i == 0:
             raise Exception('Invalid command detected')
         if i == 1:
             raise Exception('Set syntax failed :/')
-        if i == 2:
-            tmp = '(W)hy (T)he (F)ace? VyOS smoketest not found!'
-            log.error(tmp)
-            raise Exception(tmp)
 
         c.sendline('echo EXITCODE:$\x16?')
         i = c.expect(['EXITCODE:0', 'EXITCODE:\d+'])
