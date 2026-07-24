@@ -1,0 +1,5 @@
+[[packages]]
+name = "iproute2"
+commit_id = "debian/6.18.0-1"
+scm_url = "https://salsa.debian.org/kernel-team/iproute2.git"
+pre_build_hook = "sudo apt-get install -y -t bookworm-backports debhelper"

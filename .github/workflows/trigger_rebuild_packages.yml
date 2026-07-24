@@ -47,6 +47,8 @@ jobs:
               - 'scripts/package-build/hostap/**'
             hsflowd:
               - 'scripts/package-build/hsflowd/**'
+            iproute2:
+              - 'scripts/package-build/iproute2/**'
             isc-dhcp:
               - 'scripts/package-build/isc-dhcp/**'
             isc-kea:
@@ -171,6 +173,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.hsflowd }}" == "true" ]; then
             trigger_build "hsflowd"
+          fi
+
+          if [ "${{ steps.changes.outputs.iproute2 }}" == "true" ]; then
+            trigger_build "iproute2"
           fi
 
           if [ "${{ steps.changes.outputs.isc-dhcp }}" == "true" ]; then
