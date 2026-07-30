@@ -494,6 +494,21 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
 
+        # Generate the isolinux boot menu file
+        boot_menu_data = f'''
+menu hshift 0
+menu width 82
+
+menu title VyOS {build_config['version']} ({build_config['build_flavor']})
+include stdmenu.cfg
+include live.cfg
+
+menu clear
+    '''
+
+        with open(os.path.join(defaults.LB_CONFIG_DIR, "includes.binary/isolinux/menu.cfg"), "w") as f:
+            f.write(boot_menu_data)
+
         # For initialization of activation scripts, we need to know if we
         # are building with create_raw_image
         if build_config["image_format"] != ["iso"]:
