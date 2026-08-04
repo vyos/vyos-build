@@ -1,4 +1,175 @@
 [[packages]]
+name = "netavark"
+commit_id = "debian/1.14.0-2"
+scm_url = "https://salsa.debian.org/debian/netavark"
+
+# The Debian packaging for netavark targets trixie/sid: it builds via dh-cargo
+# against a wall of librust-*-dev packages that don't exist in the bookworm
+# archive VyOS builds against, and bookworm's rustc (1.63) is below netavark's
+# rust-version = "1.76" floor. Rewrite debian/control and debian/rules to build
+# directly against crates.io with a rustup-installed toolchain instead, and
+# drop the quilt patches that only exist to pin Cargo.toml/Cargo.lock to
+# whatever librust-*-dev versions happen to be in the trixie/sid archive - our
+# network build uses upstream's own (pristine) Cargo.lock instead.
+#
+# debian/patches/series and debian/control/rules are edited in place here
+# rather than via a patch file: mk-build-deps (which runs before build_cmd)
+# reads debian/control straight off disk, before dpkg-buildpackage's automatic
+# quilt-patch application would ever get a chance to apply a patch to it.
+pre_build_hook = """
+sed -i \
+    -e '/^0009-Revert-fix-deps-update-rust-crate-rand-to-0.9.0.patch$/d' \
+    -e '/^0010-Revert-fix-deps-update-rust-crate-sysctl-to-0.6.0.patch$/d' \
+    -e '/^0012-relax-tokio-stream-dependency.patch$/d' \
+    -e '/^0013-Relax-nispor-dependency.patch$/d' \
+    -e '/^0013-Build-against-url-2.5.2.patch$/d' \
+    -e '/^0013-compile-against-prost-12.6.patch$/d' \
+    -e '/^0015-update-zbus.patch$/d' \
+    debian/patches/series
+
+cat > debian/control <<'EOF'
+Source: netavark
+Section: net
+Priority: optional
+Maintainer: Reinhard Tartler <siretart@tauware.de>
+Build-Depends: debhelper-compat (= 13),
+               pkg-config,
+               protobuf-compiler
+Standards-Version: 4.7.2
+Homepage: https://github.com/containers/netavark
+Vcs-Browser: https://salsa.debian.org/debian/netavark
+Vcs-Git: https://salsa.debian.org/debian/netavark.git
+Rules-Requires-Root: no
+
+Package: netavark
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Provides: container-network-stack (= 2)
+Recommends: aardvark-dns, nftables
+Breaks: aardvark-dns (<< 1.12)
+Enhances: podman
+Description: Rust based network stack for containers
+ Netavark is designed to work with but is also applicable
+ for other OCI container management applications.
+EOF
+
+cat > debian/rules <<'EOF'
+#!/usr/bin/make -f
+
+# cf. https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1091318
+export NETAVARK_DEFAULT_FW := nftables
+
+# VyOS builds on Debian bookworm, whose librust-*-dev / dh-cargo stack is far
+# behind what this package needs, so we build directly against crates.io via
+# the upstream Cargo.lock instead of Debian's offline vendored-crate scheme.
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --bin netavark --bin netavark-dhcp-proxy-client
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	install -D -m 0755 target/release/netavark \
+		debian/netavark/usr/lib/podman/netavark
+	install -D -m 0755 target/release/netavark-dhcp-proxy-client \
+		debian/netavark/usr/lib/podman/netavark-dhcp-proxy-client
+	install -D -m 664 contrib/systemd/system/netavark-dhcp-proxy.socket \
+		debian/netavark/usr/lib/systemd/system/netavark-dhcp-proxy.socket
+	sed -e 's;@@NETAVARK@@;/usr/lib/podman/netavark;g' \
+		< contrib/systemd/system/netavark-dhcp-proxy.service.in \
+		> debian/netavark/usr/lib/systemd/system/netavark-dhcp-proxy.service
+	sed -e 's;@@NETAVARK@@;/usr/lib/podman/netavark;g' \
+		< contrib/systemd/system/netavark-firewalld-reload.service.in \
+		> debian/netavark/usr/lib/systemd/system/netavark-firewalld-reload.service
+
+override_dh_auto_clean:
+	rm -rf target
+EOF
+chmod 0755 debian/rules
+
+# bookworm's rustc (1.63) predates netavark's rust-version = "1.76"; install a
+# current stable toolchain and shadow any apt-installed one via /usr/local/bin,
+# which every later shell invocation in this build picks up ahead of /usr/bin.
+if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+else
+    "$HOME/.cargo/bin/rustup" update stable
+fi
+sudo ln -sf "$HOME/.cargo/bin/cargo" /usr/local/bin/cargo
+sudo ln -sf "$HOME/.cargo/bin/rustc" /usr/local/bin/rustc
+sudo ln -sf "$HOME/.cargo/bin/rustup" /usr/local/bin/rustup
+"""
+
+[[packages]]
+name = "aardvark-dns"
+commit_id = "debian/1.14.0-3"
+scm_url = "https://salsa.debian.org/debian/aardvark-dns"
+
+# aardvark-dns and netavark are versioned in lockstep upstream (this
+# aardvark-dns Depends: netavark (>> 1.14)) and share the same trixie-only
+# dh-cargo/librust-*-dev packaging problem on bookworm - see the netavark
+# entry above for the full rationale. Same fix: build directly against
+# crates.io with a rustup-installed toolchain.
+pre_build_hook = """
+sed -i -e '/^relax-deps.patch$/d' debian/patches/series
+
+cat > debian/control <<'EOF'
+Source: aardvark-dns
+Section: net
+Priority: optional
+Maintainer: Reinhard Tartler <siretart@tauware.de>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.2
+Homepage: https://github.com/containers/aardvark-dns
+Vcs-Browser: https://salsa.debian.org/debian/aardvark-dns
+Vcs-Git: https://salsa.debian.org/debian/aardvark-dns.git
+Rules-Requires-Root: no
+
+Package: aardvark-dns
+Architecture: any
+Depends: netavark (>> 1.14), ${misc:Depends}, ${shlibs:Depends}
+Enhances: podman
+Description: Container-focused DNS server
+ Netavark is designed to work with podman but is also applicable for other OCI
+ container management applications.
+EOF
+
+cat > debian/rules <<'EOF'
+#!/usr/bin/make -f
+
+# VyOS builds on Debian bookworm, whose librust-*-dev / dh-cargo stack is far
+# behind what this package needs, so we build directly against crates.io via
+# the upstream Cargo.lock instead of Debian's offline vendored-crate scheme.
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --bin aardvark-dns
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	install -D -m 0755 target/release/aardvark-dns \
+		debian/aardvark-dns/usr/lib/podman/aardvark-dns
+
+override_dh_auto_clean:
+	rm -rf target
+EOF
+chmod 0755 debian/rules
+
+if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+else
+    "$HOME/.cargo/bin/rustup" update stable
+fi
+sudo ln -sf "$HOME/.cargo/bin/cargo" /usr/local/bin/cargo
+sudo ln -sf "$HOME/.cargo/bin/rustc" /usr/local/bin/rustc
+sudo ln -sf "$HOME/.cargo/bin/rustup" /usr/local/bin/rustup
+"""
+
+[[packages]]
 name = "podman"
 commit_id = "v5.8.4"
 scm_url = "https://github.com/containers/podman"
