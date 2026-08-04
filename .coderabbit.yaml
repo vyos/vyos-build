@@ -26,4 +26,5 @@ knowledge_base:
     # source where it is not.
     usage: auto
     project_keys:
+      - NOS
       - VD

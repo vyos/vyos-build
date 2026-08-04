@@ -33,10 +33,12 @@ pull_request_rules:
   - name: Flag product T-ID format violation in PR title or commit messages
     description: >
       Product-repo convention: PR title and every commit's first line must
-      match `T<digits>: <text>` (optional `scope: ` prefix). Relocated from
-      the central config (T8966) so the T-ID convention is opt-in per product
-      repo. Name is intentionally distinct from any central rule name so this
-      stays additive (not an `extends:` override).
+      match a `T<digits>:`, `NOS-<digits>:` or legacy `VD-<digits>:` task key
+      followed by text (optional `scope: ` prefix). NOS is the renamed VD Jira
+      project (2026-07). Relocated from the central config (T8966) so the T-ID
+      convention is opt-in per product repo. Name is intentionally distinct
+      from any central rule name so this stays additive (not an `extends:`
+      override).
     conditions:
       - '-closed'
       - '-merged'
@@ -44,10 +46,10 @@ pull_request_rules:
       - 'author!=copilot-swe-agent'
       - 'author!=vyosbot'
       - or:
-          - '-title~=^(([a-zA-Z0-9\-_.]+:\s)?)T\d+:\s+[^\s]+.*'
+          - '-title~=^(([a-zA-Z0-9\-_.]+:[ ])?)(T[0-9]+|NOS-[0-9]+|VD-[0-9]+):[ ]+[^\s]+.*'
           - and:
               - 'label!=legacy'
-              - 'commits[*].commit_message~=^(?!(([a-zA-Z0-9\-_.]+:\s)?)T\d+:\s+[^\s]+).*'
+              - 'commits[*].commit_message~=^(?!(([a-zA-Z0-9\-_.]+:[ ])?)(T[0-9]+|NOS-[0-9]+|VD-[0-9]+):[ ]+[^\s]+).*'
     actions:
       label:
         toggle:
