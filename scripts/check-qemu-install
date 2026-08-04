@@ -140,6 +140,8 @@ parser.add_argument('--configtest', help='Execute load/commit config tests',
 				action='store_true', default=False)
 parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
                 action='store_true', default=False)
+parser.add_argument('--ifnametest', help='Execute interface naming/hw-id persistence tests',
+                action='store_true', default=False)
 parser.add_argument('--sbtest', help='Execute Secure Boot tests',
                 action='store_true', default=False)
 parser.add_argument('--cloud-init', help='Execute cloud-init tests',
@@ -387,6 +389,8 @@ if args.test_image_update:
     _primary_modes.append('--test-image-update')
 if args.tpmtest:
     _primary_modes.append('--tpmtest')
+if args.ifnametest:
+    _primary_modes.append('--ifnametest')
 if args.raid:
     _primary_modes.append('--raid')
 if args.smoketest:
@@ -397,8 +401,8 @@ if args.sbtest:
     _primary_modes.append('--sbtest')
 if len(_primary_modes) > 1:
     log.error('Incompatible combination of testcase flags (%s): only one of '
-        '--cloud-init, --test-image-update, --tpmtest, --raid, --smoketest, '
-        '--configtest, --sbtest may be set.', ', '.join(_primary_modes))
+        '--cloud-init, --test-image-update, --tpmtest, --ifnametest, --raid, '
+        '--smoketest, --configtest, --sbtest may be set.', ', '.join(_primary_modes))
     sys.exit(1)
 
 if args.no_interfaces and not args.smoketest:
@@ -1303,6 +1307,48 @@ try:
         c.expect(cfg_mode_prompt)
         c.sendline('exit')
         c.expect(op_mode_prompt)
+
+    elif args.ifnametest:
+        # A missing/deleted hw-id binding, or a fully deleted interface
+        # config, must not change the eth0..eth7 <-> MAC mapping after
+        # the next reboot (regression check for the boot-time naming race).
+        log.info('Running interface naming/hw-id persistence tests')
+        del_idx, hwid_idx = random.sample(range(8), 2)
+        log.info(f'Deleting eth{del_idx} entirely, removing hw-id only on eth{hwid_idx}')
+
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'delete interfaces ethernet eth{del_idx}')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'delete interfaces ethernet eth{hwid_idx} hw-id')
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('save')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+        log.info('Rebooting to verify interface naming survives across reboot')
+        c.sendline('reboot now')
+        waitForLogin(c, log)
+        loginVM(c, log)
+
+        log.info('Collecting interface naming diagnostics')
+        c.sendline('show configuration commands | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('show interfaces ethernet')
+        c.expect(op_mode_prompt)
+        c.sendline('ip link show')
+        c.expect(op_mode_prompt)
+        c.sendline('show log | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('cat /run/vyos-net-name-resolve.json 2>/dev/null || true')
+        c.expect(op_mode_prompt)
+        c.sendline('show log kernel | match "eth"')
+        c.expect(op_mode_prompt)
+
+        verify_eth_mac_mapping(c, log)
 
     elif args.raid:
         # Verify RAID subsystem - by deleting a disk and re-create the array
