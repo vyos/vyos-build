@@ -102,6 +102,8 @@ jobs:
               - 'scripts/package-build/unionfs-fuse/**'
             vpp:
               - 'scripts/package-build/vpp/**'
+            vyatta-bash:
+              - 'scripts/package-build/vyatta-bash/**'
             waagent:
               - 'scripts/package-build/waagent/**'
             wide-dhcpv6:
@@ -281,6 +283,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.vpp }}" == "true" ]; then
             trigger_build "vpp"
+          fi
+
+          if [ "${{ steps.changes.outputs.vyatta-bash }}" == "true" ]; then
+            trigger_build "vyatta-bash"
           fi
 
           if [ "${{ steps.changes.outputs.waagent }}" == "true" ]; then

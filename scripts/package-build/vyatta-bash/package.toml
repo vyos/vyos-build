@@ -1,0 +1,12 @@
+[[packages]]
+name = "vyatta-bash"
+commit_id = "debian/5.2.37-1.1"
+scm_url = "https://salsa.debian.org/debian/bash.git"
+# We need to apply the patches before build
+apply_patches = false
+pre_build_hook = """
+for patch in ../patches/vyatta-bash/*.patch; do
+    echo "I: build_cmd applying patch $patch..."
+    git -c user.email=maintainers@vyos.net -c user.name=vyos am "$patch" || { echo "Failed to apply patch $patch"; exit 1; }
+done
+"""

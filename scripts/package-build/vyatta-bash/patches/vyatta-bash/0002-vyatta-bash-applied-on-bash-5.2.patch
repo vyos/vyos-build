@@ -1,0 +1,1476 @@
+From ce073542ffb61d140d7c19dde45a1a990e4aa8fe Mon Sep 17 00:00:00 2001
+From: sarthurdev <s.arthur@vyos.io>
+Date: Sun, 22 Jun 2025 22:59:36 +0200
+Subject: [PATCH 2/2] vyatta-bash applied on bash 5.2
+
+---
+ Makefile.in         |  56 ++---
+ bashline.c          |  90 ++++---
+ error.c             |  20 ++
+ error.h             |   3 +
+ eval.c              |  38 +++
+ execute_cmd.c       |   2 +-
+ externs.h           |   3 +
+ general.h           |   2 +
+ jobs.c              |   1 +
+ logging.c           | 103 ++++++++
+ logmessage.h        |  16 ++
+ parse.y             |  83 ++++++-
+ pcomplete.c         |  20 +-
+ shell.c             |   4 +-
+ vyatta-restricted.c | 571 ++++++++++++++++++++++++++++++++++++++++++++
+ vyatta-restricted.h |  36 +++
+ 16 files changed, 954 insertions(+), 94 deletions(-)
+ create mode 100644 logging.c
+ create mode 100644 logmessage.h
+ create mode 100644 vyatta-restricted.c
+ create mode 100644 vyatta-restricted.h
+
+diff --git a/Makefile.in b/Makefile.in
+index 0b4df73..483eb34 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -112,7 +112,7 @@ OBJEXT = @OBJEXT@
+ VERSPROG = bashversion$(EXEEXT)
+ VERSOBJ = bashversion.$(OBJEXT)
+ 
+-Program = bash$(EXEEXT)
++Program = vbash$(EXEEXT)
+ Version = @BASHVERS@
+ PatchLevel = `$(BUILD_DIR)/$(VERSPROG) -p`
+ RELSTATUS = @RELSTATUS@
+@@ -430,7 +430,7 @@ BASHINCFILES =	 $(BASHINCDIR)/posixstat.h $(BASHINCDIR)/ansi_stdlib.h \
+ 
+ LIBRARIES = $(GLOB_LIB) $(SHLIB_LIB) $(READLINE_LIB) $(HISTORY_LIB) \
+ 	    $(TERMCAP_LIB) $(TILDE_LIB) $(MALLOC_LIB) $(INTL_LIB) $(LIBICONV) \
+-	    $(LOCAL_LIBS)
++	    $(LOCAL_LIBS) -lrt
+ 
+ LIBDEP = $(GLOB_DEP) $(SHLIB_DEP) $(INTL_DEP) $(READLINE_DEP) $(HISTORY_DEP) \
+ 	 $(TERMCAP_DEP) $(TILDE_DEP) $(MALLOC_DEP)
+@@ -450,7 +450,8 @@ CSOURCES = shell.c eval.c parse.y general.c make_cmd.c print_cmd.c y.tab.c \
+ 	   input.c bashhist.c array.c arrayfunc.c assoc.c sig.c pathexp.c \
+ 	   unwind_prot.c siglist.c bashline.c bracecomp.c error.c \
+ 	   list.c stringlib.c locale.c findcmd.c redir.c \
+-	   pcomplete.c pcomplib.c syntax.c xmalloc.c
++	   pcomplete.c pcomplib.c syntax.c xmalloc.c \
++	   logging.c vyatta-restricted.c
+ 
+ HSOURCES = shell.h flags.h trap.h hashcmd.h hashlib.h jobs.h builtins.h \
+ 	   general.h variables.h config.h $(ALLOC_HEADERS) alias.h \
+@@ -459,6 +460,7 @@ HSOURCES = shell.h flags.h trap.h hashcmd.h hashlib.h jobs.h builtins.h \
+ 	   subst.h externs.h siglist.h bashhist.h bashline.h bashtypes.h \
+ 	   array.h arrayfunc.h sig.h mailcheck.h bashintl.h bashjmp.h \
+ 	   execute_cmd.h parser.h pathexp.h pathnames.h pcomplete.h assoc.h \
++	   vyatta-restricted.h \
+ 	   $(BASHINCFILES)
+ 
+ SOURCES	 = $(CSOURCES) $(HSOURCES) $(BUILTIN_DEFS)
+@@ -494,7 +496,8 @@ OBJECTS	 = shell.o eval.o y.tab.o general.o make_cmd.o print_cmd.o $(GLOBO) \
+ 	   trap.o input.o unwind_prot.o pathexp.o sig.o test.o version.o \
+ 	   alias.o $(ARRAY_O) arrayfunc.o assoc.o braces.o bracecomp.o bashhist.o \
+ 	   bashline.o $(SIGLIST_O) list.o stringlib.o locale.o findcmd.o redir.o \
+-	   pcomplete.o pcomplib.o syntax.o xmalloc.o $(SIGNAMES_O)
++	   pcomplete.o pcomplib.o syntax.o xmalloc.o $(SIGNAMES_O) \
++	   logging.o vyatta-restricted.o
+ 
+ # Where the source code of the shell builtins resides.
+ BUILTIN_SRCDIR=$(srcdir)/builtins
+@@ -546,10 +549,6 @@ BUILTINS_LIB = -lbuiltins
+ BUILTINS_LDFLAGS = -L$(DEFDIR)
+ BUILTINS_DEP = $(BUILTINS_LIBRARY)
+ 
+-# Documentation for the shell.
+-DOCSRC = $(srcdir)/doc
+-DOCDIR = $(dot)/doc
+-
+ # Translations and other i18n support files
+ PO_SRC = $(srcdir)/po/
+ PO_DIR = $(dot)/po/
+@@ -568,7 +567,7 @@ CREATED_SUPPORT = signames.h recho$(EXEEXT) zecho$(EXEEXT) printenv$(EXEEXT) \
+ 		  buildversion.o mksignames.o signames.o buildsignames.o
+ CREATED_CONFIGURE = config.h config.cache config.status config.log \
+ 		    stamp-h po/POTFILES config.status.lineno
+-CREATED_MAKEFILES = Makefile builtins/Makefile doc/Makefile \
++CREATED_MAKEFILES = Makefile builtins/Makefile \
+ 		    lib/readline/Makefile lib/glob/Makefile \
+ 		    lib/sh/Makefile lib/tilde/Makefile lib/malloc/Makefile \
+ 		    lib/termcap/Makefile examples/loadables/Makefile \
+@@ -587,7 +586,7 @@ LOADABLES_DIR = ${top_builddir}/examples/loadables
+ # Keep GNU Make from exporting the entire environment for small machines.
+ .NOEXPORT:
+ 
+-.made: $(Program) bashbug $(SDIR)/man2html$(EXEEXT)
++.made: $(Program) $(SDIR)/man2html$(EXEEXT)
+ 	@echo "$(Program) last made for a $(Machine) running $(OS)" >.made
+ 
+ $(Program): $(OBJECTS) $(BUILTINS_DEP) $(LIBDEP) .build
+@@ -605,11 +604,6 @@ $(Program): $(OBJECTS) $(BUILTINS_DEP) $(LIBDEP) .build
+ 	@echo "	  ***********************************************************"
+ 	@echo
+ 
+-bashbug: $(SDIR)/bashbug.sh $(VERSPROG)
+-	@sed -e "s%!PATCHLEVEL!%$(PatchLevel)%" \
+-	     $(SDIR)/bashbug.sh > $@
+-	@chmod a+rx bashbug
+-
+ strip:	$(Program) .made
+ 	$(STRIP) $(Program)
+ 	ls -l $(Program)
+@@ -813,10 +807,8 @@ loadables:
+ #	$(MAKE) -f $(srcdir)/Makefile $(MFLAGS) srcdir=$(srcdir)
+ 
+ doc documentation:  force
+-	@(cd $(DOCDIR) ; $(MAKE) $(MFLAGS) )
+ 
+ info dvi ps: force
+-	@(cd $(DOCDIR) ; $(MAKE) $(MFLAGS) CFLAGS='$(CCFLAGS)' $@ )
+ 
+ force:
+ 
+@@ -831,21 +823,9 @@ tags:	$(SOURCES) $(BUILTIN_C_SRC) $(LIBRARY_SOURCE)
+ 
+ installdirs:
+ 	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(bindir)
+-	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(man1dir)
+-	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(infodir)
+-	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(docdir)
+-	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+ 
+ install:	.made installdirs
+ 	$(INSTALL_PROGRAM) $(INSTALLMODE) $(Program) $(DESTDIR)$(bindir)/$(Program)
+-	$(INSTALL_SCRIPT) $(INSTALLMODE2) bashbug $(DESTDIR)$(bindir)/bashbug
+-	$(INSTALL_DATA) $(OTHER_DOCS) $(DESTDIR)$(docdir)
+-	-( cd $(DOCDIR) ; $(MAKE) $(MFLAGS) \
+-		man1dir=$(man1dir) man1ext=$(man1ext) \
+-		man3dir=$(man3dir) man3ext=$(man3ext) \
+-		infodir=$(infodir) htmldir=$(htmldir) DESTDIR=$(DESTDIR) $@ )
+-	-( cd $(DEFDIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+-	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+ 	-( cd $(LOADABLES_DIR) && $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+ 
+ install-strip:
+@@ -886,13 +866,6 @@ uninstall-headers:
+ 	-( $(RM) $(DESTDIR)$(pkgconfigdir)/bash.pc )
+ 
+ uninstall:	.made
+-	$(RM) $(DESTDIR)$(bindir)/$(Program) $(DESTDIR)$(bindir)/bashbug
+-	-( cd $(DESTDIR)$(docdir) && ${RM} ${OTHER_INSTALLED_DOCS} )
+-	-( cd $(DOCDIR) ; $(MAKE) $(MFLAGS) \
+-		man1dir=$(man1dir) man1ext=$(man1ext) \
+-		man3dir=$(man3dir) man3ext=$(man3ext) \
+-		infodir=$(infodir) htmldir=$(htmldir) DESTDIR=$(DESTDIR) $@ )
+-	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+ 	-( cd $(LOADABLES_DIR) && $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+ 
+ .PHONY: basic-clean clean realclean maintainer-clean distclean mostlyclean maybe-clean
+@@ -901,11 +874,10 @@ LIB_SUBDIRS = ${RL_LIBDIR}  ${HIST_LIBDIR} ${TERM_LIBDIR} ${GLOB_LIBDIR} \
+ 		${INTL_LIBDIR} ${TILDE_LIBDIR} ${ALLOC_LIBDIR} ${SH_LIBDIR}
+ 
+ basic-clean:
+-	$(RM) $(OBJECTS) $(Program) bashbug
++	$(RM) $(OBJECTS) $(Program)
+ 	$(RM) .build .made version.h 
+ 
+ clean:	basic-clean
+-	( cd $(DOCDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	( cd builtins && $(MAKE) $(MFLAGS) $@ )
+ 	-( cd $(SDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	-for libdir in ${LIB_SUBDIRS}; do \
+@@ -916,7 +888,6 @@ clean:	basic-clean
+ 	$(RM) $(CREATED_SUPPORT)
+ 
+ mostlyclean: basic-clean
+-	( cd $(DOCDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	( cd builtins && $(MAKE) $(MFLAGS) $@ )
+ 	-( cd $(SDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	-for libdir in ${LIB_SUBDIRS}; do \
+@@ -926,7 +897,6 @@ mostlyclean: basic-clean
+ 	-( cd $(LOADABLES_DIR) && $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+ 
+ distclean:	basic-clean maybe-clean
+-	( cd $(DOCDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	( cd builtins && $(MAKE) $(MFLAGS) $@ )
+ 	-( cd $(SDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	-for libdir in ${LIB_SUBDIRS}; do \
+@@ -941,7 +911,6 @@ maintainer-clean:	basic-clean
+ 	@echo This command is intended for maintainers to use.
+ 	@echo It deletes files that may require special tools to rebuild.
+ 	$(RM) y.tab.c y.tab.h parser-built tags TAGS
+-	( cd $(DOCDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	( cd builtins && $(MAKE) $(MFLAGS) $@ )
+ 	( cd $(SDIR) && $(MAKE) $(MFLAGS) $@ )
+ 	-for libdir in ${LIB_SUBDIRS}; do \
+@@ -1054,6 +1023,7 @@ eval.o: quit.h ${BASHINCDIR}/maxpath.h unwind_prot.h dispose_cmd.h
+ eval.o: make_cmd.h subst.h sig.h pathnames.h externs.h parser.h
+ eval.o: input.h execute_cmd.h 
+ eval.o: bashhist.h assoc.h ${BASHINCDIR}/ocache.h ${BASHINCDIR}/chartypes.h
++eval.o: vyatta-restricted.h
+ execute_cmd.o: config.h bashtypes.h ${BASHINCDIR}/filecntl.h ${BASHINCDIR}/posixstat.h bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+ execute_cmd.o: shell.h syntax.h config.h bashjmp.h ${BASHINCDIR}/posixjmp.h command.h ${BASHINCDIR}/stdc.h error.h
+ execute_cmd.o: general.h xmalloc.h bashtypes.h variables.h arrayfunc.h conftypes.h array.h hashlib.h
+@@ -1237,6 +1207,8 @@ variables.o: version.h $(DEFDIR)/builtext.h
+ version.o: conftypes.h patchlevel.h version.h
+ xmalloc.o: config.h bashtypes.h ${BASHINCDIR}/ansi_stdlib.h error.h
+ xmalloc.o: ${BASHINCDIR}/stdc.h $(ALLOC_LIBSRC)/shmalloc.h
++vyatta-restricted.o: shell.h command.h vyatta-restricted.h
++logging.o: shell.h ${BASHINCDIR}/filecntl.h jobs.h
+ 
+ # job control
+ 
+@@ -1322,6 +1294,7 @@ pcomplete.o: externs.h ${BASHINCDIR}/maxpath.h execute_cmd.h
+ pcomplete.o: ${BASHINCDIR}/shmbutil.h ${BASHINCDIR}/shmbchar.h
+ pcomplete.o: builtins.h ${DEFDIR}/builtext.h ${DEFSRC}/common.h
+ pcomplete.o: ${GLOB_LIBSRC}/glob.h ${GLOB_LIBSRC}/strmatch.h
++pcomplete.o: vyatta-restricted.h
+ 
+ # library support files
+ 
+@@ -1345,6 +1318,7 @@ bashline.o: $(DEFSRC)/common.h $(GLOB_LIBSRC)/glob.h alias.h
+ bashline.o: pcomplete.h ${BASHINCDIR}/chartypes.h input.h
+ bashline.o: ${BASHINCDIR}/shmbutil.h ${BASHINCDIR}/shmbchar.h
+ bashline.o: ${DEFDIR}/builtext.h
++bashline.o: vyatta-restricted.h
+ bracecomp.o: config.h bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+ bracecomp.o: shell.h syntax.h config.h bashjmp.h ${BASHINCDIR}/posixjmp.h
+ bracecomp.o: command.h ${BASHINCDIR}/stdc.h error.h
+diff --git a/bashline.c b/bashline.c
+index c85b05b..febdbf4 100644
+--- a/bashline.c
++++ b/bashline.c
+@@ -1446,42 +1446,44 @@ find_cmd_start (start)
+   /* Flags == SD_NOJMP only because we want to skip over command substitutions
+      in assignment statements.  Have to test whether this affects `standalone'
+      command substitutions as individual words. */
+-  while (((s = skip_to_delim (rl_line_buffer, os, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE/*|SD_NOSKIPCMD*/)) <= start) &&
+-	 rl_line_buffer[s])
++  if (!in_vyatta_restricted_mode(OUTPUT)) {
++    while (((s = skip_to_delim (rl_line_buffer, os, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE/*|SD_NOSKIPCMD*/)) <= start) &&
++    rl_line_buffer[s])
++      {
++        /* Handle >| token crudely; treat as > not | */
++        if (s > 0 && rl_line_buffer[s] == '|' && rl_line_buffer[s-1] == '>')
+     {
+-      /* Handle >| token crudely; treat as > not | */
+-      if (s > 0 && rl_line_buffer[s] == '|' && rl_line_buffer[s-1] == '>')
+-	{
+-	  ns = skip_to_delim (rl_line_buffer, s+1, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE/*|SD_NOSKIPCMD*/);
+-	  if (ns > start || rl_line_buffer[ns] == 0)
+-	    return os;
+-	  os = ns+1;
+-	  continue;
+-	}
+-      /* The only reserved word in COMMAND_SEPARATORS is `{', so handle that
+-	 specially, making sure it's in a spot acceptable for reserved words */
+-      if (s >= os && rl_line_buffer[s] == '{')
+-	{
+-	  int pc, nc;	/* index of previous non-whitespace, next char */
+-	  for (pc = (s > os) ? s - 1 : os; pc > os && whitespace(rl_line_buffer[pc]); pc--)
+-	    ;
+-	  nc = rl_line_buffer[s+1];
+-	  /* must be preceded by a command separator or be the first non-
+-	     whitespace character since the last command separator, and
+-	     followed by a shell break character (not another `{') to be a reserved word. */
+-	  if ((pc > os && (rl_line_buffer[s-1] == '{' || strchr (COMMAND_SEPARATORS, rl_line_buffer[pc]) == 0)) ||
+-	      (shellbreak(nc) == 0))	/* }} */
+-	    {
+-	      /* Not a reserved word, look for another delim */
+-	      ns = skip_to_delim (rl_line_buffer, s+1, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE/*|SD_NOSKIPCMD*/);
+-	      if (ns > start || rl_line_buffer[ns] == 0)
+-		return os;
+-	      os = ns+1;
+-	      continue;
+-	    }
+-	}
+-      os = s+1;
++      ns = skip_to_delim (rl_line_buffer, s+1, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE/*|SD_NOSKIPCMD*/);
++      if (ns > start || rl_line_buffer[ns] == 0)
++        return os;
++      os = ns+1;
++      continue;
++    }
++        /* The only reserved word in COMMAND_SEPARATORS is `{', so handle that
++    specially, making sure it's in a spot acceptable for reserved words */
++        if (s >= os && rl_line_buffer[s] == '{')
++    {
++      int pc, nc;	/* index of previous non-whitespace, next char */
++      for (pc = (s > os) ? s - 1 : os; pc > os && whitespace(rl_line_buffer[pc]); pc--)
++        ;
++      nc = rl_line_buffer[s+1];
++      /* must be preceded by a command separator or be the first non-
++        whitespace character since the last command separator, and
++        followed by a shell break character (not another `{') to be a reserved word. */
++      if ((pc > os && (rl_line_buffer[s-1] == '{' || strchr (COMMAND_SEPARATORS, rl_line_buffer[pc]) == 0)) ||
++          (shellbreak(nc) == 0))	/* }} */
++        {
++          /* Not a reserved word, look for another delim */
++          ns = skip_to_delim (rl_line_buffer, s+1, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE/*|SD_NOSKIPCMD*/);
++          if (ns > start || rl_line_buffer[ns] == 0)
++      return os;
++          os = ns+1;
++          continue;
++        }
+     }
++        os = s+1;
++      }
++  }
+   return os;
+ }
+ 
+@@ -1491,7 +1493,11 @@ find_cmd_end (end)
+ {
+   register int e;
+ 
+-  e = skip_to_delim (rl_line_buffer, end, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE);
++  if (!in_vyatta_restricted_mode(OUTPUT)) {
++    e = skip_to_delim (rl_line_buffer, end, COMMAND_SEPARATORS, SD_NOJMP|SD_COMPLETE);
++  } else {
++    e = strlen(rl_line_buffer);
++  }
+   return e;
+ }
+ 
+@@ -1624,7 +1630,9 @@ attempt_shell_completion (text, start, end)
+     }
+   else if (member (rl_line_buffer[ti], command_separator_chars))
+     {
+-      in_command_position++;
++      if (!in_vyatta_restricted_mode(OUTPUT)) {
++        in_command_position++;
++      }
+ 
+       if (check_redir (ti) == 1)
+ 	in_command_position = -1;	/* sentinel that we're not the first word on the line */
+@@ -1654,6 +1662,7 @@ attempt_shell_completion (text, start, end)
+      succeed.  Don't bother if readline found a single quote and we are
+      completing on the substring.  */
+   if (*text == '`' && rl_completion_quote_character != '\'' &&
++  !in_vyatta_restricted_mode(OUTPUT) &&
+ 	(in_command_position > 0 || (unclosed_pair (rl_line_buffer, start, "`") &&
+ 				     unclosed_pair (rl_line_buffer, end, "`"))))
+     matches = rl_completion_matches (text, command_subst_completion_function);
+@@ -1663,7 +1672,7 @@ attempt_shell_completion (text, start, end)
+   have_progcomps = prog_completion_enabled && (progcomp_size () > 0);
+   iw_compspec = progcomp_search (INITIALWORD);
+   if (matches == 0 &&
+-      (in_command_position == 0 || text[0] == '\0' || (in_command_position > 0 && iw_compspec)) &&
++      (in_vyatta_restricted_mode(OUTPUT) || in_command_position == 0 || text[0] == '\0' || (in_command_position > 0 && iw_compspec)) &&
+       current_prompt_string == ps1_prompt)
+     {
+       int s, e, s1, e1, os, foundcs;
+@@ -1727,7 +1736,7 @@ attempt_shell_completion (text, start, end)
+ 	  foundcs = 0;
+ 	  in_command_position = s == start && STREQ (n, text);	/* XXX */
+ 	}
+-      else if (e > s && was_assignment == 0 && have_progcomps)
++      else if ((e > s || (in_vyatta_restricted_mode(OUTPUT) && strcmp(n, text) == 0)) && was_assignment == 0 && have_progcomps)
+ 	{
+ 	  prog_complete_matches = programmable_completions (n, text, s, e, &foundcs);
+ 	  /* command completion if programmable completion fails */
+@@ -1802,6 +1811,11 @@ bash_default_completion (text, start, end, qc, compflags)
+ 
+   matches = (char **)NULL;
+ 
++  if (in_vyatta_restricted_mode(OUTPUT)) {
++    rl_ignore_some_completions_function = bash_ignore_everything;
++    return matches;
++  }
++
+   /* New posix-style command substitution or variable name? */
+   if (*text == '$')
+     {
+diff --git a/error.c b/error.c
+index 3e7a2d6..3dfa2cf 100644
+--- a/error.c
++++ b/error.c
+@@ -249,6 +249,26 @@ internal_error (format, va_alist)
+   va_end (args);
+ }
+ 
++#if defined (PREFER_STDARG)
++invalid_cmd (const char *format, ...)
++#else
++invalid_cmd (format, va_alist)
++     const char *format;
++     va_dcl
++#endif
++{
++  va_list args;
++
++  error_prolog (1);
++
++  SH_VA_START (args, format);
++
++  vfprintf (stderr, format, args);
++  fprintf (stderr, "\n");
++
++  va_end (args);
++}
++
+ void
+ #if defined (PREFER_STDARG)
+ internal_warning (const char *format, ...)
+diff --git a/error.h b/error.h
+index 785c1de..09fac5b 100644
+--- a/error.h
++++ b/error.h
+@@ -47,6 +47,9 @@ extern void sys_error PARAMS((const char *, ...))  __attribute__((__format__ (pr
+ /* Report an internal error. */
+ extern void internal_error PARAMS((const char *, ...))  __attribute__((__format__ (printf, 1, 2)));
+ 
++/* Report an invalid command. */
++extern void invalid_cmd PARAMS((const char *, ...))  __attribute__((__format__ (printf, 1, 2)));
++
+ /* Report an internal warning. */
+ extern void internal_warning PARAMS((const char *, ...))  __attribute__((__format__ (printf, 1, 2)));
+ 
+diff --git a/eval.c b/eval.c
+index 17fbf73..93457ec 100644
+--- a/eval.c
++++ b/eval.c
+@@ -51,6 +51,11 @@
+ static void send_pwd_to_eterm PARAMS((void));
+ static sighandler alrm_catcher PARAMS((int));
+ 
++#if defined (READLINE)
++extern char *current_readline_line;
++extern int current_readline_line_index;
++#endif
++
+ /* Read and execute commands until EOF is reached.  This assumes that
+    the input source has already been initialized. */
+ int
+@@ -344,9 +349,42 @@ parse_command ()
+ 	send_pwd_to_eterm ();	/* Yuck */
+     }
+ 
++  vyatta_reset_hist_expansion();
++
+   current_command_line_count = 0;
+   r = yyparse ();
+ 
++  #if defined (READLINE)
++    if (interactive && in_vyatta_restricted_mode(FULL)
++        && current_readline_line) {
++      if (!is_vyatta_command(current_readline_line, global_command)) {
++        char *start = current_readline_line;
++        char *end = NULL;
++        char *cmd = NULL;
++        int cmdlen = 0;
++        while (*start && (whitespace(*start) || *start == '\n')) {
++          start++;
++        }
++        end = start;
++        while (*end && (!whitespace(*end) && *end != '\n')) {
++          end++;
++        }
++        cmdlen = end-start;
++        cmd = malloc(cmdlen+1);
++        bzero(cmd,cmdlen+1);
++        strncpy(cmd, start, cmdlen);
++  
++        printf("\n  Invalid command: [%s]\n\n", cmd);
++        current_readline_line_index = 0;
++        current_readline_line[0] = '\n';
++        current_readline_line[1] = '\0';
++        return 1;
++      }
++    } else if (interactive && current_readline_line) {
++      vyatta_check_expansion(global_command, 0);
++    }
++  #endif
++
+   if (need_here_doc)
+     gather_here_documents ();
+ 
+diff --git a/execute_cmd.c b/execute_cmd.c
+index ed1063e..1390980 100644
+--- a/execute_cmd.c
++++ b/execute_cmd.c
+@@ -5728,7 +5728,7 @@ execute_disk_command (words, redirects, command_line, pipe_in, pipe_out,
+ 	    {
+ 	      /* Make sure filenames are displayed using printable characters */
+ 	      pathname = printable_filename (pathname, 0);
+-	      internal_error (_("%s: command not found"), pathname);
++	      invalid_cmd (_("\n  Invalid command: [%s]\n"), pathname);
+ 	      exit (EX_NOTFOUND);	/* Posix.2 says the exit status is 127 */
+ 	    }
+ 
+diff --git a/externs.h b/externs.h
+index 931dba9..818ebf7 100644
+--- a/externs.h
++++ b/externs.h
+@@ -100,6 +100,9 @@ extern int pretty_print_loop PARAMS((void));
+ extern int parse_command PARAMS((void));
+ extern int read_command PARAMS((void));
+ 
++/* Functions from logging.c */
++extern void initialize_logging PARAMS((void));
++
+ /* Functions from braces.c. */
+ #if defined (BRACE_EXPANSION)
+ extern char **brace_expand PARAMS((char *));
+diff --git a/general.h b/general.h
+index 8064c50..0adb694 100644
+--- a/general.h
++++ b/general.h
+@@ -45,6 +45,8 @@
+ 
+ #include "xmalloc.h"
+ 
++#include "vyatta-restricted.h"
++
+ /* NULL pointer type. */
+ #if !defined (NULL)
+ #  if defined (__STDC__)
+diff --git a/jobs.c b/jobs.c
+index d3e4ab0..82f69b0 100644
+--- a/jobs.c
++++ b/jobs.c
+@@ -3906,6 +3906,7 @@ itrace("waitchld: waitpid returns %d block = %d children_exited = %d", pid, bloc
+ 
+       if (PEXITED (child))
+ 	{
++    log_process_exit (child);
+ 	  js.c_totreaped++;
+ 	  if (job != NO_JOB)
+ 	    js.c_reaped++;
+diff --git a/logging.c b/logging.c
+new file mode 100644
+index 0000000..82ade9c
+--- /dev/null
++++ b/logging.c
+@@ -0,0 +1,103 @@
++/* logging.c -- Shell command logging functionality */
++
++/* This file is part of GNU Bash, the Bourne Again SHell.
++
++   Bash is free software; you can redistribute it and/or modify it under
++   the terms of the GNU General Public License as published by the Free
++   Software Foundation; either version 2, or (at your option) any later
++   version.
++
++   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or
++   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++   for more details.
++
++   You should have received a copy of the GNU General Public License along
++   with Bash; see the file COPYING.  If not, write to the Free Software
++   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.
++
++   This code was originally developed by Vyatta, Inc.
++   Portions created by Vyatta are Copyright (C) 2010 Vyatta, Inc. */
++
++#include <unistd.h>
++
++#include "shell.h"
++#include "filecntl.h"
++#include "jobs.h"
++
++#include <time.h>
++#include <utmp.h>
++#include <mqueue.h>
++
++#include "logmessage.h"
++
++/*
++ * Find terminal port associated with stdin.
++ * Since shell is interactive
++ */
++static const char *get_tty()
++{
++  const char *tty = ttyname(0);
++
++  if (tty) {
++    if (!strncmp(tty, "/dev/", 5))
++      tty += 5;
++  }
++
++  return tty;
++}
++
++static mqd_t message_queue = -1;
++static const char *current_tty;
++
++void initialize_logging ()
++{
++  const char *tty;
++
++  tty = get_tty();
++  if (tty == NULL)
++    return;	/* Not really an interactive shell */
++
++  message_queue = mq_open("/vbash", O_WRONLY);
++  if (message_queue == (mqd_t)-1)
++    return;	/* No logging server running */
++	
++  SET_CLOSE_ON_EXEC(message_queue);
++
++  current_tty = strdup(tty);
++}
++
++/*
++ * Logs the result of the child for more detailed accounting
++ */
++void log_process_exit (child)
++    PROCESS *child;
++{
++  size_t cc;
++  struct command_log *lrec;
++
++  if (message_queue == (mqd_t) -1)	/* message queue does not exist */
++    return;
++
++  if (child->command == NULL)		/* no command info */
++    return;
++
++  cc = sizeof(*lrec) + strlen(child->command) + 1;
++  lrec = alloca(cc);
++  memset(lrec, 0, cc);
++
++  lrec->pid 	= child->pid;
++  lrec->status 	= WEXITSTATUS(child->status);
++  lrec->endtime	= time(0);
++  lrec->uid	= current_user.uid;
++  lrec->euid	= current_user.euid;
++  lrec->gid	= current_user.gid;
++  lrec->egid	= current_user.egid;
++  strncpy(lrec->name, current_user.user_name, UT_NAMESIZE);
++  strncpy(lrec->tty, current_tty, UT_LINESIZE);
++  strcpy(lrec->command, child->command);
++
++  /* Ignore errors?? */
++  mq_send(message_queue, (char *)lrec, cc, 0);
++}
++
+diff --git a/logmessage.h b/logmessage.h
+new file mode 100644
+index 0000000..5bccacc
+--- /dev/null
++++ b/logmessage.h
+@@ -0,0 +1,16 @@
++/* Format of messages sent on /vbash message queue.
++
++   This code was originally developed by Vyatta, Inc.
++   Copyright (C) 2010 Vyatta, Inc.
++ */
++
++struct command_log {
++	pid_t	pid;
++	int	status;
++	time_t	endtime;
++	uid_t	uid, euid;
++	gid_t	gid, egid;
++	char	name[UT_NAMESIZE];
++	char	tty[UT_LINESIZE];
++	char	command[0];
++};
+diff --git a/parse.y b/parse.y
+index e4b3b8e..51d8da8 100644
+--- a/parse.y
++++ b/parse.y
+@@ -2331,6 +2331,10 @@ shell_getc (remove_quoted_newline)
+   int c, truncating, last_was_backslash;
+   unsigned char uc;
+ 
++  char *history_buf = NULL;
++  int history_index = 0;
++  int history_start = 0;
++
+   QUIT;
+ 
+   last_was_backslash = 0;
+@@ -2403,6 +2407,7 @@ shell_getc (remove_quoted_newline)
+       if (bash_input.type == st_stream)
+ 	clearerr (stdin);
+ 
++	  int no_escape = 0;
+       while (1)
+ 	{
+ 	  c = yy_getc ();
+@@ -2462,6 +2467,53 @@ shell_getc (remove_quoted_newline)
+ 	      break;
+ 	    }
+ 
++		//need to fix terminating special character ';'
++		//vyatta
++		if (interactive && 
++		    shell_input_line) {
++
++      char *string = shell_input_line;
++
++      while (*string && (whitespace (*string) || *string == '\n'))
++        string++;
++
++      int pos = string - shell_input_line;
++
++      //find where string starts (skipping whitespace)
++      if (strncmp(&shell_input_line[pos],"set ",4) == 0 ||
++      strncmp(&shell_input_line[pos],"delete ",7) == 0) {
++        if (c == '"' || c == '\'') {
++      //this suppresses a quoted string
++      if (no_escape == 1) {
++        no_escape = 0;
++      }
++      else {
++        no_escape = 1;
++      }
++        }
++        else if ((c == ';' ||
++        c == '&' ||
++        c == '(' ||
++        c == ')' ||
++        c == '>' ||
++        c == '<' ||
++        c == '|' ||
++        c == '`') &&
++          shell_input_line[i-1] != '\\') {
++      if (no_escape == 0) {
++        shell_input_line[i++] = '\\';
++        
++        history_buf = realloc(history_buf,i+1);
++        register int j;
++        for (j = history_start; j < i-1; ++j) {
++        history_buf[history_index++] = shell_input_line[j];
++        }
++        history_start = i;
++      }
++        }
++      }
++		}
++
+ 	  if (truncating == 0 || c == '\n')
+ 	    shell_input_line[i++] = c;
+ 
+@@ -2497,11 +2549,28 @@ shell_getc (remove_quoted_newline)
+ #  endif
+ 	  /* Calling with a third argument of 1 allows remember_on_history to
+ 	     determine whether or not the line is saved to the history list */
+-	  expansions = pre_process_line (shell_input_line, 1, 1);
++	  // expansions = pre_process_line (shell_input_line, 1, 1);
++    //vyatta
++	  int flag = 0;
++	  if (history_index > 0) {
++	    history_buf = realloc(history_buf,i+1);
++	    register int j;
++	    for (j = history_start; j < i; ++j) {
++	      history_buf[history_index++] = shell_input_line[j];
++	    }
++	    history_buf[history_index] = '\0';
++	    expansions = pre_process_line (history_buf, 1, 1);
++	    flag = expansions != history_buf;
++	    free(history_buf);
++	  }
++	  else {
++	    expansions = pre_process_line (shell_input_line, 1, 1);
++	    flag = expansions != shell_input_line;
++	  }
+ #  if defined (BANG_HISTORY)
+ 	  history_quoting_state = 0;
+ #  endif
+-	  if (expansions != shell_input_line)
++	  if (flag)
+ 	    {
+ 	      free (shell_input_line);
+ 	      shell_input_line = expansions;
+@@ -5351,7 +5420,7 @@ got_token:
+     case CASE:
+     case SELECT:
+     case FOR:
+-      if (word_top < MAX_CASE_NEST)
++      if (word_top + 1 < MAX_CASE_NEST)
+ 	word_top++;
+       word_lineno[word_top] = line_number;
+       expecting_in_token++;
+@@ -6354,8 +6423,14 @@ handle_eof_input_unit ()
+ 	{
+ 	  if (eof_encountered < eof_encountered_limit)
+ 	    {
+-	      fprintf (stderr, _("Use \"%s\" to leave the shell.\n"),
++        char *vyatta_configure_mode = getenv ( "_OFR_CONFIGURE" );
++        if (*vyatta_configure_mode != NULL) {
++          fprintf (stderr, _("Use \"%s\" to leave configuration mode.\n"),
++           login_shell ? "logout" : "exit");
++        } else {
++          fprintf (stderr, _("Use \"%s\" to leave the shell.\n"),
+ 		       login_shell ? "logout" : "exit");
++        }
+ 	      eof_encountered++;
+ 	      /* Reset the parsing state. */
+ 	      last_read_token = current_token = '\n';
+diff --git a/pcomplete.c b/pcomplete.c
+index 9612406..bd48ccd 100644
+--- a/pcomplete.c
++++ b/pcomplete.c
+@@ -1647,15 +1647,17 @@ programmable_completions (cmd, word, start, end, foundp)
+     {
+       retry = 0;
+ 
+-      /* We look at the basename of CMD if the full command does not have
+-	 an associated COMPSPEC. */
+-      ret = gen_progcomp_completions (ocmd, ocmd, word, start, oend, &found, &retry, &lastcs);
+-      if (found == 0)
+-	{
+-	  t = strrchr (ocmd, '/');
+-	  if (t && *(++t))
+-	    ret = gen_progcomp_completions (t, ocmd, word, start, oend, &found, &retry, &lastcs);
+-	}
++      if (!(in_vyatta_restricted_mode(OUTPUT) && strcmp(cmd, word) == 0)) {
++        /* We look at the basename of CMD if the full command does not have
++    an associated COMPSPEC. */
++        ret = gen_progcomp_completions (ocmd, ocmd, word, start, oend, &found, &retry, &lastcs);
++        if (found == 0)
++    {
++      t = strrchr (ocmd, '/');
++      if (t && *(++t))
++        ret = gen_progcomp_completions (t, ocmd, word, start, oend, &found, &retry, &lastcs);
++    }
++      }
+ 
+       if (found == 0)
+ 	ret = gen_progcomp_completions (DEFAULTCMD, ocmd, word, start, oend, &found, &retry, &lastcs);
+diff --git a/shell.c b/shell.c
+index ebd8965..a6eefee 100644
+--- a/shell.c
++++ b/shell.c
+@@ -510,7 +510,7 @@ main (argc, argv, env)
+     read_but_dont_execute = 1;
+ #endif
+ 
+-  if (running_setuid && privileged_mode == 0)
++  if (running_setuid && privileged_mode == 0 && act_like_sh == 0)
+     disable_priv_mode ();
+ 
+   /* Need to get the argument to a -c option processed in the
+@@ -813,6 +813,8 @@ main (argc, argv, env)
+       /* Initialize terminal state for interactive shells after the
+ 	 .bash_profile and .bashrc are interpreted. */
+       get_tty_state ();
++
++      initialize_logging();
+     }
+ 
+ #if !defined (ONESHOT)
+diff --git a/vyatta-restricted.c b/vyatta-restricted.c
+new file mode 100644
+index 0000000..ac05df0
+--- /dev/null
++++ b/vyatta-restricted.c
+@@ -0,0 +1,571 @@
++/* vyatta-restricted.c -- Vyatta restricted mode functionality */
++
++/* This file is part of GNU Bash, the Bourne Again SHell.
++
++   Bash is free software; you can redistribute it and/or modify it under
++   the terms of the GNU General Public License as published by the Free
++   Software Foundation; either version 2, or (at your option) any later
++   version.
++
++   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or
++   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++   for more details.
++
++   You should have received a copy of the GNU General Public License along
++   with Bash; see the file COPYING.  If not, write to the Free Software
++   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.
++
++   This code was originally developed by Vyatta, Inc.
++   Portions created by Vyatta are Copyright (C) 2007 Vyatta, Inc. */
++
++#include <unistd.h>
++
++#include "shell.h"
++#include "bashhist.h"
++#include "vyatta-restricted.h"
++
++#define FILENAME_MODE "restricted-mode"
++#define FILENAME_OP "allowed-op"
++#define FILENAME_CFG "allowed-cfg"
++#define FILENAME_PIPE "allowed-pipe"
++
++static char *prev_cmdline = NULL;
++
++/* allowed commands lists */
++static char **allowed_op_cmds = NULL;
++static char **allowed_cfg_cmds = NULL;
++static char **allowed_pipe_cmds = NULL;
++static int *pipe_cmd_args = NULL;
++
++static char *vyatta_user_level_dir = NULL;
++
++/* default restricted mode */
++static int vyatta_default_output_restricted = 0;
++static int vyatta_default_full_restricted = 0;
++
++static char *expand_disable_cmds[] = { "_vyatta_op_run",
++                                       "/opt/vyatta/sbin/my_set",
++                                       "/opt/vyatta/sbin/my_delete",
++                                       "/opt/vyatta/sbin/my_commit",
++                                       NULL };
++
++static int
++is_expansion_disabled()
++{
++  char *exp = getenv("VYATTA_ENABLE_SHELL_EXPANSION");
++  if (!exp) {
++    return 1;
++  }
++  return 0;
++}
++
++void
++vyatta_reset_hist_expansion()
++{
++#if defined (BANG_HISTORY)
++  if (is_expansion_disabled()) {
++    history_expansion_inhibited = 1;
++  } else {
++    history_expansion_inhibited = 0;
++  }
++#endif
++}
++
++static int
++is_in_command_list(const char *cmd, char *cmds[])
++{
++  int idx = 0;
++  for (idx = 0; cmds[idx]; idx++) {
++    if (strcmp(cmd, cmds[idx]) == 0) {
++      return 1;
++    }
++  }
++  return 0;
++}
++
++static int
++is_vyatta_restricted_pipe_command(WORD_LIST *words)
++{
++  WORD_LIST *w = words;
++  int count = 1;
++  while (w = w->next) {
++    count++;
++  }
++  if (words) {
++    int i = 0;
++    if (!allowed_pipe_cmds) {
++      /* no restriction */
++      return 1;
++    }
++    for (i = 0; allowed_pipe_cmds[i]; i++) {
++      if (strcmp(words->word->word, allowed_pipe_cmds[i]) == 0
++          && count == pipe_cmd_args[i]) {
++        return 1;
++      }
++    }
++  }
++  /* not allowed */
++  return 0;
++}
++
++static void
++make_restricted_word(WORD_DESC *word)
++{
++  char *c, *ns, *n;
++  int sq_count = 0;
++  char *uqs = string_quote_removal(word->word, 0);
++
++  for (c = uqs; *c; c++) {
++    if (*c == '\'') {
++      sq_count++;
++    }
++  }
++
++  /* strlen + start/end quotes + \0 + extra "'\''" */
++  ns = (char *) xmalloc(strlen(uqs) + 2 + 1 + (3 * sq_count));
++  n = ns;
++  *n = '\'';
++  n++;
++  for (c = uqs; *c; c++) {
++    if (*c == '\'') {
++      *n = '\'';
++      *(n + 1) = '\\';
++      *(n + 2) = '\'';
++      *(n + 3) = '\'';
++      n += 4;
++    } else {
++      *n = *c;
++      n++;
++    }
++  }
++  *n = '\'';
++  *(n + 1) = '\0';
++
++  free(word->word);
++  free(uqs);
++  word->word = ns;
++  word->flags = W_QUOTED;
++}
++
++static void
++make_restricted_wordlist(WORD_LIST *words)
++{
++  WORD_LIST *l = words->next; /* skip the first word */
++  for (; l; l = l->next) {
++    make_restricted_word(l->word);
++  }
++}
++
++/* this basically disables shell expansions for "simple" commands. */
++/* full: do a "full" check (disallow env override && also check pipe). */
++void
++vyatta_check_expansion(COMMAND *cmd, int full)
++{
++  struct simple_com *cS;
++  struct connection *cC;
++
++  if (!cmd) {
++    return;
++  }
++  if (!full && !is_expansion_disabled()) {
++    /* enabled */
++    return;
++  }
++ 
++  switch (cmd->type) {
++  case cm_simple:
++    cS = cmd->value.Simple;
++    if (cS && !(cS->redirects)) {
++      /* simple command, no redirects */
++      if (cS->words && cS->words->word && 
++	  is_in_command_list(cS->words->word->word, expand_disable_cmds)) {
++        /* user command => quote all words */
++        make_restricted_wordlist(cS->words);
++      }
++    }
++    break;
++  case cm_connection:
++    cC = cmd->value.Connection;
++    if ((cC->connector == '|') && (cC->first->type == cm_simple)) {
++      struct simple_com *cS1 = cC->first->value.Simple;
++      if (!(cS1->redirects)) {
++        /* simple, no redirects */
++        if (is_in_command_list(cS1->words->word->word, expand_disable_cmds)) {
++          /* user command => quote all words */
++          make_restricted_wordlist(cS1->words);
++        }
++      }
++      if (full && (cC->second->type == cm_simple)) {
++        struct simple_com *cS2 = cC->second->value.Simple;
++        if (!(cS2->redirects)) {
++          /* simple, no redirects */
++          /* quote all words (not checking user command after pipe) */
++          make_restricted_wordlist(cS2->words);
++        }
++      }
++    }
++    break;
++  default:
++    break;
++  }
++}
++
++static int
++is_vyatta_restricted_command(COMMAND *cmd)
++{
++  struct simple_com *cS;
++  struct connection *cC;
++
++  if (!cmd) {
++    return 1;
++  }
++
++  switch (cmd->type) {
++  case cm_simple:
++    cS = cmd->value.Simple;
++    if (!(cS->redirects)) {
++      /* simple command, no redirects */
++      return 1;
++    }
++    break;
++  case cm_connection:
++    cC = cmd->value.Connection;
++    if (cC->connector == '|') {
++      if ((cC->first->type == cm_simple) && (cC->second->type == cm_simple)) {
++        struct simple_com *cS1 = cC->first->value.Simple;
++        struct simple_com *cS2 = cC->second->value.Simple;
++        if (!(cS1->redirects) && !(cS2->redirects)) {
++          /* both are simple and no redirects */
++          if (is_vyatta_restricted_pipe_command(cS2->words)) {
++            /* pipe command is allowed => allowed */
++            return 1;
++          }
++        }
++      }
++    }
++    break;
++  default:
++    break;
++  }
++  /* not allowed */
++  return 0;
++}
++
++static int
++is_vyatta_cfg_command(const char *cmd)
++{
++  if (!allowed_cfg_cmds) {
++    /* no restriction */
++    return 1;
++  }
++  return is_in_command_list(cmd, allowed_cfg_cmds);
++}
++
++static int
++is_vyatta_op_command(const char *cmd)
++{
++  if (!allowed_op_cmds) {
++    /* no restriction */
++    return 1;
++  }
++  return is_in_command_list(cmd, allowed_op_cmds);
++}
++
++int
++is_vyatta_command(char *cmdline, COMMAND *cmd)
++{
++  char *cfg = getenv("_OFR_CONFIGURE");
++  int in_cfg = (cfg) ? (strcmp(cfg, "ok") == 0) : 0;
++  char *start = cmdline;
++  char *end = NULL;
++  char save = 0;
++  int ret = 0;
++
++  /* check expansions (full) */
++  vyatta_check_expansion(cmd, 1);
++
++  if (!prev_cmdline) {
++    prev_cmdline = strdup("");
++  }
++  if (strcmp(cmdline, prev_cmdline) == 0) {
++    /* still at the same line. not checking. */
++    return 1;
++  }
++  if (!is_vyatta_restricted_command(cmd)) {
++    return 0;
++  }
++
++  while (*start && (whitespace(*start) || *start == '\n')) {
++    start++;
++  }
++  if (*start == 0) {
++    /* empty command line is valid */
++    free(prev_cmdline);
++    prev_cmdline = strdup(cmdline);
++    return 1;
++  }
++  end = start;
++  while (*end && (!whitespace(*end) && *end != '\n')) {
++    end++;
++  }
++  save = *end;
++  *end = 0;
++
++  if (in_cfg) {
++    ret = is_vyatta_cfg_command(start);
++  } else {
++    ret = is_vyatta_op_command(start);
++  }
++  *end = save;
++
++  if (ret) {
++    /* valid command */
++    free(prev_cmdline);
++    prev_cmdline = strdup(cmdline);
++  }
++  return ret;
++}
++
++static FILE *
++fopen_level_file(char *file_name)
++{
++  FILE *f = NULL;
++#define BUF_SIZE 1024
++  char *buf = (char *) xmalloc(BUF_SIZE);
++  if (!buf) {
++    return NULL;
++  }
++
++  do {
++    int r = snprintf(buf, BUF_SIZE, "%s/%s", vyatta_user_level_dir, file_name);
++    if (r >= BUF_SIZE) {
++      break;
++    }
++
++    f = fopen(buf, "r");
++  } while (0);
++
++  free(buf);
++  return f;
++}
++
++static char *
++fgets_level_file(char *buf, int size, FILE *lfile)
++{
++  if (fgets(buf, size, lfile)) {
++    int end = 0;
++    while (buf[end] && isprint(buf[end]) && !isspace(buf[end])) {
++      end++;
++    }
++    buf[end] = 0;
++    return buf;
++  } else {
++    return NULL;
++  }
++}
++
++static void
++set_default_mode()
++{
++  FILE *lfile = NULL;
++  char *line = NULL;
++  char buf[256];
++
++  /* default to full restricted */
++  vyatta_default_output_restricted = 0;
++  vyatta_default_full_restricted = 1;
++
++  if (!(lfile = fopen_level_file(FILENAME_MODE))) {
++    return;
++  }
++  while (line = fgets_level_file(buf, 256, lfile)) {
++    if (strcmp(line, "output") == 0) {
++      vyatta_default_output_restricted = 1;
++      vyatta_default_full_restricted = 0;
++      break;
++    }
++    if (strcmp(line, "full") == 0) {
++      vyatta_default_output_restricted = 0;
++      vyatta_default_full_restricted = 1;
++      break;
++    }
++  }
++  fclose(lfile);
++  return;
++}
++
++static void
++set_allowed_op_cmds()
++{
++  FILE *lfile = NULL;
++  char *line = NULL;
++  char buf[256];
++  int count = 1;
++
++  if (allowed_op_cmds) {
++    return;
++  }
++
++  if (!(lfile = fopen_level_file(FILENAME_OP))) {
++    return;
++  }
++  while (line = fgets_level_file(buf, 256, lfile)) {
++    count++;
++  }
++  fclose(lfile);
++
++  /* count is 1 more than number of lines */
++  allowed_op_cmds = (char **) xmalloc(sizeof(char *) * count);
++  memset(allowed_op_cmds, 0, sizeof(char *) * count);
++
++  if (!(lfile = fopen_level_file(FILENAME_OP))) {
++    return;
++  }
++  count = 0;
++  while (line = fgets_level_file(buf, 256, lfile)) {
++    allowed_op_cmds[count] = strdup(line);
++    count++;
++  }
++  fclose(lfile);
++  return;
++}
++
++static void
++set_allowed_cfg_cmds()
++{
++  FILE *lfile = NULL;
++  char *line = NULL;
++  char buf[256];
++  int count = 1;
++
++  if (allowed_cfg_cmds) {
++    return;
++  }
++
++  if (!(lfile = fopen_level_file(FILENAME_CFG))) {
++    return;
++  }
++  while (line = fgets_level_file(buf, 256, lfile)) {
++    count++;
++  }
++  fclose(lfile);
++
++  /* count is 1 more than number of lines */
++  allowed_cfg_cmds = (char **) xmalloc(sizeof(char *) * count);
++  memset(allowed_cfg_cmds, 0, sizeof(char *) * count);
++
++  if (!(lfile = fopen_level_file(FILENAME_CFG))) {
++    return;
++  }
++  count = 0;
++  while (line = fgets_level_file(buf, 256, lfile)) {
++    allowed_cfg_cmds[count] = strdup(line);
++    count++;
++  }
++  fclose(lfile);
++  return;
++}
++
++static void
++set_allowed_pipe_cmds()
++{
++  FILE *lfile = NULL;
++  char *line = NULL;
++  char buf[256];
++  int count = 0;
++
++  if (allowed_pipe_cmds) {
++    return;
++  }
++
++  if (!(lfile = fopen_level_file(FILENAME_PIPE))) {
++    return;
++  }
++  while (line = fgets_level_file(buf, 256, lfile)) {
++    count++;
++  }
++  fclose(lfile);
++
++  count = (count / 2) + 2;
++  /* count is 1 more than entries */
++  allowed_pipe_cmds = (char **) xmalloc(sizeof(char *) * count);
++  memset(allowed_pipe_cmds, 0, sizeof(char *) * count);
++  pipe_cmd_args = (int *) xmalloc(sizeof(int *) * count);
++  memset(pipe_cmd_args, 0, sizeof(int *) * count);
++
++  if (!(lfile = fopen_level_file(FILENAME_PIPE))) {
++    return;
++  }
++  count = 0;
++  while (line = fgets_level_file(buf, 256, lfile)) {
++    allowed_pipe_cmds[count] = strdup(line);
++    if (!(line = fgets_level_file(buf, 256, lfile))) {
++      free(allowed_pipe_cmds[count]);
++      allowed_pipe_cmds[count] = NULL;
++      break;
++    }
++    pipe_cmd_args[count] = atoi(line);
++    /* limit to between 1 and 256 */
++    if (pipe_cmd_args[count] < 1 || pipe_cmd_args[count] > 256) {
++      free(allowed_pipe_cmds[count]);
++      allowed_pipe_cmds[count] = NULL;
++      pipe_cmd_args[count] = 0;
++      break;
++    }
++    count++;
++  }
++  fclose(lfile);
++  return;
++}
++
++static int
++init_vyatta_restricted_mode()
++{
++  if (!(vyatta_user_level_dir = getenv("VYATTA_USER_LEVEL_DIR"))) {
++    /* level dir not set, return failure */
++    return 0;
++  }
++
++  /* set the default restricted mode based on level */
++  set_default_mode();
++
++  /* set the allowed commands */
++  set_allowed_op_cmds();
++  set_allowed_cfg_cmds();
++  set_allowed_pipe_cmds();
++
++  return 1;
++}
++
++int
++in_vyatta_restricted_mode(enum vyatta_restricted_type type)
++{
++  char *rval = getenv("VYATTA_RESTRICTED_MODE");
++  int output = 0;
++  int full = 0;
++
++  if (!vyatta_user_level_dir && !init_vyatta_restricted_mode()) {
++    /* init failed, return false (not restricted) */
++    return 0;
++  }
++
++  output = vyatta_default_output_restricted;
++  full = vyatta_default_full_restricted;
++  
++  /* environment var overrides default */
++  if (rval) {
++    output = (strcmp(rval, "output") == 0);
++    full = (strcmp(rval, "full") == 0);
++  }
++
++  if (type == OUTPUT && (output || full)) {
++    return 1;
++  }
++  if (type == FULL && full) {
++    return 1;
++  }
++
++  return 0;
++}
++
+diff --git a/vyatta-restricted.h b/vyatta-restricted.h
+new file mode 100644
+index 0000000..0dd45bd
+--- /dev/null
++++ b/vyatta-restricted.h
+@@ -0,0 +1,36 @@
++/* vyatta-restricted.h -- header for Vyatta restricted mode functionality */
++
++/* This file is part of GNU Bash, the Bourne Again SHell.
++
++   Bash is free software; you can redistribute it and/or modify it under
++   the terms of the GNU General Public License as published by the Free
++   Software Foundation; either version 2, or (at your option) any later
++   version.
++
++   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or
++   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++   for more details.
++
++   You should have received a copy of the GNU General Public License along
++   with Bash; see the file COPYING.  If not, write to the Free Software
++   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.
++
++   This code was originally developed by Vyatta, Inc.
++   Portions created by Vyatta are Copyright (C) 2007 Vyatta, Inc. */
++
++#if !defined(_VYATTA_RESTRICTED_H_)
++#define _VYATTA_RESTRICTED_H_
++
++#include <stdio.h>
++
++#include "command.h"
++
++enum vyatta_restricted_type { OUTPUT, FULL };
++extern int in_vyatta_restricted_mode __P((enum vyatta_restricted_type));
++extern int is_vyatta_command __P((char *, COMMAND *));
++extern void vyatta_check_expansion __P((COMMAND *, int));
++extern void vyatta_reset_hist_expansion();
++
++#endif /* _VYATTA_RESTRICTED_H_ */
++
+-- 
+2.50.1 (Apple Git-155)
+
