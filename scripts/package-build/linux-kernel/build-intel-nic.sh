@@ -1,11 +1,10 @@
 #!/bin/sh
+set -e
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
+. ${CWD}/common.sh
 
-if ! dpkg-architecture -iamd64; then
-    echo "Intel drivers only buildable on amd64 platforms"
-    exit 0
-fi
+require_amd64 "Intel drivers"
 
 if [ ! -f ${KERNEL_VAR_FILE} ]; then
     echo "Kernel variable file '${KERNEL_VAR_FILE}' does not exist, run ./build_kernel.sh first"
@@ -26,14 +25,6 @@ if [ -d .git ]; then
     git reset --hard origin/main
 fi
 
-DRIVER_VERSION=$(git describe | sed s/^v//)
-
-# Build up Debian related variables required for packaging
-DEBIAN_ARCH=$(dpkg --print-architecture)
-DEBIAN_DIR="${CWD}/vyos-intel-${DRIVER_NAME}_${DRIVER_VERSION}_${DEBIAN_ARCH}"
-DEBIAN_CONTROL="${DEBIAN_DIR}/DEBIAN/control"
-DEBIAN_POSTINST="${CWD}/vyos-intel-${DRIVER_NAME}.postinst"
-
 # See https://vyos.dev/T6155
 # See https://vyos.dev/T6162
 PATCH_DIR=${CWD}/patches/${DRIVER_NAME}
@@ -45,37 +36,52 @@ if [ -d $PATCH_DIR ]; then
     done
 fi
 
-echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
-make KSRC=${KERNEL_DIR} BUILD_KERNEL=${KERNEL_VERSION}${KERNEL_SUFFIX} INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} -j $(getconf _NPROCESSORS_ONLN) -C src install
+PACKAGE_NAME=vyos-intel-${DRIVER_NAME}
+PACKAGE_VERSION=$(debian_version "$(git describe | sed s/^v//)")
 
-if [ "x$?" != "x0" ]; then
-    exit 1
-fi
+debmake -n -y -p ${PACKAGE_NAME} -u ${PACKAGE_VERSION} \
+    -e maintainers@vyos.net -f "VyOS Package Maintainers"
 
-if [ -f ${DEBIAN_DIR}.deb ]; then
-    rm ${DEBIAN_DIR}.deb
-fi
+echo "misc:Depends=linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}" > debian/${PACKAGE_NAME}.substvars
 
-# build Debian package
-echo "I: Building Debian package vyos-intel-${DRIVER_NAME}"
-cd ${CWD}
+cat << EOF > debian/control
+Source: ${PACKAGE_NAME}
+Section: kernel
+Priority: optional
+Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
 
-# Sign generated Kernel modules
-${CWD}/sign-modules.sh ${DEBIAN_DIR}
+Package: ${PACKAGE_NAME}
+Architecture: any
+Depends: \${misc:Depends}
+Description: Vendor based driver for Intel ${DRIVER_NAME}
+ Out-of-tree Intel ${DRIVER_NAME} network driver kernel module.
+EOF
 
-# delete non required files which are also present in the kernel package
-# und thus lead to duplicated files
-find ${DEBIAN_DIR} -name "modules.*" | xargs rm -f
+cat << EOF > debian/rules
+#!/usr/bin/make -f
+export KERNEL_DIR := ${KERNEL_DIR}
+PACKAGE_BUILD_DIR := debian/${PACKAGE_NAME}
+KVER := ${KERNEL_VERSION}${KERNEL_SUFFIX}
 
-echo "#!/bin/sh" > ${DEBIAN_POSTINST}
-echo "/sbin/depmod -a ${KERNEL_VERSION}${KERNEL_SUFFIX}" >> ${DEBIAN_POSTINST}
+%:
+	dh \$@
 
-fpm --input-type dir --output-type deb --name vyos-intel-${DRIVER_NAME} \
-    --version ${DRIVER_VERSION} --deb-compression gz \
-    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
-    --description "Vendor based driver for Intel ${DRIVER_NAME}" \
-    --depends linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} \
-    --license "GPL2" -C ${DEBIAN_DIR} --after-install ${DEBIAN_POSTINST}
+override_dh_clean:
+	dh_clean --exclude=debian/${PACKAGE_NAME}.substvars
 
-# cleanup
-rm -rf -- "${DEBIAN_DIR}" "${DEBIAN_POSTINST}"
+override_dh_prep:
+	dh_prep --exclude=debian/${PACKAGE_NAME}.substvars
+
+override_dh_auto_build:
+	@true
+
+override_dh_auto_install:
+	make KSRC=\${KERNEL_DIR} BUILD_KERNEL=\${KVER} INSTALL_MOD_PATH=\$(CURDIR)/\${PACKAGE_BUILD_DIR} INSTALL_FW_PATH=\$(CURDIR)/\${PACKAGE_BUILD_DIR} -j \$(shell getconf _NPROCESSORS_ONLN) -C src install
+	find \${PACKAGE_BUILD_DIR} -name "modules.*" -delete
+	\${KERNEL_DIR}/../sign-modules.sh \${PACKAGE_BUILD_DIR}/lib
+EOF
+
+debuild

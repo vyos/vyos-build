@@ -76,5 +76,7 @@ cpack -G DEB
 # rename resulting Debian package according git description
 mv accel-ppp*.deb ${CWD}/accel-ppp-ng_$(git describe --always --tags)_$(dpkg --print-architecture).deb
 
-# move VPP binaries to linux-kernel dir, CI will get VPP .deb here
-cp ${CWD}/../vpp/*.deb ${CWD}
+# move VPP binaries to linux-kernel dir, CI will get VPP .deb here.
+# If the VPP build was skipped above (libraries already present from a
+# prior run), there may be no fresh .deb here to copy - that's fine.
+cp ${CWD}/../vpp/*.deb ${CWD} 2>/dev/null || echo "I: No freshly built VPP .deb to copy"

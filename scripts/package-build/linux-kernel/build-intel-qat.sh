@@ -1,11 +1,10 @@
 #!/bin/sh
+set -e
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
+. ${CWD}/common.sh
 
-if ! dpkg-architecture -iamd64; then
-    echo "Intel-QAT is only buildable on amd64 platforms"
-    exit 0
-fi
+require_amd64 "Intel-QAT"
 
 if [ ! -f ${KERNEL_VAR_FILE} ]; then
     echo "Kernel variable file '${KERNEL_VAR_FILE}' does not exist, run ./build_kernel.sh first"
@@ -24,12 +23,6 @@ DRIVER_NAME="QAT"
 DRIVER_NAME_EXTRA="L."
 DRIVER_VERSION=$(echo ${DRIVER_DIR} | awk -F${DRIVER_NAME} '{print $2}' | awk -F${DRIVER_NAME_EXTRA} '{print $2}')
 DRIVER_VERSION_EXTRA="-0"
-
-# Build up Debian related variables required for packaging
-DEBIAN_ARCH=$(dpkg --print-architecture)
-DEBIAN_DIR="${CWD}/vyos-intel-${DRIVER_NAME}_${DRIVER_VERSION}${DRIVER_VERSION_EXTRA}_${DEBIAN_ARCH}"
-DEBIAN_CONTROL="${DEBIAN_DIR}/DEBIAN/control"
-DEBIAN_POSTINST="${CWD}/vyos-intel-qat.postinst"
 
 # Fetch Intel driver source from SourceForge
 if [ -e ${DRIVER_FILE} ]; then
@@ -62,53 +55,70 @@ if [ -d "${CWD}/patches/intel-qat" ]; then
     done
 fi
 
-echo "I: Compile Kernel module for Intel ${DRIVER_NAME} driver"
-mkdir -p \
-    ${DEBIAN_DIR}/lib/firmware \
-    ${DEBIAN_DIR}/usr/sbin \
-    ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu \
-    ${DEBIAN_DIR}/etc/init.d
-KERNEL_SOURCE_ROOT=${KERNEL_DIR} ./configure --enable-kapi --enable-qat-lkcf
-make -j $(getconf _NPROCESSORS_ONLN) all
-make INSTALL_MOD_PATH=${DEBIAN_DIR} INSTALL_FW_PATH=${DEBIAN_DIR} \
-    qat-driver-install adf-ctl-all
+PACKAGE_NAME=vyos-intel-$(echo ${DRIVER_NAME} | tr 'A-Z' 'a-z')
+PACKAGE_VERSION=$(debian_version "${DRIVER_VERSION}${DRIVER_VERSION_EXTRA}")
 
-if [ "x$?" != "x0" ]; then
-    exit 1
-fi
+debmake -n -y -p ${PACKAGE_NAME} -u ${PACKAGE_VERSION} \
+    -e maintainers@vyos.net -f "VyOS Package Maintainers"
 
-cp quickassist/qat/fw/*.bin ${DEBIAN_DIR}/lib/firmware
-cp build/*.so ${DEBIAN_DIR}/usr/lib/x86_64-linux-gnu
-cp build/adf_ctl ${DEBIAN_DIR}/usr/sbin
-cp quickassist/build_system/build_files/qat_service ${DEBIAN_DIR}/etc/init.d
-cp build/usdm_drv.ko ${DEBIAN_DIR}/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/updates/drivers
-chmod 644 ${DEBIAN_DIR}/lib/firmware/*
-chmod 755 ${DEBIAN_DIR}/etc/init.d/* ${DEBIAN_DIR}/usr/local/bin/*
+echo "misc:Depends=linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}" > debian/${PACKAGE_NAME}.substvars
 
-if [ -f ${DEBIAN_DIR}.deb ]; then
-    rm ${DEBIAN_DIR}.deb
-fi
+cat << EOF > debian/control
+Source: ${PACKAGE_NAME}
+Section: kernel
+Priority: optional
+Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
 
-# build Debian package
-echo "I: Building Debian package vyos-intel-${DRIVER_NAME}"
-cd ${CWD}
+Package: ${PACKAGE_NAME}
+Architecture: any
+Depends: \${misc:Depends}
+Description: Vendor based driver for Intel ${DRIVER_NAME}
+ Intel QuickAssist Technology (QAT) kernel driver and userspace tools.
+EOF
 
-# Sign generated Kernel modules
-${CWD}/sign-modules.sh ${DEBIAN_DIR}
+cat << EOF > debian/rules
+#!/usr/bin/make -f
+export KERNEL_DIR := ${KERNEL_DIR}
+PACKAGE_BUILD_DIR := debian/${PACKAGE_NAME}
+KVER := ${KERNEL_VERSION}${KERNEL_SUFFIX}
 
-# delete non required files which are also present in the kernel package
-# und thus lead to duplicated files
-find ${DEBIAN_DIR} -name "modules.*" | xargs rm -f
+%:
+	dh \$@
 
-echo "#!/bin/sh" > ${DEBIAN_POSTINST}
-echo "/sbin/depmod -a ${KERNEL_VERSION}${KERNEL_SUFFIX}" >> ${DEBIAN_POSTINST}
+override_dh_clean:
+	dh_clean --exclude=debian/${PACKAGE_NAME}.substvars
 
-fpm --input-type dir --output-type deb --name vyos-intel-${DRIVER_NAME} \
-    --version ${DRIVER_VERSION}${DRIVER_VERSION_EXTRA} --deb-compression gz \
-    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
-    --description "Vendor based driver for Intel ${DRIVER_NAME}" \
-    --depends linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} \
-    --license "GPL2" -C ${DEBIAN_DIR} --after-install ${DEBIAN_POSTINST}
+override_dh_prep:
+	dh_prep --exclude=debian/${PACKAGE_NAME}.substvars
+
+override_dh_auto_clean:
+	@true
+
+override_dh_auto_configure:
+	@true
+
+override_dh_auto_build:
+	KERNEL_SOURCE_ROOT=\${KERNEL_DIR} ./configure --enable-kapi --enable-qat-lkcf
+	\$(MAKE) -j \$(shell getconf _NPROCESSORS_ONLN) all
+
+override_dh_auto_install:
+	mkdir -p \${PACKAGE_BUILD_DIR}/lib/firmware \${PACKAGE_BUILD_DIR}/usr/sbin \${PACKAGE_BUILD_DIR}/usr/lib/x86_64-linux-gnu \${PACKAGE_BUILD_DIR}/etc/init.d
+	\$(MAKE) INSTALL_MOD_PATH=\$(CURDIR)/\${PACKAGE_BUILD_DIR} INSTALL_FW_PATH=\$(CURDIR)/\${PACKAGE_BUILD_DIR} qat-driver-install adf-ctl-all
+	cp quickassist/qat/fw/*.bin \${PACKAGE_BUILD_DIR}/lib/firmware
+	cp build/*.so \${PACKAGE_BUILD_DIR}/usr/lib/x86_64-linux-gnu
+	cp build/adf_ctl \${PACKAGE_BUILD_DIR}/usr/sbin
+	cp quickassist/build_system/build_files/qat_service \${PACKAGE_BUILD_DIR}/etc/init.d
+	cp build/usdm_drv.ko \${PACKAGE_BUILD_DIR}/lib/modules/\${KVER}/updates/drivers
+	chmod 644 \${PACKAGE_BUILD_DIR}/lib/firmware/*
+	chmod 755 \${PACKAGE_BUILD_DIR}/etc/init.d/*
+	find \${PACKAGE_BUILD_DIR} -name "modules.*" -delete
+	\${KERNEL_DIR}/../sign-modules.sh \${PACKAGE_BUILD_DIR}/lib
+EOF
+
+debuild
 
 echo "I: Cleanup ${DRIVER_NAME} source"
 cd ${CWD}
@@ -117,10 +127,4 @@ if [ -e ${DRIVER_FILE} ]; then
 fi
 if [ -d ${DRIVER_DIR} ]; then
     rm -rf ${DRIVER_DIR}
-fi
-if [ -d ${DEBIAN_DIR} ]; then
-    rm -rf ${DEBIAN_DIR}
-fi
-if [ -f ${DEBIAN_POSTINST} ]; then
-    rm -f ${DEBIAN_POSTINST}
 fi
