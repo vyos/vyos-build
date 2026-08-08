@@ -137,7 +137,7 @@ def build_package(package: dict, dependencies: list,
 
         # Execute the build command
         if package['build_cmd'] == 'build_kernel':
-            source_dir = build_kernel(package['kernel_version'])
+            source_dir = build_kernel(package['kernel_version'], package['kernel_flavor'])
             if linux_kernel_tarball is not None:
                 linux_kernel_tarball.clear()
                 linux_kernel_tarball['package_name'] = package['name']
@@ -191,7 +191,7 @@ def merge_dicts(defaults, package):
     return {**defaults, **package}
 
 
-def build_kernel(kernel_version) -> str:
+def build_kernel(kernel_version, kernel_flavor) -> str:
     """Build the Linux kernel"""
     source_dir = 'linux' # Git source repo name - preferred over TAR
     if not os.path.exists(source_dir):
@@ -205,7 +205,9 @@ def build_kernel(kernel_version) -> str:
         source_dir = f'linux-{kernel_version}'
         os.symlink(source_dir, 'linux')
 
-    run(['./build-kernel.sh'], check=True)
+    # kernel_flavor is only known here (merged from data/defaults.toml); pass it down
+    # via the environment so build-kernel.sh doesn't need to re-read defaults.toml itself.
+    run(['./build-kernel.sh'], check=True, env={**os.environ, 'KERNEL_FLAVOR': kernel_flavor})
     return(source_dir)
 
 

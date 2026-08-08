@@ -22,8 +22,13 @@ if [ -d /usr/lib/ccache/ ]; then
     export PATH=/usr/lib/ccache:$PATH
 fi
 
+if [ -z "${KERNEL_FLAVOR}" ]; then
+    echo "E: KERNEL_FLAVOR is not set, run via ./build.py so it can be passed from data/defaults.toml"
+    exit 1
+fi
+
 KERNEL_VERSION=$(make kernelversion)
-KERNEL_SUFFIX=-$(awk -F "= " '/kernel_flavor/ {print $2}' ../../../../data/defaults.toml | tr -d \")
+KERNEL_SUFFIX=-${KERNEL_FLAVOR}
 
 echo "I: Generate Kernel config"
 ARCH=$(dpkg --print-architecture)
