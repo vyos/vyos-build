@@ -242,17 +242,17 @@ def build_mellanox_ofed():
 
 def build_realtek_r8126():
     """Build Realtek r8126"""
-    run(['./build-realtek-r8126.py'], check=True)
+    run(['./build-realtek-r8126.sh'], check=True)
 
 
 def build_realtek_r8152():
     """Build Realtek r8152"""
-    run(['./build-realtek-r8152.py'], check=True)
+    run(['./build-realtek-r8152.sh'], check=True)
 
 
 def build_jool():
     """Build Jool"""
-    run(['echo y | ./build-jool.py'], check=True, shell=True)
+    run(['echo y | ./build-jool.sh'], check=True, shell=True)
 
 def build_ipt_netflow(commit_id, scm_url):
     """Build ipt_NETFLOW"""
