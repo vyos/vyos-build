@@ -18,10 +18,16 @@ if [ ! -f ${KERNEL_VAR_FILE} ]; then
     exit 1
 fi
 
-# Build VPP as we need VPP libraries
-cd ../vpp/
-./build.py
-cd ${CWD}
+# Build VPP as we need VPP libraries. This is a full VPP build (make pkg-deb),
+# not just headers, since that's the only build target VPP exposes here - skip
+# it if a previous run already produced the libraries we link against. Remove
+# ${VPP_LIB_CHECK_PATH} (or the whole ../vpp/vpp checkout) to force a rebuild,
+# e.g. after bumping the VPP commit_id in ../vpp/package.toml.
+if [ ! -d ${VPP_LIB_CHECK_PATH} ]; then
+    cd ../vpp/
+    ./build.py
+    cd ${CWD}
+fi
 
 if [ ! -d ${VPP_LIB_CHECK_PATH} ]; then
     echo "VPP source libraries not found"
@@ -70,5 +76,7 @@ cpack -G DEB
 # rename resulting Debian package according git description
 mv accel-ppp*.deb ${CWD}/accel-ppp-ng_$(git describe --always --tags)_$(dpkg --print-architecture).deb
 
-# move VPP binaries to linux-kernel dir, CI will get VPP .deb here
-cp ${CWD}/../vpp/*.deb ${CWD}
+# move VPP binaries to linux-kernel dir, CI will get VPP .deb here.
+# If the VPP build was skipped above (libraries already present from a
+# prior run), there may be no fresh .deb here to copy - that's fine.
+cp ${CWD}/../vpp/*.deb ${CWD} 2>/dev/null || echo "I: No freshly built VPP .deb to copy"

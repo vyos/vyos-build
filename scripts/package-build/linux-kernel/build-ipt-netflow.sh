@@ -1,6 +1,8 @@
 #!/bin/sh
+set -e
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
+. ${CWD}/common.sh
 
 IPT_NETFLOW_SRC=${CWD}/ipt-netflow
 if [ ! -d ${IPT_NETFLOW_SRC} ]; then
@@ -29,49 +31,62 @@ done
 
 . ${KERNEL_VAR_FILE}
 
-DRIVER_VERSION=$(git describe | sed s/^v//)
+PACKAGE_NAME=vyos-ipt-netflow
+PACKAGE_VERSION=$(debian_version "$(git describe | sed s/^v//)")
+UNAME_ARCH=$(uname -m)
 
-# Build up Debian related variables required for packaging
-DEBIAN_ARCH=$(dpkg --print-architecture)
-DEBIAN_DIR="tmp/"
-DEBIAN_CONTROL="${DEBIAN_DIR}/DEBIAN/control"
-DEBIAN_POSTINST="${CWD}/vyos-ipt-netflow.postinst"
+debmake -n -y -p ${PACKAGE_NAME} -u ${PACKAGE_VERSION} \
+    -e maintainers@vyos.net -f "VyOS Package Maintainers"
 
-./configure --enable-direction --enable-macaddress --enable-vlan --enable-sampler --enable-aggregation --kdir=${KERNEL_DIR}
-make all
+echo "misc:Depends=linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}" > debian/${PACKAGE_NAME}.substvars
 
-if [ "x$?" != "x0" ]; then
-    exit 1
-fi
+cat << EOF > debian/control
+Source: ${PACKAGE_NAME}
+Section: kernel
+Priority: optional
+Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
 
-if [ -f ${DEBIAN_DIR}.deb ]; then
-    rm ${DEBIAN_DIR}.deb
-fi
+Package: ${PACKAGE_NAME}
+Architecture: any
+Depends: \${misc:Depends}
+Description: ipt_NETFLOW module
+ Netfilter target module exporting network flows via NetFlow to a
+ collector, plus xtables NETFLOW match libraries.
+EOF
 
-if [ ! -d ${DEBIAN_DIR} ]; then
-    mkdir -p ${DEBIAN_DIR}
-fi
+cat << EOF > debian/rules
+#!/usr/bin/make -f
+export KERNEL_DIR := ${KERNEL_DIR}
+PACKAGE_BUILD_DIR := debian/${PACKAGE_NAME}
+KVER := ${KERNEL_VERSION}${KERNEL_SUFFIX}
 
-# build Debian package
-echo "I: Building Debian package vyos-ipt-netflow"
-cp ipt_NETFLOW.ko ${DEBIAN_DIR}
-cp libipt_NETFLOW.so ${DEBIAN_DIR}
-cp libip6t_NETFLOW.so ${DEBIAN_DIR}
+%:
+	dh \$@
 
-# Sign generated Kernel modules
-${CWD}/sign-modules.sh ${DEBIAN_DIR}
+override_dh_clean:
+	dh_clean --exclude=debian/${PACKAGE_NAME}.substvars
 
-echo "#!/bin/sh" > ${DEBIAN_POSTINST}
-echo "/sbin/depmod -a ${KERNEL_VERSION}${KERNEL_SUFFIX}" >> ${DEBIAN_POSTINST}
+override_dh_prep:
+	dh_prep --exclude=debian/${PACKAGE_NAME}.substvars
 
-cd ${CWD}
+override_dh_auto_clean:
+	@true
 
-fpm --input-type dir --output-type deb --name vyos-ipt-netflow \
-    --version ${DRIVER_VERSION} --deb-compression gz \
-    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
-    --description "ipt_NETFLOW module" \
-    --depends linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} \
-    --license "GPL2" -C ${IPT_NETFLOW_SRC}/tmp --after-install ${DEBIAN_POSTINST} \
-    ipt_NETFLOW.ko.xz=/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra/ipt_NETFLOW.ko.xz \
-    libipt_NETFLOW.so=/lib/$(uname -m)-linux-gnu/xtables/libipt_NETFLOW.so \
-    libip6t_NETFLOW.so=/lib/$(uname -m)-linux-gnu/xtables/libip6t_NETFLOW.so
+override_dh_auto_configure:
+	@true
+
+override_dh_auto_build:
+	./configure --enable-direction --enable-macaddress --enable-vlan --enable-sampler --enable-aggregation --kdir=\${KERNEL_DIR}
+	make all
+
+override_dh_auto_install:
+	install -D -m 644 ipt_NETFLOW.ko \${PACKAGE_BUILD_DIR}/lib/modules/\${KVER}/extra/ipt_NETFLOW.ko
+	install -D -m 644 libipt_NETFLOW.so \${PACKAGE_BUILD_DIR}/lib/${UNAME_ARCH}-linux-gnu/xtables/libipt_NETFLOW.so
+	install -D -m 644 libip6t_NETFLOW.so \${PACKAGE_BUILD_DIR}/lib/${UNAME_ARCH}-linux-gnu/xtables/libip6t_NETFLOW.so
+	\${KERNEL_DIR}/../sign-modules.sh \${PACKAGE_BUILD_DIR}/lib
+EOF
+
+debuild

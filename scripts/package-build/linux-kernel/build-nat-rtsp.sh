@@ -1,6 +1,8 @@
 #!/bin/sh
+set -e
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
+. ${CWD}/common.sh
 
 SRC=${CWD}/nat-rtsp
 if [ ! -d ${SRC} ]; then
@@ -18,31 +20,53 @@ fi
 cd ${SRC}
 git reset --hard HEAD
 git clean --force -d -x
-make KERNELDIR=$KERNEL_DIR
 
-# Copy binary to package directory
-DEBIAN_DIR=tmp/lib/modules/${KERNEL_VERSION}${KERNEL_SUFFIX}/extra
-mkdir -p ${DEBIAN_DIR}
-cp nf_conntrack_rtsp.ko nf_nat_rtsp.ko ${DEBIAN_DIR}
+PACKAGE_NAME=nat-rtsp
+PACKAGE_VERSION=$(debian_version "$(git describe --tags --always)")
 
-DEBIAN_POSTINST="${CWD}/vyos-nat-rtsp.postinst"
-echo "#!/bin/sh" > ${DEBIAN_POSTINST}
-echo "/sbin/depmod -a ${KERNEL_VERSION}${KERNEL_SUFFIX}" >> ${DEBIAN_POSTINST}
+debmake -n -y -p ${PACKAGE_NAME} -u ${PACKAGE_VERSION} \
+    -e maintainers@vyos.net -f "VyOS Package Maintainers"
 
-# Sign generated Kernel modules
-${CWD}/sign-modules.sh ${DEBIAN_DIR}
+echo "misc:Depends=linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX}" > debian/${PACKAGE_NAME}.substvars
 
-# Build Debian Package
-fpm --input-type dir --output-type deb --name nat-rtsp \
-    --version $(git describe --tags --always) --deb-compression gz \
-    --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
-    --description "Connection tracking and NAT support for RTSP" \
-    --depends linux-image-${KERNEL_VERSION}${KERNEL_SUFFIX} \
-    --after-install ${DEBIAN_POSTINST} \
-    --license "GPL2" --chdir tmp
+cat << EOF > debian/control
+Source: ${PACKAGE_NAME}
+Section: kernel
+Priority: optional
+Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
 
-mv *.deb ..
+Package: ${PACKAGE_NAME}
+Architecture: any
+Depends: \${misc:Depends}
+Description: Connection tracking and NAT support for RTSP
+ Netfilter conntrack and NAT helper kernel modules for the RTSP protocol.
+EOF
 
-if [ -f ${DEBIAN_POSTINST} ]; then
-    rm -f ${DEBIAN_POSTINST}
-fi
+cat << EOF > debian/rules
+#!/usr/bin/make -f
+export KERNEL_DIR := ${KERNEL_DIR}
+PACKAGE_BUILD_DIR := debian/${PACKAGE_NAME}
+KVER := ${KERNEL_VERSION}${KERNEL_SUFFIX}
+
+%:
+	dh \$@
+
+override_dh_clean:
+	dh_clean --exclude=debian/${PACKAGE_NAME}.substvars
+
+override_dh_prep:
+	dh_prep --exclude=debian/${PACKAGE_NAME}.substvars
+
+override_dh_auto_build:
+	make KERNELDIR=\${KERNEL_DIR}
+
+override_dh_auto_install:
+	install -D -m 644 nf_conntrack_rtsp.ko \${PACKAGE_BUILD_DIR}/lib/modules/\${KVER}/extra/nf_conntrack_rtsp.ko
+	install -D -m 644 nf_nat_rtsp.ko \${PACKAGE_BUILD_DIR}/lib/modules/\${KVER}/extra/nf_nat_rtsp.ko
+	\${KERNEL_DIR}/../sign-modules.sh \${PACKAGE_BUILD_DIR}/lib
+EOF
+
+debuild

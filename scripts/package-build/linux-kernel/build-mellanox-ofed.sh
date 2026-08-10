@@ -3,16 +3,14 @@ DROP_DEV_DBG_DEBS=1
 DEB_DISTRO='debian12.1'
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
+. ${CWD}/common.sh
 
 if [ $(id -u) -ne 0 ]; then
   echo "Mellanox OFED script needs to be run as root"
   exit
 fi
 
-if ! dpkg-architecture -iamd64; then
-    echo "Mellanox OFED is only buildable on amd64 platforms"
-    exit 0
-fi
+require_amd64 "Mellanox OFED"
 
 if [ ! -f ${KERNEL_VAR_FILE} ]; then
     echo "Kernel variable file '${KERNEL_VAR_FILE}' does not exist, run ./build_kernel.sh first"
