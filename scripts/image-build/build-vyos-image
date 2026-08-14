@@ -759,7 +759,10 @@ Pin-Priority: 600
                 for line in p.stdout:
                     sys.stdout.write(line)
                     sys.stdout.flush()
-                p.wait()
+                if p.wait() != 0:
+                    raise ImageBuildError(
+                        f'SBOM command failed with exit status {p.returncode}: {" ".join(unsquashfs_cmd)}'
+                    )
 
             # VyOS declares ID=vyos with no ID_LIKE, therefore Syft can't detect the system correctly
             with open(os.path.join(syft_target_dir, 'etc/os-release'), 'a') as f:
@@ -794,7 +797,10 @@ Pin-Priority: 600
                     for line in p.stdout:
                         sys.stdout.write(line)
                         sys.stdout.flush()
-                    p.wait()
+                    if p.wait() != 0:
+                        raise ImageBuildError(
+                            f'SBOM command failed with exit status {p.returncode}: {" ".join(c)}'
+                        )
 
             # Add metadata.authors/supplier/lifecycles information to the SBOM file
             cdx_file = f'{base_filename}.cdx.json'
