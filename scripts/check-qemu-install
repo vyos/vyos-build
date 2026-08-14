@@ -82,6 +82,9 @@ tpm_folder = '/tmp/vyos_tpm_test'
 tpm_sock = f'{tpm_folder}/swtpm-sock'
 qemu_name = 'VyOS-QEMU'
 
+# RFC7042 section 2.1.2 MAC addresses used for documentation
+macbase = '00:00:5E:00:53'
+
 test_timeout = 5 *3600 # 5 hours (in seconds) to complete individual testcases
 
 op_mode_prompt = r'vyos@vyos:~\$'
@@ -136,6 +139,8 @@ parser.add_argument('--smoketest', help='Execute script based CLI smoketests',
 parser.add_argument('--configtest', help='Execute load/commit config tests',
 				action='store_true', default=False)
 parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
+                action='store_true', default=False)
+parser.add_argument('--ifnametest', help='Execute interface naming/hw-id persistence tests',
                 action='store_true', default=False)
 parser.add_argument('--sbtest', help='Execute Secure Boot tests',
                 action='store_true', default=False)
@@ -268,9 +273,6 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
             else:
                 nested_cdrom = f'{nested_cdrom} -device ide-cd,bus=achi0.1,{drive_settings}'
 
-    # RFC7042 section 2.1.2 MAC addresses used for documentation
-    macbase = '00:00:5E:00:53'
-
     # Set QEmu disk image format - this differs if VyOS was installed via smoketest
     # or we use an already ewxisting image
     disk_format = 'qcow2' if args.disk.endswith('.qcow2') else 'raw'
@@ -290,10 +292,10 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="",host_mtu=1500 \
         -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="",host_mtu=1500 \
         -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="",host_mtu=1500 \
-        -netdev user,id=n4 -device virtio-net-pci,netdev=n4,mac={macbase}:04,romfile="" \
-        -netdev user,id=n5 -device virtio-net-pci,netdev=n5,mac={macbase}:05,romfile="" \
-        -netdev user,id=n6 -device virtio-net-pci,netdev=n6,mac={macbase}:06,romfile="" \
-        -netdev user,id=n7 -device virtio-net-pci,netdev=n7,mac={macbase}:07,romfile="" \
+        -netdev user,id=n4 -device e1000e,netdev=n4,mac={macbase}:04,romfile="" \
+        -netdev user,id=n5 -device e1000e,netdev=n5,mac={macbase}:05,romfile="" \
+        -netdev user,id=n6 -device vmxnet3,netdev=n6,mac={macbase}:06,romfile="" \
+        -netdev user,id=n7 -device vmxnet3,netdev=n7,mac={macbase}:07,romfile="" \
         -device virtio-scsi-pci,id=scsi0 \
         {cdrom}{nested_cdrom} \
         -drive format={disk_format},file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
@@ -387,6 +389,8 @@ if args.test_image_update:
     _primary_modes.append('--test-image-update')
 if args.tpmtest:
     _primary_modes.append('--tpmtest')
+if args.ifnametest:
+    _primary_modes.append('--ifnametest')
 if args.raid:
     _primary_modes.append('--raid')
 if args.smoketest:
@@ -397,8 +401,8 @@ if args.sbtest:
     _primary_modes.append('--sbtest')
 if len(_primary_modes) > 1:
     log.error('Incompatible combination of testcase flags (%s): only one of '
-        '--cloud-init, --test-image-update, --tpmtest, --raid, --smoketest, '
-        '--configtest, --sbtest may be set.', ', '.join(_primary_modes))
+        '--cloud-init, --test-image-update, --tpmtest, --ifnametest, --raid, '
+        '--smoketest, --configtest, --sbtest may be set.', ', '.join(_primary_modes))
     sys.exit(1)
 
 if args.no_interfaces and not args.smoketest:
@@ -686,6 +690,31 @@ def basic_cli_tests(c):
     c.sendline('cat /boot/grub/grub.cfg.d/20-vyos-defaults-autoload.cfg | grep "set console_type"')
     c.expect(f'set console_type="{console_type}"')
     c.expect(op_mode_prompt)
+
+def verify_eth_mac_mapping(c, log):
+    """ NICs are attached with a mix of drivers (virtio/e1000e/vmxnet3, see
+        get_qemu_cmd()) to cover different naming schemes. Regardless of
+        driver, udev must always enumerate them in ascending order: eth0
+        carries mac0, eth1 mac1, ... up to eth7 mac7 - never scrambled. """
+    log.info('Verify eth0..eth7 are enumerated in ascending MAC order')
+    c.sendline('ip -json link show | jq -r \'.[] | select(.ifname|test("^eth[0-9]+$")) | "\(.ifname) \(.address)"\'')
+    c.expect(op_mode_prompt)
+    lines = [l.strip() for l in c.before.decode(errors='replace').splitlines() if l.strip()]
+
+    macs = {}
+    for line in lines:
+        parts = line.split()
+        if len(parts) == 2 and re.fullmatch(r'eth\d+', parts[0]):
+            macs[parts[0]] = parts[1].lower()
+
+    for i in range(8):
+        ifname = f'eth{i}'
+        expected_mac = f'{macbase}:{i:02x}'.lower()
+        if ifname not in macs:
+            raise Exception(f'Interface {ifname} not found on installed system')
+        if macs[ifname] != expected_mac:
+            raise Exception(f'Interface {ifname} has MAC {macs[ifname]}, expected {expected_mac} - naming race?')
+    log.info('eth0..eth7 MAC mapping verified')
 
 def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0.1', use_vrf=False):
     """One add-system-image/delete cycle for nested ISO over HTTP (optional Linux VRF + VyOS vrf arg)."""
@@ -1068,6 +1097,11 @@ try:
     basic_cli_tests(c)
 
     #################################################
+    # Verify NIC driver mix did not scramble interface naming
+    #################################################
+    verify_eth_mac_mapping(c, log)
+
+    #################################################
     # Verify /etc/os-release via lsb_release
     #################################################
     c.sendline('lsb_release --short --id 2>/dev/null')
@@ -1273,6 +1307,48 @@ try:
         c.expect(cfg_mode_prompt)
         c.sendline('exit')
         c.expect(op_mode_prompt)
+
+    elif args.ifnametest:
+        # A missing/deleted hw-id binding, or a fully deleted interface
+        # config, must not change the eth0..eth7 <-> MAC mapping after
+        # the next reboot (regression check for the boot-time naming race).
+        log.info('Running interface naming/hw-id persistence tests')
+        del_idx, hwid_idx = random.sample(range(8), 2)
+        log.info(f'Deleting eth{del_idx} entirely, removing hw-id only on eth{hwid_idx}')
+
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'delete interfaces ethernet eth{del_idx}')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'delete interfaces ethernet eth{hwid_idx} hw-id')
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('save')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+        log.info('Rebooting to verify interface naming survives across reboot')
+        c.sendline('reboot now')
+        waitForLogin(c, log)
+        loginVM(c, log)
+
+        log.info('Collecting interface naming diagnostics')
+        c.sendline('show configuration commands | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('show interfaces ethernet')
+        c.expect(op_mode_prompt)
+        c.sendline('ip link show')
+        c.expect(op_mode_prompt)
+        c.sendline('show log | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('cat /run/vyos-net-name-resolve.json 2>/dev/null || true')
+        c.expect(op_mode_prompt)
+        c.sendline('show log kernel | match "eth"')
+        c.expect(op_mode_prompt)
+
+        verify_eth_mac_mapping(c, log)
 
     elif args.raid:
         # Verify RAID subsystem - by deleting a disk and re-create the array
