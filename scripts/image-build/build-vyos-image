@@ -753,24 +753,157 @@ Pin-Priority: 600
             # xz streams; syft's own Go-based squashfs/xz decoder apparently only handles
             # plain single-filter. Extract squashfs first
             print("I: Unpack squashfs for SBOM generation")
-            syft_cmd = [['unsquashfs', '-quiet', '-no-progress', '-force', '-dest', syft_target_dir, 'binary/live/filesystem.squashfs']]
-            # run syft on extracted content
-            syft_cmd.append(['syft', syft_target_dir,
-                         '--source-name', 'VyOS', '--source-version', version,
-                         '-o', f'cyclonedx-json={base_filename}.cdx.json',
-                         '-o', f'spdx-json={base_filename}.spdx.json'])
+            unsquashfs_cmd = ['unsquashfs', '-quiet', '-no-progress', '-force', '-dest', syft_target_dir, 'binary/live/filesystem.squashfs']
+            with subprocess.Popen(unsquashfs_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  text=True, bufsize=1) as p:
+                for line in p.stdout:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                if p.wait() != 0:
+                    raise ImageBuildError(
+                        f'SBOM command failed with exit status {p.returncode}: {" ".join(unsquashfs_cmd)}'
+                    )
 
-            # syft bug for CycloneDX https://github.com/anchore/syft/issues/4592#issuecomment-4567247328
-            syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@@g', f'{base_filename}.cdx.json'])
-            syft_cmd.append(['sed', '-i', '-e', f's@{syft_base_path}@//@g', f'{base_filename}.spdx.json'])
+            # VyOS declares ID=vyos with no ID_LIKE, therefore Syft can't detect the system correctly
+            with open(os.path.join(syft_target_dir, 'etc/os-release'), 'a') as f:
+                f.write('ID_LIKE=debian\n')
 
-            for c in syft_cmd:
+            syft_base_flags = ['--base-path', syft_target_dir,
+                                '--exclude', './__w/**',
+                                '--exclude', '**/external_libs/**',
+                                '--source-name', 'VyOS', '--source-version', version]
+
+            # Specify Syft variables to reduce CycloneDX file size
+            cdx_env = os.environ.copy()
+            cdx_env['SYFT_FILE_METADATA_SELECTION'] = 'none'
+            cdx_env['SYFT_RELATIONSHIPS_PACKAGE_FILE_OWNERSHIP'] = 'false'
+
+            # SPDX keeps its defaults (full file cataloguing and ownership relationships).
+            spdx_env = os.environ.copy()
+
+            syft_cmd = [
+                (['syft', 'scan', f'dir:{syft_target_dir}', *syft_base_flags,
+                  '-o', f'cyclonedx-json@1.6={base_filename}.cdx.json'], cdx_env),
+                (['syft', 'scan', f'dir:{syft_target_dir}', *syft_base_flags,
+                  '-o', f'spdx-json={base_filename}.spdx.json'], spdx_env),
+                # syft bug for CycloneDX https://github.com/anchore/syft/issues/4592#issuecomment-4567247328
+                (['sed', '-i', '-e', f's@{syft_base_path}@@g', f'{base_filename}.cdx.json'], None),
+                (['sed', '-i', '-e', f's@{syft_base_path}@//@g', f'{base_filename}.spdx.json'], None),
+            ]
+
+            for c, e in syft_cmd:
                 with subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                      text=True, bufsize=1) as p:
+                                      text=True, bufsize=1, env=e) as p:
                     for line in p.stdout:
                         sys.stdout.write(line)
                         sys.stdout.flush()
-                    p.wait()
+                    if p.wait() != 0:
+                        raise ImageBuildError(
+                            f'SBOM command failed with exit status {p.returncode}: {" ".join(c)}'
+                        )
+
+            # Add metadata.authors/supplier/lifecycles information to the SBOM file
+            cdx_file = f'{base_filename}.cdx.json'
+            with open(cdx_file) as f:
+                cdx = json.load(f)
+
+            vyos_author = {'name': 'VyOS maintainers and contributors', 'email': 'maintainers@vyos.io'}
+            vyos_supplier = {'name': 'VyOS Networks', 'url': [build_defaults['website_url']]}
+            cdx['metadata']['authors'] = [vyos_author]
+            cdx['metadata']['supplier'] = vyos_supplier
+
+            cdx['metadata']['lifecycles'] = [{'phase': 'build'}]
+            cdx['metadata']['licenses'] = [{'license': {'id': 'CC0-1.0'}}]
+
+            cdx['metadata']['component']['type'] = 'operating-system'
+            cdx['metadata']['component']['supplier'] = vyos_supplier
+
+            # Add the correct supplier field for Debian packages.
+            publisher_re = re.compile(r'^(?P<name>.*?)\s*[<\[](?P<contact>[^<>\[\]]+)[>\]]$')
+            email_re = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+            for comp in cdx['components']:
+                publisher = comp.get('publisher')
+                if not publisher:
+                    continue
+                m = publisher_re.match(publisher.strip())
+                if m:
+                    name, contact = m.group('name').strip(), m.group('contact').strip()
+                    if name.lower() == 'none' or contact.lower() == 'none':
+                        continue
+                    supplier = {}
+                    if name:
+                        supplier['name'] = name
+                    if '@' in contact:
+                        supplier['contact'] = [{'email': contact}]
+                elif email_re.match(publisher.strip()):
+                    supplier = {'contact': [{'email': publisher.strip()}]}
+                else:
+                    supplier = {'name': publisher.strip()}
+                if supplier:
+                    comp['supplier'] = supplier
+
+            # VyOS compiles every kernel module itself, so it's correct to list VyOS as the supplier for these modules.
+            for comp in cdx['components']:
+                if comp.get('supplier'):
+                    continue
+                found_by = next((p['value'] for p in comp.get('properties', [])
+                                  if p.get('name') == 'syft:package:foundBy'), None)
+                if found_by == 'linux-kernel-cataloger':
+                    comp['supplier'] = vyos_supplier
+
+            # Use the component.author value as the supplier for Python packages.
+            for comp in cdx['components']:
+                if comp.get('supplier'):
+                    continue
+                author = comp.get('author')
+                if not author:
+                    continue
+                m = publisher_re.match(author.strip())
+                if m:
+                    name, contact = m.group('name').strip(), m.group('contact').strip()
+                    if name.lower() == 'none' or contact.lower() == 'none':
+                        continue
+                    supplier = {}
+                    if name:
+                        supplier['name'] = name
+                    if '@' in contact:
+                        supplier['contact'] = [{'email': contact}]
+                elif email_re.match(author.strip()):
+                    supplier = {'contact': [{'email': author.strip()}]}
+                else:
+                    supplier = {'name': author.strip()}
+                if supplier:
+                    comp['supplier'] = supplier
+
+            # Specify the supplier for golang.org/x/* modules and the embedded Go stdlib.
+            go_authors_supplier = {'name': 'The Go Authors', 'url': ['https://go.dev']}
+            for comp in cdx['components']:
+                if comp.get('supplier'):
+                    continue
+                name = comp.get('name', '')
+                if name.startswith('golang.org/x/') or name == 'stdlib':
+                    comp['supplier'] = go_authors_supplier
+
+            with open(cdx_file, 'w') as f:
+                json.dump(cdx, f)
+
+            spdx_file = f'{base_filename}.spdx.json'
+            with open(spdx_file) as f:
+                spdx = json.load(f)
+
+            spdx['creationInfo']['creators'] = [
+                c for c in spdx['creationInfo']['creators'] if not c.startswith('Organization:')
+            ] + ['Organization: VyOS maintainers and contributors (maintainers@vyos.io)']
+
+            spdx['documentNamespace'] = 'https://vyos.io/sbom/' + spdx['documentNamespace'].rsplit('/', 1)[-1]
+            for pkg in spdx['packages']:
+                if pkg.get('SPDXID', '').startswith('SPDXRef-DocumentRoot-'):
+                    pkg['supplier'] = 'Organization: VyOS Networks (' + build_defaults['website_url'] + ')'
+                    pkg['primaryPackagePurpose'] = 'OPERATING-SYSTEM'
+
+            with open(spdx_file, 'w') as f:
+                json.dump(spdx, f)
+
             print("I: Finished SBOM generation")
         finally:
             # remove temporary unpacked squashfs, even on failure/interruption
