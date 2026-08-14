@@ -595,12 +595,18 @@ def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
 
         # Wait for GRUB
         child.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
-        time.sleep(BOOTLOADER_LOAD_TMO)
 
+        # Unlike the live ISO menus (10s timeout), the installed system's
+        # top-level menu auto-boots its default entry after ~BOOTLOADER_LOAD_TMO
+        # seconds - the same delay this script would otherwise sleep before
+        # sending any key. Under host load that leaves no margin: GRUB can
+        # auto-boot before "Boot options" is ever selected. Send the first
+        # navigation key immediately to cancel the countdown, then give the
+        # screen time to settle.
         # Select GRUB serial console
         # Boot options
         child.send(KEY_DOWN)
-        time.sleep(BOOTLOADER_SLEEP)
+        time.sleep(BOOTLOADER_LOAD_TMO)
         child.send(KEY_RETURN)
         time.sleep(BOOTLOADER_SLEEP)
         # GRUB submenus never time out on their own, so confirm we actually
