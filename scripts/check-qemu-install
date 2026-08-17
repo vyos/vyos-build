@@ -166,6 +166,13 @@ args = parser.parse_args()
 if os.geteuid() != 0:
     exit('You need to have root privileges to run this script.')
 
+if platform.machine() not in ['amd64', 'x86_64', 'arm64', 'aarch64']:
+    exit(f'Unsupported host architecture "{platform.machine()}" - this script '
+         'only runs on amd64 or arm64 hosts.')
+
+if platform.machine() in ['arm64', 'aarch64'] and not args.uefi:
+    exit('--uefi is mandatory when running on arm64 hosts.')
+
 if args.cloud_init:
     hostname = CI_CONFIG_ARGS['hostname']
     op_mode_prompt = rf'vyos@{hostname}:~\$'
