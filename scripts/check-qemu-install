@@ -747,6 +747,64 @@ def verify_eth_mac_mapping(c, log):
             raise Exception(f'Interface {ifname} has MAC {macs[ifname]}, expected {expected_mac} - naming race?')
     log.info('eth0..eth7 MAC mapping verified')
 
+def verify_swapped_hwid_assignment(c, log, mac1, mac2):
+    """ eth1/eth2 were just explicitly reassigned to the opposite of their
+        default MAC order (eth1 -> the numerically higher MAC, eth2 -> the
+        lower one) - an ordinary, unambiguous rightful-owner rename that
+        must take effect cleanly. This is the precondition for the next
+        check: an existing box whose interface names do not follow
+        ascending PCIe/MAC order, exactly like a real, already-provisioned
+        system (its hw-id came from historical probe-order rescan, not
+        from this sort). """
+    log.info('Verify the swapped eth1/eth2 hw-id assignment took effect')
+    c.sendline('ip -json link show | jq -r \'.[] | select(.ifname|test("^eth[0-9]+$")) | "\(.ifname) \(.address)"\'')
+    c.expect(op_mode_prompt)
+    lines = [l.strip() for l in c.before.decode(errors='replace').splitlines() if l.strip()]
+
+    macs = {}
+    for line in lines:
+        parts = line.split()
+        if len(parts) == 2 and re.fullmatch(r'eth\d+', parts[0]):
+            macs[parts[0]] = parts[1].lower()
+
+    if macs.get('eth1') != mac2:
+        raise Exception(f'Interface eth1 has MAC {macs.get("eth1")}, expected {mac2} '
+                         '- swapped hw-id assignment did not take effect')
+    if macs.get('eth2') != mac1:
+        raise Exception(f'Interface eth2 has MAC {macs.get("eth2")}, expected {mac1} '
+                         '- swapped hw-id assignment did not take effect')
+    log.info('Swapped hw-id assignment confirmed - eth1/eth2 no longer follow ascending MAC order')
+
+def verify_pending_node_never_gets_wrong_hardware(c, log, ifname, wrong_mac):
+    """ Regression reported against an earlier PCIe/MAC-sorted replacement
+        fill: with an unrelated interface fully removed in the same boot
+        that `ifname`'s hw-id alone was cleared, there is no way to tell
+        which of the freed candidates is genuinely `ifname`'s own
+        hardware once its hw-id is gone - so the fix leaves `ifname`
+        pending (safely unresolved) rather than guessing. `ifname` must
+        never end up bound to `wrong_mac` - the OTHER freed interface's
+        hardware - which would silently apply a setting configured on
+        `ifname` (e.g. address) to a different physical NIC. `ifname`
+        simply not existing (still pending) is the expected, safe
+        outcome here, not a failure. """
+    log.info(f'Verify {ifname} was never bound to the wrong physical NIC')
+    c.sendline('ip -json link show | jq -r \'.[] | select(.ifname|test("^eth[0-9]+$")) | "\(.ifname) \(.address)"\'')
+    c.expect(op_mode_prompt)
+    lines = [l.strip() for l in c.before.decode(errors='replace').splitlines() if l.strip()]
+
+    macs = {}
+    for line in lines:
+        parts = line.split()
+        if len(parts) == 2 and re.fullmatch(r'eth\d+', parts[0]):
+            macs[parts[0]] = parts[1].lower()
+
+    if macs.get(ifname) == wrong_mac:
+        raise Exception(f'Interface {ifname} has MAC {wrong_mac} - bound to the '
+                         "OTHER freed interface's hardware instead of its own "
+                         f'(a setting configured on {ifname} is now applied to '
+                         'the wrong wire)')
+    log.info(f'{ifname} was not bound to the wrong physical NIC')
+
 def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0.1', use_vrf=False):
     """One add-system-image/delete cycle for nested ISO over HTTP (optional Linux VRF + VyOS vrf arg)."""
     url = f'http://{server_bind_host}:{NESTED_HTTP_SERV_PORT}/{NESTED_INNER_ISO_NAME}'
@@ -1342,16 +1400,24 @@ try:
     elif args.ifnametest:
         # A missing/deleted hw-id binding, or a fully deleted interface
         # config, must not change the eth0..eth7 <-> MAC mapping after
-        # the next reboot (regression check for the boot-time naming race).
+        # the next reboot (regression check for the boot-time naming
+        # race). Deliberately run as two INDEPENDENT reboots rather than
+        # one combined one: a pending node (hw-id cleared, node kept)
+        # only ever recovers its own hardware automatically when it's
+        # the sole candidate of its type this boot - if a different,
+        # unrelated interface's config were ALSO fully removed in the
+        # same boot, the two freed NICs become genuinely indistinguishable
+        # candidates and neither auto-resolves (see
+        # verify_pending_node_never_gets_wrong_hardware() below for why
+        # guessing there is unsafe). Testing each mechanism in its own
+        # boot is what each can actually guarantee.
         log.info('Running interface naming/hw-id persistence tests')
         del_idx, hwid_idx = random.sample(range(8), 2)
-        log.info(f'Deleting eth{del_idx} entirely, removing hw-id only on eth{hwid_idx}')
 
+        log.info(f'Deleting eth{del_idx} entirely')
         c.sendline('configure')
         c.expect(cfg_mode_prompt)
         c.sendline(f'delete interfaces ethernet eth{del_idx}')
-        c.expect(cfg_mode_prompt)
-        c.sendline(f'delete interfaces ethernet eth{hwid_idx} hw-id')
         c.expect(cfg_mode_prompt)
         c.sendline('commit')
         c.expect(cfg_mode_prompt)
@@ -1360,7 +1426,7 @@ try:
         c.sendline('exit')
         c.expect(op_mode_prompt)
 
-        log.info('Rebooting to verify interface naming survives across reboot')
+        log.info('Rebooting to verify the fully deleted interface backfills its own gap')
         c.sendline('reboot now')
         waitForLogin(c, log)
         loginVM(c, log)
@@ -1380,6 +1446,118 @@ try:
         c.expect(op_mode_prompt)
 
         verify_eth_mac_mapping(c, log)
+
+        log.info(f"Removing hw-id only on eth{hwid_idx}, keeping its node")
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f'delete interfaces ethernet eth{hwid_idx} hw-id')
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('save')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+        log.info('Rebooting to verify the pending node reclaims its own hardware')
+        c.sendline('reboot now')
+        waitForLogin(c, log)
+        loginVM(c, log)
+
+        log.info('Collecting interface naming diagnostics')
+        c.sendline('show configuration commands | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('show interfaces ethernet')
+        c.expect(op_mode_prompt)
+        c.sendline('ip link show')
+        c.expect(op_mode_prompt)
+        c.sendline('show log | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('cat /run/vyos-net-name-resolve.json 2>/dev/null || true')
+        c.expect(op_mode_prompt)
+        c.sendline('show log kernel | match "eth"')
+        c.expect(op_mode_prompt)
+
+        verify_eth_mac_mapping(c, log)
+
+        # Second, separate regression: a settings-bearing node must
+        # reclaim its OWN hardware, not whatever an ascending PCIe/MAC
+        # sort hands it, when an unrelated interface is fully removed in
+        # the same boot. The harness's own MACs are sequential
+        # (macbase:00..07), so a random del_idx/hwid_idx pair here would
+        # never expose this - a fresh install's initial bootstrap already
+        # sorts names and MACs together. Deterministically invert eth1's
+        # and eth2's hw-id first, so their names no longer follow
+        # ascending MAC order - exactly like any already-provisioned box,
+        # whose hw-id came from historical probe-order rescan rather than
+        # this sort.
+        log.info('Simulating an existing box whose interface names do not '
+                 'follow PCIe/MAC order, then replacing one NIC while a '
+                 'different, unrelated interface is fully removed')
+        mac1 = f'{macbase}:01'.lower()
+        mac2 = f'{macbase}:02'.lower()
+
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline('delete interfaces ethernet eth1 hw-id')
+        c.expect(cfg_mode_prompt)
+        c.sendline('delete interfaces ethernet eth2 hw-id')
+        c.expect(cfg_mode_prompt)
+        c.sendline(f"set interfaces ethernet eth1 hw-id '{mac2}'")
+        c.expect(cfg_mode_prompt)
+        c.sendline(f"set interfaces ethernet eth2 hw-id '{mac1}'")
+        c.expect(cfg_mode_prompt)
+        c.sendline("set interfaces ethernet eth2 address '10.99.2.1/24'")
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('save')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+        log.info('Rebooting to establish the swapped hw-id assignment as '
+                 "this box's existing state")
+        c.sendline('reboot now')
+        waitForLogin(c, log)
+        loginVM(c, log)
+
+        verify_swapped_hwid_assignment(c, log, mac1, mac2)
+
+        log.info('Fully removing eth1 while only clearing eth2\'s hw-id, '
+                 'keeping its address - the exact shape reported to '
+                 'silently bind a configured node to the wrong physical NIC')
+        c.sendline('configure')
+        c.expect(cfg_mode_prompt)
+        c.sendline('delete interfaces ethernet eth1')
+        c.expect(cfg_mode_prompt)
+        c.sendline('delete interfaces ethernet eth2 hw-id')
+        c.expect(cfg_mode_prompt)
+        c.sendline('commit')
+        c.expect(cfg_mode_prompt)
+        c.sendline('save')
+        c.expect(cfg_mode_prompt)
+        c.sendline('exit')
+        c.expect(op_mode_prompt)
+
+        log.info('Rebooting to check eth2 is never bound to the wrong physical NIC')
+        c.sendline('reboot now')
+        waitForLogin(c, log)
+        loginVM(c, log)
+
+        log.info('Collecting mac-order-mismatch diagnostics')
+        c.sendline('show configuration commands | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('show interfaces ethernet')
+        c.expect(op_mode_prompt)
+        c.sendline('ip link show')
+        c.expect(op_mode_prompt)
+        c.sendline('show log | match "hw-id"')
+        c.expect(op_mode_prompt)
+        c.sendline('cat /run/vyos-net-name-resolve.json 2>/dev/null || true')
+        c.expect(op_mode_prompt)
+
+        verify_pending_node_never_gets_wrong_hardware(c, log, 'eth2', mac2)
 
     elif args.raid:
         # Verify RAID subsystem - by deleting a disk and re-create the array
