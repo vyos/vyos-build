@@ -19,7 +19,7 @@ TEST_MEM := $(shell awk '/MemTotal/{if ($$2/1024/1024 >= 10) print 8; else print
 # to their scripts via $(MAKECMDGOALS). Those extra words are also goals as
 # far as make is concerned, so without this they'd fall through to the `%:`
 # flavor rule below and run build-vyos-image with garbage arguments.
-TEST_TARGETS := test test-no-interfaces test-no-interfaces-no-vpp test-interfaces test-vpp testc testcvpp testraid testsb testtpm testifname test-ci-qcow2 test-image-update qemu-live
+TEST_TARGETS := test test-no-interfaces test-no-interfaces-no-vpp test-interfaces test-vpp testc testcvpp testraid testsb testtpm testifname test-ci-qcow2 test-image-update qemu-live test-suite
 ifneq ($(filter $(TEST_TARGETS),$(firstword $(MAKECMDGOALS))),)
 $(eval $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS)):;@:)
 endif
@@ -86,6 +86,17 @@ testtpm:
 .ONESHELL:
 testifname:
 	scripts/check-qemu-install --debug $(UEFI_FLAG) --ifnametest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+
+# Runs each test target as its own $(MAKE) invocation (rather than as
+# prerequisites) so make aborts immediately on the first failing testcase
+# instead of collecting failures across a parallel-eligible dependency list.
+.PHONY: test-suite
+test-suite:
+	$(MAKE) test-interfaces
+	$(MAKE) test-no-interfaces-no-vpp
+	$(MAKE) testc
+	$(MAKE) testraid
+	$(MAKE) testifname
 
 .PHONY: test-ci-qcow2
 .ONESHELL:
