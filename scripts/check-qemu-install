@@ -547,7 +547,7 @@ def toggleUEFISecureBoot(c):
     UEFIKeyPress(c, KEY_DOWN)
     UEFIKeyPress(c, KEY_RETURN)
 
-def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
+def BOOTLOADERchooseSerialConsole(child, live: bool, log=None) -> None:
     """ Select GRUB boot entry that uses the serial console. This differs
         between a LIVE ISO image and an already installed system. """
     BOOTLOADER_TMO = 40
@@ -596,39 +596,58 @@ def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
         # Wait for GRUB
         child.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
 
-        # Unlike the live ISO menus (10s timeout), the installed system's
-        # top-level menu auto-boots its default entry after ~BOOTLOADER_LOAD_TMO
-        # seconds - the same delay this script would otherwise sleep before
-        # sending any key. Under host load that leaves no margin: GRUB can
-        # auto-boot before "Boot options" is ever selected. Send the first
-        # navigation key immediately to cancel the countdown, then give the
-        # screen time to settle.
-        # Select GRUB serial console
-        # Boot options
-        child.send(KEY_DOWN)
-        time.sleep(BOOTLOADER_LOAD_TMO)
-        child.send(KEY_RETURN)
-        time.sleep(BOOTLOADER_SLEEP)
-        # GRUB submenus never time out on their own, so confirm we actually
-        # landed on this submenu before navigating further - otherwise a
-        # dropped keypress leaves the VM stuck here until the login wait
-        # elsewhere expires
-        child.expect('Select console type', timeout=BOOTLOADER_TMO)
+        # The installed system's top-level menu auto-boots its default
+        # entry after ~BOOTLOADER_LOAD_TMO seconds, timed from when GRUB
+        # itself draws the menu - not from when this script's regex match
+        # on GRUB_STRING returns. Under host load the menu text can reach
+        # us well after that internal countdown already started, so there
+        # is no reliable amount of "send a key fast enough" that wins this
+        # race every time.
+        #
+        # That's fine to lose: the installer always answers 'S' (serial)
+        # to "What console should be used by default?", so the default
+        # entry GRUB auto-boots already targets the right console.
+        # waitForLogin()/loginVM(), called after this function returns,
+        # already tolerate landing straight on the GRUB countdown or the
+        # login prompt. So treat this submenu navigation as best-effort:
+        # if we don't land in "Boot options" in time, stop navigating and
+        # let the default entry (which is already auto-booting) carry on,
+        # instead of raising and aborting the whole test.
+        try:
+            # Select GRUB serial console
+            # Boot options
+            child.send(KEY_DOWN)
+            time.sleep(BOOTLOADER_LOAD_TMO)
+            child.send(KEY_RETURN)
+            time.sleep(BOOTLOADER_SLEEP)
+            # GRUB submenus never time out on their own, so confirm we actually
+            # landed on this submenu before navigating further - otherwise a
+            # dropped keypress leaves the VM stuck here until the login wait
+            # elsewhere expires
+            child.expect('Select console type', timeout=BOOTLOADER_TMO)
+        except pexpect.TIMEOUT:
+            if log is not None:
+                log.warning('GRUB auto-booted the default entry before "Boot '
+                            'options" navigation completed; continuing since '
+                            'the default entry already boots the serial '
+                            'console selected during install')
+        else:
+            # We're inside the submenu, so a timeout past this point is a
+            # real navigation bug, not the auto-boot race - let it propagate.
+            # Select console type
+            child.send(KEY_DOWN)
+            time.sleep(BOOTLOADER_SLEEP)
+            child.send(KEY_RETURN)
+            time.sleep(BOOTLOADER_SLEEP)
+            child.expect(r'ttyS \(serial\)', timeout=BOOTLOADER_TMO)
 
-        # Select console type
-        child.send(KEY_DOWN)
-        time.sleep(BOOTLOADER_SLEEP)
-        child.send(KEY_RETURN)
-        time.sleep(BOOTLOADER_SLEEP)
-        child.expect(r'ttyS \(serial\)', timeout=BOOTLOADER_TMO)
-
-        # *ttyS (serial)
-        child.send(KEY_DOWN)
-        time.sleep(BOOTLOADER_SLEEP)
-        child.send(KEY_RETURN)
-        time.sleep(BOOTLOADER_SLEEP)
-        # Boot
-        child.send(KEY_RETURN)
+            # *ttyS (serial)
+            child.send(KEY_DOWN)
+            time.sleep(BOOTLOADER_SLEEP)
+            child.send(KEY_RETURN)
+            time.sleep(BOOTLOADER_SLEEP)
+            # Boot
+            child.send(KEY_RETURN)
 
     return None
 
@@ -904,7 +923,7 @@ try:
         log.info('Disable UEFI Secure Boot for initial installation')
         toggleUEFISecureBoot(c)
 
-    BOOTLOADERchooseSerialConsole(c, live=(not args.cloud_init))
+    BOOTLOADERchooseSerialConsole(c, live=(not args.cloud_init), log=log)
     loginVM(c, log)
 
     #################################################
@@ -1070,7 +1089,7 @@ try:
     # Booting installed system
     #################################################
     log.info('Booting installed system')
-    BOOTLOADERchooseSerialConsole(c, live=False)
+    BOOTLOADERchooseSerialConsole(c, live=False, log=log)
 
     #################################################
     # Logging into VyOS system
