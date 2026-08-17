@@ -4,6 +4,10 @@ build_dir := build
 ARCH := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 ISO_PATH := $(build_dir)/live-image-$(ARCH).hybrid.iso
 
+# scripts/check-qemu-install requires --uefi on arm64/aarch64 hosts; on
+# amd64 it stays optional.
+UEFI_FLAG := $(if $(filter arm64 aarch64,$(ARCH)),--uefi,)
+
 # Test targets forward extra CLI arguments (e.g. `make test -- --match foo`)
 # to their scripts via $(MAKECMDGOALS). Those extra words are also goals as
 # far as make is concerned, so without this they'd fall through to the `%:`
@@ -49,17 +53,17 @@ test-vpp:
 .PHONY: testc
 .ONESHELL:
 testc:
-	scripts/check-qemu-install --debug --match="!vpp" --cpu 2 --memory 7 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --match="!vpp" $(UEFI_FLAG) --cpu 2 --memory 7 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testcvpp
 .ONESHELL:
 testcvpp:
-	scripts/check-qemu-install --debug --match="vpp" --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug --match="vpp" $(UEFI_FLAG) --cpu 4 --memory 8 --huge-page-size 2M --huge-page-count 1800 --isolate-cpus 2-3 --configtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testraid
 .ONESHELL:
 testraid:
-	scripts/check-qemu-install --debug --raid --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug $(UEFI_FLAG) --raid --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testsb
 .ONESHELL:
@@ -69,12 +73,12 @@ testsb:
 .PHONY: testtpm
 .ONESHELL:
 testtpm:
-	scripts/check-qemu-install --debug --tpmtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug $(UEFI_FLAG) --tpmtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: testifname
 .ONESHELL:
 testifname:
-	scripts/check-qemu-install --debug --ifnametest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug $(UEFI_FLAG) --ifnametest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-ci-qcow2
 .ONESHELL:
@@ -84,17 +88,17 @@ test-ci-qcow2:
 		exit 1
 	fi
 	rm -f cloud-init-image-$(ARCH).qcow2 ; cp $$(ls -t build/*.qcow2 | head -n 1) cloud-init-image-$(ARCH).qcow2
-	scripts/check-qemu-install --debug --cloud-init --disk cloud-init-image-$(ARCH).qcow2 $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug $(UEFI_FLAG) --cloud-init --disk cloud-init-image-$(ARCH).qcow2 $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: test-image-update
 .ONESHELL:
 test-image-update:
-	scripts/check-qemu-install --debug --test-image-update --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --debug $(UEFI_FLAG) --test-image-update --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: qemu-live
 .ONESHELL:
 qemu-live:
-	scripts/check-qemu-install --qemu-cmd --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+	scripts/check-qemu-install --qemu-cmd $(UEFI_FLAG) --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: oci
 .ONESHELL:
