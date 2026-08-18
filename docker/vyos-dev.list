@@ -1,0 +1,1 @@
+deb [signed-by=/usr/share/keyrings/vyos-dev-archive-keyring.asc] https://packages.vyos.net/repositories/rolling rolling main
