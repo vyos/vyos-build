@@ -36,6 +36,58 @@ import tempfile
 class ImageBuildError(Exception):
     pass
 
+# Parse email contact strings.
+def supplier_from_contact_string(raw):
+    if not raw:
+        return None
+    m = re.match(r'^(?P<name>.*?)\s*[<\[](?P<contact>[^<>\[\]]+)[>\]]$', raw.strip())
+    if m:
+        name, contact = m.group('name').strip(), m.group('contact').strip()
+        if name.lower() == 'none' or contact.lower() == 'none':
+            return None
+        supplier = {}
+        if name:
+            supplier['name'] = name
+        if '@' in contact:
+            supplier['contact'] = [{'email': contact}]
+        return supplier or None
+    if re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', raw.strip()):
+        return {'contact': [{'email': raw.strip()}]}
+    return {'name': raw.strip()}
+
+def component_supplier(comp, vyos_supplier, go_authors_supplier):
+    # Return the supplier field for CycloneDX components.
+
+    # Debian packages: the Maintainer field (component.publisher) is a real,
+    # per-package supplier fact.
+    supplier = supplier_from_contact_string(comp.get('publisher'))
+    if supplier:
+        return supplier
+
+    # Kernel modules: VyOS compiles every one itself for this exact kernel
+    # build, so VyOS genuinely is the supplier of the binary - regardless of
+    # who originally authored the driver source.
+    found_by = next((p['value'] for p in comp.get('properties', [])
+                      if p.get('name') == 'syft:package:foundBy'), None)
+    if found_by == 'linux-kernel-cataloger':
+        return vyos_supplier
+
+    # Python packages: component.author (from the package's own METADATA) is
+    # a real, per-package supplier fact. We install these packages unmodified.
+    supplier = supplier_from_contact_string(comp.get('author'))
+    if supplier:
+        return supplier
+
+    # golang.org/x/* and the embedded Go stdlib: a verified official
+    # supplier, every LICENSE file says "Copyright <year> The Go Authors".
+    # Not extended to other Go modules (e.g. github.com/<org>/<repo>): unlike
+    # this one prefix, there's no single verifiable fact covering all of them.
+    name = comp.get('name', '')
+    if name.startswith('golang.org/x/') or name == 'stdlib':
+        return go_authors_supplier
+
+    return None
+
 # argparse converts hyphens to underscores,
 # so for lookups in the original options hash we have to convert them back
 def field_to_option(s):
@@ -809,6 +861,8 @@ Pin-Priority: 600
 
             vyos_author = {'name': 'VyOS maintainers and contributors', 'email': 'maintainers@vyos.io'}
             vyos_supplier = {'name': 'VyOS Networks', 'url': [build_defaults['website_url']]}
+            go_authors_supplier = {'name': 'The Go Authors', 'url': ['https://go.dev']}
+
             cdx['metadata']['authors'] = [vyos_author]
             cdx['metadata']['supplier'] = vyos_supplier
 
@@ -818,71 +872,11 @@ Pin-Priority: 600
             cdx['metadata']['component']['type'] = 'operating-system'
             cdx['metadata']['component']['supplier'] = vyos_supplier
 
-            # Add the correct supplier field for Debian packages.
-            publisher_re = re.compile(r'^(?P<name>.*?)\s*[<\[](?P<contact>[^<>\[\]]+)[>\]]$')
-            email_re = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+            # Add the correct component.supplier field.
             for comp in cdx['components']:
-                publisher = comp.get('publisher')
-                if not publisher:
-                    continue
-                m = publisher_re.match(publisher.strip())
-                if m:
-                    name, contact = m.group('name').strip(), m.group('contact').strip()
-                    if name.lower() == 'none' or contact.lower() == 'none':
-                        continue
-                    supplier = {}
-                    if name:
-                        supplier['name'] = name
-                    if '@' in contact:
-                        supplier['contact'] = [{'email': contact}]
-                elif email_re.match(publisher.strip()):
-                    supplier = {'contact': [{'email': publisher.strip()}]}
-                else:
-                    supplier = {'name': publisher.strip()}
+                supplier = component_supplier(comp, vyos_supplier, go_authors_supplier)
                 if supplier:
                     comp['supplier'] = supplier
-
-            # VyOS compiles every kernel module itself, so it's correct to list VyOS as the supplier for these modules.
-            for comp in cdx['components']:
-                if comp.get('supplier'):
-                    continue
-                found_by = next((p['value'] for p in comp.get('properties', [])
-                                  if p.get('name') == 'syft:package:foundBy'), None)
-                if found_by == 'linux-kernel-cataloger':
-                    comp['supplier'] = vyos_supplier
-
-            # Use the component.author value as the supplier for Python packages.
-            for comp in cdx['components']:
-                if comp.get('supplier'):
-                    continue
-                author = comp.get('author')
-                if not author:
-                    continue
-                m = publisher_re.match(author.strip())
-                if m:
-                    name, contact = m.group('name').strip(), m.group('contact').strip()
-                    if name.lower() == 'none' or contact.lower() == 'none':
-                        continue
-                    supplier = {}
-                    if name:
-                        supplier['name'] = name
-                    if '@' in contact:
-                        supplier['contact'] = [{'email': contact}]
-                elif email_re.match(author.strip()):
-                    supplier = {'contact': [{'email': author.strip()}]}
-                else:
-                    supplier = {'name': author.strip()}
-                if supplier:
-                    comp['supplier'] = supplier
-
-            # Specify the supplier for golang.org/x/* modules and the embedded Go stdlib.
-            go_authors_supplier = {'name': 'The Go Authors', 'url': ['https://go.dev']}
-            for comp in cdx['components']:
-                if comp.get('supplier'):
-                    continue
-                name = comp.get('name', '')
-                if name.startswith('golang.org/x/') or name == 'stdlib':
-                    comp['supplier'] = go_authors_supplier
 
             with open(cdx_file, 'w') as f:
                 json.dump(cdx, f)
