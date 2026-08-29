@@ -1,0 +1,33 @@
+#!/bin/sh
+
+PREREQS=""
+prereqs() { echo "$PREREQS"; }
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+source /scripts/functions
+log_begin_msg "Running e2fsck"
+
+persistent_partition=`blkid -L persistence -o device`
+if test -n "${persistent_partition}"; then
+  e2fsck -p "${persistent_partition}"
+  rc=$?
+  if [ "${rc}" -le 1 ]; then
+    log_success_msg "fsck succeded"
+  elif [ "${rc}" -eq 2 ]; then
+    log_success_msg "fsck succeded, but the system should be rebooted, reboot will occur shortly"
+    log_end_msg
+    reboot
+  else
+    log_failure_msg "fsck failed returning code ${rc}"
+  fi
+else
+  log_warning_msg "No partition named persistence found"
+fi
+
+log_end_msg
