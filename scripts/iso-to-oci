@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-
 cleanup() {
     if [[ -n "${WORKDIR:-}" && -d "${WORKDIR:-}" ]]; then
         rm -rf "${WORKDIR}"
@@ -57,6 +55,8 @@ xorriso -osirrox on -indev "${ISO}" -extract /live/filesystem.squashfs "${ROOTFS
 echo "I: extracting squashfs content"
 unsquashfs -follow -dest "${UNSQUASHFS}/" "${ROOTFS}/live/filesystem.squashfs" >/dev/null 2>&1
 VERSION="$(jq --raw-output .version "${ROOTFS}/version.json")"
+ARCH="$(jq --raw-output .architecture "${ROOTFS}/version.json")"
+OCI_IMAGE="vyos-${VERSION}-oci-${ARCH}.tar"
 
 # fix locales for correct system configuration loading
 sed -i 's/^LANG=.*$/LANG=C.UTF-8/' "${UNSQUASHFS}/etc/default/locale"
@@ -82,12 +82,12 @@ rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/perfor
 ln -s /opt/vyatta/etc/config "${UNSQUASHFS}/config"
 
 # create docker image
-echo "I: generate OCI container image vyos-$VERSION.tar"
-tar -C "${UNSQUASHFS}" -c . -f "vyos-${VERSION}.tar"
+echo "I: generate OCI container image ${OCI_IMAGE}"
+tar -C "${UNSQUASHFS}" -c . -f "${OCI_IMAGE}"
 
 echo "I: to import the previously generated OCI image to your local images run:"
 echo ""
-echo "   docker import vyos-$VERSION.tar vyos:$VERSION --change 'CMD ["/sbin/init"]'"
+echo "   docker import --platform=linux/$ARCH $OCI_IMAGE vyos:$VERSION --change 'CMD ["/sbin/init"]'"
 echo ""
 
 cleanup
