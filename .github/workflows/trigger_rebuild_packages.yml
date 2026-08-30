@@ -74,6 +74,8 @@ jobs:
               - 'scripts/package-build/node_exporter/**'
             openssl:
               - 'scripts/package-build/openssl/**'
+            openvpn:
+              - 'scripts/package-build/openvpn/**'
             openvpn-otp:
               - 'scripts/package-build/openvpn-otp/**'
             owamp:
@@ -225,6 +227,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.openssl }}" == "true" ]; then
             trigger_build "openssl"
+          fi
+
+          if [ "${{ steps.changes.outputs.openvpn }}" == "true" ]; then
+            trigger_build "openvpn"
           fi
 
           if [ "${{ steps.changes.outputs.openvpn-otp }}" == "true" ]; then
