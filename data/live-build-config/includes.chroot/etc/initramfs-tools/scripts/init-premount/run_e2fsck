@@ -15,7 +15,7 @@ log_begin_msg "Running e2fsck"
 
 persistent_partition=`blkid -L persistence -o device`
 
-# check if partition has been found and is not mounted
+# this first if checks if a partition with label=='persistence' exists and is not already mounted.
 if test -n "${persistent_partition}" && ! grep -q "^${persistent_partition} " '/proc/mounts'; then
   e2fsck -p "${persistent_partition}"
   rc=$?
@@ -30,10 +30,8 @@ if test -n "${persistent_partition}" && ! grep -q "^${persistent_partition} " '/
   else
     log_failure_msg "fsck failed returning code ${rc}"
   fi
-# in case the partition is mounted
 elif test -n "${persistent_partition}"; then
   log_failure_msg "filesystem already mounted"
-# no partition has been found
 else
   log_warning_msg "No partition named persistence found"
 fi
