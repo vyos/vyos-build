@@ -1,0 +1,10 @@
+[[packages]]
+name = "openvpn"
+commit_id = "debian/2.7.5-1"
+scm_url = "https://salsa.debian.org/debian/openvpn.git"
+
+# bookworm has no systemd-dev package, systemd itself ships the pkg-config
+# files there. Must run before mk-build-deps reads debian/control.
+pre_build_hook = '''git reset --hard HEAD && git clean -ffdx && sed -i '/ systemd-dev /d' debian/control'''
+
+build_cmd = "sed -i '1s/)/+vyos1)/' debian/changelog && dpkg-buildpackage -uc -us -tc -b"
