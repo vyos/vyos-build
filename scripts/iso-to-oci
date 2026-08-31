@@ -55,7 +55,8 @@ xorriso -osirrox on -indev "${ISO}" -extract /live/filesystem.squashfs "${ROOTFS
 echo "I: extracting squashfs content"
 unsquashfs -follow -dest "${UNSQUASHFS}/" "${ROOTFS}/live/filesystem.squashfs" >/dev/null 2>&1
 VERSION="$(jq --raw-output .version "${ROOTFS}/version.json")"
-ARCH="$(jq --raw-output .architecture "${ROOTFS}/version.json")"
+# older ISOs predate ARM64 support and carry no architecture in version.json
+ARCH="$(jq --raw-output '.architecture // "amd64"' "${ROOTFS}/version.json")"
 OCI_IMAGE="vyos-${VERSION}-oci-${ARCH}.tar"
 
 # fix locales for correct system configuration loading
