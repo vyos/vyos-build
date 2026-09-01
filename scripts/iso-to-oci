@@ -96,7 +96,7 @@ XZ_OPT="-T0" tar --directory "${UNSQUASHFS}" --create . --xz --file "${OCI_IMAGE
 
 echo "I: to import the previously generated OCI image to your local images run:"
 echo ""
-echo "   docker import --platform=linux/$ARCH $OCI_IMAGE vyos:$VERSION --change 'CMD ["/sbin/init"]'"
+echo "   docker import --platform=linux/$ARCH $OCI_IMAGE vyos/vyos:$VERSION --change 'CMD [\"/sbin/init\"]'"
 echo ""
 
 cleanup
