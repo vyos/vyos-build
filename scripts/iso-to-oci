@@ -62,6 +62,14 @@ OCI_IMAGE="vyos-${VERSION}-oci-${ARCH}.tar.xz"
 # fix locales for correct system configuration loading
 sed -i 's/^LANG=.*$/LANG=C.UTF-8/' "${UNSQUASHFS}/etc/default/locale"
 
+# seed the VyOS pre-login banner - /etc/issue is owned by the base-files
+# package and only replaced once system_login_banner.py runs on the first
+# commit, but getty(8) is up long before that and would greet the user with
+# "Debian GNU/Linux 12". Keep in sync with default_config_data in
+# system_login_banner.py
+printf 'Welcome to VyOS - \\n \\l\n\n' > "${UNSQUASHFS}/etc/issue"
+: > "${UNSQUASHFS}/etc/issue.net"
+
 # optional step: Decrease docker image size by deleting not necessary files for container
 rm -rf "${UNSQUASHFS}/boot"
 rm -rf "${UNSQUASHFS}/lib/firmware/"
