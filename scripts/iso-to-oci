@@ -86,7 +86,10 @@ rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/root-p
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/reboot-on-panic"
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/performance"
 
-# create a symbolic link to the configuration
+# create a symbolic link to the configuration - /config already exists as an
+# empty directory in the squashfs, so it must go first. A plain "ln -s" would
+# happily create /config/config instead and leave /config a dead directory.
+rmdir "${UNSQUASHFS}/config" || { echo "E: /config is not an empty directory"; exit 1; }
 ln -s /opt/vyatta/etc/config "${UNSQUASHFS}/config"
 
 # create docker image
