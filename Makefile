@@ -95,8 +95,11 @@ test-suite:
 	$(MAKE) test-interfaces
 	$(MAKE) test-no-interfaces-no-vpp
 	$(MAKE) testc
+	$(MAKE) testcvpp
+	$(MAKE) test-vpp
 	$(MAKE) testraid
 	$(MAKE) testifname
+	$(MAKE) testtpm
 
 .PHONY: test-ci-qcow2
 .ONESHELL:
@@ -146,7 +149,7 @@ clean:
 
 .PHONY: purge
 purge:
-	rm -rf build packer_build packer_cache testinstall-*.raw ci_data ci_seed.iso nested_iso_data nested_installer_payload.iso
+	rm -rf build packer_build packer_cache testinstall-*.raw ci_data ci_seed.iso nested_iso_data nested_installer_payload.iso vyos-*.tar.xz
 
 .PHONY: ansible-install ansible-check ansible-clean
 .ONESHELL:

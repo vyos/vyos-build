@@ -15,6 +15,7 @@ rootfs/*
 /nested_installer_payload.iso
 /*.qcow2
 /*.tar
+/*.tar.xz
 .DS_Store
 ._.DS_Store
 .venv

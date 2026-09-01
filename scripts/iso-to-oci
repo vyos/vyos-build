@@ -20,23 +20,22 @@ fi
 # ensure clean working directory
 cleanup
 
-if ! command -v xorriso >/dev/null 2>&1; then
-    echo "E: missing dependency: xorriso"
-    echo "   Install xorriso (recommended) or run inside the vyos-build container."
-    exit 2
-fi
+# required commands and the Debian package providing them
+declare -A REQUIRED_COMMANDS=(
+    [xorriso]="xorriso"
+    [unsquashfs]="squashfs-tools"
+    [jq]="jq"
+    [tar]="tar"
+    [xz]="xz-utils"
+)
 
-if ! command -v unsquashfs >/dev/null 2>&1; then
-    echo "E: missing dependency: unsquashfs"
-    echo "   Install squashfs-tools or run inside the vyos-build container."
-    exit 2
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-    echo "E: missing dependency: jq"
-    echo "   Install jq or run inside the vyos-build container."
-    exit 2
-fi
+for cmd in "${!REQUIRED_COMMANDS[@]}"; do
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+        echo "E: missing dependency: ${cmd}"
+        echo "   Install ${REQUIRED_COMMANDS[$cmd]} or run inside the vyos-build container."
+        exit 2
+    fi
+done
 
 WORKDIR="$(mktemp -d -t iso-to-oci.XXXXXXXXXX)"
 trap cleanup EXIT
@@ -57,10 +56,18 @@ unsquashfs -follow -dest "${UNSQUASHFS}/" "${ROOTFS}/live/filesystem.squashfs" >
 VERSION="$(jq --raw-output .version "${ROOTFS}/version.json")"
 # older ISOs predate ARM64 support and carry no architecture in version.json
 ARCH="$(jq --raw-output '.architecture // "amd64"' "${ROOTFS}/version.json")"
-OCI_IMAGE="vyos-${VERSION}-oci-${ARCH}.tar"
+OCI_IMAGE="vyos-${VERSION}-oci-${ARCH}.tar.xz"
 
 # fix locales for correct system configuration loading
 sed -i 's/^LANG=.*$/LANG=C.UTF-8/' "${UNSQUASHFS}/etc/default/locale"
+
+# seed the VyOS pre-login banner - /etc/issue is owned by the base-files
+# package and only replaced once system_login_banner.py runs on the first
+# commit, but getty(8) is up long before that and would greet the user with
+# "Debian GNU/Linux 12". Keep in sync with default_config_data in
+# system_login_banner.py
+printf 'Welcome to VyOS - \\n \\l\n\n' > "${UNSQUASHFS}/etc/issue"
+: > "${UNSQUASHFS}/etc/issue.net"
 
 # optional step: Decrease docker image size by deleting not necessary files for container
 rm -rf "${UNSQUASHFS}/boot"
@@ -79,16 +86,19 @@ rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/root-p
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/reboot-on-panic"
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/performance"
 
-# create a symbolic link to the configuration
+# create a symbolic link to the configuration - /config already exists as an
+# empty directory in the squashfs, so it must go first. A plain "ln -s" would
+# happily create /config/config instead and leave /config a dead directory.
+rmdir "${UNSQUASHFS}/config" || { echo "E: /config is not an empty directory"; exit 1; }
 ln -s /opt/vyatta/etc/config "${UNSQUASHFS}/config"
 
 # create docker image
 echo "I: generate OCI container image ${OCI_IMAGE}"
-tar -C "${UNSQUASHFS}" -c . -f "${OCI_IMAGE}"
+XZ_OPT="-T0" tar --directory "${UNSQUASHFS}" --create . --xz --file "${OCI_IMAGE}"
 
 echo "I: to import the previously generated OCI image to your local images run:"
 echo ""
-echo "   docker import --platform=linux/$ARCH $OCI_IMAGE vyos:$VERSION --change 'CMD ["/sbin/init"]'"
+echo "   docker import --platform=linux/$ARCH $OCI_IMAGE vyos/vyos:$VERSION --change 'CMD [\"/sbin/init\"]'"
 echo ""
 
 cleanup
