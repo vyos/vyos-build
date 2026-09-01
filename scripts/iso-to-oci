@@ -57,7 +57,7 @@ unsquashfs -follow -dest "${UNSQUASHFS}/" "${ROOTFS}/live/filesystem.squashfs" >
 VERSION="$(jq --raw-output .version "${ROOTFS}/version.json")"
 # older ISOs predate ARM64 support and carry no architecture in version.json
 ARCH="$(jq --raw-output '.architecture // "amd64"' "${ROOTFS}/version.json")"
-OCI_IMAGE="vyos-${VERSION}-oci-${ARCH}.tar"
+OCI_IMAGE="vyos-${VERSION}-oci-${ARCH}.tar.xz"
 
 # fix locales for correct system configuration loading
 sed -i 's/^LANG=.*$/LANG=C.UTF-8/' "${UNSQUASHFS}/etc/default/locale"
@@ -84,7 +84,7 @@ ln -s /opt/vyatta/etc/config "${UNSQUASHFS}/config"
 
 # create docker image
 echo "I: generate OCI container image ${OCI_IMAGE}"
-tar -C "${UNSQUASHFS}" -c . -f "${OCI_IMAGE}"
+XZ_OPT="-T0" tar --directory "${UNSQUASHFS}" --create . --xz --file "${OCI_IMAGE}"
 
 echo "I: to import the previously generated OCI image to your local images run:"
 echo ""
