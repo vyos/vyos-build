@@ -95,8 +95,11 @@ test-suite:
 	$(MAKE) test-interfaces
 	$(MAKE) test-no-interfaces-no-vpp
 	$(MAKE) testc
+	$(MAKE) testcvpp
+	$(MAKE) test-vpp
 	$(MAKE) testraid
 	$(MAKE) testifname
+	$(MAKE) testtpm
 
 .PHONY: test-ci-qcow2
 .ONESHELL:
