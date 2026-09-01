@@ -20,23 +20,22 @@ fi
 # ensure clean working directory
 cleanup
 
-if ! command -v xorriso >/dev/null 2>&1; then
-    echo "E: missing dependency: xorriso"
-    echo "   Install xorriso (recommended) or run inside the vyos-build container."
-    exit 2
-fi
+# required commands and the Debian package providing them
+declare -A REQUIRED_COMMANDS=(
+    [xorriso]="xorriso"
+    [unsquashfs]="squashfs-tools"
+    [jq]="jq"
+    [tar]="tar"
+    [xz]="xz-utils"
+)
 
-if ! command -v unsquashfs >/dev/null 2>&1; then
-    echo "E: missing dependency: unsquashfs"
-    echo "   Install squashfs-tools or run inside the vyos-build container."
-    exit 2
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-    echo "E: missing dependency: jq"
-    echo "   Install jq or run inside the vyos-build container."
-    exit 2
-fi
+for cmd in "${!REQUIRED_COMMANDS[@]}"; do
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+        echo "E: missing dependency: ${cmd}"
+        echo "   Install ${REQUIRED_COMMANDS[$cmd]} or run inside the vyos-build container."
+        exit 2
+    fi
+done
 
 WORKDIR="$(mktemp -d -t iso-to-oci.XXXXXXXXXX)"
 trap cleanup EXIT
