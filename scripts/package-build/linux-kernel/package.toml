@@ -42,7 +42,7 @@ build_cmd = "build_intel_nic"
 
 [[packages]]
 name = "ixgbe"
-commit_id = "v6.4.4"
+commit_id = "v6.4.5"
 scm_url = "https://github.com/intel/ethernet-linux-ixgbe"
 build_cmd = "build_intel_nic"
 
@@ -60,7 +60,7 @@ build_cmd = "build_intel_nic"
 
 [[packages]]
 name = "ice"
-commit_id = "v2.6.6"
+commit_id = "v2.6.7"
 scm_url = "http://github.com/intel/ethernet-linux-ice"
 build_cmd = "build_intel_nic"
 
