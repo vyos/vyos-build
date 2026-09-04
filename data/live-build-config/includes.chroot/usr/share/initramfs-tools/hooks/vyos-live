@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# live-boot's own initramfs-tools hook copies a handful of klibc dependencies
+# using a non-multiarch glob (/lib/libacl* and friends), which never matches on
+# a modern Debian system. Copy them from their real multiarch location instead,
+# and add libpcre, which live-boot's helpers need but upstream does not list
+# (T3641).
+
+set -e
+
+PREREQ="live"
+
+prereqs()
+{
+	echo "${PREREQ}"
+}
+
+case "${1}" in
+	prereqs)
+		prereqs
+		exit 0
+		;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+for FILE in /lib/*/libacl* /lib/*/libblkid* /lib/*/libuuid* \
+	    /lib/*/libdevmapper* /lib/*/libattr* /lib/*/libpcre*
+do
+	if [ -e "${FILE}" ] && [ ! -e "${DESTDIR}/${FILE}" ]
+	then
+		mkdir -p "${DESTDIR}/$(dirname ${FILE})"
+		cp -a "${FILE}" "${DESTDIR}/${FILE}"
+	fi
+done
