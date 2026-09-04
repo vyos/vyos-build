@@ -1,0 +1,15 @@
+# Make locally built packages in packages/*.deb actually override the ones from
+# the VyOS repository.
+#
+# live-build turns config/packages.chroot/*.deb into a plain apt repository
+# (Origin: config/packages.chroot) at the default priority of 500, while
+# vyos-dev.pref.chroot pins the VyOS repository at 999. Without this file the
+# repository always wins, so dropping a locally built package into packages/
+# has no effect - silently, and regardless of version.
+#
+# Priority above 1000 is required so that a locally built package is installed
+# even when the repository carries a *newer* version, which is the normal case
+# when building from a branch that is behind the repository.
+Package: *
+Pin: release o=config/packages.chroot
+Pin-Priority: 1001

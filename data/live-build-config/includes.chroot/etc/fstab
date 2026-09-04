@@ -1,0 +1,10 @@
+# /etc/fstab - static file system information
+#
+# live-boot appends the root overlay and the tmpfs for /tmp to this file while
+# booting, see /usr/lib/live/boot/9990-fstab.sh. Its appends are guarded by a
+# grep, so entries placed here are preserved.
+#
+# Keep /var/tmp on tmpfs so that it is emptied on every reboot instead of
+# accumulating in the persistence overlay. The retired VyOS live-boot fork used
+# to append this very line from the initramfs (T3990).
+tmpfs /var/tmp tmpfs nosuid,nodev 0 0
