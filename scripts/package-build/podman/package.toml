@@ -194,5 +194,6 @@ fpm --input-type dir --output-type deb --name podman \
 [dependencies]
 packages = [
     "libseccomp-dev",
-    "libgpgme-dev"
+    "libgpgme-dev",
+    "libsystemd-dev"
 ]
