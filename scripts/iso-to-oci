@@ -69,6 +69,25 @@ sed -i 's/^LANG=.*$/LANG=C.UTF-8/' "${UNSQUASHFS}/etc/default/locale"
 printf 'Welcome to VyOS - \\n \\l\n\n' > "${UNSQUASHFS}/etc/issue"
 : > "${UNSQUASHFS}/etc/issue.net"
 
+# adjust systemd units for containerized operation - this is what the
+# containerlab documentation asks users to do in their Dockerfile, but as we
+# ship a ready made rootfs there is no build stage where "systemctl" could be
+# run. Masking and disabling is nothing but symlink handling below /etc/systemd,
+# so we can do it offline (and cross-architecture) right here.
+#
+# masked units: getty(8) would fight with the container console and auditd(8)
+# has no business inside a container as it requires the audit netlink socket
+for unit in getty.target auditd.service; do
+    ln -sf /dev/null "${UNSQUASHFS}/etc/systemd/system/${unit}"
+done
+
+# disabled units: kea-dhcp-ddns-server(8) is started via a "WantedBy" symlink
+# and would fail on boot, VyOS enables it on demand from the CLI
+for unit in kea-dhcp-ddns-server.service; do
+    find "${UNSQUASHFS}/etc/systemd/system" -name "${unit}" \
+        \( -path '*.wants/*' -o -path '*.requires/*' \) -delete
+done
+
 # optional step: Decrease docker image size by deleting not necessary files for container
 rm -rf "${UNSQUASHFS}/boot"
 rm -rf "${UNSQUASHFS}/lib/firmware/"
