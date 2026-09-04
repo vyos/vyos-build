@@ -1079,7 +1079,9 @@ try:
         c.sendline('y')
         c.expect('\nInstallation will delete all data on both drives. Continue?.*')
         c.sendline('y')
-        c.expect('\nWhich file would you like as boot config?.*')
+        # Creating the RAID array and the subsequent update-initramfs regularly
+        # take longer than the default expect timeout
+        c.expect('\nWhich file would you like as boot config?.*', timeout=300)
         c.sendline('')
     else:
         c.expect('\nWhich one should be used for installation?.*')
@@ -1610,7 +1612,10 @@ try:
 
         log.info('Add member to RAID1 (md0)')
         c.sendline('add raid md0 by-id member drive-hd1-part3')
-        c.expect(op_mode_prompt)
+        # Adding a member kicks off an mdadm resync of the whole array and the
+        # op-mode command only returns once that is under way, which regularly
+        # exceeds pexpect's 30 second default
+        c.expect(op_mode_prompt, timeout=300)
 
         log.info('Now we need to wait for re-sync to complete')
 

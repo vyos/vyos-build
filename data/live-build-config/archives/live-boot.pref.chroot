@@ -1,0 +1,10 @@
+# Always take live-boot from Debian, never from the VyOS repository.
+#
+# The VyOS delta on top of Debian's live-boot is shipped as drop-in files by
+# vyos-1x (/usr/lib/live/boot/9991-vyos.sh and the initramfs-tools hooks), so
+# the forked live-boot source package is no longer needed. vyos-dev.pref.chroot
+# pins the whole VyOS repository at priority 999, which would otherwise let a
+# stale forked live-boot win over Debian's regardless of version.
+Package: live-boot live-boot-initramfs-tools live-boot-doc
+Pin: release o=Debian
+Pin-Priority: 1001
