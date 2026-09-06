@@ -1,6 +1,5 @@
 #!/bin/sh
 
-cp -f /opt/vyatta/etc/default_ssh /etc/default/ssh
 >/etc/pam_radius_auth.conf
 
 update_sysctl_conf ()
