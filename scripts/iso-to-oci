@@ -99,9 +99,38 @@ rm -rf "${UNSQUASHFS}/usr/lib/x86_64-linux-gnu/libwireshark.so*"
 rm -rf "${UNSQUASHFS}/lib/modules/*-vyos"
 rm -rf "${UNSQUASHFS}/root/.gnupg"
 
+# podman(8) is useless inside the container as we do not support running
+# containers in containers - the CLI nodes are removed below anyway. Dropping
+# the runtime and its network helpers (netavark, aardvark-dns) saves about
+# 110 MiB of the uncompressed rootfs. Nothing but the container CLI calls
+# these, so they can go entirely - including the systemd units, the quadlet
+# generators and the configuration shipped by containers-common
+rm -f "${UNSQUASHFS}/etc/systemd/system/default.target.wants/podman.service"
+rm -f "${UNSQUASHFS}/usr/lib/systemd/system/podman.service"
+rm -f "${UNSQUASHFS}/usr/lib/systemd/system/podman.socket"
+rm -f "${UNSQUASHFS}/usr/lib/systemd/system/netavark-dhcp-proxy.service"
+rm -f "${UNSQUASHFS}/usr/lib/systemd/system/netavark-dhcp-proxy.socket"
+rm -f "${UNSQUASHFS}/usr/lib/systemd/system/netavark-firewalld-reload.service"
+rm -f "${UNSQUASHFS}/usr/lib/systemd/system-generators/podman-system-generator"
+rm -f "${UNSQUASHFS}/usr/lib/systemd/user-generators/podman-user-generator"
+rm -f "${UNSQUASHFS}/usr/lib/tmpfiles.d/podman.conf"
+rm -rf "${UNSQUASHFS}/usr/lib/podman"
+rm -rf "${UNSQUASHFS}/usr/libexec/podman"
+rm -f "${UNSQUASHFS}/usr/bin/podman" "${UNSQUASHFS}/usr/bin/podman-remote" \
+      "${UNSQUASHFS}/usr/bin/podmansh" "${UNSQUASHFS}/usr/bin/conmon" \
+      "${UNSQUASHFS}/usr/bin/fuse-overlayfs" "${UNSQUASHFS}/usr/bin/runc" \
+      "${UNSQUASHFS}/usr/sbin/runc"
+rm -rf "${UNSQUASHFS}/etc/containers"
+rm -rf "${UNSQUASHFS}/usr/share/containers"
+
 # delete features not supported in container - only remove the node.def files,
-# this is sufficient to not make the feature pop up on the CLI
+# this is sufficient to not make the feature pop up on the CLI. The container
+# operational mode commands go as well, they would only greet the user with a
+# traceback now that podman is gone
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/container"
+for tree in add connect delete generate restart show update; do
+    rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-op/templates/${tree}/container"
+done
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/console"
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/kernel"
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/startup-beep"
