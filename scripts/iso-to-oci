@@ -119,9 +119,16 @@ ln -s /opt/vyatta/etc/config "${UNSQUASHFS}/config"
 echo "I: generate OCI container image ${OCI_IMAGE}"
 XZ_OPT="-T0" tar --directory "${UNSQUASHFS}" --create . --xz --file "${OCI_IMAGE}"
 
+# containerlab uses the image healthcheck to determine when a VyOS node is
+# ready, see https://containerlab.dev/manual/kinds/vyosnetworks_vyos/
+# A rootfs tarball carries no OCI image configuration, so this can only be
+# attached when the tarball is imported
+HEALTHCHECK='HEALTHCHECK --start-period=10s CMD systemctl is-system-running'
+
 echo "I: to import the previously generated OCI image to your local images run:"
 echo ""
-echo "   docker import --platform=linux/$ARCH $OCI_IMAGE vyos/vyos:$VERSION --change 'CMD [\"/sbin/init\"]'"
+echo "   docker import --platform=linux/$ARCH $OCI_IMAGE vyos/vyos:$VERSION \\"
+echo "       --change 'CMD [\"/sbin/init\"]' --change '$HEALTHCHECK'"
 echo ""
 
 cleanup
