@@ -1,8 +1,55 @@
 #!/bin/bash
 
 cleanup() {
+    # spin() hides the cursor while animating - make sure it comes back if we
+    # are interrupted mid step
+    if [[ -t 1 ]]; then
+        tput cnorm 2>/dev/null || true
+    fi
     if [[ -n "${WORKDIR:-}" && -d "${WORKDIR:-}" ]]; then
         rm -rf "${WORKDIR}"
+    fi
+}
+
+# Run a long running command while animating a spinner - unpacking an ISO and
+# compressing the rootfs keep the script silent for minutes and it looks hung.
+# Only animate when stdout is a terminal, "make oci" in CI or a piped log gets
+# the plain message instead. Output of the wrapped command is discarded as
+# before, but unlike before its exit code is checked.
+spin() {
+    # exit codes accepted as success in addition to 0 - unsquashfs(1) returns 2
+    # for non fatal errors, which is what we always get when running as a
+    # regular user (device nodes and xattrs can not be restored)
+    local allow_rc=""
+    if [[ "$1" == "--allow-rc" ]]; then
+        allow_rc="$2"; shift 2
+    fi
+    local message="$1"; shift
+    local frames='|/-\'
+    local rc=0 i=0
+
+    if [[ ! -t 1 ]]; then
+        echo "I: ${message}"
+        "$@" >/dev/null 2>&1 || rc=$?
+    else
+        "$@" >/dev/null 2>&1 &
+        local pid=$!
+        tput civis 2>/dev/null
+        while kill -0 "${pid}" 2>/dev/null; do
+            printf '\r%s %s' "${frames:i++%4:1}" "${message}"
+            sleep 0.1
+        done
+        wait "${pid}" || rc=$?
+        tput cnorm 2>/dev/null
+        # replace the spinner with the very same line the non interactive run
+        # would have printed
+        printf '\r\033[K'
+        echo "I: ${message}"
+    fi
+
+    if (( rc )) && [[ " ${allow_rc} " != *" ${rc} "* ]]; then
+        echo "E: ${message} failed with exit code ${rc}"
+        exit 1
     fi
 }
 
@@ -44,15 +91,15 @@ ROOTFS="${WORKDIR}/iso"
 UNSQUASHFS="${WORKDIR}/unsquashfs"
 mkdir -p "${ROOTFS}/live" "${UNSQUASHFS}"
 
-echo "I: extracting ISO metadata"
-xorriso -osirrox on -indev "${ISO}" -extract /version.json "${ROOTFS}/version.json" >/dev/null 2>&1
+spin "extracting ISO metadata - version.json" \
+    xorriso -osirrox on -indev "${ISO}" -extract /version.json "${ROOTFS}/version.json"
 
-echo "I: extracting squashfs image"
-xorriso -osirrox on -indev "${ISO}" -extract /live/filesystem.squashfs "${ROOTFS}/live/filesystem.squashfs" >/dev/null 2>&1
+spin "extracting ISO data - squashfs image" \
+    xorriso -osirrox on -indev "${ISO}" -extract /live/filesystem.squashfs "${ROOTFS}/live/filesystem.squashfs"
 
 # create directory, unpack squashfs filesystem, get ISO version
-echo "I: extracting squashfs content"
-unsquashfs -follow -dest "${UNSQUASHFS}/" "${ROOTFS}/live/filesystem.squashfs" >/dev/null 2>&1
+spin --allow-rc 2 "extracting squashfs content" \
+    unsquashfs -follow -dest "${UNSQUASHFS}/" "${ROOTFS}/live/filesystem.squashfs"
 VERSION="$(jq --raw-output .version "${ROOTFS}/version.json")"
 # older ISOs predate ARM64 support and carry no architecture in version.json
 ARCH="$(jq --raw-output '.architecture // "amd64"' "${ROOTFS}/version.json")"
@@ -145,8 +192,8 @@ rmdir "${UNSQUASHFS}/config" || { echo "E: /config is not an empty directory"; e
 ln -s /opt/vyatta/etc/config "${UNSQUASHFS}/config"
 
 # create docker image
-echo "I: generate OCI container image ${OCI_IMAGE}"
-XZ_OPT="-T0" tar --directory "${UNSQUASHFS}" --create . --xz --file "${OCI_IMAGE}"
+spin "generating OCI container image ${OCI_IMAGE}" \
+    env XZ_OPT=-T0 tar --directory "${UNSQUASHFS}" --create . --xz --file "${OCI_IMAGE}"
 
 # containerlab uses the image healthcheck to determine when a VyOS node is
 # ready, see https://containerlab.dev/manual/kinds/vyosnetworks_vyos/
