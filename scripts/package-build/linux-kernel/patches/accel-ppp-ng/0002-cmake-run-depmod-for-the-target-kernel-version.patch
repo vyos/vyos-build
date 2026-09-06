@@ -1,0 +1,101 @@
+From: Christian Breunig <christian@vyos.io>
+Date: Sun, 6 Sep 2026 00:00:00 +0200
+Subject: [PATCH] cmake: run depmod for the target kernel version
+
+Both maintainer scripts call a bare "depmod", which resolves the kernel
+version from `uname -r` - the build host's running kernel. That is never
+the kernel the ipoe/vlan_mon modules were built for, so configuring the
+package inside a live-build chroot fails with
+
+  depmod: ERROR: could not open directory /lib/modules/<host kernel>
+  depmod: FATAL: could not search modules
+
+and the modules the package just dropped into
+/lib/modules/${MODULES_KDIR}/extra are never indexed by the package
+itself. Generate the maintainer scripts with configure_file() so
+@MODULES_KDIR@ is substituted with the version the modules were
+actually compiled against, and pass it to depmod explicitly.
+
+---
+ cmake/debian-kmod/postinst |  2 +-
+ cmake/debian/debian.cmake  | 19 +++++++++++++++----
+ cmake/debian/postinst      |  2 +-
+ 3 files changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/cmake/debian-kmod/postinst b/cmake/debian-kmod/postinst
+index 9e7cfa8..fe08888 100755
+--- a/cmake/debian-kmod/postinst
++++ b/cmake/debian-kmod/postinst
+@@ -1,3 +1,3 @@
+ #!/bin/sh
+ 
+-depmod
++depmod @MODULES_KDIR@
+diff --git a/cmake/debian/debian.cmake b/cmake/debian/debian.cmake
+index 64b8f7d..101bd1e 100644
+--- a/cmake/debian/debian.cmake
++++ b/cmake/debian/debian.cmake
+@@ -9,6 +9,17 @@ if (NOT DEFINED MODULES_KDIR)
+ 	)
+ endif()
+ 
++# The maintainer scripts must run depmod for the kernel version the modules
++# were built for. A bare "depmod" defaults to `uname -r`, which is the build
++# host's running kernel - wrong for cross-builds and for image builds that
++# configure the package inside a chroot. Generate the scripts from their
++# in-tree copies so @MODULES_KDIR@ becomes the actual target version.
++SET(MAINTAINER_SCRIPT_DIR "${CMAKE_CURRENT_BINARY_DIR}/maintainer-scripts")
++CONFIGURE_FILE("${CMAKE_HOME_DIRECTORY}/cmake/debian/postinst"
++	"${MAINTAINER_SCRIPT_DIR}/debian/postinst" @ONLY)
++CONFIGURE_FILE("${CMAKE_HOME_DIRECTORY}/cmake/debian-kmod/postinst"
++	"${MAINTAINER_SCRIPT_DIR}/debian-kmod/postinst" @ONLY)
++
+ # sign-modules.sh signs the built .ko files and, if the target kernel's
+ # .config has module compression enabled, xz-compresses them in place.
+ # Mirror that check here so we install whichever artifact actually ends
+@@ -30,7 +41,7 @@ if (BUILD_PPTP_DRIVER)
+ 		SET(CPACK_PACKAGE_NAME "accel-pptp-kmod")
+ 		SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "accel-pptp kernel module")
+ 		SET(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+-		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian-kmod/postinst")
++		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${MAINTAINER_SCRIPT_DIR}/debian-kmod/postinst")
+ 	endif ()
+ 	#INSTALL(DIRECTORY lib/modules/${DEBIAN_KDIR}/extra)
+ 	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/driver/driver/pptp${KMOD_EXT} DESTINATION /lib/modules/${MODULES_KDIR}/extra)
+@@ -43,7 +54,7 @@ if (BUILD_IPOE_DRIVER)
+ 		SET(CPACK_PACKAGE_NAME "accel-ppp-ipoe-kmod")
+ 		SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "accel-ppp IPoE kernel module")
+ 		SET(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+-		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian-kmod/postinst")
++		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${MAINTAINER_SCRIPT_DIR}/debian-kmod/postinst")
+ 	endif ()
+ 	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/drivers/ipoe/driver/ipoe${KMOD_EXT} DESTINATION /lib/modules/${MODULES_KDIR}/extra)
+ endif (BUILD_IPOE_DRIVER)
+@@ -54,13 +65,13 @@ if (BUILD_VLAN_MON_DRIVER)
+ 		SET(CPACK_PACKAGE_NAME "accel-ppp-vlan_mon-kmod")
+ 		SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "accel-ppp vlan monitoring kernel module")
+ 		SET(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+-		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian-kmod/postinst")
++		SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${MAINTAINER_SCRIPT_DIR}/debian-kmod/postinst")
+ 	endif ()
+ 	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/drivers/vlan_mon/driver/vlan_mon${KMOD_EXT} DESTINATION /lib/modules/${MODULES_KDIR}/extra)
+ endif (BUILD_VLAN_MON_DRIVER)
+ 
+ if (NOT BUILD_DRIVER_ONLY)
+-	SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian/postinst;${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian/conffiles")
++	SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${MAINTAINER_SCRIPT_DIR}/debian/postinst;${CMAKE_CURRENT_SOURCE_DIR}/cmake/debian/conffiles")
+ 
+ 	if (CPACK_TYPE STREQUAL Debian6)
+ 		INSTALL(FILES ${CMAKE_HOME_DIRECTORY}/accel-pppd/accel-ppp.conf DESTINATION ${CMAKE_BINARY_DIR}/_CPack_Packages/Linux/DEB/${CPACK_PACKAGE_FILE_NAME}/etc RENAME accel-ppp.conf.dist)
+diff --git a/cmake/debian/postinst b/cmake/debian/postinst
+index 0c38b0d..199eb8f 100755
+--- a/cmake/debian/postinst
++++ b/cmake/debian/postinst
+@@ -5,6 +5,6 @@ chmod +x /etc/init.d/accel-ppp
+ mkdir /var/log/accel-ppp > /dev/null 2>&1
+ mkdir /var/lib/accel-ppp > /dev/null 2>&1
+ 
+-depmod
++depmod @MODULES_KDIR@
+ 
+ exit 0
