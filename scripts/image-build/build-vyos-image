@@ -541,7 +541,13 @@ DOCUMENTATION_URL="{build_config['documentation_url']}"
         os.makedirs(vyos_data_dir, exist_ok=True)
         with open(os.path.join(vyos_data_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
-        with open(os.path.join(vyos_data_dir, 'flavor.json'), 'w') as f:
+        # The flavor data is required by the maintainer scripts of the Debian
+        # packages we install, thus it must be in place before the packages are
+        # installed and not only afterwards
+        vyos_data_dir_early = os.path.join(defaults.CHROOT_INCLUDES_EARLY_DIR,
+                                           "usr/share/vyos")
+        os.makedirs(vyos_data_dir_early, exist_ok=True)
+        with open(os.path.join(vyos_data_dir_early, 'flavor.json'), 'w') as f:
             json.dump(flavor_data, f)
         with open(os.path.join(binary_includes_dir, 'version.json'), 'w') as f:
             json.dump(version_data, f)
