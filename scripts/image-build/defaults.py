@@ -62,6 +62,9 @@ PBUILDER_DIR = 'pbuilder'
 LB_CONFIG_DIR = 'config'
 
 CHROOT_INCLUDES_DIR = 'config/includes.chroot'
+# Files that must already be present while the Debian packages are installed,
+# live-build copies this directory into the chroot before package installation
+CHROOT_INCLUDES_EARLY_DIR = 'config/includes.chroot_before_packages'
 BINARY_INCLUDES_DIR = 'config/includes.binary'
 ARCHIVES_DIR = 'config/archives/'
 
