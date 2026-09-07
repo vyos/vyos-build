@@ -18,7 +18,7 @@ build_cmd = "build_linux_firmware"
 
 [[packages]]
 name = "accel-ppp-ng"
-commit_id = "c7b67eb"
+commit_id = "8cb6287"
 scm_url = "https://github.com/accel-ppp/accel-ppp-ng.git"
 build_cmd = "build_accel_ppp_ng"
 
