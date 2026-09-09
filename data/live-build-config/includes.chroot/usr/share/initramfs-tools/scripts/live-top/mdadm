@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# With boot=live, initramfs-tools hands control to live-boot's mountroot() and
+# so never runs the local-block retry loop that would normally give the mdadm
+# package's script a chance to re-trigger udev and scan for arrays. Arrays are
+# still assembled incrementally by mdadm's udev rules, but nothing forces a
+# rescan, so a member that appears late can leave live-boot searching for its
+# medium and persistence partition on an array that is not up yet. Give mdadm
+# one invocation from live-top to cover that.
+#
+# Debian ships the script as local-block; the 2015 release that the retired VyOS
+# live-boot fork was based on shipped it as local-top. Use whichever is present.
+
+PREREQ=""
+
+prereqs()
+{
+	echo "${PREREQ}"
+}
+
+case "${1}" in
+	prereqs)
+		prereqs
+		exit 0
+		;;
+esac
+
+for _script in /scripts/local-block/mdadm /scripts/local-top/mdadm
+do
+	if [ -x "${_script}" ]
+	then
+		"${_script}"
+		break
+	fi
+done

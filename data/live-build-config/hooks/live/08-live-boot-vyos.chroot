@@ -1,0 +1,97 @@
+#!/bin/sh
+#
+# VyOS ships its live-boot delta as a drop-in component
+# (includes.chroot/usr/lib/live/boot/9991-vyos.sh) instead of forking the
+# live-boot source package. That drop-in redefines two upstream functions,
+# carrying a verbatim copy of each with a small, documented deviation.
+#
+# If Debian changes those functions, our copies silently go stale and the
+# persistence overlay may be assembled from the wrong directory - which
+# presents as "the router booted with an empty configuration", not as a build
+# failure. Pin the upstream implementations by hash and fail the build when
+# they move, so that the copies get re-synced deliberately.
+#
+# This hook runs after chroot_includes_after_packages, so both files are
+# present, and before 17-gen_initramfs.chroot bakes the initrd.
+
+set -e
+
+UPSTREAM="/usr/lib/live/boot/9990-misc-helpers.sh"
+OURS="/usr/lib/live/boot/9991-vyos.sh"
+
+LB_VERSION="$(dpkg-query -W -f '${Version}' live-boot)"
+
+for FILE in "${UPSTREAM}" "${OURS}"
+do
+	if [ ! -r "${FILE}" ]
+	then
+		echo "E: ${FILE} is missing - live-boot drop-in is not installed" >&2
+		exit 1
+	fi
+done
+
+# sha256 of the upstream function body, as shipped by live-boot 1:20230131.
+# Changing one of these means re-syncing the corresponding copy in
+# data/live-build-config/includes.chroot${OURS} - not just pasting a new hash.
+check_upstream()
+{
+	_fn="${1}"
+	_expected="${2}"
+	_actual="$(awk "/^${_fn} \(\)/,/^}\$/" "${UPSTREAM}" | sha256sum | cut -d' ' -f1)"
+
+	if [ -z "${_actual}" ] || [ "${_actual}" = "$(: | sha256sum | cut -d' ' -f1)" ]
+	then
+		echo "E: could not extract ${_fn}() from ${UPSTREAM}" >&2
+		exit 1
+	fi
+
+	if [ "${_actual}" != "${_expected}" ]
+	then
+		echo "E: ${_fn}() changed in live-boot ${LB_VERSION}." >&2
+		echo "E: expected ${_expected}" >&2
+		echo "E: got      ${_actual}" >&2
+		echo "E: Re-sync the copy in" >&2
+		echo "E: data/live-build-config/includes.chroot${OURS}" >&2
+		echo "E: then update the hash in this hook." >&2
+		exit 1
+	fi
+}
+
+check_upstream mount_persistence_media \
+	252b43bb0a0fccc93f5055a1b5c300b784c110b8c6d76b1c302063c4c8c97816
+check_upstream get_custom_mounts \
+	5891e66182c7cf770bfd3072e07c5906d44a562c244f9800a336979237df5e0a
+check_upstream what_is_mounted_on \
+	c0a5661a73a1cf38d6c0e543409d4571cb95478d094d33ac7dd4ae3c962dedb1
+
+# Assert the VyOS deviations are actually present, so that a careless re-sync
+# cannot quietly restore upstream behaviour.
+check_ours()
+{
+	if ! grep -q "${1}" "${OURS}"
+	then
+		echo "E: ${OURS} is missing the VyOS deviation: ${2}" >&2
+		exit 1
+	fi
+}
+
+check_ours '^	backing="/run/live/persistence"$' \
+	'flat persistence backing directory'
+check_ours '/sys/block/${raid_drive}/slaves' \
+	'MD RAID member guard'
+check_ours 'full_source="$(trim_path ${backing}/${PERSISTENCE_PATH}/${source})"' \
+	'persistence-path= aware custom mount source'
+check_ours 'vyos-union=\*|vyatta-union=\*' \
+	'vyos-union= command line parameter'
+check_ours '"${dir}" = "/run/live/medium"' \
+	'boot medium kept eligible for persistence'
+
+# The drop-in only takes effect if live-boot's frontend actually globs it up.
+if ! grep -q '/lib/live/boot/????-\*' /usr/bin/live-boot
+then
+	echo "E: /usr/bin/live-boot no longer globs /lib/live/boot/????-*;" >&2
+	echo "E: the VyOS drop-in mechanism is broken." >&2
+	exit 1
+fi
+
+echo "I: VyOS live-boot drop-in verified against live-boot ${LB_VERSION}"
