@@ -27,7 +27,10 @@ FW_FILES=$(find ${KERNEL_DIR}/debian/linux-image-${KERNEL_VERSION}${KERNEL_SUFFI
 # Debian package will use the descriptive Git commit as version
 GIT_COMMIT=$(cd ${CWD}/${LINUX_FIRMWARE}; git describe --always)
 VYOS_FIRMWARE_NAME="vyos-linux-firmware"
-VYOS_FIRMWARE_DIR="${VYOS_FIRMWARE_NAME}_${GIT_COMMIT}-0_all"
+# The firmware blobs are selected from the modules of the kernel built on this
+# host, so the package content differs per architecture - build it arch-dependent.
+BUILD_ARCH=$(dpkg --print-architecture)
+VYOS_FIRMWARE_DIR="${VYOS_FIRMWARE_NAME}_${GIT_COMMIT}-0_${BUILD_ARCH}"
 if [ -d ${VYOS_FIRMWARE_DIR} ]; then
     # remove Debian package folder and deb file from previous runs
     rm -rf ${VYOS_FIRMWARE_DIR}*
@@ -107,7 +110,7 @@ Standards-Version: 4.5.1
 Rules-Requires-Root: no
 
 Package: ${VYOS_FIRMWARE_NAME}
-Architecture: all
+Architecture: any
 Depends: \${misc:Depends}
 Description: Binary firmware for various drivers in the Linux kernel
  Firmware blobs assembled from linux-firmware.git for the drivers built
@@ -127,6 +130,24 @@ override_dh_auto_build:
 override_dh_auto_install:
 	mkdir -p \${PACKAGE_BUILD_DIR}
 	cp -a lib \${PACKAGE_BUILD_DIR}/
+
+# Firmware blobs must be shipped verbatim. Some of them are valid ELF objects,
+# so the binary mangling helpers - which only run for arch-dependent packages -
+# would happily strip them or try to resolve library dependencies on them.
+override_dh_strip:
+	@true
+
+override_dh_dwz:
+	@true
+
+override_dh_strip_nondeterminism:
+	@true
+
+override_dh_shlibdeps:
+	@true
+
+override_dh_makeshlibs:
+	@true
 EOF
 
 debuild
