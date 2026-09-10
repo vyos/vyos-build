@@ -1,6 +1,7 @@
 # Packages included in ARM64 images by default
 packages = [
   "grub-efi-arm64",
+  "vyos-linux-firmware",
   "vyos-ipt-netflow"
 ]
 bootloaders = "grub-efi"
