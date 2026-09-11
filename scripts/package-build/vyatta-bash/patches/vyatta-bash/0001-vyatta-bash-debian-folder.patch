@@ -1,0 +1,1953 @@
+From 0d05f279c54ad846c63abeb0072e24309547076d Mon Sep 17 00:00:00 2001
+From: sarthurdev <s.arthur@vyos.io>
+Date: Mon, 31 Aug 2026 23:14:17 +0200
+Subject: [PATCH 1/2] vyatta-bash debian folder
+
+---
+ debian/bash-builtins.7                   |   18 -
+ debian/bash-builtins.overrides           |    2 -
+ debian/bash-doc.doc-base.bash            |   14 -
+ debian/bash-doc.doc-base.bashref         |   10 -
+ debian/bash-static.overrides             |    5 -
+ debian/bash.postinst                     |   19 -
+ debian/bashbug.1                         |   68 --
+ debian/changelog                         | 1049 +++++-----------------
+ debian/clear_console.1                   |   50 --
+ debian/control                           |   56 +-
+ debian/rules                             |  206 +----
+ debian/shells.d/bash                     |    6 +-
+ debian/shells.d/bash-static              |    2 -
+ debian/vyatta-bash.postinst              |   16 +
+ debian/vyatta-bash.preinst               |   21 +
+ debian/{bash.prerm => vyatta-bash.prerm} |    5 +-
+ 16 files changed, 277 insertions(+), 1270 deletions(-)
+ delete mode 100644 debian/bash-builtins.7
+ delete mode 100644 debian/bash-builtins.overrides
+ delete mode 100644 debian/bash-doc.doc-base.bash
+ delete mode 100644 debian/bash-doc.doc-base.bashref
+ delete mode 100644 debian/bash-static.overrides
+ delete mode 100644 debian/bash.postinst
+ delete mode 100644 debian/bashbug.1
+ delete mode 100644 debian/clear_console.1
+ delete mode 100644 debian/shells.d/bash-static
+ create mode 100644 debian/vyatta-bash.postinst
+ create mode 100644 debian/vyatta-bash.preinst
+ rename debian/{bash.prerm => vyatta-bash.prerm} (62%)
+
+diff --git a/debian/bash-builtins.7 b/debian/bash-builtins.7
+deleted file mode 100644
+index 69220eb..0000000
+--- a/debian/bash-builtins.7
++++ /dev/null
+@@ -1,18 +0,0 @@
+-.\" This is a hack to force bash builtins into the whatis database
+-.\" and to get the list of builtins to come up with the man command.
+-.TH BASH-BUILTINS 7 "2001 October 29" "GNU Bash-2.05a"
+-.SH NAME
+-bash-builtins \- bash built-in commands, see \fBbash\fR(1)
+-.SH SYNOPSIS
+-bash defines the following built-in commands: 
+-:, ., [, alias, bg, bind, break, builtin, case, cd, command, compgen, complete, 
+-continue, declare, dirs, disown, echo, enable, eval, exec, exit,
+-export, fc, fg, getopts, hash, help, history, if, jobs, kill,
+-let, local, logout, popd, printf, pushd, pwd, read, readonly, return, set,
+-shift, shopt, source, suspend, test, times, trap, type, typeset,
+-ulimit, umask, unalias, unset, until, wait, while.
+-.SH BASH BUILTIN COMMANDS
+-.nr zZ 1
+-.so man1/bash.1
+-.SH SEE ALSO
+-bash(1), sh(1)
+diff --git a/debian/bash-builtins.overrides b/debian/bash-builtins.overrides
+deleted file mode 100644
+index cf7ee66..0000000
+--- a/debian/bash-builtins.overrides
++++ /dev/null
+@@ -1,2 +0,0 @@
+-bash-builtins binary: shlib-with-executable-bit
+-bash-builtins binary: missing-dependency-on-libc
+diff --git a/debian/bash-doc.doc-base.bash b/debian/bash-doc.doc-base.bash
+deleted file mode 100644
+index d37255a..0000000
+--- a/debian/bash-doc.doc-base.bash
++++ /dev/null
+@@ -1,14 +0,0 @@
+-Document: bash
+-Title: Bash Manual Page
+-Author: Chet Ramey
+-Abstract:  Bash is an sh-compatible command language interpreter that executes
+- commands read from the standard input or from a file.  Bash also
+- incorporates useful features from the Korn and C shells (ksh and csh).
+-Section: Shells
+-
+-Format: html
+-Index: /usr/share/doc/bash/bash.html
+-Files: /usr/share/doc/bash/bash.html
+-
+-Format: pdf
+-Files: /usr/share/doc/bash/bash.pdf
+diff --git a/debian/bash-doc.doc-base.bashref b/debian/bash-doc.doc-base.bashref
+deleted file mode 100644
+index 8567b57..0000000
+--- a/debian/bash-doc.doc-base.bashref
++++ /dev/null
+@@ -1,10 +0,0 @@
+-Document: bashref
+-Title: Bash Reference Manual
+-Author: Chet Ramey
+-Abstract:  Bash is an sh-compatible command language interpreter that executes
+- commands read from the standard input or from a file.  Bash also
+- incorporates useful features from the Korn and C shells (ksh and csh).
+-Section: Shells
+-
+-Format: pdf
+-Files: /usr/share/doc/bash/bashref.pdf
+diff --git a/debian/bash-static.overrides b/debian/bash-static.overrides
+deleted file mode 100644
+index 141d67d..0000000
+--- a/debian/bash-static.overrides
++++ /dev/null
+@@ -1,5 +0,0 @@
+-# yes lintian, it's called -static
+-bash-static binary: embedded-library
+-
+-# no, used conditionally
+-bash-static binary: manpage-has-errors-from-man
+diff --git a/debian/bash.postinst b/debian/bash.postinst
+deleted file mode 100644
+index ceef0dc..0000000
+--- a/debian/bash.postinst
++++ /dev/null
+@@ -1,19 +0,0 @@
+-#! /bin/bash
+-
+-set -e
+-
+-# This should never happen.
+-if [ ! -e /bin/sh ]; then
+-    ln -s bash /bin/sh
+-fi
+-
+-update-alternatives --install \
+-    /usr/share/man/man7/builtins.7.gz \
+-    builtins.7.gz \
+-    /usr/share/man/man7/bash-builtins.7.gz \
+-    10 \
+-  || true
+-
+-#DEBHELPER#
+-
+-exit 0
+diff --git a/debian/bashbug.1 b/debian/bashbug.1
+deleted file mode 100644
+index d620e63..0000000
+--- a/debian/bashbug.1
++++ /dev/null
+@@ -1,68 +0,0 @@
+-.TH "BASHBUG" "1" "11 December 2007" "GNU Bash 3\.1" "bashbug"
+-.nh
+-.ad l
+-.SH "NAME"
+-bashbug - report a bug in bash
+-.SH "SYNOPSIS"
+-.HP 8
+-\fBbashbug\fR [\fB\-\-help\fR] [\fB\-\-version\fR] [\fB\fIbug\-report\-email\-addresses\fR\fR]
+-.SH "DESCRIPTION"
+-.PP
+-
+-\fBbashbug\fR
+-is a utility for reporting bugs in Bash to the maintainers\.
+-.PP
+-
+-\fBbashbug\fR
+-will start up your preferred editor with a preformatted bug report template for you to fill in\. Save the file and quit the editor once you have completed the missing fields\.
+-\fBbashbug\fR
+-will notify you of any problems with the report and ask for confirmation before sending it\. By default the bug report is mailed to both the GNU developers and the Debian Bash maintainers\. The recipients can be changed by giving a comma separated list of
+-\fIbug\-report\-email\-addresses\fR\.
+-.PP
+-If you invoke
+-\fBbashbug\fR
+-by accident, just quit your editor\. You will always be asked for confirmation before a bug report is sent\.
+-.SH "OPTIONS"
+-.PP
+-.PP
+-\fB\-\-help\fR
+-.RS
+-Show a brief usage message and exit\.
+-.RE
+-.PP
+-\fB\-\-version\fR
+-.RS
+-Show the version of
+-\fBbashbug\fR
+-and exit\.
+-.RE
+-.PP
+-\fBbug\-report\-email\-addresses\fR
+-.RS
+-Comma separated list of recipients\' email addresses\. By default the report is mailed to both the GNU developers and the Debian Bash maintainers\.
+-.RE
+-.SH "ENVIRONMENT"
+-.PP
+-.PP
+-\fBDEFEDITOR\fR
+-.RS
+-Editor to use for editing the bug report\.
+-.RE
+-.PP
+-\fBEDITOR\fR
+-.RS
+-Editor to use for editing the bug report (overridden by
+-\fBDEFEDITOR\fR)\.
+-.RE
+-.SH "SEE ALSO"
+-.PP
+-
+-\fBbash\fR(1),
+-\fBreportbug\fR(1),
+-\fBupdate-alternatives\fR(8)
+-for preferred editor\.
+-.SH "AUTHOR"
+-.PP
+-This manual page was written by Christer Andersson
+-<klamm@comhem\.se>
+-for the Debian project (but may be used by others)\.
+diff --git a/debian/changelog b/debian/changelog
+index 7e3b9c9..cb86abd 100644
+--- a/debian/changelog
++++ b/debian/changelog
+@@ -1,1004 +1,372 @@
+-bash (5.2.37-1.1) unstable; urgency=medium
+-
+-  * NMU
+-  * Fix FTBFS (Closes: #1092374)
+-    - d/rules: Remove pre-built docs to ensure they are regenerated.
+-      Without this, the `-b` build would fail but `-B` / `-A` would
+-      somehow succed.
+-    - Import packaging changes from 5.3~beta1-1 to make the build
+-      more robust. This also includes a `Rules-Requires-Root`,
+-      which is part of fixing this FTBFS.
+-
+- -- Niels Thykier <niels@thykier.net>  Sun, 16 Feb 2025 09:57:09 +0000
+-
+-bash (5.2.37-1) unstable; urgency=medium
+-
+-  * New patch release.
+-    - A typo in the autoconf test for strtold causes false negatives for
+-      strtold being available and working when compiled with gcc-14.
+-    - If we parse a compound assignment during an alias expansion, it's
+-      possible to have the current input string popped out from underneath
+-      the parse. In this case, we should not restore the input we were using
+-      when we began to parse the compound assignment.
+-    - Handle systems that supply one of select or pselect, but not both.
+-    - When readline is accumulating bytes until it reads a complete multibyte
+-      character, reading a byte that makes the multibyte character invalid can
+-      result in discarding the bytes in the partial character.
+-    - Fix the case where text to be completed from the line buffer (quoted) is
+-      compared to the common prefix of the possible matches (unquoted) and the
+-      quoting makes the former appear to be longer than the latter. Readline
+-      assumes the match doesn't add any characters to the word and doesn't
+-      display multiple matches.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 05 Oct 2024 08:23:04 +0200
+-
+-bash (5.2.32-1) unstable; urgency=medium
+-
+-  * New patch release.
+-    - Remove duplicate definition of strtoimax. Closes: #1023053.
+-  * /etc/bash.bashrc Don't dereference undefined variables, breaking
+-    when run with -u. Closes: #941248, #1034658, #1064645.
+-
+- -- Matthias Klose <doko@debian.org>  Tue, 20 Aug 2024 09:47:46 +0200
+-
+-bash (5.2.21-2.1) unstable; urgency=medium
++vyatta-bash (5.2.37-2) unstable; urgency=medium
+ 
+-  * Non-maintainer upload.
+-  * Move aliased files to /usr for DEP17. Closes: #1064888.
+-
+- -- Helmut Grohne <helmut@subdivi.de>  Wed, 05 Jun 2024 17:19:12 +0200
+-
+-bash (5.2.21-2) unstable; urgency=medium
+-
+-  * Fix crash in rl_do_undo, taken from upstream. See #1056314, #1037274.
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 26 Nov 2023 09:09:52 +0100
+-
+-bash (5.2.21-1) unstable; urgency=medium
+-
+-  * New patch release.
+-  * Bump standards version.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 25 Nov 2023 11:43:49 +0100
+-
+-bash (5.2.15-2) unstable; urgency=medium
+-
+-  * Remove one more pdf file without source. Closes: #1024598.
+-
+- -- Matthias Klose <doko@debian.org>  Mon, 02 Jan 2023 13:06:21 +0100
+-
+-bash (5.2.15-1) unstable; urgency=medium
+-
+-  * New patch release.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 31 Dec 2022 16:40:30 +0100
+-
+-bash (5.2-3) unstable; urgency=medium
+-
+-  * Apply upstream patches 003 - 015.
+-  * Repack to get rid of non-source PDF (Bastian Germann). Closes: #1024598.
+-  * d/watch: Update to v4 and add repack options.
+-  * d/copyright: Convert to machine-readable format, adding missing info.
+-    Closes: #1024602.
+-  * Enable all hardening flags (Christian Göttsche). Closes: #1021082.
+-  * Fix build on musl (Helmut Grohne). Closes: #1023053.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 31 Dec 2022 11:32:01 +0100
+-
+-bash (5.2-2) unstable; urgency=medium
+-
+-  * Apply upstream patches 001 - 002.
+-    - Expanding unset arrays in an arithmetic context can cause a
+-      segmentation fault.
+-    - Starting bash with an invalid locale specification for
+-      LC_ALL/LANG/LC_CTYPE can cause the shell to crash. Closes: #1021062.
+-
+- -- Matthias Klose <doko@debian.org>  Mon, 24 Oct 2022 10:34:28 +0200
+-
+-bash (5.2-1) unstable; urgency=medium
+-
+-  * New upstream release.
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 28 Sep 2022 16:50:07 +0200
+-
+-bash (5.2~rc2-2) unstable; urgency=medium
+-
+-  * New upstream snapshot 5.2 rc2.
+-  * Bump standards version.
+-
+- -- Matthias Klose <doko@debian.org>  Thu, 25 Aug 2022 16:03:49 +0200
+-
+-bash (5.2~rc1-1) experimental; urgency=medium
+-
+-  * New upstream snapshot 5.2 rc1.
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 17 Jul 2022 14:35:02 +0200
+-
+-bash (5.2~beta-1) experimental; urgency=medium
+-
+-  * New upstream snapshot 5.2 beta1.
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 01 Jun 2022 10:48:43 +0200
+-
+-bash (5.1-6.1) unstable; urgency=medium
+-
+-  [ Helmut Grohne ]
+-  * Non-maintainer upload.
+-  * Replace add-shell/remove-shell with declarative shells.d trigger.
+-    Closes: #1004171
+-
+- -- Johannes Schauer Marin Rodrigues <josch@debian.org>  Thu, 12 May 2022 17:05:40 +0200
+-
+-bash (5.1-6) unstable; urgency=medium
+-
+-  * Apply upstream patches 013 - 016.
+-
+- -- Matthias Klose <doko@debian.org>  Thu, 06 Jan 2022 17:16:52 +0100
+-
+-bash (5.1-5) unstable; urgency=medium
+-
+-  * Apply upstream patches 009 - 012.
+-  * Bump standards version.
+-  * Remove preinst since "dash-as-sh"-transition is done. Closes: #958083.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 27 Nov 2021 09:37:10 +0100
+-
+-bash (5.1-3.1) unstable; urgency=medium
++  * Update upstream to Bash 5.2.37
+ 
+-  [ Helmut Grohne ]
+-  * Non-maintainer upload.
+-  * preinst: Remove obsolete upgrade path from pre-wheezy. Closes: #958083
++ -- Simon Arthur <s.arthur@vyos.io>  Sun, 22 Jun 2025 23:24:10 +0200
+ 
+- -- Johannes Schauer Marin Rodrigues <josch@debian.org>  Sat, 23 Oct 2021 11:36:52 +0200
++vyatta-bash (4.1-3+vyos2+current2) unstable; urgency=medium
+ 
+-bash (5.1-3) unstable; urgency=medium
++  * Force release
+ 
+-  * Apply upstream patches 005 - 008.
++ -- Kim Hagen <kim.sidney@gmail.com>  Sun, 24 Jan 2016 14:43:04 -0500
+ 
+- -- Matthias Klose <doko@debian.org>  Mon, 10 May 2021 08:52:10 +0200
++vyatta-bash (4.1-3+vyos2+current1) unstable; urgency=low
+ 
+-bash (5.1-2) unstable; urgency=medium
++  * vyatta-bash: update dh_gencontrol with new development build flag
+ 
+-  * Apply upstream patches 001 - 004.
++ -- Alex Harpin <khagen@vyos.rbbnet.net>  Sun, 24 Jan 2016 14:40:05 -0500
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 03 Jan 2021 10:44:50 +0100
++vyatta-bash (4.1-3+vyos2+lithium2) unstable; urgency=low
+ 
+-bash (5.1-1) unstable; urgency=medium
++  * Force release
+ 
+-  * New upstream release.
+-  * Bump standards version.
++ -- Alex Harpin <development@landsofshadow.co.uk>  Sun, 14 Dec 2014 19:01:04 +0000
++ 
++vyatta-bash (4.1-3+vyos2+lithium1) unstable; urgency=low
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 08 Dec 2020 08:03:28 +0100
++  * New branch
+ 
+-bash (5.1~rc3-1) unstable; urgency=medium
++ -- Alex Harpin <development@landsofshadow.co.uk>  Sun, 30 Nov 2014 21:55:54 +0000
++ 
++vyatta-bash (4.1-3+vyos1+helium5) unstable; urgency=low
+ 
+-  * New upstream release candidate 3.
++  [ Alex Harpin ]
++  * vyatta-bash: import patch from Redhat for CVE-2014-7169
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 22 Nov 2020 16:24:54 +0100
++ -- Alex Harpin <development@landsofshadow.co.uk>  Sun, 30 Nov 2014 21:45:43 +0000
++ 
++vyatta-bash (4.1-3+vyos1+helium4) unstable; urgency=low
+ 
+-bash (5.1~rc2-1) unstable; urgency=medium
++  * Another shellshock patch by Chet Ramey.
+ 
+-  * New upstream release candidate 2.
+-    - Fix locale related crash. Closes: #972672.
++ -- Daniil Baturin <daniil@baturin.org>  Fri, 26 Sep 2014 00:32:10 +0200
+ 
+- -- Matthias Klose <doko@debian.org>  Wed, 04 Nov 2020 18:01:32 +0100
++vyatta-bash (4.1-3+vyos1+helium3) unstable; urgency=low
+ 
+-bash (5.1~rc1-2) unstable; urgency=medium
++  * CVE-2014-6271: Import patch by Chet Ramey.
+ 
+-  * Make the build reproducible. Closes: #935127.
++ -- Daniil Baturin <daniil@baturin.org>  Thu, 25 Sep 2014 20:21:46 +0200
+ 
+- -- Matthias Klose <doko@debian.org>  Thu, 15 Oct 2020 19:10:56 +0200
++vyatta-bash (4.1-3+vyos1+helium2) unstable; urgency=low
+ 
+-bash (5.1~rc1-1) experimental; urgency=medium
++  * Update maintainer address.
+ 
+-  * New upstream release candidate 1.
++ -- Daniil Baturin <daniil@baturin.org>  Sun, 17 Aug 2014 23:55:31 +0200
+ 
+- -- Matthias Klose <doko@debian.org>  Fri, 09 Oct 2020 17:47:40 +0200
++vyatta-bash (4.1-3+vyos1+helium1) unstable; urgency=low
+ 
+-bash (5.1~beta1-1) experimental; urgency=medium
++  * New branch
+ 
+-  * New upstream snapshot 5.1 beta1.
++ -- Daniil Baturin <daniil@baturin.org>  Sat, 15 Feb 2014 15:48:25 +0100
+ 
+- -- Matthias Klose <doko@debian.org>  Thu, 17 Sep 2020 14:05:46 +0200
++vyatta-bash (4.1-3-vyatta11+hydrogen1) unstable; urgency=low
+ 
+-bash (5.1~alpha1-1) experimental; urgency=medium
++  * New branch
+ 
+-  * New upstream snapshot 5.1 alpha1.
++ -- Daniil Baturin <daniil@baturin.org>  Sun, 17 Nov 2013 00:01:52 +0100
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 04 Aug 2020 19:24:57 +0200
++vyatta-bash (4.1-3-vyatta11+daisy1) unstable; urgency=low
+ 
+-bash (5.0-7) unstable; urgency=medium
++  * create daisy branch
+ 
+-  * Apply upstream patches 012 - 016.
+-  * Bump debhelper version.
++ -- John Southworth <john.southworth@vyatta.com>  Sat, 13 Oct 2012 13:30:17 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 04 Aug 2020 11:49:30 +0200
++vyatta-bash (4.1-3-vyatta11) unstable; urgency=low
+ 
+-bash (5.0-6) unstable; urgency=medium
++  * new branch
+ 
+-  * Apply upstream patches 012 - 016.
+-  * Bump standards version.
++ -- John Southworth <john.southworth@vyatta.com>  Fri, 12 Oct 2012 19:46:21 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 25 Feb 2020 12:44:22 +0100
++vyatta-bash (4.1-3-vyatta10) unstable; urgency=low
+ 
+-bash (5.0-5) unstable; urgency=medium
++  * new branch
+ 
+-  * Apply upstream patches 004 - 011.
+-  * Bump standards version.
++ -- Deepti Kulkarni <deepti@vyatta.com>  Sat, 03 Mar 2012 02:25:15 -0800
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 10 Nov 2019 11:45:12 +0100
++vyatta-bash (4.1-3-vyatta9) unstable; urgency=low
+ 
+-bash (5.0-4) unstable; urgency=medium
++  * Enable global bash logout script
+ 
+-  * wait builtin: avoid hanging on inherited children. Closes: #920455.
++ -- John Southworth <john.southworth@vyatta.com>  Fri, 09 Sep 2011 18:45:55 -0500
+ 
+- -- Matthias Klose <doko@debian.org>  Thu, 18 Apr 2019 06:12:36 +0200
++vyatta-bash (4.1-3-vyatta8) unstable; urgency=low
+ 
+-bash (5.0-3) unstable; urgency=medium
++  * Make restricted mode 'Invalid command' message match non restricted
++    mode
+ 
+-  * Apply upstream patch 003.
+-  * Fix clear_console locking up video when X is running and logging out
+-    from a plain text console. Closes: #810660. LP: #1822184.
++ -- John Southworth <john.southworth@vyatta.com>  Mon, 01 Aug 2011 20:06:31 -0500
+ 
+- -- Matthias Klose <doko@debian.org>  Thu, 04 Apr 2019 04:30:33 +0200
++vyatta-bash (4.1-3-vyatta7) unstable; urgency=low
+ 
+-bash (5.0-2) unstable; urgency=medium
++  * Bugfix 2823: change output of invalid commands so that they will
++    integrate into our system seamlessly
+ 
+-  * Apply upstream patches 001 and 002. Closes: #919439.
+-  * Merge back the 4.4.18-3.1 upload. Closes: #889757.
++ -- John Southworth <john.southworth@vyatta.com>  Fri, 29 Jul 2011 20:43:12 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Thu, 24 Jan 2019 11:01:16 +0100
++vyatta-bash (4.1-3-vyatta6) unstable; urgency=low
+ 
+-bash (5.0-1) unstable; urgency=medium
++  * Bugfix 6828: Make bash print a friendly message when exiting
++    configuration mode with ctrl+d
+ 
+-  * New upstream release.
++ -- John Southworth <john.southworth@vyatta.com>  Tue, 26 Jul 2011 20:01:11 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Mon, 14 Jan 2019 16:27:51 +0100
++vyatta-bash (4.1-3-vyatta5) unstable; urgency=low
+ 
+-bash (5.0~beta2-1) experimental; urgency=medium
++  * new branch
+ 
+-  * New upstream beta release.
++ -- Deepti Kulkarni <deepti@vyatta.com>  Thu, 07 Jul 2011 20:54:39 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Thu, 06 Dec 2018 19:35:07 +0100
++vyatta-bash (4.1-3-vyatta4) unstable; urgency=low
+ 
+-bash (5.0~beta1-1) experimental; urgency=medium
++  * bugfix 6569: Put patch for vyatta restricted mode and first word
++    COMPSPECS back into pcomplete.c.
+ 
+-  * New upstream beta release.
++ -- John Southworth <john.southworth@vyatta.com>  Sat, 23 Apr 2011 12:49:43 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Mon, 22 Oct 2018 16:06:36 +0200
++vyatta-bash (4.1-3-vyatta3) unstable; urgency=low
+ 
+-bash (5.0~alpha1-1) experimental; urgency=medium
++  * new branch
+ 
+-  * New upstream alpha release.
++ -- An-Cheng Huang <ancheng@vyatta.com>  Tue, 28 Dec 2010 20:45:04 +0000
+ 
+- -- Matthias Klose <doko@debian.org>  Fri, 01 Jun 2018 20:33:31 +0200
++vyatta-bash (4.1-3-vyatta2) unstable; urgency=low
+ 
+-bash (4.4.18-3.1) unstable; urgency=medium
++  * Remove Vyatta mods to allow empty command completion
+ 
+-  * Non-maintainer upload.
+-  * Move man2html dependency to B-D-I and use the thinner -base variant.
+-    Closes: #889757.
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Tue, 30 Nov 2010 20:38:50 -0800
+ 
+- -- Helmut Grohne <helmut@subdivi.de>  Sun, 17 Jun 2018 21:15:06 +0200
++vyatta-bash (4.1-3-vyatta1) unstable; urgency=low
+ 
+-bash (4.4.18-3) unstable; urgency=medium
++  * Update to bash-4.1
+ 
+-  * Apply upstream patches 020 - 023. Fixing:
+-    - In circumstances involving long-running scripts that create and reap many
+-      processes, it is possible for the hash table bash uses to store exit
+-      statuses from asynchronous processes to develop loops. This patch fixes
+-      the loop causes and adds code to detect any future loops.
+-    - A SIGINT received inside a SIGINT trap handler can possibly cause the
+-      shell to loop.
+-    - There are cases where a failing readline command (e.g., delete-char at
+-      the end of a line) can cause a multi-character key sequence to `back up'
+-      and attempt to re-read some of the characters in the sequence.
+-    - When sourcing a file from an interactive shell, setting the SIGINT handle
+-      to the default and typing ^C will cause the shell to exit.
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Mon, 11 Oct 2010 15:26:25 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Fri, 01 Jun 2018 21:05:11 +0200
++vyatta-bash (3.2-4-vyatta-8) unstable; urgency=low
+ 
+-bash (4.4.18-2) unstable; urgency=medium
++  * fix for bug 6159
+ 
+-  * Revert the changes from the last upload.
+-  * Configure the normal build --without-bash-malloc as well.
+-    See http://lists.nongnu.org/archive/html/qemu-devel/2018-03/msg04700.html
+-    for the qemu fix.  Closes: #865599. LP: #1751011.
+-  * Apply upstream patch 019.
++ -- An-Cheng Huang <ancheng@vyatta.com>  Wed, 08 Sep 2010 18:12:01 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Wed, 04 Apr 2018 20:04:48 +0200
++vyatta-bash (3.2-4-vyatta-7) unstable; urgency=low
+ 
+-bash (4.4.18-1.1) unstable; urgency=high
++  * UNRELEASED
+ 
+-  * Non-maintainer upload.
+-  * Build again with -no-pie as dropping it broke bash when run under
+-    qemu-user (with the same symptoms as #842037). Closes: #889869
+-    Re-opens: #865599
++ -- An-Cheng Huang <ancheng@vyatta.com>  Thu, 02 Sep 2010 18:27:35 -0700
+ 
+- -- Raphaël Hertzog <hertzog@debian.org>  Tue, 13 Feb 2018 11:17:39 +0100
++vyatta-bash (3.2-4-vyatta-6) unstable; urgency=low
+ 
+-bash (4.4.18-1) unstable; urgency=medium
++  * fix squeeze build issues
+ 
+-  * bash 4.4.18 release (bash 4.4 patchlevel 18).
+-  * bash: Remove dependency on dash. Closes: #537913.
+-  * Update config.guess and config.sub. Closes: #882474.
+-  * skel.profile: Add $HOME/.local/bin if it exists. Closes: #839155.
+-  * Stop building with -no-pie. Closes: #865599, #859263.
+-  * /etc/bash.bashrc: Don't overwrite PS1 if SUDO_PS1 is set. Closes: #789811.
+-  * Make the build reproducible. Closes: #806945.
+-    - Use the system provided man2html to generate the htm docs.
+-    - Set PGRP_PIPE unconditionally on Linux.
+-  * Fix typo in German help (Carsten Leonhardt). Closes: #831282.
++ -- An-Cheng Huang <ancheng@vyatta.com>  Fri, 27 Aug 2010 18:27:51 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 06 Feb 2018 12:20:45 +0100
++vyatta-bash (3.2-4-vyatta-5) unstable; urgency=low
+ 
+-bash (4.4-5) unstable; urgency=medium
++  * UNRELEASED
+ 
+-  * Apply upstream patch 012.
++ -- An-Cheng Huang <ancheng@vyatta.com>  Thu, 22 Jul 2010 17:22:39 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Mon, 15 May 2017 12:45:32 -0700
++vyatta-bash (3.2-4-vyatta-4) unstable; urgency=low
+ 
+-bash (4.4-4) unstable; urgency=medium
++  * Fix null reference in command logging
+ 
+-  * Apply upstream patches 008 - 011.
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Fri, 02 Jul 2010 13:17:36 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 24 Jan 2017 16:13:37 +0100
++vyatta-bash (3.2-4-vyatta-3) unstable; urgency=low
+ 
+-bash (4.4-3) unstable; urgency=medium
++  * Remove AUDIT_SHELL option
++  * Shell command logging support
+ 
+-  * Apply upstream patches 006 - 007.
+-  * clear_console: Securely erase the current console. Closes: #845177.
+-  * Mark locales and time build dependencies with <!nocheck>.
+-    Closes: #838201.
+-  * Don't configure with --with-curses. Closes: #794588.
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Fri, 18 Jun 2010 15:17:59 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Fri, 20 Jan 2017 11:52:59 +0100
++vyatta-bash (3.2-4-vyatta-2) unstable; urgency=low
+ 
+-bash (4.4-2) unstable; urgency=medium
++  * Remove AUDIT_SHELL option
+ 
+-  * Apply upstream patches 001 - 005.
+-    - Closes: #844299, LP: #1641832.
+-  * Don't build with PIE. Closes: #842037.
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Thu, 17 Jun 2010 10:17:47 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 15 Nov 2016 19:49:00 +0100
++vyatta-bash (3.2-4-vyatta-1) unstable; urgency=low
+ 
+-bash (4.4-1) unstable; urgency=medium
++  * Don't remove vbash from /etc/shells during upgrade
++  * Auditing is on for vbash
++  * Fix command auditing to work right
++  * Integrate bash 3.2 version
+ 
+-  * Bash 4.4 release.
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Fri, 09 Apr 2010 16:17:17 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Sat, 17 Sep 2016 13:31:34 +0200
++vyatta-bash (3.1dfsg-8-vyatta-17) unstable; urgency=low
+ 
+-bash (4.4~rc2-1) experimental; urgency=medium
++  * Add auditing support to bash
++  * Fix spelling error warning
++  * Turn on auditing for Vyatta bash
++  * Package now depends on audit library
++  * Rerun autoreconf to regenerate configure
+ 
+-  * Bash 4.4 release candidate 2.
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Wed, 07 Apr 2010 11:01:05 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Mon, 29 Aug 2016 09:53:08 +0200
++vyatta-bash (3.1dfsg-8-vyatta-16) unstable; urgency=low
+ 
+-bash (4.4~rc1+b2-1) experimental; urgency=medium
++  * Update FSF address
++  * Add installation/removal scripts for vbash
+ 
+-  * New upstream tarball, called "4.4 beta2".
++ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Wed, 10 Mar 2010 12:25:25 -0800
+ 
+- -- Matthias Klose <doko@debian.org>  Mon, 25 Jul 2016 20:35:44 +0200
++vyatta-bash (3.1dfsg-8-vyatta-15) unstable; urgency=low
+ 
+-bash (4.4~rc1-1) experimental; urgency=medium
++  * UNRELEASED
+ 
+-  * Bash 4.4 release candidate 1.
++ -- An-Cheng Huang <ancheng@vyatta.com>  Wed, 17 Feb 2010 16:12:28 -0800
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 13 Mar 2016 21:36:22 +0100
++vyatta-bash (3.1dfsg-8-vyatta-14) unstable; urgency=low
+ 
+-bash (4.4~beta-1) experimental; urgency=medium
++  * Bugfix 4108: Check pointers before dereferencing them.
+ 
+-  * Bash 4.4 beta release.
++ -- Bob Gilligan <gilligan@vyatta.com>  Tue, 02 Jun 2009 14:14:02 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Fri, 08 Jan 2016 07:53:07 +0100
++vyatta-bash (3.1dfsg-8-vyatta-13) unstable; urgency=low
+ 
+-bash (4.3-14) unstable; urgency=medium
++  * UNRELEASED
+ 
+-  * Apply upstream patches 040 - 042.
++ -- An-Cheng Huang <ancheng@vyatta.com>  Fri, 29 May 2009 18:34:45 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 01 Sep 2015 01:04:38 +0200
++vyatta-bash (3.1dfsg-8-vyatta-12) unstable; urgency=low
+ 
+-bash (4.3-13) unstable; urgency=medium
++  Build system changes
++  * add support for development build
++  * update maintainer information
++  * "files" file should be removed before package build
+ 
+-  * Apply upstream patches 034 - 039.
+-  * Disallow setuid scripts if not called as `sh' and not called with
+-    the -p option. Closes: #720545, #734866.
++ -- An-Cheng Huang <ancheng@build-vm.localdomain>  Mon, 15 Dec 2008 16:07:17 -0800
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 26 Jul 2015 14:53:19 +0200
++vyatta-bash (3.1dfsg-8-vyatta-11) unstable; urgency=low
+ 
+-bash (4.3-12) unstable; urgency=medium
++	  3.2.0
++  [ Mark O'Brien ]
+ 
+-  * Apply upstream patches 031 - 033.
+-  * Add a Built-Using attribute for bash-static. Closes: #769342.
+-  * Move definition of the macro "FN" out of the region of the "ig"
+-    macro.  Define macros and registers "zZ" and "zY". Closes: #774597.
+-  * Also set color prompt for *-256color terminals. Closes: #766443.
+ 
+- -- Matthias Klose <doko@debian.org>  Wed, 28 Jan 2015 17:05:00 +0100
++  [ slioch ]
++  * remove ! and $ from vbash processing as these are handled by command
++    scripts.
++  * Handle double and single quote within a command argument. First
++    quote turns on automatic escaping, second turns off. Will support
++    unquoted, single quoted and
++  * disable shell interpretation of ![num] when entering configure
++    commands. this fixes a bug where the negation character in
++    nat/firewall/wlb
+ 
+-bash (4.3-11) unstable; urgency=medium
++  [ root ]
++  * skipping whitespace at beginning of command when matching
++    set|delete.
++  * additional special characters to trap, added back free() after
++    additional testing, removed generated files from project.
++  * Revert "missing a free from last merge."
++  * missing a free from last merge.
++  * fix for bug 1283. Or partial fix. Now handle and escape special
++    characters in vbash shell without requiring quotes on string. only
++    applies to set/delete commands in vbash shell. Behavior is now much
++    closer to juniper shell behavior with special characters.
+ 
+-  * Apply upstream patches 028 - 030.
+-  * Remove the parser-oob patch.
++  [ Mark O'Brien ]
+ 
+- -- Matthias Klose <doko@debian.org>  Tue, 07 Oct 2014 16:20:35 +0200
++ -- Mark O'Brien <mobrien@firebolt.vyatta.com>  Tue, 25 Nov 2008 19:08:33 -0800
+ 
+-bash (4.3-10) unstable; urgency=medium
++vyatta-bash (3.1dfsg-8-vyatta-10) unstable; urgency=low
+ 
+-  * Apply upstream patches 026 and 027.
+-  * Remove patches CVE-2014-6271 and variables-affix.
++	  3.1.0
++  [ Mark O'Brien ]
+ 
+- -- Matthias Klose <doko@ubuntu.com>  Tue, 30 Sep 2014 13:36:38 +0200
+ 
+-bash (4.3-9.2) unstable; urgency=high
++  [ rbalocca ]
++  * Ignore derived files
+ 
+-  * Non-maintainer upload by the Security Team.
+-  * Add variables-affix.patch patch.
+-    Apply patch from Florian Weimer to add prefix and suffix for environment
+-    variable names which contain shell functions.
+-  * Add parser-oob.patch patch.
+-    Fixes two out-of-bound array accesses in the bash parser.
++  [ Mark O'Brien ]
+ 
+- -- Thijs Kinkhorst <thijs@debian.org>  Thu, 25 Sep 2014 21:27:16 +0000
++ -- Mark O'Brien <mobrien@firebolt.vyatta.com>  Tue, 17 Jun 2008 09:25:53 -0700
+ 
+-bash (4.3-9.1) unstable; urgency=high
++vyatta-bash (3.1dfsg-8-vyatta-9) unstable; urgency=low
+ 
+-  * Non-maintainer upload by the security team
+-  * Apply upstream patch bash43-025, fixing CVE-2014-6271.
++  3.0.5
+ 
+- -- Florian Weimer <fw@deneb.enyo.de>  Wed, 24 Sep 2014 20:29:30 +0200
+ 
+-bash (4.3-9) unstable; urgency=medium
++ -- Mark O'Brien <mobrien@vyatta.com>  Tue, 06 May 2008 12:43:05 -0700
+ 
+-  * Apply upstream patches 023 - 024, fixing the issues:
+-    - bash does not correctly parse process substitution constructs that
+-      contain unbalanced parentheses as part of the contained command.
+-    - Indirect variable references do not work correctly if the reference
+-      variable expands to an array reference using a subscript other than 0
+-      (e.g., foo='bar[1]' ; echo ${!foo}).
+-  * debian/skel.bashrc: Add GCC_COLORS setting (disabled by default).
++vyatta-bash (3.1dfsg-8-vyatta-8) unstable; urgency=low
+ 
+- -- Matthias Klose <doko@debian.org>  Thu, 21 Aug 2014 22:58:16 +0200
++  3.0.4
+ 
+-bash (4.3-8) unstable; urgency=medium
+ 
+-  * Apply upstream patches 012 - 022, fixing the issues:
+-    - When a SIGCHLD trap runs a command containing a shell builtin while a
+-      script is running `wait' to wait for all running children to complete,
+-      the SIGCHLD trap will not be run once for each child that terminates.
+-    - Using reverse-i-search when horizontal scrolling is enabled does not
+-      redisplay the entire line containing the successful search results.
+-    - Under certain circumstances, $@ is expanded incorrectly in contexts
+-      where word splitting is not performed.
+-    - When completing directory names, the directory name is dequoted twice.
+-      This causes problems for directories with single and double quotes in
+-      their names.
+-    - An extended glob pattern containing a slash (`/') causes the globbing
+-      code to misinterpret it as a directory separator.
+-    - The code that creates local variables should not clear the `invisible'
+-      attribute when returning an existing local variable.  Let the code that
+-      actually assigns a value clear it.
+-    - When assigning an array variable using the compound assignment syntax,
+-      but using `declare' with the rhs of the compound assignment quoted, the
+-      shell did not mark the variable as visible after successfully performing
+-      the assignment.
+-    - The -t timeout option to `read' does not work when the -e option is used.
+-      LP: #1317476.
+-    - When PS2 contains a command substitution, here-documents entered in an
+-      interactive shell can sometimes cause a segmentation fault.
+-    - When the readline `revert-all-at-newline' option is set, pressing newline
+-      when the current line is one retrieved from history results in a double
+-      free and a segmentation fault. Closes: #747341.
+-    - Using nested pipelines within loops with the `lastpipe' option set can
+-      result in a segmentation fault.
+-  * Fix typo in package description. Closes: #707810.
++ -- Mark O'Brien <mobrien@vyatta.com>  Mon, 05 May 2008 16:40:24 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 03 Aug 2014 18:14:31 +0200
++vyatta-bash (3.1dfsg-8-vyatta-7) unstable; urgency=low
+ 
+-bash (4.3-7) unstable; urgency=medium
++  3.0.3
++  [ Mark O'Brien ]
+ 
+-  * Apply upstream patches 009 - 011 (replacing local patches):
+-    - Fix a problem with unsigned sign extension when attempting to reallocate
+-      the input line when it is fewer than 3 characters long and there has been
+-      a history expansion.  The sign extension causes the shell to not
+-      reallocate the line, which results in a segmentation fault when it writes
+-      past the end.
+-    - Change the behavior of programmable completion to compensate for two
+-      assumptions made by the bash-completion package.
+-    - The signal handling changes to bash and readline (to avoid running any
+-      code in a signal handler context) cause the cursor to be placed on the
+-      wrong line of a multi-line command after a ^C interrupts editing.
+ 
+- -- Matthias Klose <doko@debian.org>  Wed, 16 Apr 2014 23:10:28 +0200
++  [ rbalocca ]
++  * Indicate the VC4.0.2 release candidate in the changelog
+ 
+-bash (4.3-6) unstable; urgency=medium
++  [ Mark O'Brien ]
+ 
+-  * Apply upstream patches 001 - 008:
+-    - A missing check for a valid option prevented `test -R' from working.
+-      There is another problem that causes bash to look up the wrong variable
+-      name when processing the argument to `test -R'.
+-    - A change to save state while running the DEBUG trap caused pipelines to
+-      hang on systems which need process group synchronization while building
+-      pipelines.
+-    - When in callback mode, some readline commands can cause readline
+-      to segfault by passing invalid contexts to callback functions.
+-    - The `.' command in vi mode cannot undo multi-key commands beginning with
+-      `c', `d', and `y' (command plus motion specifier).
+-    - When in Posix mode, bash did not correctly interpret the ANSI-C-style
+-      $'...' quoting mechanism when performing pattern substitution word
+-      expansions within double quotes.
+-    - A shell that started with job control active but was not interactive left
+-      the terminal in the wrong process group when exiting, causing its parent
+-      shell to get a stop signal when it attempted to read from the terminal.
+-    - Using compound assignments for associative arrays like
+-        assoc=( [x]= [y]=bar )
+-      left the value corresponding to the key `x' NULL.  This caused
+-      subsequent lookups to interpret it as unset.
+-    - Some extended glob patterns incorrectly matched filenames with a leading
+-      dot, regardless of the setting of the `dotglob' option.
+-  * Replace already applied patches by the upstream patch files.
+-
+- -- Matthias Klose <doko@debian.org>  Mon, 07 Apr 2014 22:20:10 +0200
+-
+-bash (4.3-5) unstable; urgency=medium
+-
+-  * Fix a display issue when a multiline command is aborted with ^C.
+-  * Fix a crash after a failed history expansion. LP: #1294669.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 29 Mar 2014 19:10:21 +0100
+-
+-bash (4.3-4) unstable; urgency=high
+-
+-  * Fix an issue with an associative array expanding to the
+-    empty string if the associated value is the empty string.
+-  * Fix an issue, when invoked as sh, bash doesn't interpret C-style escapes
+-    within double-quoted substitution expansions ("${var/$'what'/ever}").
+-  * Fix an issue with the extglob option to not expand hidden files.
+-  * Update the pcomplete-dequote patch.
+-
+- -- Matthias Klose <doko@debian.org>  Fri, 21 Mar 2014 15:20:45 +0100
+-
+-bash (4.3-3) unstable; urgency=medium
+-
+-  * Fix an issue with with empty completions and bash-completion.
+-    Closes: #741060 . LP: #1291586.
+-  * Fix an issue with updating terminal titles using trap commands.
+-    LP: #1294167.
+-  * Fix an issue in vi-mode, not re-doing the latest "dw", "dl", "D", ...
+-    commands.
+-  * Fix segfault in _rl_dispatch_callback(). Closes: #741555.
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 19 Mar 2014 18:54:13 +0100
+-
+-bash (4.3-2) unstable; urgency=medium
+-
+-  * Build-depend on texlive-fonts-recommended.
+-  * Work around a build failure of bash static on ppc64el.
+-  * Only include the documentation into the bash-doc package. Closes:
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 05 Mar 2014 05:05:16 +0100
+-
+-bash (4.3-1) unstable; urgency=medium
+-
+-  * Bash 4.3 release.
+-  * Update debian/copyright.
+-
+- -- Matthias Klose <doko@debian.org>  Mon, 03 Mar 2014 08:16:58 +0100
+-
+-bash (4.3~rc2-1) experimental; urgency=medium
+-
+-  * New upstream version 4.3 rc2.
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 05 Feb 2014 15:20:17 +0100
+-
+-bash (4.3~rc1-1) experimental; urgency=medium
++ -- Mark O'Brien <mobrien@vyatta.com>  Tue, 29 Apr 2008 16:42:03 -0700
+ 
+-  * New upstream version 4.3 rc1.
+-
+- -- Matthias Klose <doko@debian.org>  Fri, 27 Dec 2013 23:01:38 +0100
+-
+-bash (4.3~beta2-1) experimental; urgency=low
+-
+-  * New upstream version 4.3 beta2.
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 23 Oct 2013 13:59:32 +0200
+-
+-bash (4.2+dfsg-1) unstable; urgency=low
++vyatta-bash (3.1dfsg-8-vyatta-6) unstable; urgency=low
+ 
+-  * Apply upstream patches 038 - 045, fixes for
+-    - If a backslash-newline (which is removed) with no other input is given as
+-      input to `read', the shell tries to dereference a null pointer and
+-      segfaults.
+-    - Under certain circumstances, bash attempts to expand variables in
+-      arithmetic expressions even when evaluation is being suppressed.
+-    - Output redirection applied to builtin commands missed I/O errors if
+-      they happened when the file descriptor was closed, rather than on write
+-      (e.g., like with an out-of-space error on a remote NFS file system).
+-    - Process substitution incorrectly inherited a flag that inhibited using the
+-      (local) temporary environment for variable lookups if it was providing
+-      the filename to a redirection.  The intent the flag is to enforce the
+-      Posix command expansion ordering rules.
+-    - Compilation failed after specifying the  `--enable-minimal-config' option
+-      to configure (more specifically, specifying `--disable-alias').
+-    - When SIGCHLD is trapped, and a SIGCHLD trap handler runs when a pending
+-      `read -t' invocation times out and generates SIGALRM, bash can crash with
+-      a segmentation fault.
+-    - When converting a multibyte string to a wide character string as part of
+-      pattern matching, bash does not handle the end of the string correctly,
+-      causing the search for the NUL to go beyond the end of the string and
+-      reference random memory.  Depending on the contents of that memory, bash
+-      can produce errors or crash.
+-    - The <&n- and >&n- redirections, which move one file descriptor to another,
+-      leave the file descriptor closed when applied to builtins or compound
+-      commands.
+-  * Fix parallel build (Steven Chamberlain). Closes: #694659.
+-  * Fix german translations. Closes: #688571.
+-  * Fix typo in man page. Closes: #696706.
++  VC4.0.2
+ 
+- -- Matthias Klose <doko@debian.org>  Sat, 30 Mar 2013 14:56:51 +0100
+ 
+-bash (4.2+dfsg-0.1) unstable; urgency=low
++ -- Mark O'Brien <mobrien@vyatta.com>  Sat, 19 Apr 2008 11:55:52 -0700
+ 
+-  * Non-maintainer upload.
+-  * Remove unused and non DFSG-compliant bash-4.2/lib/readline/doc from
+-    source. (Closes: #695709)
+-
+- -- David Prévot <taffit@debian.org>  Sat, 29 Dec 2012 21:19:34 -0400
++vyatta-bash (3.1dfsg-8-vyatta-5) unstable; urgency=low
+ 
+-bash (4.2-5.1) unstable; urgency=low
++  VC4.0.2 release candidate
+ 
+-  * Non-maintainer upload.
+-  * debian/bash.preinst-lib.c: typo in fcntl argument (Closes: #679198).
+-
+- -- Nicolas Boulenguez <nicolas@debian.org>  Tue, 11 Dec 2012 22:02:44 +0100
+-
+-bash (4.2-5) unstable; urgency=low
+-
+-  * Apply upstream patch 037, fix for
+-    - Attempting to redo (using `.') the vi editing mode `cc', `dd', or `yy'
+-      commands leads to an infinite loop.
+-
+- -- Matthias Klose <doko@debian.org>  Fri, 03 Aug 2012 01:21:14 +0200
+-
+-bash (4.2-4) unstable; urgency=high
+-
+-  * Apply upstream patches 030 - 036, fixes for
+-    - When attempting to glob strings in a multibyte locale, and those strings
+-      contain invalid multibyte characters that cause mbsnrtowcs to return 0,
+-      the globbing code loops infinitely.
+-    - A change between bash-4.1 and bash-4.2 to prevent the readline input hook
+-      from being called too frequently had the side effect of causing delays
+-      when reading pasted input on systems such as Mac OS X.  This patch fixes
+-      those delays while retaining the bash-4.2 behavior.
+-    - Bash-4.2 has problems with DEL characters in the expanded value of
+-      variables used in the same quoted string as variables that expand
+-      to nothing.
+-    - Bash uses a static buffer when expanding the /dev/fd prefix for the test
+-      and conditional commands, among other uses, when it should use a dynamic
+-      buffer to avoid buffer overflow.
+-    - In bash-4.2, the history code would inappropriately add a semicolon to
+-      multi-line compound array assignments when adding them to the history.
+-    - When given a number of lines to read, `mapfile -n lines' reads
+-      one too many.
+-    - Bash-4.2 produces incorrect word splitting results when expanding
+-      double-quoted $@ in the same string as and adjacent to other variable
+-      expansions.  The $@ should be split, the other expansions should not.
+-
+- -- Matthias Klose <doko@debian.org>  Thu, 12 Jul 2012 23:58:51 +0200
+-
+-bash (4.2-3) unstable; urgency=low
+-
+-  * Apply upstream patches 025 - 029, fixes for
+-    - When used in a shell function, `declare -g -a array=(compound assignment)'
+-      creates a local variable instead of a global one.
+-    - The `lastpipe' option does not behave correctly on machines where the
+-      open file limit is less than 256.
+-    - When the `extglob' shell option is enabled, pattern substitution does not
+-      work correctly in the presence of multibyte characters.
+-    - When using a word expansion for which the right hand side is evaluated,
+-      certain expansions of quoted null strings include spurious ^? characters.
+-    - Bash-4.2 tries to leave completed directory names as the user typed them,
+-      without expanding them to a full pathname.  One effect of this is that
+-      shell variables used in pathnames being completed (e.g., $HOME) are left
+-      unchanged, but the `$' is quoted by readline because it is a special
+-      character to the shell. This patch introduces two things:
+-      - A new shell option, `direxpand', which, if set, attempts to emulate the
+-        bash-4.1 behavior of expanding words to full pathnames during
+-        completion;
+-      - A set of heuristics that reduce the number of times special characters
+-        such as `$' are quoted when the directory name is not expanded.
+-  * Mark bash and bash-static as Multi-Arch: foreign . Closes: #674120.
+-  * Avoid warning for unset debian_chroot with -u (Marko Mäkelä).
+-    Closes: #659940.
+-  * Fix string expansion: \u and \U for code points U+0080 to U+00FF (Darran
+-    Salt). Closes: #661386.
+-  * Search $- for `i' for the interactivity test. Closes: #482194.
+-  * Search for bash_completion in /usr/share/bash-completion too.
+-    Closes: #655071, #655208.
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 01 Jul 2012 13:45:35 +0200
+-
+-bash (4.2-2) unstable; urgency=low
+-
+-  * Fix command-not-found location. Closes: #529313.
+-  * Print a replacement error message if command-not-found was removed
+-    after bashrc was loaded. Closes: #631023. LP: #561155.
+-  * skel.bashrc: Document and prepare enabling the globstar feature (Fabian
+-    Greffrath). Closes: #627926.
+-  * Apply upstream patches 021 - 024.
+-
+- -- Matthias Klose <doko@debian.org>  Fri, 30 Mar 2012 19:20:04 +0200
+-
+-bash (4.2-1) unstable; urgency=low
+-
+-  [ Matthias Klose ]
+-  * New upstream version.
+-  * Apply upstream patches 001 - 020.
+-  * Fix parsing of double doublequotes. LP: #780441.
+-  * /etc/bash.bashrc:
+-    - Fix quoting issue calling command-not-found. LP: #754859. Closes: #587185.
+-  * Don't cache the value of brk between sbrk calls (Samuel Thibault).
+-    Closes: #614815.
+-  * Remove the bashdb and bash-completion packaging rules and files.
+-  * Just link with libtinfo instead of libncurses if available.
+-  * Make lintian happy.
+-  * Use quilt to apply patches.
+-  * Fix build error with -Werror=format-security (Pierre Chifflier).
+-    Closes: #641350.
+-  * Fix build for the binary target, without calling the build target.
+-    Closes: #602159.
+-  * Fix cross builds (Steve McIntyre). Closes: #629929.
+-
+-  [ Jonathan Nieder ]
+-  * Update copyright file. Many files that were GPL-2+ were relicensed
+-    under GPL-3+ in bash 4.0-rc1. Closes: #632177.
+-  * debian/rules: Use "rm -rf" instead of rmdir to remove usr/share/info
+-    directory in "with_gfdl = no" build. This prevents build failures when
+-    using the unmodified upstream tarball.
+-  * bash.preinst: Tidy up a little.
+-    - Remove codepath that would rename .bash_profile → .profile if .profile
+-      was unmodified from the gutsy → hardy transition. Closes: #602244
+-    - Remove commented experiment from bash-completion transition.
+-    - Remove misleading "dpkg --assert-support-predepends" check.
+-      Closes: #602456.
+-    - Move utility functions to a separate bash.preinst-lib.c and corresponding
+-      declarations to bash.preinst.h.
+-  * Remove /bin/sh symlink and /usr/share/man/man1/sh.1.gz from bash package
+-    contents. Closes: #602483.
+-    - debian/rules: Do not install /bin/sh and sh.1.gz symlinks.
+-    - bash.preinst:
+-      - Make sure /bin/sh is present and points to an executable, forcibly
+-        creating symlinks /bin/sh -> bash and /usr/share/man/man1/sh.1.gz ->
+-        bash.1.gz if not.
+-      - Divert /bin/sh and sh.1.gz on behalf of dash if we are upgrading from
+-        a bash version with /bin/sh in the files list and bash's copy of
+-        /bin/sh is not already diverted. This ensures unpacking bash will not
+-        cause /bin/sh to go missing.
+-  * bash.postinst: Simplify comment that contained an implementation detail
+-    about how /bin/sh is provided.
+-  * Use dpkg-buildflags to retrieve compiler options, including hardening flags.
+-    Build-Depends: dpkg-dev (>= 1.16.1) (Steve Langasek). Closes: #629929.
+-  * Pass --host to configure only when cross-compiling, --build always, as
+-    recommended in autotools documentation (Steve Langasek).
+-
+-  * Merge from Ubuntu (closes: #648578):
+-    - /etc/skel/.bashrc:
+-      - Don't set HISTCONTROL twice. Thanks to Kevin Knerr. LP: #465500.
+-      - Set HISTFILESIZE to 2000 and HISTSIZE to 1000. LP: #544542.
+-      - README.Debian: Remove obsolete entry "Why is bash configured
+-        with --disable-net-redirections?"
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 30 Nov 2011 07:29:05 +0100
+-
+-bash (4.1-3) unstable; urgency=low
+-
+-  * Apply upstream patches 003, 004, 005.
+-  * Fix crash in declare builtin.
+-  * /etc/skel/.bashrc:
+-    - Enable sourcing of ~/.bash_aliases by default. Closes: #569798.
+-    - Find command-not-found script. Closes: #529313.
+-  * README.Debian:
+-    - Remove references to --disable-net-redirections, bash-minimal.
+-    - Mention that the upstream changelog can be found in the bash-doc
+-      package. Closes: #551019.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 10 Apr 2010 10:35:29 +0200
+-
+-bash (4.1-2) unstable; urgency=low
+-
+-  * Apply upstream patches 001, 002.
+-
+- -- Matthias Klose <doko@debian.org>  Fri, 12 Mar 2010 02:08:45 +0100
+-
+-bash (4.1-1) unstable; urgency=low
+-
+-  * New upstream version 4.1.
+-  * Stop building the bash-minimal package, not needed anymore with
+-    dash being the default shell.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 02 Jan 2010 13:49:24 +0100
+-
+-bash (4.1~rc1-1) unstable; urgency=low
+-
+-  * New upstream version 4.1, release candidate 1.
+-
+- -- Matthias Klose <doko@debian.org>  Wed, 30 Dec 2009 15:41:40 +0100
+-
+-bash (4.0-7) unstable; urgency=medium
+-
+-  * Re-add the sh and sh(1) symlinks. Closes: #546516.
+-
+- -- Matthias Klose <doko@debian.org>  Mon, 14 Sep 2009 08:11:58 +0200
+-
+-bash (4.0-6) unstable; urgency=medium
+-
+-  * Pre-depend on dash, instead of just depending on it.
+-    Closes: #546504, #546516, #546518.
+-  * Update and set homepage attribute. Closes: #546377, #546381.
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 13 Sep 2009 13:35:38 +0200
+-
+-bash (4.0-5) unstable; urgency=low
+-
+-  * Re-add dependency on dash, lost with the upload of 4.0.
+-  * Don't configure with --disable-net-redirections.
+-  * Fix name of system wide bash_logout in bash(1). Closes: #546200.
+-  * Stop shipping the sh and sh(1) symlinks. Closes: #545103.
+-  * Apply upstream patches 029 - 033.
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 13 Sep 2009 12:55:54 +0200
+-
+-bash (4.0-4) unstable; urgency=low
+-
+-  * Apply upstream patches 024 - 028.
+-    - patch 028 closes: #519165. bash-4.0 reverted to the historical
+-      shell behavior of raising an error when $@ or $* was expanded
+-      after `set -u' had been executed and there were no positional
+-      parameters.  The Posix working group has since clarified the
+-      standard's position on the issue, and $@ and $* are now the only
+-      variables, parameters, or special parameters that do not raise an
+-      error when unset if set -u is enabled.
+-  * Enable net redirections, now that bash isn't the default shell
+-    anymore.
+-  * Changes to the skeleton .bashrc:
+-    - Fix example lines in /etc/bash.bashrc to enable bash completion.
+-      Closes: #523706, #522857.
+-    - Don't export HISTCONTROL in bashrc. Closes: #540371.
+-    - Support user dircolors settings in ~/.dircolors. Closes: #506213.
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 23 Aug 2009 16:09:36 +0200
++ -- Mark O'Brien <mobrien@vyatta.com>  Wed, 16 Apr 2008 09:49:46 -0700
+ 
+-bash (4.0-3) experimental; urgency=low
++vyatta-bash (3.1dfsg-8-vyatta-4) unstable; urgency=low
+ 
+-  * Apply upstream patches 011 - 024.
++  3.0.2
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 17 May 2009 15:29:21 +0200
++  * 3.0.1
+ 
+-bash (4.0-2) experimental; urgency=low
++ -- Mark O'Brien <mobrien@vyatta.com>  Fri, 04 Apr 2008 18:00:09 -0700
+ 
+-  * Apply upstream patches 001 - 010. Closes: #518289.
+-  * Fix insecure temp file handling in examples scripts. Closes: #509279.
+-  * /etc/skel.bashrc: Only source bash_completion, if posix mode is turned
+-    off. Closes: #498474.
++vyatta-bash (3.1dfsg-8-vyatta-3) unstable; urgency=low
+ 
+- -- Matthias Klose <doko@debian.org>  Sat, 21 Mar 2009 15:06:46 +0100
++  VC4.0.1
+ 
+-bash (4.0-1) experimental; urgency=low
+ 
+-  * New upstream version 4.0.
++ -- Mark O'Brien <mobrien@vyatta.com>  Tue, 18 Mar 2008 19:03:18 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 01 Mar 2009 10:56:15 +0100
++vyatta-bash (3.1dfsg-8-vyatta-2) unstable; urgency=low
+ 
+-bash (4.0-0ubuntu1) jaunty; urgency=low
++  vc4.0.0
++  [ Mark O'Brien ]
+ 
+-  * New upstream version 4.0 beta.
+ 
+- -- Matthias Klose <doko@ubuntu.com>  Sat, 29 Nov 2008 18:20:35 +0100
++  [ An-Cheng Huang ]
++  * fix for bug 2604: shell accepts '!' by default
++  * fix for bug 2832: limit expansion checking to appropriate commands.
+ 
+-bash (3.2-6) unstable; urgency=medium
++  [ rbalocca ]
++  * Reset the version number to correspond to the version with which we
++    started
+ 
+-  * bash. Depend on dash to install dash as a required package.
++  [ Mark O'Brien ]
+ 
+- -- Matthias Klose <doko@debian.org>  Mon, 20 Jul 2009 23:56:24 +0000
++ -- Mark O'Brien <mobrien@vyatta.com>  Mon, 25 Feb 2008 17:37:54 -0800
+ 
+-bash (3.2-5) unstable; urgency=low
++vyatta-bash (3.1dfsg-8-vyatta-1) unstable; urgency=low
++  
++  reset version #
+ 
+-  * Apply upstream fixes 040 - 048.
++ -- Rick Balocc <rbalocca@vyatta.com>  Fri, 14 Feb 2008 12:18:00 -0700
+ 
+- -- Matthias Klose <doko@debian.org>  Sun, 01 Mar 2009 10:20:52 +0100
++vyatta-bash (0.1) unstable; urgency=low
++  
++  * Initial release based on bash 3.1dfsg-8.
+ 
+-bash (3.2-4) unstable; urgency=low
+-
+-  * bash-minimal, bash-static: Only call `add-shell' on new installations.
+-  * Only call remove-shell on package removal or purge.
+-
+- -- Matthias Klose <doko@debian.org>  Mon, 12 May 2008 18:49:07 +0200
+-
+-bash (3.2-3) unstable; urgency=low
+-
+-  * /etc/skel/.bashrc: Overwrite SHELL for calling lesspipe. Closes: #385168.
+-  * Only call `add-shell' on new installations. Closes: #477750.
+-  * Apply upstream fixes 034 - 039.
+-  * Add explicit copyright notice to clear_console(1).
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 20 Apr 2008 13:31:10 +0200
+-
+-bash (3.2-2) unstable; urgency=low
+-
+-  * Add a shopt option compat31 to fall back to the behaviour of bash-3.1 
+-    and earlier versions, in that quoting the string argument to the [[ 
+-    command's =~ +operator does not force string matching.
+-
+-  * Merge from Ubuntu:
+-    - Remove /etc/skel/.bash_profile, if it is unmodified; if modified and
+-      /etc/skel/.profile is unmodifed, move .bash_profile to .profile.
+-    - /etc/skel/.bashrc: Add an option to blurt a terminal window with a
+-      colored prompt.
+-    - /etc/skel/.bashrc: Add color support for grep and friends (commented
+-      out by default). Closes: #420659.
+-    - /etc/skel/.profile: Avoid the use of `~'.
+-    - Don't run command-not-found from the shell scripts when it has been
+-      removed in the meantime.
+-  * /etc/skel/.bashrc:
+-    - Comment out the lesspipe settings. Closes: #470453.
+-    - Don't use PROMPT_COMMAND to set the title of an xterm. Closes: #420656.
+-    - Don't second-guess terminal handling in dircolors. Closes: #473870.
+-    - Don't overwrite GNU Midnight Commander's setting of HISTCONTROL to
+-      `ignorespace'. Closes: #440102.
+-    - Add a comment about setting HISTSIZE and HISTFILESIZE. Closes: #449587.
+-    - Append to the history file, don't overwrite it. Closes: #452459.
+-    - Use dir and vdir commands for dir vdir aliases. Closes: #420661.
+-  * /etc/skel/.profile:
+-    - Add comment about setting the umask for ssh logins. Closes: #314533.
+-
+-  * Added code to defer the initialization of HISTSIZE until the history file
+-    is loaded. Closes: #383762.
+-  * Fix typos in README.Debian and preinst. Closes: #374452.
+-  * Mention `exec' builtin in the section `redirection'. Closes: #378067.
+-  * Add bashbug(1). Closes: #442477.
+-  * Fix typos in bash(1). Closes: #390493, #426687.
+-  * Fix bug in Bash_aliases example. Closes: #423488.
+-  * Fix typo in help message for caller builtin. Closes: #452656.
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 20 Apr 2008 11:20:08 +0200
+-
+-bash (3.2-1) experimental; urgency=low
+-
+-  * New upstream version (including upstream patches 01 - 33). Closes: #431620.
+-    - Added write error reporting to printf builtin. Closes: #414285.
+-    - Fixed a bug that caused `unset LANG' to not properly reset the locale.
+-      Closes: #364861.
+-    - Describe expansion of pattern in case statement. Closes: #342225.
+-    - Improved handling of non-printable characters in prompt. Closes: #352234,
+-      #362010, #397086, #418961, #471490.
+-    - Fix typos in documentation. Closes: #382892.
+-
+-    The syntax of regexes in Bash 3.2 was changed so that single quotes no
+-    longer surround regexes. e.g, a regex of the form
+-      if [[ "foo.tex" =~ '^(.*)\.tex$' ]]
+-    becomes
+-      if [[ "foo.tex" =~ ^(.*)\.tex$ ]]
+-	
+-  * Merge from Ubuntu:
+-    - debian/skel.bashrc: Check for dircolors before using it.
+-    - debian/skel.bashrc: Set HISTCONTROL to ignoreboth.
+-    - Include correct bash.pot file.
+-    - Move CWRU/changelog from the bash to the bash-doc package (we already
+-      have the CHANGES files).
+-    - debian/etc.bash.bashrc: Install command-not-found handler if available.
+-
+- -- Matthias Klose <doko@debian.org>  Sun, 10 Feb 2008 23:49:35 +0100
+-
+-bash (3.1dfsg-9) unstable; urgency=low
+-
+-  * Remove bash-completion from the source.
+-  * Remove the conflict with bash-completion, recommend bash-completion.
+-  * Fix quotes in man page. Closes: #402845.
+-  * clear_console: Don't segv if stdin isn't a tty. Closes: #451819.
+-  * clear_console(1): Fix synopsis. Closes: #441242.
+-  * Clarify bash-doc package description: Closes: #394275.
+-
+- -- Matthias Klose <doko@debian.org>  Sat, 09 Feb 2008 10:14:22 +0100
++ -- An-Cheng Huang <ancheng@vyatta.com>  Mon, 12 Nov 2007 17:14:43 -0700
+ 
+ bash (3.1dfsg-8) unstable; urgency=high
+ 
+@@ -2734,3 +2102,4 @@ bash (1.14.7-1) frozen unstable; urgency=low
+   * default unreadable .bash_history in /etc/skel (fixes 1549).
+ 
+  -- Guy Maor <maor@ece.utexas.edu>  Sat, 9 Nov 1996 05:07:31 -0600
++
+diff --git a/debian/clear_console.1 b/debian/clear_console.1
+deleted file mode 100644
+index dc189a6..0000000
+--- a/debian/clear_console.1
++++ /dev/null
+@@ -1,50 +0,0 @@
+-.\"***************************************************************************
+-.\" Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+-.\"                                                                          *
+-.\" Permission is hereby granted, free of charge, to any person obtaining a  *
+-.\" copy of this software and associated documentation files (the            *
+-.\" "Software"), to deal in the Software without restriction, including      *
+-.\" without limitation the rights to use, copy, modify, merge, publish,      *
+-.\" distribute, distribute with modifications, sublicense, and/or sell       *
+-.\" copies of the Software, and to permit persons to whom the Software is    *
+-.\" furnished to do so, subject to the following conditions:                 *
+-.\"                                                                          *
+-.\" The above copyright notice and this permission notice shall be included  *
+-.\" in all copies or substantial portions of the Software.                   *
+-.\"                                                                          *
+-.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+-.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+-.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+-.\" IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+-.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+-.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+-.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+-.\"                                                                          *
+-.\" Except as contained in this notice, the name(s) of the above copyright   *
+-.\" holders shall not be used in advertising or otherwise to promote the     *
+-.\" sale, use or other dealings in this Software without prior written       *
+-.\" authorization.                                                           *
+-.\"***************************************************************************
+-.\"
+-.\" $Id: clear.1,v 1.3 2000/07/15 23:59:35 china Exp $
+-.TH clear_console 1 ""
+-.ds n 5
+-.SH NAME
+-\fBclear_console\fR - clear the console
+-.SH SYNOPSIS
+-\fBclear_console\fR
+-.br
+-.SH DESCRIPTION
+-\fBclear_console\fR clears your console if this is possible.  It looks in the
+-environment for the terminal type and then in the \fBterminfo\fR database to
+-figure out how to clear the screen. To clear the buffer, it then changes the
+-foreground virtual terminal to another terminal and then back to the original
+-terminal.
+-.SH SEE ALSO
+-\fBclear\fR(1), \fBchvt\fR(1)
+-.\"#
+-.\"# The following sets edit modes for GNU EMACS
+-.\"# Local Variables:
+-.\"# mode:nroff
+-.\"# fill-column:79
+-.\"# End:
+diff --git a/debian/control b/debian/control
+index 886826e..69cc3f0 100644
+--- a/debian/control
++++ b/debian/control
+@@ -1,29 +1,23 @@
+-Source: bash
++Source: vyatta-bash
+ Section: base
+-Priority: required
+-Maintainer: Matthias Klose <doko@debian.org>
+-Standards-Version: 4.6.2
++Priority: optional
++Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
++Standards-Version: 4.7.2
+ Build-Depends: autoconf, autotools-dev, bison, libncurses5-dev,
+  texinfo, texi2html, debhelper (>= 11), gettext, sharutils,
+  locales <!nocheck>, time <!nocheck>,
+  xz-utils,
+ Build-Depends-Indep: texlive-latex-base, ghostscript, texlive-fonts-recommended, man2html-base
+ Build-Conflicts: r-base-core
+-Homepage: http://tiswww.case.edu/php/chet/bash/bashtop.html
+-Vcs-Browser: https://code.launchpad.net/~doko/+junk/pkg-bash-debian
+-Vcs-Bzr: http://bazaar.launchpad.net/~doko/+junk/pkg-bash-debian
+ Rules-Requires-Root: binary-targets
+ 
+-Package: bash
++Package: vyatta-bash
+ Architecture: any
+ Multi-Arch: foreign
+ Pre-Depends: ${shlibs:Pre-Depends}, ${misc:Depends}
+ Depends: base-files (>= 2.1.12), debianutils (>= 5.6-0.1)
+-Recommends: bash-completion
+-Suggests: bash-doc
+-Essential: yes
+ Section: shells
+-Priority: required
++Priority: optional
+ Description: GNU Bourne Again SHell
+  Bash is an sh-compatible command language interpreter that executes
+  commands read from the standard input or from a file.  Bash also
+@@ -34,41 +28,3 @@ Description: GNU Bourne Again SHell
+  .
+  The Programmable Completion Code, by Ian Macdonald, is now found in
+  the bash-completion package.
+-
+-Package: bash-static
+-Architecture: any
+-Multi-Arch: foreign
+-Depends: passwd (>= 1:4.0.3-10), debianutils (>= 5.6-0.1), ${misc:Depends}
+-Suggests: bash-doc
+-Section: shells
+-Priority: optional
+-Built-Using: ${glibc:Source}
+-Description: GNU Bourne Again SHell (static version)
+- Bash is an sh-compatible command language interpreter that executes
+- commands read from the standard input or from a file.  Bash also
+- incorporates useful features from the Korn and C shells (ksh and csh).
+- .
+- Statically linked.
+-
+-Package: bash-builtins
+-Architecture: any
+-Depends: bash (= ${binary:Version}), ${misc:Depends}
+-Section: utils
+-Priority: optional
+-Description: Bash loadable builtins - headers & examples
+- Bash can dynamically load new builtin commands.  Included are the
+- necessary headers to compile your own builtins and lots of examples.
+-
+-Package: bash-doc
+-Architecture: all
+-Depends: ${misc:Depends}
+-Section: doc
+-Priority: optional
+-Replaces: bash (<< 4.3-2)
+-Description: Documentation and examples for the GNU Bourne Again SHell
+- Bash is an sh-compatible command language interpreter that executes
+- commands read from the standard input or from a file.  Bash also
+- incorporates useful features from the Korn and C shells (ksh and csh).
+- .
+- This package contains the distributable documentation, all the
+- examples and the main changelog.
+diff --git a/debian/rules b/debian/rules
+index 68bcb5a..fb26884 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -16,7 +16,7 @@ DEB_HOST_GNU_SYSTEM	?= $(call vafilt,$(DPKG_VARS),DEB_HOST_GNU_SYSTEM)
+ DEB_HOST_GNU_TYPE	?= $(call vafilt,$(DPKG_VARS),DEB_HOST_GNU_TYPE)
+ DEB_HOST_MULTIARCH	?= $(call vafilt,$(DPKG_VARS),DEB_HOST_MULTIARCH)
+ 
+-VERSION		:= 4.2
++VERSION		:= 5.2
+ #PKGVERSION	:= $(shell dpkg-parsechangelog \
+ #			| sed -n '/Version:/s/\(.* \)\(.*\)-2\(.*\)/\2\3/p')
+ #PKGVERSION	:= 3.0
+@@ -57,15 +57,9 @@ with_installed_rl = no
+ 
+ debflags =
+ 
+-p	= bash
+-p_stat	= bash-static
+-p_bins	= bash-builtins
+-p_doc	= bash-doc
++p	= vyatta-bash
+ 
+ d	= debian/$(p)
+-d_stat	= debian/$(p_stat)
+-d_bins	= debian/$(p_bins)
+-d_doc	= debian/$(p_doc)
+ 
+ termcap_lib := $(if $(wildcard /usr/lib/libtinfo.so /usr/lib/$(DEB_HOST_MULTIARCH)/libtinfo.so), \
+ 		 -ltinfo, \
+@@ -86,11 +80,8 @@ else
+     conf_args += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
+ endif
+ 
+-static_conf_args := $(conf_args) \
+-	--enable-static-link \
+-
+ #build: bash-build static-build check
+-build: stamps/before-build bash-build static-build check
++build: stamps/before-build bash-build check
+ build-arch: build
+ build-indep: build
+ 
+@@ -122,31 +113,6 @@ bash-configure: stamps/before-build
+ 	    build=bash \
+ 	    configure_args="$(conf_args)"
+ 
+-# ---------------------------------------------------------------------------
+-# build static bash
+-
+-static-build:
+-	$(MAKE) -f debian/rules do-build-static \
+-	    bash_src=. \
+-	    build=static \
+-	    configure_args="$(static_conf_args)"
+-static-configure: stamps/before-build
+-	$(MAKE) -f debian/rules do-configure-static \
+-	    bash_src=. \
+-	    build=static \
+-	    configure_args="$(static_conf_args)"
+-
+-# ---------------------------------------------------------------------------
+-
+-bash-doc-build: stamps/stamp-build-bash-doc
+-stamps/stamp-build-bash-doc:
+-	rm -fr doc/bash.info doc/bash.pdf doc/bash.html doc/bashref.info doc/bashref.pdf doc/bashref.html
+-	$(MAKE) -C build-bash/doc info html MAN2HTML=/usr/bin/man2html
+-	$(MAKE) -C build-bash/doc bash.pdf bashref.pdf
+-	touch stamps/stamp-build-bash-doc
+-
+-# ---------------------------------------------------------------------------
+-
+ check: stamps/stamp-check
+ stamps/stamp-check: bash-build
+ 	@echo BEGIN test
+@@ -184,119 +150,26 @@ bash-install: bash-build stamps/stamp-install-bash
+ stamps/stamp-install-bash: stamps/before-build stamps/stamp-build-bash
+ 	dh_testdir
+ 	dh_testroot
+-	dh_prep -p$(p) -p$(p_doc) -p$(p_bins)
++	dh_prep -p$(p)
+ 	dh_installdirs -p$(p) \
+-		usr/bin \
+-		etc/skel \
+-		usr/share/doc/$(p)
+-	dh_installdirs -p$(p_doc) \
+-		usr/share/doc/$(p)
+-	dh_installdirs -p$(p_bins) \
+-		usr/share/doc/$(p)/examples/loadables
+-
+-ifeq ($(with_gfdl),yes)
+-# XXXXX
+-#	cp -p build-bash/doc/*.info bash/doc/
+-endif
++		bin
+ 
+ 	: # install it
+ 	$(MAKE) -C build-bash install \
+ 		YACC="$(YACC)" \
+ 		DESTDIR=$(CURDIR)/$(d)
+-	chmod 755 $(d)/usr/bin/bashbug
+-	$(ID) debian/bashbug.1 $(d)/usr/share/man/man1/
+-ifneq ($(with_gfdl),yes)
+-	mkdir -p $(d)/usr/share/man/man1
+-	cp -p bash/doc/bash.1 $(d)/usr/share/man/man1/bash.1
+-endif
+-	rm -f $(d)/usr/share/doc/bash/*.html
+-	rm -f $(d)/usr/share/info/*.info
+-	rm -f $(d)/usr/share/info/dir*
+ 
+-	: # extra links
+-	ln -sf bash $(d)/usr/bin/rbash
+-
+-	: # skeleton files
+-	$(ID) debian/etc.bash.bashrc $(d)/etc/bash.bashrc
+-	$(ID) debian/skel.bashrc $(d)/etc/skel/.bashrc
+-	$(ID) debian/skel.profile $(d)/etc/skel/.profile
+-	$(ID) debian/skel.bash_logout $(d)/etc/skel/.bash_logout
+-
+-	: # clean_console
+-ifneq (,$(findstring $(DEB_HOST_ARCH_OS), linux freebsd))
+-	$(IX) clear_console $(d)/usr/bin/
+-	$(ID) debian/clear_console.1 $(d)/usr/share/man/man1/
+-endif
++	mv $(d)/usr/bin/vbash $(d)/bin/.
++	rmdir $(d)/usr/bin
+ 
+ 	: # /etc/shells integration
+-	$(ID) -D debian/shells.d/bash $(d)/usr/share/debianutils/shells.d/bash
+-
+-	: # files for the bash-doc package
+-
+-	dh_installexamples -p$(p_doc) examples/*
+-	rm -rf $(d_doc)/usr/share/doc/$(p)/examples/loadables
+-	mkdir -p $(d_doc)/usr/share/doc/$(p_doc)
+-	ln -sf ../$(p)/examples $(d_doc)/usr/share/doc/$(p_doc)/examples
+-
+-	rm -rf $(d_doc)/usr/share/doc/$(p)/examples/obashdb
+-	cd $(d_doc)/usr/share/doc/$(p)/examples && chmod 755 \
+-		misc/aliasconv.*sh misc/cshtobash
+-
+-	cd $(d_doc)/usr/share/doc/$(p)/examples && chmod 644 \
+-		scripts/shprompt
+-
+-	: # files for the bash-builtins package
+-	mv $(d)/usr/include $(d_bins)/usr/.
+-	mv $(d)/usr/lib $(d_bins)/usr/.
+-	$(ID) examples/loadables/{README,*.c} \
+-		$(d_bins)/usr/share/doc/$(p)/examples/loadables
+-	$(ID) build-bash/examples/loadables/Makefile \
+-		$(d_bins)/usr/share/doc/$(p)/examples/loadables
+-	ln -sf bash $(d_bins)/usr/share/doc/$(p_bins)
+-
+-	sed -i \
+-		-e 's@-ffile-prefix-map=[^ ]*[ ]*@@g' \
+-		-e 's@-fdebug-prefix-map=[^ ]*[ ]*@@g' \
+-		-e 's@^BUILD_DIR =.*@BUILD_DIR = /path/to/build-dir@' \
+-		$(d)/usr/bin/bashbug \
+-		$(d_bins)/usr/lib/bash/Makefile.inc \
+-		$(d_bins)/usr/share/doc/$(p)/examples/loadables/Makefile
++	$(ID) -D debian/shells.d/bash $(d)/usr/share/debianutils/shells.d/vbash
+ 
+ #	cat debian/README stamps/stamp-patch > debian/README.Debian
+ 	cat debian/README > debian/README.Debian
+ 
+ 	touch stamps/stamp-install-bash
+ 
+-binary-doc: bash-install bash-doc-build
+-	dh_testdir
+-	dh_testroot
+-	mkdir -p $(d_doc)/usr/share/doc/$(p)
+-ifeq ($(with_gfdl),yes)
+-	dh_installdocs -p$(p_doc) 
+-	cp -p build-bash/doc/bashref.{html,pdf} $(d_doc)/usr/share/doc/$(p)/.
+-	mkdir -p $(d_doc)/usr/share/info
+-	cp -p build-bash/doc/bash.info $(d_doc)/usr/share/info/.
+-	dh_link -p$(p_doc) \
+-	    /usr/share/doc/$(p)/bashref.html /usr/share/doc/$(p_doc)/bashref.html \
+-	    /usr/share/doc/$(p)/bashref.pdf /usr/share/doc/$(p_doc)/bashref.pdf
+-else
+-	dh_installdocs -p$(p_doc) -X.doc-base
+-	rm -f $(d_doc)/usr/share/doc-base/bashref
+-endif
+-	rm -f $(d_doc)/usr/share/info/dir*
+-	cp -p build-bash/doc/bash.html build-bash/doc/bash.pdf \
+-	    $(d_doc)/usr/share/doc/$(p)/
+-	dh_link -p$(p_doc) \
+-	    /usr/share/doc/$(p)/bash.html /usr/share/doc/$(p_doc)/bash.html \
+-	    /usr/share/doc/$(p)/bash.pdf /usr/share/doc/$(p_doc)/bash.pdf
+-	dh_installchangelogs -p$(p_doc) CWRU/changelog
+-	dh_compress -p$(p_doc) -Xexamples -X.pdf
+-	dh_fixperms -p$(p_doc)
+-	dh_installdeb -p$(p_doc)
+-	dh_gencontrol -p$(p_doc)
+-	dh_md5sums -p$(p_doc)
+-	dh_builddeb -p$(p_doc)
+-
+ binary-bash: bash-install
+ 	dh_testdir
+ 	dh_testroot
+@@ -305,61 +178,22 @@ binary-bash: bash-install
+ 		CHANGES NEWS COMPAT doc/INTRO POSIX \
+ 		debian/{README.Debian,README.abs-guide,README.commands} \
+ 		debian/inputrc.arrows
+-	install -D -m 644 debian/bash.overrides \
+-		debian/bash/usr/share/lintian/overrides/bash
+-	install -D -m 644 debian/bash-builtins.overrides \
+-		debian/bash-builtins/usr/share/lintian/overrides/bash-builtins
+-	dh_installman -p$(p) doc/rbash.1 debian/bash-builtins.7
+ 	dh_installmenu -p$(p)
+ 	dh_strip -p$(p)
+ 	dh_compress -p$(p)
+ 	dh_fixperms -p$(p)
+-	dh_shlibdeps -p$(p) -- -dPre-Depends $(d)/usr/bin/bash
++	dh_shlibdeps -p$(p) -- -dPre-Depends $(d)/bin/vbash
+ 	dh_installdeb -p$(p)
+-	dh_gencontrol -p$(p)
++	if [ -f "../.VYOS_DEV_BUILD" ]; then \
++		dh_gencontrol -p$(p) -- -v999.dev; \
++	else \
++		dh_gencontrol -p$(p); \
++	fi
+ 	dh_md5sums -p$(p)
+ 	dh_builddeb -p$(p)
+ 
+-# Even though it contains only headers and example files,
+-# bash-builtins is NOT arch-independent because the config.h* files
+-# differ on different archs.
+-binary-builtins: bash-install
+-	dh_testdir
+-	dh_testroot
+-	dh_strip -p$(p_bins)
+-	dh_compress -p$(p_bins) -Xexamples
+-	dh_fixperms -p$(p_bins)
+-	dh_installdeb -p$(p_bins)
+-	dh_gencontrol -p$(p_bins)
+-	dh_md5sums -p$(p_bins)
+-	dh_builddeb -p$(p_bins)
+-
+-binary-static: static-build
+-	dh_testdir
+-	dh_testroot
+-	dh_prep -p$(p_stat)
+-	dh_installdirs -p$(p_stat) \
+-		usr/bin \
+-		usr/share/man/man1
+-	cp -p build-static/bash $(d_stat)/usr/bin/bash-static
+-	cp -p doc/bash.1 $(d_stat)/usr/share/man/man1/bash-static.1
+-	$(ID) -D debian/shells.d/bash-static $(d_stat)/usr/share/debianutils/shells.d/bash-static
+-	dh_installdocs -p$(p_stat)
+-	dh_installchangelogs -p$(p_stat)
+-	install -D -m 644 debian/bash-static.overrides \
+-		debian/bash-static/usr/share/lintian/overrides/bash-static
+-	dh_strip -p$(p_stat)
+-	dh_compress -p$(p_stat)
+-	dh_fixperms -p$(p_stat)
+-	dh_installdeb -p$(p_stat)
+-	dh_gencontrol -p$(p_stat) -- \
+-		'-Vglibc:Source=$(shell dpkg-query -f '$${source:Package} (= $${source:Version}), ' -W libc-bin)'
+-	dh_md5sums -p$(p_stat)
+-	dh_builddeb -p$(p_stat)
+-
+-binary-indep: binary-doc
+-binary-arch: binary-bash binary-builtins binary-static
+-binary:	binary-indep binary-arch
++binary-arch: binary-bash
++binary:	binary-arch
+ 
+ # ---------------------------------------------------------------------------
+ # common rules for all bash build variations
+@@ -441,11 +275,11 @@ remove-non-dfsg-files:
+ 	rm -f doc/rose94.*
+ 
+ .NOTPARALLEL: build
+-.PHONY: unpack binary binary-arch binary-indep clean \
+-    build bash-build static-build \
++.PHONY: unpack binary binary-arch clean \
++    build bash-build \
+     check \
+-    bash-configure static-configure \
+-    binary-doc binary-bash binary-builtins binary-static \
++    bash-configure \
++    binary-bash \
+     install bash-install
+ 
+ # Local Variables:
+diff --git a/debian/shells.d/bash b/debian/shells.d/bash
+index 7441f21..7b96b9c 100644
+--- a/debian/shells.d/bash
++++ b/debian/shells.d/bash
+@@ -1,4 +1,2 @@
+-/bin/bash
+-/bin/rbash
+-/usr/bin/bash
+-/usr/bin/rbash
++/bin/vbash
++/usr/bin/vbash
+diff --git a/debian/shells.d/bash-static b/debian/shells.d/bash-static
+deleted file mode 100644
+index 2c274ee..0000000
+--- a/debian/shells.d/bash-static
++++ /dev/null
+@@ -1,2 +0,0 @@
+-/bin/bash-static
+-/usr/bin/bash-static
+diff --git a/debian/vyatta-bash.postinst b/debian/vyatta-bash.postinst
+new file mode 100644
+index 0000000..5032102
+--- /dev/null
++++ b/debian/vyatta-bash.postinst
+@@ -0,0 +1,16 @@
++#! /bin/bash
++
++set -e
++
++if [ -x /usr/sbin/add-shell ]; then
++    /usr/sbin/add-shell /bin/vbash
++fi
++
++# This should never happen.
++if [ ! -e /bin/sh ]; then
++    ln -s vbash /bin/sh
++fi
++
++#DEBHELPER#
++
++exit 0
+diff --git a/debian/vyatta-bash.preinst b/debian/vyatta-bash.preinst
+new file mode 100644
+index 0000000..ad37015
+--- /dev/null
++++ b/debian/vyatta-bash.preinst
+@@ -0,0 +1,21 @@
++#! /bin/sh -e
++
++force_divert ()
++{
++  dfile=$1
++  dpkg-divert --remove $dfile || true
++  dpkg-divert --add $dfile || true
++  mv -f $dfile $dfile.distrib >/dev/null 2>&1 || true
++}
++
++# remove dash's divert and create a "local" one
++force_divert /bin/sh
++ln -sf bash /bin/sh
++
++# divert /etc/profile.d/bash_completion.sh so the completion scripts don't
++# get sourced twice.
++force_divert /etc/profile.d/bash_completion.sh
++
++#DEBHELPER#
++
++exit 0
+diff --git a/debian/bash.prerm b/debian/vyatta-bash.prerm
+similarity index 62%
+rename from debian/bash.prerm
+rename to debian/vyatta-bash.prerm
+index 52052a2..55d13ee 100644
+--- a/debian/bash.prerm
++++ b/debian/vyatta-bash.prerm
+@@ -4,11 +4,12 @@ set -e
+ 
+ case "$1" in
+     upgrade)
+-	update-alternatives --remove builtins.7.gz \
+-	    /usr/share/man/man7/bash-builtins.7.gz
+ 	;;
+ 
+     remove|deconfigure)
++        if [ -x /usr/sbin/remove-shell ] && [ -f /etc/shells ]; then
++            /usr/sbin/remove-shell /bin/vbash
++        fi
+ 	;;
+ 
+     failed-upgrade)
+-- 
+2.50.1 (Apple Git-155)
+
