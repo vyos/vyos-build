@@ -298,14 +298,14 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -uuid {uuid} \
         {enable_kvm} \
         -monitor unix:/tmp/qemu-monitor-socket-{disk_img},server,nowait \
-        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="",host_mtu=1500 \
-        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="",host_mtu=1500 \
-        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="",host_mtu=1500 \
-        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="",host_mtu=1500 \
-        -netdev user,id=n4 -device e1000e,netdev=n4,mac={macbase}:04,romfile="" \
-        -netdev user,id=n5 -device e1000e,netdev=n5,mac={macbase}:05,romfile="" \
-        -netdev user,id=n6 -device vmxnet3,netdev=n6,mac={macbase}:06,romfile="" \
-        -netdev user,id=n7 -device vmxnet3,netdev=n7,mac={macbase}:07,romfile="" \
+        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="",bus=pci.0,addr=0x4,host_mtu=1500 \
+        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="",bus=pci.0,addr=0x5,host_mtu=1500 \
+        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="",bus=pci.0,addr=0x6,host_mtu=1500 \
+        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="",bus=pci.0,addr=0x7,host_mtu=1500 \
+        -netdev user,id=n4 -device e1000e,netdev=n4,mac={macbase}:04,romfile="",bus=pci.0,addr=0x8 \
+        -netdev user,id=n5 -device e1000e,netdev=n5,mac={macbase}:05,romfile="",bus=pci.0,addr=0x9 \
+        -netdev user,id=n6 -device vmxnet3,netdev=n6,mac={macbase}:06,romfile="",bus=pci.0,addr=0xa \
+        -netdev user,id=n7 -device vmxnet3,netdev=n7,mac={macbase}:07,romfile="",bus=pci.0,addr=0xb \
         -device virtio-scsi-pci,id=scsi0 \
         {cdrom}{nested_cdrom} \
         -drive format={disk_format},file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
@@ -732,7 +732,13 @@ def basic_cli_tests(c):
         if not re.fullmatch(pattern, value):
             raise Exception(f'Invalid {name} "{value}" read from {flavor_json}')
 
+    # These are scraped off a serial console, so they can pick up stray
+    # control characters. Escape them: they are literal values, never
+    # patterns, and an unescaped '[' makes re.compile() raise before the
+    # expect even runs - which reads as a mysterious harness crash rather
+    # than the scrape problem it actually is.
     console_dev = re.escape(f'{console_type}{console_num}')
+    log.debug(f'console from flavor.json: {console_dev!r},{console_speed!r}')
 
     # Ensure serial console with kernel option is set in CLI, done automatically by image installer
     c.sendline('show configuration commands | match "system console"')
@@ -805,19 +811,23 @@ def verify_swapped_hwid_assignment(c, log, mac1, mac2):
                          '- swapped hw-id assignment did not take effect')
     log.info('Swapped hw-id assignment confirmed - eth1/eth2 no longer follow ascending MAC order')
 
-def verify_pending_node_never_gets_wrong_hardware(c, log, ifname, wrong_mac):
-    """ Regression reported against an earlier PCIe/MAC-sorted replacement
-        fill: with an unrelated interface fully removed in the same boot
-        that `ifname`'s hw-id alone was cleared, there is no way to tell
-        which of the freed candidates is genuinely `ifname`'s own
-        hardware once its hw-id is gone - so the fix leaves `ifname`
-        pending (safely unresolved) rather than guessing. `ifname` must
-        never end up bound to `wrong_mac` - the OTHER freed interface's
-        hardware - which would silently apply a setting configured on
-        `ifname` (e.g. address) to a different physical NIC. `ifname`
-        simply not existing (still pending) is the expected, safe
-        outcome here, not a failure. """
-    log.info(f'Verify {ifname} was never bound to the wrong physical NIC')
+def verify_interface_keeps_own_hardware(c, log, ifname, expected_mac):
+    """ An interface that still carries settings (an address) must come back
+        bound to its OWN hardware after its hw-id is cleared and a different,
+        unrelated interface is fully removed in the same boot.
+
+        This used to be the shape that silently bound a configured node to
+        the wrong physical NIC, and the check for it could only be negative
+        ("never the wrong MAC"), because the safe outcome at the time was to
+        leave the node unresolved - so a run where the interface was missing
+        entirely counted as a pass.
+
+        Names no longer come from config.boot, so clearing an hw-id does not
+        put a name up for grabs at all and the guarantee is absolute: the
+        interface must be present, and on its own hardware. Assert that
+        directly - a missing interface is now a failure.
+    """
+    log.info(f'Verify {ifname} still owns its own physical NIC ({expected_mac})')
     c.sendline('ip -json link show | jq -r \'.[] | select(.ifname|test("^eth[0-9]+$")) | "\(.ifname) \(.address)"\'')
     c.expect(op_mode_prompt)
     lines = [l.strip() for l in c.before.decode(errors='replace').splitlines() if l.strip()]
@@ -828,12 +838,16 @@ def verify_pending_node_never_gets_wrong_hardware(c, log, ifname, wrong_mac):
         if len(parts) == 2 and re.fullmatch(r'eth\d+', parts[0]):
             macs[parts[0]] = parts[1].lower()
 
-    if macs.get(ifname) == wrong_mac:
-        raise Exception(f'Interface {ifname} has MAC {wrong_mac} - bound to the '
-                         "OTHER freed interface's hardware instead of its own "
-                         f'(a setting configured on {ifname} is now applied to '
-                         'the wrong wire)')
-    log.info(f'{ifname} was not bound to the wrong physical NIC')
+    if ifname not in macs:
+        raise Exception(f'Interface {ifname} does not exist after reboot - its '
+                        'name must stay bound to its own hardware, not be left '
+                        'unresolved')
+    if macs[ifname] != expected_mac:
+        raise Exception(f'Interface {ifname} has MAC {macs[ifname]}, expected '
+                        f'{expected_mac} - it is bound to the wrong physical '
+                        'NIC, so settings configured on it now apply to the '
+                        'wrong wire')
+    log.info(f'{ifname} correctly kept its own physical NIC')
 
 def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0.1', use_vrf=False):
     """One add-system-image/delete cycle for nested ISO over HTTP (optional Linux VRF + VyOS vrf arg)."""
@@ -1431,18 +1445,18 @@ try:
 
     elif args.ifnametest:
         # A missing/deleted hw-id binding, or a fully deleted interface
-        # config, must not change the eth0..eth7 <-> MAC mapping after
-        # the next reboot (regression check for the boot-time naming
-        # race). Deliberately run as two INDEPENDENT reboots rather than
-        # one combined one: a pending node (hw-id cleared, node kept)
-        # only ever recovers its own hardware automatically when it's
-        # the sole candidate of its type this boot - if a different,
-        # unrelated interface's config were ALSO fully removed in the
-        # same boot, the two freed NICs become genuinely indistinguishable
-        # candidates and neither auto-resolves (see
-        # verify_pending_node_never_gets_wrong_hardware() below for why
-        # guessing there is unsafe). Testing each mechanism in its own
-        # boot is what each can actually guarantee.
+        # config, must not change the eth0..eth7 <-> MAC mapping after the
+        # next reboot (regression check for the boot-time naming race).
+        #
+        # Names come from the interface name store, not from config.boot,
+        # so editing hw-id cannot put a name up for grabs and every one of
+        # these edits is expected to be a no-op for naming. That is a
+        # stronger guarantee than this test could assert when names were
+        # derived from the configuration, where clearing an hw-id left a
+        # node that had to be matched back to a NIC - and could only be
+        # matched safely when it was the sole free candidate of its type.
+        # The scenarios are still run as independent reboots so a failure
+        # points at one specific edit.
         log.info('Running interface naming/hw-id persistence tests')
         del_idx, hwid_idx = random.sample(range(8), 2)
 
@@ -1572,7 +1586,7 @@ try:
         c.sendline('exit')
         c.expect(op_mode_prompt)
 
-        log.info('Rebooting to check eth2 is never bound to the wrong physical NIC')
+        log.info('Rebooting to check eth2 comes back on its own physical NIC')
         c.sendline('reboot now')
         waitForLogin(c, log)
         loginVM(c, log)
@@ -1589,7 +1603,7 @@ try:
         c.sendline('cat /run/vyos-net-name-resolve.json 2>/dev/null || true')
         c.expect(op_mode_prompt)
 
-        verify_pending_node_never_gets_wrong_hardware(c, log, 'eth2', mac2)
+        verify_interface_keeps_own_hardware(c, log, 'eth2', mac1)
 
     elif args.raid:
         # Verify RAID subsystem - by deleting a disk and re-create the array
