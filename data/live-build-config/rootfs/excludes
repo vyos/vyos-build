@@ -62,3 +62,13 @@ var/lib/dpkg/*-old
 # T5624: Remove the Debian version file to avoid false positives from security scanners.
 etc/debian_version
 
+# T9277: Kernel headers and libc headers are build-time only, there is neither a
+# compiler nor DKMS on the running system.
+usr/src/*
+usr/include/*
+
+# T9277: localepurge keeps the generated locales in /usr/lib/locale, the i18n
+# *source* definitions are only needed by locale-gen/localedef which nothing on
+# the running system invokes.
+usr/share/i18n/locales/!(en_*|i18n*|iso14651*|translit_*|POSIX|C)
+usr/share/i18n/charmaps/!(UTF-8*|ANSI_X3.4*)
