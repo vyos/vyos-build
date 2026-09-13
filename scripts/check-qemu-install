@@ -739,8 +739,16 @@ def basic_cli_tests(c):
     c.expect(rf'set system console device {console_dev} kernel\r\r\nset system console device {console_dev} speed \'{re.escape(console_speed)}\'')
     c.expect(op_mode_prompt)
 
-    # Validate GRUB has the right console_type defined
-    c.sendline('cat /boot/grub/grub.cfg.d/20-vyos-defaults-autoload.cfg | grep "set console_type"')
+    # Validate GRUB has the right console_type defined. The GRUB configuration
+    # lives on the persistence partition, which is not the running image's
+    # /boot - resolve it the way vyos.system.grub does.
+    persistence = get_cmd_output(
+        c,
+        'python3 -c "from vyos.system.disk import find_persistence;'
+        ' print(find_persistence())"',
+    )
+    c.sendline(f'grep "set console_type" '
+               f'{persistence}/boot/grub/grub.cfg.d/20-vyos-defaults-autoload.cfg')
     c.expect(rf'set console_type="{re.escape(console_type)}"')
     c.expect(op_mode_prompt)
 
