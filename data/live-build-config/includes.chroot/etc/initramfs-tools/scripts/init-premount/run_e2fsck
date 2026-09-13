@@ -1,0 +1,39 @@
+#!/bin/sh
+
+PREREQS=""
+prereqs() { echo "$PREREQS"; }
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+. /scripts/functions
+log_begin_msg "Running e2fsck"
+
+persistent_partition=`blkid -L persistence -o device`
+
+# this first if checks if a partition with label=='persistence' exists and is not already mounted.
+if test -n "${persistent_partition}" && ! grep -q "^${persistent_partition} " '/proc/mounts'; then
+  e2fsck -p "${persistent_partition}"
+  rc=$?
+  if [ "${rc}" -eq 0 ]; then
+    log_success_msg "fsck succeeded with no errors found"
+  elif [ "${rc}" -eq 1 ]; then
+    log_success_msg "fsck succeeded"
+  elif [ "${rc}" -eq 2 ]; then
+    log_success_msg "fsck succeeded, but the system should be rebooted, reboot will occur shortly"
+    log_end_msg
+    reboot
+  else
+    log_failure_msg "fsck failed returning code ${rc}"
+  fi
+elif test -n "${persistent_partition}"; then
+  log_failure_msg "filesystem already mounted"
+else
+  log_warning_msg "No partition named persistence found"
+fi
+
+log_end_msg
