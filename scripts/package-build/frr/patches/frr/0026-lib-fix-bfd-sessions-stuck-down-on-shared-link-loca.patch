@@ -1,0 +1,152 @@
+From e3a9adf6413ca9c0cf128f3ee43edf90648d0629 Mon Sep 17 00:00:00 2001
+From: Sougata Barik <sougatab@nvidia.com>
+Date: Fri, 17 Jul 2026 10:29:10 +0000
+Subject: [PATCH] lib: fix BFD sessions stuck Down on shared-link-local
+ unnumbered sub-interfaces
+
+Backport of the source-only commits from upstream FRRouting/frr#22921
+(merged into FRR master as 4576b39766587b6bdd0e97038d29d6940ced97b4 on
+2026-09-09), squashing:
+
+  e3a9adf6413c lib: fix BFD sessions stuck Down after BGP churn on
+               shared link-local subifs
+  b746e39ff3ea lib: LTTng trace for deferred link-local BFD session
+               install
+
+The third upstream commit (afeb889, a topotest addition) is
+intentionally not included; it has no effect on the built package.
+
+Carried here until VyOS's pinned FRR commit_id in package.toml moves
+to a tag/commit that already contains this fix - see
+https://vyos.dev/T9171.
+
+Upstream commit message follows:
+
+Problem
+=======
+On leaf11 with 25 single-hop unnumbered eBGP+BFD neighbours (one per VLAN
+sub-interface towards the same peer box), after a few iterations of
+unconfigure/reconfigure of BGP+BFD, BGP reaches Established on all 25 peers but
+most of the BFD sessions stay Down (only 2-3 come Up). `Support/bfd.peers` shows
+bfdd genuinely has no session for the broken peers.
+
+RCA
+===
+All 25 unnumbered peers derive the same EUI-64 link-local address, so every BFD
+session shares the identical (src, dst) link-local pair; the outgoing interface
+(ifindex) is the ONLY key that distinguishes them in bfdd.
+
+During rapid re-add, bgp_peer_bfd_update_source() fires the IPv6-address setter
+-> _bfd_sess_remove()/REGISTER while p->nexthop.ifp is still NULL, so
+bfd_sess_set_interface() is skipped. Those interface-less REGISTER/DEREGISTER/
+UPDATE operations all collapse onto a single bfdd key (src, dst, ifindex=0); the
+25 sessions stomp each other and most end up Down.
+
+Fix
+===
+lib/bfd.c _bfd_sess_valid(): treat a single-hop IPv6 link-local session with no
+outgoing interface as not-yet-valid, so it is neither registered nor deregistered
+on the wire. Because _bfd_sess_remove() only sends a DEREGISTER when the session
+is installed, this also suppresses the bogus interface-less teardown. When the
+nexthop interface resolves, BGP re-drives bgp_peer_bfd_update_source() and the
+session installs correctly with a unique per-interface key.
+
+Ticket: #5131052
+Signed-off-by: Sougata Barik <sougatab@nvidia.com>
+---
+ lib/bfd.c          | 29 +++++++++++++++++++++++++++++
+ lib/libfrr_trace.h | 32 ++++++++++++++++++++++++++++++++
+ 2 files changed, 61 insertions(+)
+
+diff --git a/lib/bfd.c b/lib/bfd.c
+index af6be58eff4b..d2e4b2f0de30 100644
+--- a/lib/bfd.c
++++ b/lib/bfd.c
+@@ -20,6 +20,7 @@
+ #include "lib/json.h"
+ #include "bfd.h"
+ #include "bfdd/bfd.h"
++#include "libfrr_trace.h"
+
+ DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
+ DEFINE_MTYPE_STATIC(LIB, BFD_SOURCE, "BFD source cache");
+@@ -460,6 +461,34 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
+ 		return false;
+ 	}
+
++	/*
++	 * Single-hop IPv6 link-local sessions require an outgoing interface.
++	 *
++	 * A link-local (fe80::/10) peer/local pair is not globally unique: on a
++	 * box with many single-hop unnumbered neighbours (e.g. one BGP peer per
++	 * VLAN sub-interface towards the same remote box) every session shares
++	 * the identical link-local src/dst, so the interface (ifindex) is the
++	 * only key that distinguishes them in bfdd.  Sending a REGISTER (or
++	 * DEREGISTER) before the egress interface is known collapses all of
++	 * those sessions onto a single ifindex-less key, and siblings then tear
++	 * each other down - leaving most BFD sessions stuck Down even though BGP
++	 * is Established.  Treat such a session as not-yet-valid and defer the
++	 * install; the client re-drives us (bgp_peer_bfd_update_source) once the
++	 * nexthop interface is resolved.
++	 */
++	if (!bsp->args.mhop && bsp->args.family == AF_INET6 &&
++	    IN6_IS_ADDR_LINKLOCAL(&bsp->args.dst) &&
++	    bsp->args.ifnamelen == 0) {
++		frrtrace(5, frr_libfrr, bfd_sess_defer_linklocal_without_intf,
++			 (void *)bsp, (uint32_t)bsp->args.vrf_id,
++			 (uint8_t)bsp->args.family,
++			 &bsp->args.dst, &bsp->args.src);
++		if (bsglobal.debugging)
++			zlog_debug("%s: single-hop link-local session without interface; deferring install",
++				   __func__);
++		return false;
++	}
++
+ 	/* Check VRF ID. */
+ 	if (bsp->args.vrf_id == VRF_UNKNOWN) {
+ 		if (bsglobal.debugging)
+diff --git a/lib/libfrr_trace.h b/lib/libfrr_trace.h
+index 62a4034aa5d1..ddad49cda652 100644
+--- a/lib/libfrr_trace.h
++++ b/lib/libfrr_trace.h
+@@ -28,6 +28,38 @@
+
+ /* clang-format off */
+
++/*
++ * Fired by _bfd_sess_valid() (lib/bfd.c) when a single-hop IPv6 link-local
++ * BFD session is deferred because its outgoing interface is not yet known
++ * (the #5131052 fix). One event per deferral tells us exactly which session
++ * is being held back and how often, before it later installs with a unique
++ * per-interface key.
++ *
++ *   bsp_ptr : pointer of the struct bfd_session_params (per-session id)
++ *   vrf_id  : VRF id recorded on the session params
++ *   family  : AF_INET (2) or AF_INET6 (10); expected AF_INET6 for this event
++ *   dst/src : 16-byte in6_addr link-local pair (only first 4 bytes for AF_INET)
++ */
++TRACEPOINT_EVENT(
++	frr_libfrr,
++	bfd_sess_defer_linklocal_without_intf,
++	TP_ARGS(
++		void *, bsp,
++		uint32_t, vrf_id,
++		uint8_t, family,
++		const void *, dst,
++		const void *, src
++	),
++	TP_FIELDS(
++		ctf_integer_hex(intptr_t, bsp_ptr, (intptr_t)bsp)
++		ctf_integer(uint32_t, vrf_id, vrf_id)
++		ctf_integer(uint8_t, family, family)
++		ctf_array(uint8_t, dst, dst ? (const uint8_t *)dst : (const uint8_t[16]) {0}, 16)
++		ctf_array(uint8_t, src, src ? (const uint8_t *)src : (const uint8_t[16]) {0}, 16)
++	)
++)
++TRACEPOINT_LOGLEVEL(frr_libfrr, bfd_sess_defer_linklocal_without_intf, TRACE_INFO)
++
+ TRACEPOINT_EVENT(
+ 	frr_libfrr,
+ 	hash_get,
+--
+2.45.2
