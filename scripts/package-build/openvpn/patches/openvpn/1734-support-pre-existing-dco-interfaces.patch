@@ -1,0 +1,360 @@
+From 5c8c4bf4b9c7a4ab34c99e6b899c0d939dc6e479 Mon Sep 17 00:00:00 2001
+From: Ralf Lici <ralf@mandelbit.com>
+Date: Fri, 26 Jun 2026 17:45:44 +0200
+Subject: [PATCH] Support pre-existing Linux DCO interfaces
+
+When creating an ovpn interface returns -EEXIST, still retrieve the
+ifindex and return the error to the generic DCO open path. This lets the
+caller mark the interface as pre-existing and avoid deleting it on
+close.
+
+Before accepting the existing interface, query its rtnetlink link info
+and verify that it is an ovpn device with the expected mode. The ovpn
+mode is fixed at interface creation time, so attaching to an interface
+created for the other mode cannot work.
+
+Honor the pre-existing state on close by skipping net_iface_del() for
+persistent interfaces.
+
+Github: closes OpenVPN/openvpn#1064
+Change-Id: I72302403bddee4b0b0ee2441ae9e246f48d0bc81
+Signed-off-by: Ralf Lici <ralf@mandelbit.com>
+---
+
+diff --git a/src/openvpn/dco.h b/src/openvpn/dco.h
+index 4e5aad5..4584004 100644
+--- a/src/openvpn/dco.h
++++ b/src/openvpn/dco.h
+@@ -109,7 +109,8 @@
+ bool ovpn_dco_init(struct context *c);
+ 
+ /**
+- * Open/create a DCO interface
++ * Open/create a DCO interface and store its ifindex.
++ * If the interface already exists, save the ifindex anyway and return -EEXIST.
+  *
+  * @param tt        the tuntap context
+  * @param ctx       the networking API context
+diff --git a/src/openvpn/dco_linux.c b/src/openvpn/dco_linux.c
+index 56f6259..777b43c 100644
+--- a/src/openvpn/dco_linux.c
++++ b/src/openvpn/dco_linux.c
+@@ -502,6 +502,19 @@
+     CLEAR(dco);
+ }
+ 
++static const char *
++ovpn_mode_to_str(enum ovpn_mode mode)
++{
++    switch (mode)
++    {
++        case OVPN_MODE_P2P:
++            return "p2p";
++        case OVPN_MODE_MP:
++            return "server";
++    }
++    return "unknown";
++}
++
+ int
+ open_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx, const char *dev)
+ {
+@@ -509,11 +522,30 @@
+     ASSERT(tt->type == DEV_TYPE_TUN);
+ 
+     int ret = net_iface_new(ctx, dev, OVPN_FAMILY_NAME, &tt->dco);
+-    if (ret < 0)
++    if (ret < 0 && ret != -EEXIST)
+     {
+         msg(D_DCO_DEBUG, "Cannot create DCO interface %s: %d", dev, ret);
+         return ret;
+     }
++    if (ret == -EEXIST)
++    {
++        enum ovpn_mode mode;
++        int mode_ret = net_iface_ovpn_mode(ctx, dev, &mode);
++
++        if (mode_ret < 0)
++        {
++            msg(M_WARN, "DCO: cannot retrieve mode of existing interface %s: %s (%d)", dev,
++                strerror(-mode_ret), mode_ret);
++            return mode_ret;
++        }
++
++        if (mode != tt->dco.ifmode)
++        {
++            msg(M_WARN, "DCO: existing interface %s is in %s mode, expected %s mode",
++                dev, ovpn_mode_to_str(mode), ovpn_mode_to_str(tt->dco.ifmode));
++            return -EINVAL;
++        }
++    }
+ 
+     tt->dco.ifindex = if_nametoindex(dev);
+     if (!tt->dco.ifindex)
+@@ -521,7 +553,7 @@
+         msg(M_FATAL, "DCO: cannot retrieve ifindex for interface %s", dev);
+     }
+ 
+-    return 0;
++    return ret;
+ }
+ 
+ void
+@@ -529,7 +561,10 @@
+ {
+     msg(D_DCO_DEBUG, __func__);
+ 
+-    net_iface_del(ctx, tt->actual_name);
++    if (!tt->persistent_if)
++    {
++        net_iface_del(ctx, tt->actual_name);
++    }
+     ovpn_dco_uninit_netlink(&tt->dco);
+ }
+ 
+diff --git a/src/openvpn/dco_linux.h b/src/openvpn/dco_linux.h
+index e3e4824..42df09e 100644
+--- a/src/openvpn/dco_linux.h
++++ b/src/openvpn/dco_linux.h
+@@ -24,6 +24,7 @@
+ #if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+ 
+ #include "event.h"
++#include "networking_sitnl.h"
+ 
+ #include "ovpn_dco_linux.h"
+ 
+@@ -38,28 +39,6 @@
+ typedef enum ovpn_key_slot dco_key_slot_t;
+ typedef enum ovpn_cipher_alg dco_cipher_t;
+ 
+-/* OVPN section */
+-
+-#ifndef IFLA_OVPN_MAX
+-
+-enum ovpn_mode
+-{
+-    OVPN_MODE_P2P,
+-    OVPN_MODE_MP,
+-};
+-
+-enum ovpn_ifla_attrs
+-{
+-    IFLA_OVPN_UNSPEC = 0,
+-    IFLA_OVPN_MODE,
+-
+-    __IFLA_OVPN_MAX,
+-};
+-
+-#define IFLA_OVPN_MAX (__IFLA_OVPN_MAX - 1)
+-
+-#endif /* ifndef IFLA_OVPN_MAX */
+-
+ typedef struct
+ {
+     struct nl_sock *nl_sock;
+diff --git a/src/openvpn/networking.h b/src/openvpn/networking.h
+index bce0c19..cab560c 100644
+--- a/src/openvpn/networking.h
++++ b/src/openvpn/networking.h
+@@ -115,6 +115,19 @@
+  */
+ int net_iface_type(openvpn_net_ctx_t *ctx, const char *iface, char type[IFACE_TYPE_LEN_MAX]);
+ 
++#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
++/**
++ * Retrieve the ovpn interface mode
++ *
++ * @param ctx       the implementation specific context
++ * @param iface     interface to query
++ * @param mode      variable where the ovpn mode attribute will be stored
++ *
++ * @return          0 on success, a negative error code otherwise
++ */
++int net_iface_ovpn_mode(openvpn_net_ctx_t *ctx, const char *iface, enum ovpn_mode *mode);
++#endif
++
+ /**
+  * Remove an interface
+  *
+diff --git a/src/openvpn/networking_iproute2.c b/src/openvpn/networking_iproute2.c
+index a1f3525..85ab158 100644
+--- a/src/openvpn/networking_iproute2.c
++++ b/src/openvpn/networking_iproute2.c
+@@ -82,6 +82,16 @@
+     return -1;
+ }
+ 
++#if defined(ENABLE_DCO)
++int
++net_iface_ovpn_mode(openvpn_net_ctx_t *ctx, const char *iface, enum ovpn_mode *mode)
++{
++    /* not supported by iproute2 */
++    msg(M_WARN, "%s: operation not supported by iproute2 backend", __func__);
++    return -EOPNOTSUPP;
++}
++#endif
++
+ int
+ net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
+ {
+diff --git a/src/openvpn/networking_sitnl.c b/src/openvpn/networking_sitnl.c
+index a396255..9d07638 100644
+--- a/src/openvpn/networking_sitnl.c
++++ b/src/openvpn/networking_sitnl.c
+@@ -1432,8 +1432,18 @@
+     return 0;
+ }
+ 
+-int
+-net_iface_type(openvpn_net_ctx_t *ctx, const char *iface, char type[IFACE_TYPE_LEN_MAX])
++/**
++ * Issue an RTM_GETLINK query for an interface and feed the reply to the given
++ * parsing callback.
++ *
++ * @param iface     name of the interface to query
++ * @param cb        callback invoked with the netlink reply
++ * @param arg       opaque argument passed through to the callback
++ *
++ * @return          0 on success, a negative error code otherwise
++ */
++static int
++sitnl_link_get(const char *iface, sitnl_parse_reply_cb cb, void *arg)
+ {
+     struct sitnl_link_req req = {};
+     int ifindex = if_nametoindex(iface);
+@@ -1450,9 +1460,15 @@
+     req.i.ifi_family = AF_PACKET;
+     req.i.ifi_index = ifindex;
+ 
++    return sitnl_send(&req.n, 0, 0, cb, arg);
++}
++
++int
++net_iface_type(openvpn_net_ctx_t *ctx, const char *iface, char type[IFACE_TYPE_LEN_MAX])
++{
+     memset(type, 0, IFACE_TYPE_LEN_MAX);
+ 
+-    int ret = sitnl_send(&req.n, 0, 0, sitnl_type_save, type);
++    int ret = sitnl_link_get(iface, sitnl_type_save, type);
+     if (ret < 0)
+     {
+         msg(D_ROUTE, "%s: cannot retrieve iface %s: %s (%d)", __func__, iface, strerror(-ret), ret);
+@@ -1464,6 +1480,82 @@
+     return 0;
+ }
+ 
++#if defined(ENABLE_DCO)
++static int
++sitnl_ovpn_mode_save(struct nlmsghdr *n, void *arg)
++{
++    struct ifinfomsg *ifi = NLMSG_DATA(n);
++    struct rtattr *tb[IFLA_MAX + 1];
++    struct rtattr *tb_link[IFLA_INFO_MAX + 1];
++    struct rtattr *tb_data[IFLA_OVPN_MAX + 1];
++    enum ovpn_mode *mode = arg;
++    uint8_t raw_mode;
++
++    if (n->nlmsg_type != RTM_NEWLINK)
++    {
++        return -EINVAL;
++    }
++
++    if (n->nlmsg_len < NLMSG_LENGTH(sizeof(*ifi)))
++    {
++        return -EINVAL;
++    }
++
++    sitnl_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), IFLA_PAYLOAD(n));
++
++    if (!tb[IFLA_LINKINFO])
++    {
++        return -ENOENT;
++    }
++
++    sitnl_parse_rtattr_nested(tb_link, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
++
++    if (!tb_link[IFLA_INFO_KIND]
++        || strcmp(RTA_DATA(tb_link[IFLA_INFO_KIND]), OVPN_FAMILY_NAME) != 0)
++    {
++        return -EINVAL;
++    }
++
++    if (!tb_link[IFLA_INFO_DATA])
++    {
++        return -ENOENT;
++    }
++
++    sitnl_parse_rtattr_nested(tb_data, IFLA_OVPN_MAX, tb_link[IFLA_INFO_DATA]);
++
++    if (!tb_data[IFLA_OVPN_MODE])
++    {
++        return -ENOENT;
++    }
++
++    if (RTA_PAYLOAD(tb_data[IFLA_OVPN_MODE]) < sizeof(raw_mode))
++    {
++        return -EINVAL;
++    }
++
++    raw_mode = *(uint8_t *)RTA_DATA(tb_data[IFLA_OVPN_MODE]);
++    *mode = (enum ovpn_mode)raw_mode;
++
++    return 0;
++}
++
++int
++net_iface_ovpn_mode(openvpn_net_ctx_t *ctx, const char *iface, enum ovpn_mode *mode)
++{
++    int ret = sitnl_link_get(iface, sitnl_ovpn_mode_save, mode);
++    if (ret < 0)
++    {
++        msg(D_ROUTE, "%s: cannot retrieve ovpn mode for iface %s: %s (%d)", __func__, iface,
++            strerror(-ret), ret);
++        return ret;
++    }
++
++    msg(D_ROUTE, "%s: mode of %s: %d", __func__, iface, *mode);
++
++    return 0;
++}
++#endif /* defined(ENABLE_DCO) */
++
+ int
+ net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
+ {
+diff --git a/src/openvpn/networking_sitnl.h b/src/openvpn/networking_sitnl.h
+index 481cc36..7a2d964 100644
+--- a/src/openvpn/networking_sitnl.h
++++ b/src/openvpn/networking_sitnl.h
+@@ -24,4 +24,30 @@
+ typedef char openvpn_net_iface_t;
+ typedef void *openvpn_net_ctx_t;
+ 
++#if defined(TARGET_LINUX)
++
++#include <linux/if_link.h>
++
++#ifndef IFLA_OVPN_MAX
++
++enum ovpn_mode
++{
++    OVPN_MODE_P2P,
++    OVPN_MODE_MP,
++};
++
++enum ovpn_ifla_attrs
++{
++    IFLA_OVPN_UNSPEC = 0,
++    IFLA_OVPN_MODE,
++
++    __IFLA_OVPN_MAX,
++};
++
++#define IFLA_OVPN_MAX (__IFLA_OVPN_MAX - 1)
++
++#endif /* ifndef IFLA_OVPN_MAX */
++
++#endif /* if defined(TARGET_LINUX) */
++
+ #endif /* NETWORKING_SITNL_H_ */
