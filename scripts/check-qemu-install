@@ -302,10 +302,10 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="",bus=pci.0,addr=0x5,host_mtu=1500 \
         -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="",bus=pci.0,addr=0x6,host_mtu=1500 \
         -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="",bus=pci.0,addr=0x7,host_mtu=1500 \
-        -netdev user,id=n4 -device e1000e,netdev=n4,mac={macbase}:04,romfile="",bus=pci.0,addr=0x8 \
-        -netdev user,id=n5 -device e1000e,netdev=n5,mac={macbase}:05,romfile="",bus=pci.0,addr=0x9 \
-        -netdev user,id=n6 -device vmxnet3,netdev=n6,mac={macbase}:06,romfile="",bus=pci.0,addr=0xa \
-        -netdev user,id=n7 -device vmxnet3,netdev=n7,mac={macbase}:07,romfile="",bus=pci.0,addr=0xb \
+        -netdev user,id=n4 -device e1000e,netdev=n4,mac={macbase}:04,romfile="",bus=pci.0,addr=0xa \
+        -netdev user,id=n5 -device e1000e,netdev=n5,mac={macbase}:05,romfile="",bus=pci.0,addr=0xb \
+        -netdev user,id=n6 -device vmxnet3,netdev=n6,mac={macbase}:06,romfile="",bus=pci.0,addr=0xe \
+        -netdev user,id=n7 -device vmxnet3,netdev=n7,mac={macbase}:07,romfile="",bus=pci.0,addr=0xf \
         -device virtio-scsi-pci,id=scsi0 \
         {cdrom}{nested_cdrom} \
         -drive format={disk_format},file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
