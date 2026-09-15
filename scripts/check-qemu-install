@@ -55,6 +55,10 @@ import pexpect
 EXCEPTION = 0
 DISK_IMAGE_EXTENSION = '.raw'
 
+# T3871: interface names are resolved from this store, so dump it on every
+# testrun - it is what makes a naming failure reproducible after the fact
+IFNAME_MAPPING_FILE = '/config/interface-mapping.json'
+
 # Nested installer-ISO QEMU test: mkisofs payload (see --nested-installer-iso-test)
 NESTED_ISO_DATA_DIR = 'nested_iso_data'
 NESTED_INSTALLER_PAYLOAD_ISO = 'nested_installer_payload.iso'
@@ -696,6 +700,9 @@ def basic_cli_tests(c):
     c.sendline('show version frr')
     c.expect(op_mode_prompt)
     c.sendline('show interfaces')
+    c.expect(op_mode_prompt)
+    # 2>&1 so a missing store is visible rather than an empty result
+    c.sendline(f'cat {IFNAME_MAPPING_FILE} 2>&1 || true')
     c.expect(op_mode_prompt)
     # c.sendline('systemd-detect-virt')
     # c.expect('kvm')
@@ -1470,7 +1477,7 @@ try:
         # The NICs are pinned to ascending PCI slots with ascending MACs, so
         # eth0..eth7 must map to macbase:00..07 whenever naming is re-derived.
         log.info('Running interface naming persistence tests')
-        mapping_file = '/config/interface-mapping.json'
+        mapping_file = IFNAME_MAPPING_FILE
 
         log.info('Verify the mapping store was created on first boot')
         c.sendline(f'cat {mapping_file}')
