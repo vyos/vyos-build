@@ -302,14 +302,14 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -uuid {uuid} \
         {enable_kvm} \
         -monitor unix:/tmp/qemu-monitor-socket-{disk_img},server,nowait \
-        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,netdev=n0,mac={macbase}:00,romfile="",bus=pci.0,addr=0x4,host_mtu=1500 \
-        -netdev user,id=n1 -device virtio-net-pci,netdev=n1,mac={macbase}:01,romfile="",bus=pci.0,addr=0x5,host_mtu=1500 \
-        -netdev user,id=n2 -device virtio-net-pci,netdev=n2,mac={macbase}:02,romfile="",bus=pci.0,addr=0x6,host_mtu=1500 \
-        -netdev user,id=n3 -device virtio-net-pci,netdev=n3,mac={macbase}:03,romfile="",bus=pci.0,addr=0x7,host_mtu=1500 \
-        -netdev user,id=n4 -device e1000e,netdev=n4,mac={macbase}:04,romfile="",bus=pci.0,addr=0xa \
-        -netdev user,id=n5 -device e1000e,netdev=n5,mac={macbase}:05,romfile="",bus=pci.0,addr=0xb \
-        -netdev user,id=n6 -device vmxnet3,netdev=n6,mac={macbase}:06,romfile="",bus=pci.0,addr=0xe \
-        -netdev user,id=n7 -device vmxnet3,netdev=n7,mac={macbase}:07,romfile="",bus=pci.0,addr=0xf \
+        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,id=nic0,netdev=n0,mac={macbase}:00,romfile="",bus=pci.0,addr=0x4,host_mtu=1500 \
+        -netdev user,id=n1 -device virtio-net-pci,id=nic1,netdev=n1,mac={macbase}:01,romfile="",bus=pci.0,addr=0x5,host_mtu=1500 \
+        -netdev user,id=n2 -device virtio-net-pci,id=nic2,netdev=n2,mac={macbase}:02,romfile="",bus=pci.0,addr=0x6,host_mtu=1500 \
+        -netdev user,id=n3 -device virtio-net-pci,id=nic3,netdev=n3,mac={macbase}:03,romfile="",bus=pci.0,addr=0x7,host_mtu=1500 \
+        -netdev user,id=n4 -device e1000e,id=nic4,netdev=n4,mac={macbase}:04,romfile="",bus=pci.0,addr=0xa \
+        -netdev user,id=n5 -device e1000e,id=nic5,netdev=n5,mac={macbase}:05,romfile="",bus=pci.0,addr=0xb \
+        -netdev user,id=n6 -device vmxnet3,id=nic6,netdev=n6,mac={macbase}:06,romfile="",bus=pci.0,addr=0xe \
+        -netdev user,id=n7 -device vmxnet3,id=nic7,netdev=n7,mac={macbase}:07,romfile="",bus=pci.0,addr=0xf \
         -device virtio-scsi-pci,id=scsi0 \
         {cdrom}{nested_cdrom} \
         -drive format={disk_format},file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
@@ -769,12 +769,123 @@ def basic_cli_tests(c):
     c.expect(rf'set console_type="{re.escape(console_type)}"')
     c.expect(op_mode_prompt)
 
-def verify_eth_mac_mapping(c, log):
+def qemu_monitor(commands):
+    """ Feed commands to the QEMU monitor of the running VM. """
+    os.system(f"printf '{commands}' | "
+              f'socat - unix-connect:/tmp/qemu-monitor-socket-{args.disk}')
+
+
+def hotplug_nic(log, index, pci_addr, mac=None):
+    """ Plug a NIC into the running VM through the QEMU monitor. The slot is
+        deliberately one that sits between the slots already in use, so
+        canonical hardware order would place the card in the middle of the
+        existing interfaces - it must still be named after them. """
+    netdev = f'hotplug{index}'
+    mac = mac or f'{macbase}:{index:02x}'.lower()
+    log.info(f'Hot-plugging a NIC with MAC {mac} into PCI slot {pci_addr}')
+    qemu_monitor(f'netdev_add user,id={netdev}\n'
+                 f'device_add virtio-net-pci,id=nic{index},netdev={netdev},'
+                 f'mac={mac},bus=pci.0,addr={pci_addr}\n')
+    return mac
+
+
+def unplug_nic(log, index, settle=10):
+    """ Pull a card out of the running VM. PCI removal is asynchronous - the
+        guest has to acknowledge it - so give it a moment to complete, then
+        drop the backend too or its id cannot be reused. The boot-time cards
+        are wired to netdev n0..n7, anything plugged in later to hotplugN. """
+    log.info(f'Unplugging the card in nic{index}')
+    qemu_monitor(f'device_del nic{index}\n')
+    time.sleep(settle)
+    netdev = f'n{index}' if index < 8 else f'hotplug{index}'
+    qemu_monitor(f'netdev_del {netdev}\n')
+
+
+def move_nic(log, index, pci_addr, mac):
+    """ Take a card out and put the SAME card back in a different slot, which
+        is what a machine looks like after someone re-seated it. """
+    unplug_nic(log, index)
+    return hotplug_nic(log, index, pci_addr, mac=mac)
+
+
+def verify_hotplug_was_recorded(c, log, mapping_file, ifname, mac,
+                                timeout=60):
+    """ The hot-plug unit has to run and record the card straight away. If the
+        udev rule does not match, nothing starts the unit, the card is absent
+        from the store and no .link file is written for it - and a later
+        reboot hides all of that, because the boot-time pass picks the card up
+        anyway. Assert it here, before any reboot can paper over it. """
+    log.info(f'Verify {ifname} was recorded without waiting for a reboot')
+    unit = 'vyos-net-name-resolve-hotplug.service'
+
+    # The card is registered by the Kernel well before the unit udev starts
+    # has finished recording it, so poll rather than read the map once. No
+    # reboot happens in between, which is what this is here to prove.
+    deadline = time.time() + timeout
+    tmp = 'NONE'
+    while time.time() < deadline:
+        tmp = get_cmd_output(
+            c, f'sudo jq -r \'.hardware["{ifname}"] // "NONE"\' '
+               f'{mapping_file}').lower()
+        if tmp == mac:
+            break
+        time.sleep(2)
+
+    if tmp != mac:
+        started = get_cmd_output(
+            c, f'systemctl show {unit} -p ExecMainStartTimestamp --value '
+               '| grep -c . || true')
+        if started != '1':
+            cond = get_cmd_output(
+                c, f'systemctl show {unit} -p ConditionTimestamp --value '
+                   '| grep -c . || true')
+            reason = ('its condition was not met' if cond == '1' else
+                      'the udev rule did not match the new card')
+            raise Exception(f'{unit} never ran - {reason}')
+        # it ran and still did not record the card - show what it decided
+        c.sendline('cat /run/vyos-net-name-resolve.json 2>&1 || true')
+        c.expect(op_mode_prompt)
+        c.sendline(f'sudo journalctl -u {unit} --no-pager | tail -20')
+        c.expect(op_mode_prompt)
+        raise Exception(f'{mapping_file} still records {ifname} on {tmp!r} '
+                        f'{timeout}s after hot-plug, expected {mac}')
+
+    tmp = get_cmd_output(
+        c, f'sudo jq -r \'.interfaces["{ifname}"] // "NONE"\' {mapping_file}')
+    if tmp == 'NONE':
+        raise Exception(f'{ifname} is absent from {mapping_file} after hot-plug')
+    log.info(f'{ifname} is in the store, on {mac}, and the unit ran')
+
+
+def wait_for_ifname(c, log, ifname, timeout=60):
+    """ Wait for the Kernel to register the card. This says nothing about the
+        naming pass udev starts for it - that is still running afterwards. """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if get_cmd_output(c, f'ip -br link show {ifname} 2>/dev/null | wc -l') == '1':
+            log.info(f"'{ifname}' appeared")
+            return
+        time.sleep(2)
+    raise Exception(f"'{ifname}' did not appear within {timeout}s after hot-plug")
+
+
+def verify_ifname_has_mac(c, log, ifname, expected_mac):
+    """ Assert a single interface sits on the NIC we expect. """
+    tmp = get_cmd_output(
+        c, f"ip -json link show {ifname} | jq -r '.[0].address'").lower()
+    if tmp != expected_mac:
+        raise Exception(f'Interface {ifname} has MAC {tmp}, '
+                        f'expected {expected_mac}')
+    log.info(f"'{ifname}' is on the expected NIC ({expected_mac})")
+
+
+def verify_eth_mac_mapping(c, log, count=8):
     """ NICs are attached with a mix of drivers (virtio/e1000e/vmxnet3, see
         get_qemu_cmd()) to cover different naming schemes. Regardless of
         driver, udev must always enumerate them in ascending order: eth0
-        carries mac0, eth1 mac1, ... up to eth7 mac7 - never scrambled. """
-    log.info('Verify eth0..eth7 are enumerated in ascending MAC order')
+        carries mac0, eth1 mac1, ... - never scrambled. Hot-plugged cards
+        extend the same run, so 'count' covers them too. """
+    log.info(f'Verify eth0..eth{count - 1} are enumerated in ascending MAC order')
     c.sendline('ip -json link show | jq -r \'.[] | select(.ifname|test("^eth[0-9]+$")) | "\(.ifname) \(.address)"\'')
     c.expect(op_mode_prompt)
     lines = [l.strip() for l in c.before.decode(errors='replace').splitlines() if l.strip()]
@@ -785,14 +896,14 @@ def verify_eth_mac_mapping(c, log):
         if len(parts) == 2 and re.fullmatch(r'eth\d+', parts[0]):
             macs[parts[0]] = parts[1].lower()
 
-    for i in range(8):
+    for i in range(count):
         ifname = f'eth{i}'
         expected_mac = f'{macbase}:{i:02x}'.lower()
         if ifname not in macs:
             raise Exception(f'Interface {ifname} not found on installed system')
         if macs[ifname] != expected_mac:
             raise Exception(f'Interface {ifname} has MAC {macs[ifname]}, expected {expected_mac} - naming race?')
-    log.info('eth0..eth7 MAC mapping verified')
+    log.info(f'eth0..eth{count - 1} MAC mapping verified')
 
 def ifname_diagnostics(c, mapping_file):
     """ Dump everything needed to reconstruct a naming decision after the
@@ -1560,6 +1671,113 @@ try:
         loginVM(c, log)
         ifname_diagnostics(c, mapping_file)
         verify_eth_mac_mapping(c, log)
+
+        # A card which appears after boot must be named after the interfaces
+        # already known, never among them. Both slots used here sit between
+        # slots already in use, so canonical hardware order would place the
+        # new cards at eth4 and eth6 - the names in the store are reserved,
+        # which is what has to stop that from happening.
+        if platform.machine() in ['amd64', 'x86_64']:
+            mac8 = hotplug_nic(log, 8, '0x8')
+            wait_for_ifname(c, log, 'eth8')
+            verify_hotplug_was_recorded(c, log, mapping_file, 'eth8', mac8)
+            mac9 = hotplug_nic(log, 9, '0xc')
+            wait_for_ifname(c, log, 'eth9')
+            verify_hotplug_was_recorded(c, log, mapping_file, 'eth9', mac9)
+
+            ifname_diagnostics(c, mapping_file)
+            log.info('Verify the hot-plugged cards were appended, not inserted')
+            verify_ifname_has_mac(c, log, 'eth8', mac8)
+            verify_ifname_has_mac(c, log, 'eth9', mac9)
+            verify_eth_mac_mapping(c, log, count=10)
+
+            # The real corner case: with every card present from the start,
+            # the one in slot 0x8 is fifth in hardware order. It must still be
+            # eth8, or five interfaces move onto the wrong cable.
+            log.info('Rebooting - hot-plugged names must survive re-enumeration')
+            c.sendline('reboot now')
+            waitForLogin(c, log)
+            loginVM(c, log)
+            ifname_diagnostics(c, mapping_file)
+            verify_eth_mac_mapping(c, log, count=10)
+
+            # ... and the boot-time rescan must have added a node for them.
+            # config.boot is what the rescan writes, so assert on that rather
+            # than on the running config - a node carrying no settings at all
+            # does not necessarily survive into it.
+            for ifname in ('eth8', 'eth9'):
+                tmp = get_cmd_output(
+                    c, f'sudo grep -c "ethernet {ifname}" /config/config.boot')
+                if tmp == '0':
+                    raise Exception(f'{ifname} was not added to the '
+                                    'configuration by the interface rescan')
+            log.info('Hot-plugged interfaces were added to the configuration')
+
+            # A card carries its name with it. Re-seat eth9's card in a free
+            # slot: the name has to follow the card, not stay behind with the
+            # position. Matching on the slot alone would hand eth9 - and the
+            # address configured under it - to whatever turns up there next.
+            log.info("Moving eth9's card to a different PCI slot")
+            move_nic(log, 9, '0x9', mac9)
+            wait_for_ifname(c, log, 'eth9')
+            c.sendline('reboot now')
+            waitForLogin(c, log)
+            loginVM(c, log)
+            ifname_diagnostics(c, mapping_file)
+            verify_ifname_has_mac(c, log, 'eth9', mac9)
+            log.info('eth9 followed its own card to the new slot')
+
+            # ... and the slot it vacated must not lend its name out. A card
+            # added for an unrelated purpose, dropped into the freed slot, was
+            # reported from the field coming up on another segment's address.
+            log.info('Adding an unrelated card to the slot eth9 left behind')
+            mac10 = f'{macbase}:0a'.lower()
+            hotplug_nic(log, 10, '0xc', mac=mac10)
+            wait_for_ifname(c, log, 'eth10')
+            verify_hotplug_was_recorded(c, log, mapping_file, 'eth10', mac10)
+            verify_ifname_has_mac(c, log, 'eth9', mac9)
+            verify_ifname_has_mac(c, log, 'eth10', mac10)
+            log.info('The newcomer was named separately, eth9 kept its card')
+
+            # With the original card gone for good, nothing distinguishes a
+            # replacement in the same slot from an unrelated card that landed
+            # there. The slot decides, and the boot has to say so - that
+            # warning is the only thing standing between the operator and an
+            # address quietly moving to another cable.
+            log.info("Replacing eth8's card with a different one in its slot")
+            mac11 = f'{macbase}:0b'.lower()
+            unplug_nic(log, 8)
+            hotplug_nic(log, 11, '0x8', mac=mac11)
+            verify_hotplug_was_recorded(c, log, mapping_file, 'eth8', mac11)
+            verify_ifname_has_mac(c, log, 'eth8', mac11)
+
+            # The pass which takes this decision is the one udev starts for
+            # the new card, so look at what it reported. Rebooting first would
+            # find the card already on record and nothing left to say about
+            # it, which is not the same thing as the case never arising.
+            tmp = get_cmd_output(
+                c, 'sudo jq -r \'.matched_by_path["eth8"] // "NONE"\' '
+                   '/run/vyos-net-name-resolve.json').lower()
+            if tmp != mac11:
+                raise Exception('the status file does not report eth8 as '
+                                f'matched by slot to {mac11}, got {tmp!r}')
+            tmp = get_cmd_output(
+                c, 'journalctl -b --no-pager | '
+                   'grep -c "eth8. was matched to new hardware" || true')
+            if tmp == '0':
+                raise Exception('the replacement was not warned about - eth8 '
+                                'was matched to different hardware by slot')
+            log.info('The replacement was taken, reported and warned about')
+
+            # ... and it has to still be there after a reboot
+            c.sendline('reboot now')
+            waitForLogin(c, log)
+            loginVM(c, log)
+            ifname_diagnostics(c, mapping_file)
+            verify_ifname_has_mac(c, log, 'eth8', mac11)
+            log.info('eth8 kept the replacement card across a reboot')
+        else:
+            log.info('Skipping NIC hot-plug tests - not supported on this machine type')
 
 
     elif args.raid:
