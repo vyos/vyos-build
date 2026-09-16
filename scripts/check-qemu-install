@@ -322,9 +322,13 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
                f' -device scsi-hd,bus=scsi1.0,drive=drive-hd2,id=hd2,bootindex=2'
 
     if tpm:
+        # The ISA "tpm-tis" device only exists on x86 machines - the arm64
+        # "virt" machine exposes the TPM via MMIO and a device-tree node,
+        # which QEMU models as "tpm-tis-device" instead.
+        tpm_device = 'tpm-tis-device' if architecture == 'arm64' else 'tpm-tis'
         cmd += f' -chardev socket,id=chrtpm,path={tpm_sock}' \
                ' -tpmdev emulator,id=tpm0,chardev=chrtpm' \
-               ' -device tpm-tis,tpmdev=tpm0'
+               f' -device {tpm_device},tpmdev=tpm0'
 
     return cmd
 
