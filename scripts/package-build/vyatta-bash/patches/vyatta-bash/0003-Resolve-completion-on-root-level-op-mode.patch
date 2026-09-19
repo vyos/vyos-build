@@ -1,0 +1,28 @@
+From 8ee825b994d77368a9f4b3b499e65d04c545ae20 Mon Sep 17 00:00:00 2001
+From: sarthurdev <s.arthur@vyos.io>
+Date: Thu, 17 Sep 2026 16:09:32 +0000
+Subject: [PATCH 3/3] Resolve completion on root-level op-mode
+
+---
+ bashline.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/bashline.c b/bashline.c
+index febdbf4..c47bde7 100644
+--- a/bashline.c
++++ b/bashline.c
+@@ -1733,8 +1733,10 @@ attempt_shell_completion (text, start, end)
+ 	{
+ 	  /* not assignment statement, but still want to perform command
+ 	     completion if we are composing command word. */
+-	  foundcs = 0;
++	  prog_complete_matches = programmable_completions (n, text, s, e, &foundcs);
+ 	  in_command_position = s == start && STREQ (n, text);	/* XXX */
++	  if (iw_compspec && in_command_position)
++	    foundcs = 0;
+ 	}
+       else if ((e > s || (in_vyatta_restricted_mode(OUTPUT) && strcmp(n, text) == 0)) && was_assignment == 0 && have_progcomps)
+ 	{
+-- 
+2.39.5
+
