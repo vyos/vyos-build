@@ -35,6 +35,24 @@ make generic                            # builds the generic flavor
   folder. Use `docker build -t vyos/vyos-build docker` from top-level dir.
 - Git submodules are not in use. Prebuilt binary packages are pulled from
   `https://packages.vyos.net/repositories/<train>` at build time.
+- Requires root: `sudo ./build-vyos-image generic`.
+
+### Testing a local package change
+
+Any `.deb` in `packages/` overrides the apt mirror, which is how a change to
+`vyos-1x` (usually checked out at `packages/vyos-1x`) reaches an image:
+
+```bash
+cd packages/vyos-1x && dpkg-buildpackage -uc -us -tc -b   # -> packages/*.deb
+cd ../.. && sudo ./build-vyos-image generic --architecture amd64
+```
+
+- Delete the previous `.deb` first. Two versions of the same package in
+  `packages/` and the build may install the older one, silently testing the
+  wrong code.
+- Confirm what landed rather than assuming: the version string carries the
+  git describe of the source tree, so
+  `grep <short-sha> <build-log>` shows whether the intended build went in.
 
 ## Testing instructions
 
@@ -50,6 +68,15 @@ make generic                            # builds the generic flavor
   one named `test_protocols_bgp.py` can be executed by:
   `make test -- --match protocols_bgp`
 - Test framework must run as user `root` to spawn QEMU VMs.
+- Targets test `build/live-image-<arch>.hybrid.iso` (`ISO_PATH`), not the
+  versioned ISO next to it. After a rebuild, check the file is actually the new
+  one - an interrupted build can leave the old image in place.
+- The harness lives in this repository, so it tracks the branch, not the image.
+  Testing a feature branch's image with another branch's `check-qemu-install`
+  fails on things the image no longer does. Check out the matching branch.
+- Failures propagate: a failing testcase makes `vyos-smoketest` exit non-zero,
+  the harness raise, and `make` stop. `test-suite` runs its targets one per
+  recipe line, so it aborts at the first failure rather than running on.
 
 ## Repository layout
 
@@ -81,14 +108,41 @@ make generic                            # builds the generic flavor
 
 ## PR instructions
 
-- Commit/PR title must follow: `component: T1234: description`. Phorge IDs at
-  https://vyos.dev. Enforced by `check-pr-message.yml` reusable workflow.
-- See also `CONTRIBUTING.md` for further hints on the commit messages.
+- Title rules are the commit message rules - see "Commit messages" below and
+  `CONTRIBUTING.md`.
+- The PR description must use `.github/PULL_REQUEST_TEMPLATE.md` as it exists in
+  the branch at the time the PR is opened. Fill the sections in, do not rewrite
+  them:
+  * Keep every heading, its order, and the HTML comments - reviewers and tooling
+    rely on them being there.
+  * Do not drop, rename, merge or reformat sections, and do not invent new ones.
+    A section with nothing to say stays in place and empty.
+  * Tick the checkboxes that apply with `[x]`; leave the rest unticked rather
+    than deleting the line.
+  * The template is not fixed forever. Read it before opening a PR instead of
+    reusing the wording from an earlier one.
 - Linting: unused-imports (Pylint) and J2 lint (note: workflow file is named
   `linit-j2.yml` in this repo — known cosmetic typo). Both inherited from
   `vyos/.github@production`.
 - PR conflicts are flagged automatically via `check-pr-conflicts.yml` (reusable
   `check-pr-merge-conflict.yml` from `vyos/.github@production`).
+
+## Commit messages
+
+- Title: `component: T1234: description`. The Phorge Task ID is required -
+  <https://vyos.dev>. Enforced by `check-pr-message.yml`.
+- A body is highly recommended, and limited to 150 words. Say what was wrong
+  and what now happens instead; the diff shows the rest.
+- Do not name functions, methods or files unless the message is meaningless
+  without them. It reads as noise and eats the budget.
+- Use `*` or `-` for a list, and only when one is genuinely needed.
+
+## Code comments
+
+- Comment only what the code cannot say. No restating the line below.
+- Never state anything you have not verified. A confident wrong comment
+  outlives the code and misleads every later reader.
+- Keep them short. Nobody reads a novel in a source file.
 
 ## Notes for future contributors
 
