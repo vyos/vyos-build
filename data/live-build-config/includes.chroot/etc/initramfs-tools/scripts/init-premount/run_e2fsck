@@ -1,0 +1,60 @@
+#!/bin/sh
+
+PREREQS=""
+prereqs() { echo "$PREREQS"; }
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+. /scripts/functions
+log_begin_msg "Running e2fsck"
+
+persistent_partition=$(blkid -L persistence -o device)
+
+is_mounted() {
+  awk -v "dev=${1}" 'BEGIN{rc=1}dev==$1{rc=0}END{exit rc}' '/proc/mounts'
+}
+
+fsck_log() {
+  status="${1}"
+  message="${2}"
+  log_${status}_msg "${message}"
+  echo "e2fsck: [${status}] ${message}" >/dev/kmsg
+}
+
+check_rc_bitmask() {
+  rc="$1"
+  to_check="$2"
+  status="$3"
+  message="$4"
+  if [ "$((rc&to_check))" -eq "${to_check}" ]; then
+    fsck_log "${status}" "${message}"
+  fi
+}
+
+# this first if checks if a partition with label=='persistence' exists and is not already mounted.
+if test -n "${persistent_partition}" && ! is_mounted "${persistent_partition}"; then
+  e2fsck -p "${persistent_partition}"
+  rc=$?
+  if [ "${rc}" -eq 0 ]; then
+    fsck_log 'success' "fsck succeeded with no errors found"
+  else
+    check_rc_bitmask ${rc} 1 'success' "File system errors corrected"
+    check_rc_bitmask ${rc} 2 'warning' "File system errors corrected, system should be rebooted"
+    check_rc_bitmask ${rc} 4 'failure' "File system errors left uncorrected"
+    check_rc_bitmask ${rc} 8 'failure' "Operational error"
+    check_rc_bitmask ${rc} 16 'failure' "Usage or syntax error"
+    check_rc_bitmask ${rc} 32 'failure' "E2fsck canceled by user request"
+    check_rc_bitmask ${rc} 128 'failure' "Shared library error"
+  fi
+elif test -n "${persistent_partition}"; then
+  fsck_log 'failure' "filesystem already mounted"
+else
+  fsck_log 'warning' "No partition named persistence found"
+fi
+
+log_end_msg
