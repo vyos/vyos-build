@@ -25,7 +25,7 @@ TEST_MEM := $(shell awk '/MemTotal/{if ($$2/1024/1024 >= 10) print 8; else print
 # to their scripts via $(MAKECMDGOALS). Those extra words are also goals as
 # far as make is concerned, so without this they'd fall through to the `%:`
 # flavor rule below and run build-vyos-image with garbage arguments.
-TEST_TARGETS := test test-no-interfaces test-no-interfaces-no-vpp test-interfaces test-vpp testc testcvpp testraid testsb testtpm testifname test-ci-qcow2 test-image-update qemu-live test-suite test-oci
+TEST_TARGETS := test test-no-interfaces test-no-interfaces-no-vpp test-interfaces test-vpp testc testcvpp testraid testsb testtpm test-ifname test-ci-qcow2 test-image-update qemu-live test-suite test-oci
 ifneq ($(filter $(TEST_TARGETS),$(firstword $(MAKECMDGOALS))),)
 $(eval $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS)):;@:)
 endif
@@ -88,9 +88,9 @@ testsb:
 testtpm:
 	scripts/check-qemu-install --debug $(UEFI_FLAG) --tpmtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
-.PHONY: testifname
+.PHONY: test-ifname
 .ONESHELL:
-testifname:
+test-ifname:
 	scripts/check-qemu-install --debug $(UEFI_FLAG) --ifnametest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
 # Runs each test target as its own $(MAKE) invocation (rather than as
@@ -104,7 +104,7 @@ test-suite:
 	$(MAKE) testcvpp
 	$(MAKE) test-vpp
 	$(MAKE) testraid
-	$(MAKE) testifname
+	$(MAKE) test-ifname
 	$(MAKE) testtpm
 
 .PHONY: test-ci-qcow2
