@@ -6,6 +6,10 @@ Package: zabbix-agent2
 Pin: release n=bookworm-backports
 Pin-Priority: 600
 
+Package: yubihsm-pkcs11 libyubihsm2 libyubihsm-http2
+Pin: release n=bookworm-backports
+Pin-Priority: 600
+
 Package: *
 Pin: release n=bookworm-backports
 Pin-Priority: -100

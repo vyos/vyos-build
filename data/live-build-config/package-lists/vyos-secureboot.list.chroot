@@ -1,0 +1,4 @@
+sbsigntool
+libengine-pkcs11-openssl
+yubihsm-pkcs11
+opensc

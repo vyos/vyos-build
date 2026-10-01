@@ -805,11 +805,46 @@ Pin-Priority: 600
                 print("W: if this was unintended.")
                 print("W: " + "=" * 60)
 
-        ## Build the image
-        print("I: Starting image build")
-        if debug:
-            print("D: It's not like I'm building this specially for you or anything!")
-        cmd("lb build 2>&1")
+        ## Secure Boot - deliver HSM signing configs into the chroot directory
+        hsm_openssl_conf = os.getenv('VYOS_HSM_OPENSSL_CONF')
+        hsm_pkcs11_conf = os.getenv('VYOS_HSM_PKCS11_CONF')
+        hsm_includes = []
+
+        try:
+            if hsm_openssl_conf:
+                hsm_sources = {
+                    'etc/ssl/yubihsm-openssl.cnf': (hsm_openssl_conf, 0o600),
+                }
+                if hsm_pkcs11_conf:
+                    hsm_sources['etc/yubihsm_pkcs11.conf'] = (hsm_pkcs11_conf, 0o644)
+
+                print("I: Setting up HSM-backed Secure Boot signing")
+
+                for target, (source, mode) in hsm_sources.items():
+                    if not os.path.isabs(source) or not os.path.isfile(source):
+                        raise ImageBuildError(
+                            f'not an absolute path to an existing file: {source}')
+
+                    target = os.path.join(chroot_includes_dir, target)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
+
+                    # os.open() applies the mode only when it creates the file
+                    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+                    hsm_includes.append(target)
+                    os.fchmod(fd, mode)
+                    with os.fdopen(fd, 'wb') as dst, open(source, 'rb') as src:
+                        shutil.copyfileobj(src, dst)
+
+            ## Build the image
+            print("I: Starting image build")
+            if debug:
+                print("D: Debug mode enabled, running 'lb build'")
+            cmd("lb build 2>&1")
+        finally:
+            # Do not leave HSM configuration in the build directory
+            for include in hsm_includes:
+                if os.path.exists(include):
+                    os.remove(include)
 
         # Copy the image
         shutil.copy(f'live-image-{build_config["architecture"]}.hybrid.iso', iso_file)
