@@ -27,10 +27,10 @@ Refreshed against Linux 6.18.x:
  8 files changed, 34 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
-index 7a637e87005f..982c76d0b0ab 100644
+index 27a861053b2f..fd75946cd249 100644
 --- a/Documentation/networking/ip-sysctl.rst
 +++ b/Documentation/networking/ip-sysctl.rst
-@@ -2042,6 +2042,17 @@ src_valid_mark - BOOLEAN
+@@ -2044,6 +2044,17 @@ src_valid_mark - BOOLEAN
  
  	Default value is 0.
  
@@ -109,10 +109,10 @@ index 942a887bf089..e6df2bfc4e40 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index c98b1b919f18..e7eb01ce30d1 100644
+index 80706368a303..d4d2be91c624 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5731,6 +5731,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
+@@ -5739,6 +5739,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
  		READ_ONCE(cnf->accept_untracked_na);
  	array[DEVCONF_ACCEPT_RA_MIN_LFT] = READ_ONCE(cnf->accept_ra_min_lft);
  	array[DEVCONF_FORCE_FORWARDING] = READ_ONCE(cnf->force_forwarding);
@@ -120,7 +120,7 @@ index c98b1b919f18..e7eb01ce30d1 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7274,6 +7275,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7282,6 +7283,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
@@ -135,7 +135,7 @@ index c98b1b919f18..e7eb01ce30d1 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ef66a3c86feb..4a1de714e3a9 100644
+index 71a38034f5ca..0ebe9fabb896 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -717,6 +717,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
