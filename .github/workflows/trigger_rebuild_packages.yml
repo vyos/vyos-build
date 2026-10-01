@@ -100,8 +100,6 @@ jobs:
               - 'scripts/package-build/telegraf/**'
             udp-broadcast-relay:
               - 'scripts/package-build/udp-broadcast-relay/**'
-            unionfs-fuse:
-              - 'scripts/package-build/unionfs-fuse/**'
             vpp:
               - 'scripts/package-build/vpp/**'
             vyatta-bash:
@@ -283,9 +281,6 @@ jobs:
             trigger_build "udp-broadcast-relay"
           fi
 
-          if [ "${{ steps.changes.outputs.unionfs-fuse }}" == "true" ]; then
-            trigger_build "unionfs-fuse"
-          fi
 
           if [ "${{ steps.changes.outputs.vpp }}" == "true" ]; then
             trigger_build "vpp"
