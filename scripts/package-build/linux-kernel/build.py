@@ -276,7 +276,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--config', default='package.toml', help='Path to the package configuration file')
     arg_parser.add_argument('--packages', nargs='+', help='Names of packages to build (default: all)', default=[])
     arg_parser.add_argument('--install-dependencies', '-i', help='Only install build dependencies', action='store_true')
-    arg_parser.add_argument('--keep-kernel', '-k', help='Keep kernel intermediate objects and not create source tar-ball', action='store_true')
+    arg_parser.add_argument('--dont-keep-kernel', '-d', help='Clean up kernel intermediate objects and create source tar-ball', action='store_true')
     args = arg_parser.parse_args()
 
     # Load package configuration
@@ -314,7 +314,7 @@ if __name__ == '__main__':
         # Copy generated .deb packages to parent directory
         copy_packages(Path(package['name']))
 
-    if linux_kernel_tarball and not args.keep_kernel:
+    if linux_kernel_tarball and args.dont_keep_kernel:
         source_dir = linux_kernel_tarball['source_dir']
         trusted_keys = f'{source_dir}/trusted_keys.pem'
         if os.path.exists(trusted_keys):
