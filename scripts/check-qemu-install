@@ -1120,7 +1120,9 @@ try:
         c.expect('\nWhich file would you like as boot config?.*')
         c.sendline('')
 
-    c.expect(op_mode_prompt)
+    # GRUB installation and unmounting (flushing the copied squashfs to disk)
+    # can take longer than the default pexpect timeout on large images
+    c.expect(op_mode_prompt, timeout=300)
 
     if args.sbtest:
         c.sendline('install mok')
