@@ -108,6 +108,16 @@ KEY_Y = chr(121)
 
 mok_password = '1234'
 
+# Custom Secure Boot signing material (see docs.vyos.io installation/secure-boot).
+# If present, the image was signed with a custom CA and the MOK must be enrolled.
+# If absent, the image is expected to be signed by the VyOS CA and boots as-is.
+SB_CERT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'certificates')
+SB_CUSTOM_KEY = os.path.join(SB_CERT_DIR, 'vyos-dev-2025-linux.key')
+SB_CUSTOM_CERT = os.path.join(SB_CERT_DIR, 'vyos-dev-2025-linux.pem')
+# Expected Linux Kernel signature certificate of a VyOS CA signed image
+SB_VYOS_ISSUER = '/CN=VyOS Networks Secure Boot CA'
+SB_VYOS_SUBJECT = '/CN=VyOS Networks Secure Boot Signer 2025 - linux'
+
 # Map QEMU arch
 QEMU_CONFIG = {
     'amd64': {
@@ -146,7 +156,8 @@ parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
                 action='store_true', default=False)
 parser.add_argument('--ifnametest', help='Execute interface naming/hw-id persistence tests',
                 action='store_true', default=False)
-parser.add_argument('--sbtest', help='Execute Secure Boot tests',
+parser.add_argument('--secure-boot-test', help='Execute Secure Boot tests (enrolls MOK only if custom '
+                                     'signing certificates exist in data/certificates)',
                 action='store_true', default=False)
 parser.add_argument('--cloud-init', help='Execute cloud-init tests',
                 action='store_true', default=False)
@@ -417,20 +428,20 @@ if args.smoketest:
     _primary_modes.append('--smoketest')
 if args.configtest:
     _primary_modes.append('--configtest')
-if args.sbtest:
-    _primary_modes.append('--sbtest')
+if args.secure_boot_test:
+    _primary_modes.append('--secure-boot-test')
 if len(_primary_modes) > 1:
     log.error('Incompatible combination of testcase flags (%s): only one of '
         '--cloud-init, --test-image-update, --tpmtest, --ifnametest, --raid, '
-        '--smoketest, --configtest, --sbtest may be set.', ', '.join(_primary_modes))
+        '--smoketest, --configtest, --secure-boot-test may be set.', ', '.join(_primary_modes))
     sys.exit(1)
 
 if args.no_interfaces and not args.smoketest:
     log.error('--no-interfaces requires --smoketest')
     sys.exit(1)
 
-if args.sbtest and not args.uefi:
-    log.error('--sbtest requires --uefi')
+if args.secure_boot_test and not args.uefi:
+    log.error('--secure-boot-test requires --uefi')
     sys.exit(1)
 
 if args.logfile:
@@ -466,8 +477,15 @@ if args.test_image_update and not args.iso:
 
 OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.secboot.fd'
 OVMF_VARS_TMP = args.disk.replace(DISK_IMAGE_EXTENSION, '.efivars')
-if args.sbtest:
+if args.secure_boot_test:
     shutil.copy('/usr/share/OVMF/OVMF_VARS_4M.ms.fd', OVMF_VARS_TMP)
+
+sb_custom_ca = args.secure_boot_test and os.path.isfile(SB_CUSTOM_KEY) and os.path.isfile(SB_CUSTOM_CERT)
+if args.secure_boot_test:
+    if sb_custom_ca:
+        log.info('Secure Boot test: custom signing certificate found - enrolling MOK')
+    else:
+        log.info('Secure Boot test: no custom signing certificate - expecting VyOS CA signed image')
 
 # Creating diskimage!!
 diskname_raid = None
@@ -950,7 +968,7 @@ def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0
 
 if args.qemu_cmd:
     tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
-                       iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.sbtest,
+                       iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.secure_boot_test,
                        nested_cdrom_iso=nested_payload_iso_path)
     os.system(tmp)
     exit(0)
@@ -1010,19 +1028,25 @@ try:
     log.info('Installing system')
     cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
                        tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc,
-                       secure_boot=args.sbtest, nested_cdrom_iso=nested_payload_iso_path)
+                       secure_boot=args.secure_boot_test, nested_cdrom_iso=nested_payload_iso_path)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
     #################################################
     # Logging into VyOS system
     #################################################
-    if args.sbtest:
+    if sb_custom_ca:
         log.info('Disable UEFI Secure Boot for initial installation')
         toggleUEFISecureBoot(c)
 
     BOOTLOADERchooseSerialConsole(c, live=(not args.cloud_init), log=log)
     loginVM(c, log)
+
+    if args.secure_boot_test and not sb_custom_ca:
+        log.info('Verify live system booted with UEFI Secure Boot enabled')
+        c.sendline('show secure-boot')
+        c.expect('SecureBoot enabled')
+        c.expect(op_mode_prompt)
 
     #################################################
     # Cloud-Init comes with a pre-assembled ISO - just boot and test it
@@ -1122,7 +1146,7 @@ try:
 
     c.expect(op_mode_prompt)
 
-    if args.sbtest:
+    if sb_custom_ca:
         c.sendline('install mok')
         c.expect('input password:.*')
         c.sendline(mok_password)
@@ -1136,7 +1160,7 @@ try:
     #################################################
     # SHIM Mok Manager
     #################################################
-    if args.sbtest:
+    if sb_custom_ca:
         log.info('Install Secure Boot Machine Owner Key')
         MOK_SLEEP = 0.5
         c.expect('BdsDxe: starting Boot00.*')
@@ -1174,7 +1198,7 @@ try:
     #################################################
     # Re-Enable Secure Boot
     #################################################
-    if args.sbtest:
+    if sb_custom_ca:
         log.info('Enable UEFI Secure Boot for initial installation')
         toggleUEFISecureBoot(c)
 
@@ -1804,9 +1828,18 @@ try:
         c.sendline(f'sudo umount {NESTED_HTTP_MOUNT_POINT}')
         c.expect(op_mode_prompt)
         log.info('Nested installer ISO testcase complete')
-    elif args.sbtest:
+    elif args.secure_boot_test:
         c.sendline('show secure-boot')
         c.expect('SecureBoot enabled')
+        c.expect(op_mode_prompt)
+
+        c.sendline('show secure-boot detail')
+        if sb_custom_ca:
+            c.expect('Issuer: ')
+        else:
+            log.info('Verify Linux Kernel is signed by the VyOS Secure Boot CA')
+            c.expect(re.escape(f'Issuer:  {SB_VYOS_ISSUER}'))
+            c.expect(re.escape(f'Subject: {SB_VYOS_SUBJECT}'))
         c.expect(op_mode_prompt)
     else:
         log.info('No testcase selected!')
@@ -1858,7 +1891,7 @@ if not args.keep:
         os.remove(args.disk)
         if diskname_raid:
             os.remove(diskname_raid)
-        if args.sbtest:
+        if args.secure_boot_test:
             os.remove(OVMF_VARS_TMP)
     except Exception:
         log.error('Exception while removing diskimage!')
