@@ -76,8 +76,11 @@ cd ../.. && sudo ./build-vyos-image generic --architecture amd64
   Testing a feature branch's image with another branch's `check-qemu-install`
   fails on things the image no longer does. Check out the matching branch.
 - Failures propagate: a failing testcase makes `vyos-smoketest` exit non-zero,
-  the harness raise, and `make` stop. `test-suite` runs its targets one per
-  recipe line, so it aborts at the first failure rather than running on.
+  the harness raise, and `make` stop. `test-suite` runs its targets in order
+  and aborts at the first failure. Note `.ONESHELL` is set globally, so a
+  multi-line recipe is one shell and make only sees its last command's status -
+  any such recipe needs `set -e` to stop early. Without it a failing step is
+  reported and then stepped over, and `make` still exits 0.
 
 ## Repository layout
 
