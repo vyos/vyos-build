@@ -879,6 +879,37 @@ def verify_eth_mac_mapping(c, log, count=8):
             raise Exception(f'Interface {ifname} has MAC {macs[ifname]}, expected {expected_mac} - naming race?')
     log.info(f'eth0..eth{count - 1} MAC mapping verified')
 
+def verify_radio_has_physical_device(c, log):
+    """ A radio is not in the mapping file - every interface on a phy carries
+        that phy's address, so there is nothing there to anchor a name to. The
+        rescan has to find it on the system instead, or the interface never
+        gets a node and 'interfaces wireless' shows nothing at all. """
+    log.info('Verify a radio present at boot was given its physical-device')
+    c.sendline('for i in /sys/class/net/wlan*; do [ -e "$i" ] && '
+               'echo "$(basename $i) $(basename $(readlink $i/phy80211))"; done')
+    c.expect(op_mode_prompt)
+
+    radios = {}
+    for line in ansi_escape.sub('', c.before.decode(errors='replace')).splitlines():
+        parts = line.split()
+        if len(parts) == 2 and re.fullmatch(r'wlan\d+', parts[0]):
+            radios[parts[0]] = parts[1]
+
+    # without one the rest of this proves nothing
+    if not radios:
+        raise Exception('no radio present after reboot - mac80211_hwsim did '
+                        'not load at boot, so the rescan had nothing to find')
+
+    for name, phy in sorted(radios.items()):
+        tmp = get_cmd_output(
+            c, f'show configuration commands | match "wireless {name} '
+               'physical-device"')
+        if phy not in tmp:
+            raise Exception(f'{name} has no physical-device {phy} in the '
+                            f'configuration, got {tmp!r}')
+        log.info(f"'{name}' was given physical-device {phy}")
+
+
 def ifname_diagnostics(c, mapping_file):
     """ Dump everything needed to reconstruct a naming decision after the
         fact. Cheap, and the difference between a one-line failure and an
@@ -1758,6 +1789,21 @@ try:
             ifname_diagnostics(c, mapping_file)
             verify_ifname_has_mac(c, log, 'eth8', mac11)
             log.info('eth8 kept the replacement card across a reboot')
+
+            # A radio has to be there before the naming pass, not after it, or
+            # the rescan has nothing to find - which is why this went
+            # unnoticed: the harness loads the module once the system is
+            # already up. Last in the testcase on purpose, as the node it
+            # checks for is committed on the next boot and a radio which
+            # failed to come up would disturb the naming checks above.
+            log.info('Making a radio present at boot')
+            c.sendline('echo mac80211_hwsim | sudo tee '
+                       '/etc/modules-load.d/vyos-hwsim.conf')
+            c.expect(op_mode_prompt)
+            c.sendline('reboot now')
+            waitForLogin(c, log)
+            loginVM(c, log)
+            verify_radio_has_physical_device(c, log)
         else:
             log.info('Skipping NIC hot-plug tests - not supported on this machine type')
 
