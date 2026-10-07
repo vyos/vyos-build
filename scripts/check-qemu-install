@@ -966,12 +966,43 @@ def verify_radio_has_physical_device(c, log):
         log.info(f"'{name}' was given physical-device {phy}")
 
 
+def firmware_diagnostics(c):
+    """ Dump what the machine claims to be. The store reads the DMI vendor to
+        decide whether a port label is worth looking at, and the labels
+        themselves come from SMBIOS type 41 - so when a naming decision looks
+        wrong, these tables say whether the input was there at all. Static for
+        the life of the VM, hence once per run. """
+    for command in ('cat /sys/class/dmi/id/sys_vendor',
+                    'cat /sys/class/dmi/id/product_name',
+                    'sudo dmidecode -t 1',
+                    'sudo dmidecode -t 41'):
+        c.sendline(f'{command} 2>/dev/null || true')
+        c.expect(op_mode_prompt)
+
+
 def ifname_diagnostics(c, mapping_file):
     """ Dump everything needed to reconstruct a naming decision after the
         fact. Cheap, and the difference between a one-line failure and an
         unreproducible one. """
+    # every sysfs attribute and udev property the store keys a name on -
+    # repeated per checkpoint because hot-plug changes them
+    sysfs_dump = (
+        'for d in /sys/class/net/*/device; do [ -e "$d" ] || continue; '
+        'n=$(basename $(dirname $d)); '
+        'echo "$n bus=$(basename $(readlink -f $d)) '
+        'vendor=$(cat $d/vendor 2>/dev/null) '
+        'subsystem_vendor=$(cat $d/subsystem_vendor 2>/dev/null) '
+        'label=$(cat $d/label 2>/dev/null)"; done')
+    udev_dump = (
+        'for i in /sys/class/net/*; do n=$(basename $i); '
+        'udevadm info -q property -p /sys/class/net/$n 2>/dev/null | '
+        'grep -E "^(DEVTYPE|ID_BUS|ID_PATH|ID_NET_NAME_)" | '
+        'sed "s/^/$n /"; done')
+
     for command in ('show interfaces ethernet',
                     'ip -br link show',
+                    sysfs_dump,
+                    udev_dump,
                     f'cat {mapping_file}',
                     'cat /run/vyos-net-name-resolve.json',
                     'ls /etc/systemd/network/',
@@ -1660,6 +1691,7 @@ try:
         log.info('Running interface naming persistence tests')
         mapping_file = IFNAME_MAPPING_FILE
 
+        firmware_diagnostics(c)
         if args.vmware:
             verify_vmware_firmware(c, log)
 
