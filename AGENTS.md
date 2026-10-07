@@ -100,7 +100,6 @@ cd ../.. && sudo ./build-vyos-image generic --architecture amd64
   * `vyos-http-api-tools` HTTP API RESTful and GraphQL
   * `hvinfo` tool to get information from running Hypervisor
   * `vyatta-bash` fork of bash to implement CLI completion help
-  * `vyatta-biosdevname` get NIC information also from Hypervisor platforms
   * `vyatta-cfg` referred to as the old configuration backend running CStore.
     It is old but very much in operation.
 - ISO assembly delegates to `vyos/vyos-live-build` (Debian live-build fork)
