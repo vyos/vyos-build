@@ -88,6 +88,9 @@ qemu_name = 'VyOS-QEMU'
 
 # RFC7042 section 2.1.2 MAC addresses used for documentation
 macbase = '00:00:5E:00:53'
+# NICs wired up at boot by get_qemu_cmd() - the VMware variant labels
+# every one of them
+VMWARE_PORT_LABEL_COUNT = 8
 
 test_timeout = 5 *3600 # 5 hours (in seconds) to complete individual testcases
 
@@ -159,6 +162,9 @@ parser.add_argument('--configtest', help='Execute load/commit config tests',
 parser.add_argument('--tpmtest', help='Execute TPM encrypted config tests',
                 action='store_true', default=False)
 parser.add_argument('--ifnametest', help='Execute interface naming persistence tests',
+                action='store_true', default=False)
+parser.add_argument('--vmware', help='Present the VM as VMware hardware (DMI vendor and '
+                                     'firmware port labels)',
                 action='store_true', default=False)
 parser.add_argument('--secure-boot-test', help='Execute Secure Boot tests (enrolls MOK only if custom '
                                      'signing certificates exist in data/certificates)',
@@ -237,7 +243,8 @@ def _kvm_exists():
     return os.path.exists("/dev/kvm")
 
 def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False,
-                 vnc_enabled=False, secure_boot=False, nested_cdrom_iso=None):
+                 vnc_enabled=False, secure_boot=False, nested_cdrom_iso=None,
+                 vmware=False):
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
     accel = ',accel=kvm' if _kvm_exists() else ''
@@ -301,6 +308,13 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
     # Set QEmu disk image format - this differs if VyOS was installed via smoketest
     # or we use an already ewxisting image
     disk_format = 'qcow2' if args.disk.endswith('.qcow2') else 'raw'
+
+    # A virtio NIC cannot carry a firmware port label: its sysfs device is the
+    # virtio bus device, not the PCI function the label hangs off. ESXi has no
+    # virtio anyway, so the VMware variant uses the adapters it does present.
+    # host_mtu is a virtio option and goes with them.
+    nic_model = 'vmxnet3' if vmware else 'virtio-net-pci'
+    nic_opts = '' if vmware else ',host_mtu=1500'
     cmd = f'{qemu_bin} \
         -name "{name}" \
         -smp {args.cpu},sockets=1,cores={args.cpu},threads=1 \
@@ -313,10 +327,10 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -uuid {uuid} \
         {enable_kvm} \
         -monitor unix:/tmp/qemu-monitor-socket-{disk_img},server,nowait \
-        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device virtio-net-pci,id=nic0,netdev=n0,mac={macbase}:00,romfile="",bus=pci.0,addr=0x4,host_mtu=1500 \
-        -netdev user,id=n1 -device virtio-net-pci,id=nic1,netdev=n1,mac={macbase}:01,romfile="",bus=pci.0,addr=0x5,host_mtu=1500 \
-        -netdev user,id=n2 -device virtio-net-pci,id=nic2,netdev=n2,mac={macbase}:02,romfile="",bus=pci.0,addr=0x6,host_mtu=1500 \
-        -netdev user,id=n3 -device virtio-net-pci,id=nic3,netdev=n3,mac={macbase}:03,romfile="",bus=pci.0,addr=0x7,host_mtu=1500 \
+        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device {nic_model},id=nic0,netdev=n0,mac={macbase}:00,romfile="",bus=pci.0,addr=0x4{nic_opts} \
+        -netdev user,id=n1 -device {nic_model},id=nic1,netdev=n1,mac={macbase}:01,romfile="",bus=pci.0,addr=0x5{nic_opts} \
+        -netdev user,id=n2 -device {nic_model},id=nic2,netdev=n2,mac={macbase}:02,romfile="",bus=pci.0,addr=0x6{nic_opts} \
+        -netdev user,id=n3 -device {nic_model},id=nic3,netdev=n3,mac={macbase}:03,romfile="",bus=pci.0,addr=0x7{nic_opts} \
         -netdev user,id=n4 -device e1000e,id=nic4,netdev=n4,mac={macbase}:04,romfile="",bus=pci.0,addr=0xa \
         -netdev user,id=n5 -device e1000e,id=nic5,netdev=n5,mac={macbase}:05,romfile="",bus=pci.0,addr=0xb \
         -netdev user,id=n6 -device vmxnet3,id=nic6,netdev=n6,mac={macbase}:06,romfile="",bus=pci.0,addr=0xe \
@@ -344,6 +358,19 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         cmd += f' -chardev socket,id=chrtpm,path={tpm_sock}' \
                ' -tpmdev emulator,id=tpm0,chardev=chrtpm' \
                f' -device {tpm_device},tpmdev=tpm0'
+
+    if vmware:
+        # ESXi is the one platform where the firmware, not the PCI topology,
+        # decides which adapter the operator calls the first one. Two SMBIOS
+        # tables reproduce that: type 1 is what /sys/class/dmi/id/sys_vendor
+        # reports, type 41 is where the kernel gets <device>/label from, which
+        # is the "Network adapter N" order as vSphere shows it. The comma in
+        # the vendor string has to reach QEMU doubled or its option parser
+        # treats it as a separator.
+        cmd += ' -smbios "type=1,manufacturer=VMware,, Inc.,product=VMware Virtual Platform"'
+        for index in range(VMWARE_PORT_LABEL_COUNT):
+            cmd += (f' -smbios type=41,designation=Ethernet{index},kind=ethernet,'
+                    f'instance={index + 1},pcidev=nic{index}')
 
     return cmd
 
@@ -853,12 +880,41 @@ def verify_ifname_has_mac(c, log, ifname, expected_mac):
     log.info(f"'{ifname}' is on the expected NIC ({expected_mac})")
 
 
+def verify_vmware_firmware(c, log, count=VMWARE_PORT_LABEL_COUNT):
+    """ The VMware variant of the naming tests is only worth anything if the
+        guest really believes it runs on VMware. Both signals the store looks
+        at have to be there: the DMI vendor, and a firmware port label per
+        NIC. Without the SMBIOS tables the guest is an ordinary machine and
+        the run would silently repeat the plain naming test. """
+    log.info('Verify the guest sees VMware firmware')
+    vendor = get_cmd_output(c, 'cat /sys/class/dmi/id/sys_vendor')
+    if 'VMware' not in vendor:
+        raise Exception(f'DMI vendor is {vendor!r}, expected VMware - the '
+                        'SMBIOS type 1 table did not reach the guest')
+
+    c.sendline('for i in /sys/class/net/eth*; do echo "$(basename $i) '
+               '$(cat $i/device/label 2>/dev/null)"; done')
+    c.expect(op_mode_prompt)
+    labels = {}
+    for line in ansi_escape.sub('', c.before.decode(errors='replace')).splitlines():
+        parts = line.split()
+        if len(parts) == 2 and re.fullmatch(r'eth\d+', parts[0]):
+            labels[parts[0]] = parts[1]
+
+    missing = [f'eth{i}' for i in range(count)
+               if not re.fullmatch(r'Ethernet\d+', labels.get(f'eth{i}', ''))]
+    if missing:
+        raise Exception(f'No firmware port label on {", ".join(missing)} - the '
+                        'SMBIOS type 41 tables did not reach the guest')
+    log.info(f'VMware DMI vendor and {count} port labels present')
+
+
 def verify_eth_mac_mapping(c, log, count=8):
-    """ NICs are attached with a mix of drivers (virtio/e1000e/vmxnet3, see
-        get_qemu_cmd()) to cover different naming schemes. Regardless of
-        driver, udev must always enumerate them in ascending order: eth0
-        carries mac0, eth1 mac1, ... - never scrambled. Hot-plugged cards
-        extend the same run, so 'count' covers them too. """
+    """ NICs are attached with a mix of drivers (see get_qemu_cmd()) to cover
+        different naming schemes. Regardless of driver, udev must always
+        enumerate them in ascending order: eth0 carries mac0, eth1 mac1, ... -
+        never scrambled. Hot-plugged cards extend the same run, so 'count'
+        covers them too. """
     log.info(f'Verify eth0..eth{count - 1} are enumerated in ascending MAC order')
     c.sendline('ip -json link show | jq -r \'.[] | select(.ifname|test("^eth[0-9]+$")) | "\(.ifname) \(.address)"\'')
     c.expect(op_mode_prompt)
@@ -1097,7 +1153,7 @@ def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0
 if args.qemu_cmd:
     tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
                        iso_img=args.iso, vnc_enabled=args.vnc, secure_boot=args.secure_boot_test,
-                       nested_cdrom_iso=nested_payload_iso_path)
+                       nested_cdrom_iso=nested_payload_iso_path, vmware=args.vmware)
     os.system(tmp)
     exit(0)
 
@@ -1156,7 +1212,8 @@ try:
     log.info('Installing system')
     cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
                        tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc,
-                       secure_boot=args.secure_boot_test, nested_cdrom_iso=nested_payload_iso_path)
+                       secure_boot=args.secure_boot_test, nested_cdrom_iso=nested_payload_iso_path,
+                       vmware=args.vmware)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
@@ -1602,6 +1659,9 @@ try:
         # eth0..eth7 must map to macbase:00..07 whenever naming is re-derived.
         log.info('Running interface naming persistence tests')
         mapping_file = IFNAME_MAPPING_FILE
+
+        if args.vmware:
+            verify_vmware_firmware(c, log)
 
         log.info('Verify the mapping store was created on first boot')
         c.sendline(f'cat {mapping_file}')
