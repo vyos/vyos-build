@@ -100,11 +100,14 @@ test-interface-naming:
 test-interface-naming-vmware:
 	scripts/check-qemu-install --debug $(UEFI_FLAG) --ifnametest --vmware --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
-# Runs each test target as its own $(MAKE) invocation (rather than as
-# prerequisites) so make aborts immediately on the first failing testcase
-# instead of collecting failures across a parallel-eligible dependency list.
+# Each test target runs as its own $(MAKE) invocation rather than as a
+# prerequisite, so the list keeps this order instead of becoming eligible to
+# run in parallel. ".ONESHELL" above is global - make accepts no prerequisites
+# for it - so the whole list goes to a single shell, and "set -e" is what makes
+# a failing target abort the suite rather than be reported and stepped over.
 .PHONY: test-suite
 test-suite:
+	@set -e
 	$(MAKE) test-interfaces
 	$(MAKE) test-no-interfaces-no-vpp
 	$(MAKE) testc
