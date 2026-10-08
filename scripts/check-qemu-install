@@ -915,6 +915,30 @@ def verify_vmware_firmware(c, log, count=VMWARE_PORT_LABEL_COUNT):
     log.info(f'VMware DMI vendor and {count} port labels present')
 
 
+def verify_bootup_scripts(c, log):
+    """ The pre/post-config hooks normally ship in the config directory, but a
+        config volume mounted over it has none - the encrypted one, for
+        instance - and the boot then copies them out of the running image.
+        Assert the hooks are usable either way, and that the copy, where it
+        ran, did not quietly go wrong: it used to be handed a split path and
+        try to copy a directory. The mode is not asserted - the packaged
+        scripts and the restored ones differ, and both are fine. """
+    log.info('Verify the bootup hook scripts are in place')
+    for script in ('vyos-preconfig-bootup.script',
+                   'vyos-postconfig-bootup.script'):
+        path = f'/opt/vyatta/etc/config/scripts/{script}'
+        tmp = get_cmd_output(c, f'sudo test -x {path} && echo OK || echo NO')
+        if tmp != 'OK':
+            raise Exception(f'{script} is missing or not executable')
+
+    tmp = get_cmd_output(
+        c, 'journalctl -b --no-pager | grep -c "omitting directory" || true')
+    if tmp != '0':
+        raise Exception(f'the boot logged {tmp} "omitting directory" errors - '
+                        'a bootup script was copied from a split path')
+    log.info('Both bootup hook scripts are usable, nothing was mis-copied')
+
+
 def verify_eth_mac_mapping(c, log, count=8):
     """ NICs are attached with a mix of drivers (see get_qemu_cmd()) to cover
         different naming schemes. Regardless of driver, udev must always
@@ -1446,6 +1470,11 @@ try:
     loginVM(c, log)
 
     #################################################
+    # Bootup hook scripts must be usable on a plain installed system
+    #################################################
+    verify_bootup_scripts(c, log)
+
+    #################################################
     # Boot options require a reboot
     #################################################
     if args.huge_page_size and args.huge_page_count:
@@ -1588,6 +1617,11 @@ try:
         c.expect('.*Encrypted config volume has not been mounted', timeout=120)
 
         loginVM(c, log)
+
+        # The encrypted volume is mounted over the config directory, so when it
+        # stays shut the hooks are absent and the boot has to copy them out of
+        # the running image. This is the one boot that exercises that path.
+        verify_bootup_scripts(c, log)
 
         # Test loading config with recovery key
         c.sendline('encryption load')
