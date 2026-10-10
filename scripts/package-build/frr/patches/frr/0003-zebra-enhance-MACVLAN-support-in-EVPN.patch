@@ -1,4 +1,4 @@
-From 0ed0db22759e229698ce266c6535be407c865737 Mon Sep 17 00:00:00 2001
+From 3ea79edc7460154c210f5df048917b735dd2f547 Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Wed, 27 May 2026 18:21:04 +0300
 Subject: [PATCH] zebra: enhance MACVLAN support in EVPN
@@ -23,10 +23,10 @@ Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
  3 files changed, 57 insertions(+), 20 deletions(-)
 
 diff --git a/zebra/zebra_evpn.c b/zebra/zebra_evpn.c
-index 258e818ec5..7f8f77b2c2 100644
+index 945ec8541f..eb773460e1 100644
 --- a/zebra/zebra_evpn.c
 +++ b/zebra/zebra_evpn.c
-@@ -963,13 +963,13 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
+@@ -968,13 +968,13 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
  			zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
  
  		/* Add VRR MAC-IP - if any*/
@@ -39,17 +39,17 @@ index 258e818ec5..7f8f77b2c2 100644
 +		if (vrr_if && advertise_gw_macip_enabled(zevpn))
 +			zebra_evpn_add_macip_for_intf(vrr_if, zevpn);
  
- 		neigh_read_for_vlan(zns, vlan_if);
+ 		dplane_neigh_read_for_vlan(zns, vlan_if);
 +		if (vrr_if)
-+			neigh_read_for_vlan(zns, vrr_if);
++			dplane_neigh_read_for_vlan(zns, vrr_if);
  	}
  }
  
 diff --git a/zebra/zebra_evpn_neigh.c b/zebra/zebra_evpn_neigh.c
-index d66aad50d8..b21aae76aa 100644
+index 69870b88fe..5297eeaa78 100644
 --- a/zebra/zebra_evpn_neigh.c
 +++ b/zebra/zebra_evpn_neigh.c
-@@ -30,6 +30,7 @@
+@@ -31,6 +31,7 @@
  #include "zebra/zebra_evpn_mh.h"
  #include "zebra/zebra_evpn_neigh.h"
  #include "zebra/zebra_evpn_mac.h"
@@ -57,7 +57,7 @@ index d66aad50d8..b21aae76aa 100644
  
  DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "EVI Neighbor");
  
-@@ -149,6 +150,7 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
+@@ -97,6 +98,7 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
  				 struct zebra_neigh *n, bool was_static)
  {
  	struct interface *vlan_if;
@@ -65,7 +65,7 @@ index d66aad50d8..b21aae76aa 100644
  	int flags;
  	int ret = 0;
  
-@@ -166,6 +168,10 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
+@@ -114,6 +116,10 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
  
  	dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags, was_static);
  
@@ -76,7 +76,7 @@ index d66aad50d8..b21aae76aa 100644
  	return ret;
  }
  
-@@ -858,6 +864,7 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
+@@ -802,6 +808,7 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
  				      struct zebra_neigh *n)
  {
  	struct interface *vlan_if;
@@ -84,7 +84,7 @@ index d66aad50d8..b21aae76aa 100644
  
  	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
  		return 0;
-@@ -871,6 +878,10 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
+@@ -815,6 +822,10 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
  
  	dplane_rem_neigh_delete(vlan_if, &n->ip);
  
@@ -96,10 +96,10 @@ index d66aad50d8..b21aae76aa 100644
  }
  
 diff --git a/zebra/zebra_neigh.c b/zebra/zebra_neigh.c
-index 6ba4aed7f9..dfb951da8b 100644
+index bb268a1f85..1fb1fe6021 100644
 --- a/zebra/zebra_neigh.c
 +++ b/zebra/zebra_neigh.c
-@@ -370,12 +370,14 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
+@@ -448,12 +448,14 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
  	ns_id_t ns_id;
  	int32_t ndm_ifindex;
  	struct interface *ifp;
@@ -115,7 +115,7 @@ index 6ba4aed7f9..dfb951da8b 100644
  	struct ethaddr mac;
  	bool is_own;
  	bool is_router;
-@@ -432,6 +434,28 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
+@@ -510,6 +512,28 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
  	if (op == DPLANE_OP_NEIGH_DISCOVER)
  		return;
  
@@ -144,7 +144,7 @@ index 6ba4aed7f9..dfb951da8b 100644
  	/* The neighbor is present on an SVI. From this, we locate the
  	 * underlying
  	 * bridge because we're only interested in neighbors on a VxLAN bridge.
-@@ -443,17 +467,19 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
+@@ -521,17 +545,19 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
  	 * interface
  	 * itself
  	 */
@@ -175,8 +175,8 @@ index 6ba4aed7f9..dfb951da8b 100644
  	}
  
  	if (op == DPLANE_OP_NEIGH_IP_INSTALL) {
-@@ -477,7 +503,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
- 				zebra_neigh_add(ifp, &ip, &mac);
+@@ -555,7 +581,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
+ 				zebra_neigh_add(ns_id, ifp, &ip, &mac, ndm_state);
  
  			if (link_if)
 -				zebra_vxlan_handle_kernel_neigh_update(ifp, link_if, &ip, &mac,
@@ -184,18 +184,18 @@ index 6ba4aed7f9..dfb951da8b 100644
  								       ndm_state, is_own, is_router,
  								       local_inactive, dp_static);
  			return;
-@@ -485,7 +511,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
+@@ -563,7 +589,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
  
- 		zebra_neigh_del(ifp, &ip);
+ 		zebra_neigh_del(ns_id, ifp, &ip);
  		if (link_if)
 -			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 +			zebra_vxlan_handle_kernel_neigh_del(svi_ifp, link_if, &ip);
  		return;
  	}
  
-@@ -499,7 +525,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
+@@ -577,7 +603,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
  	 */
- 	zebra_neigh_del(ifp, &ip);
+ 	zebra_neigh_del(ns_id, ifp, &ip);
  	if (link_if)
 -		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 +		zebra_vxlan_handle_kernel_neigh_del(svi_ifp, link_if, &ip);
@@ -203,5 +203,5 @@ index 6ba4aed7f9..dfb951da8b 100644
  
  static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 -- 
-2.51.2
+2.39.5
 
