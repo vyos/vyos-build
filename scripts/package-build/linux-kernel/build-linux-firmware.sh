@@ -51,6 +51,30 @@ mkdir -p "${LINUX_FIRMWARE_BUILD_DIR}"
     ./copy-firmware.sh "${CWD}/${LINUX_FIRMWARE_BUILD_DIR}"
 )
 
+# iwlwifi declares only its highest API/core version, but falls back to older
+# API versions at runtime - which are often the only ones linux-firmware ships.
+# Add the newest available ucode at or below the declared version, plus PNVM.
+IWL_DIR="${LINUX_FIRMWARE_BUILD_DIR}/intel/iwlwifi"
+for FW in $(echo "${FW_FILES}" | grep -E '^iwlwifi-.*-(c99|[0-9]+)\.ucode$' | sort -u); do
+    PREFIX=$(echo "${FW}" | sed -E 's/-(c99|[0-9]+)\.ucode$//')
+    MAX_API=$(echo "${FW}" | sed -E 's/.*-([0-9]+)\.ucode$/\1/')
+    # Driver fallback from core 99 continues with API 101
+    if echo "${FW}" | grep -q -- '-c99\.ucode$'; then
+        MAX_API=101
+    fi
+    API=$(ls "${IWL_DIR}" | sed -nE "s/^${PREFIX}-([0-9]+)\.ucode$/\1/p" | \
+        awk -v max=${MAX_API} '$1 <= max' | sort -n | tail -1)
+    if [ -n "${API}" ]; then
+        FW_FILES="${FW_FILES} ${PREFIX}-${API}.ucode"
+    else
+        echo "W: no loadable iwlwifi firmware found for: ${FW}"
+    fi
+    if [ -f "${IWL_DIR}/${PREFIX}.pnvm" ]; then
+        FW_FILES="${FW_FILES} ${PREFIX}.pnvm"
+    fi
+done
+FW_FILES=$(echo ${FW_FILES} | tr ' ' '\n' | sort -u)
+
 # Copy firmware file from linux firmware build directory into
 # assembly folder for the vyos-firmware package
 SED_REPLACE="s@${CWD}/${LINUX_FIRMWARE}/@@"
