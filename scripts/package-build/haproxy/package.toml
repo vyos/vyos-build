@@ -1,0 +1,4 @@
+[[packages]]
+name = "haproxy"
+commit_id = "debian/3.0.29-1_bpo12+1"
+scm_url = "https://salsa.debian.org/haproxy-team/haproxy"
