@@ -1,4 +1,4 @@
-From 21800432167ac022c01772df993efca8d4969b38 Mon Sep 17 00:00:00 2001
+From 20ff690dcf8ab7e800e1dc0c4fd83041d039fb3d Mon Sep 17 00:00:00 2001
 From: Daniil Baturin <daniil@baturin.org>
 Date: Wed, 6 Nov 2024 15:58:10 +0000
 Subject: [PATCH] Enable PCRE2 in Debian package builds
@@ -8,10 +8,10 @@ Subject: [PATCH] Enable PCRE2 in Debian package builds
  1 file changed, 1 insertion(+)
 
 diff --git a/debian/rules b/debian/rules
-index 43e5d7e61..1f971ab22 100755
+index 21094c62d9..ea248ff528 100755
 --- a/debian/rules
 +++ b/debian/rules
-@@ -69,6 +69,7 @@ override_dh_auto_configure:
+@@ -89,6 +89,7 @@ override_dh_auto_configure:
  		--enable-vty-group=frrvty \
  		--enable-configfile-mask=0640 \
  		--enable-logfile-mask=0640 \
@@ -20,5 +20,5 @@ index 43e5d7e61..1f971ab22 100755
  
  override_dh_auto_install:
 -- 
-2.47.0
+2.39.5
 

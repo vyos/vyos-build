@@ -1,0 +1,803 @@
+From 7b51fe0ff14f1a44520a82281518fe60cdf9c9b0 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Thu, 30 Apr 2026 12:36:54 +0300
+Subject: [PATCH 1/3] tests: BGP-LS Adjacency SID (TLV 1099)
+
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+---
+ .../bgp_link_state/rr/bgp_ls_attrs_link43.json    | 14 ++++++++++++++
+ .../bgp_link_state/test_bgp_link_state.py         | 15 +++++++++++++++
+ 2 files changed, 29 insertions(+)
+ create mode 100644 tests/topotests/bgp_link_state/rr/bgp_ls_attrs_link43.json
+
+diff --git a/tests/topotests/bgp_link_state/rr/bgp_ls_attrs_link43.json b/tests/topotests/bgp_link_state/rr/bgp_ls_attrs_link43.json
+new file mode 100644
+index 000000000000..4ce4cb631b4d
+--- /dev/null
++++ b/tests/topotests/bgp_link_state/rr/bgp_ls_attrs_link43.json
+@@ -0,0 +1,14 @@
++{
++	"paths": [
++		{
++			"linkStateAttrs": {
++				"adjSids": [
++					{
++						"flags": "0x30",
++						"weight": 0
++					}
++				]
++			}
++		}
++	]
++}
+diff --git a/tests/topotests/bgp_link_state/test_bgp_link_state.py b/tests/topotests/bgp_link_state/test_bgp_link_state.py
+index fba67d0f54aa..cfb0ab8bd9d0 100644
+--- a/tests/topotests/bgp_link_state/test_bgp_link_state.py
++++ b/tests/topotests/bgp_link_state/test_bgp_link_state.py
+@@ -473,6 +473,21 @@ def test_bgp_ls_attributes_consumer():
+     assertmsg = '"rr" BGP-LS node attributes not received correctly'
+     assert result is None, assertmsg
+ 
++    # Check BGP-LS attributes are received for link
++    reffile = os.path.join(CWD, "rr/bgp_ls_attrs_link43.json")
++    expected = json.loads(open(reffile).read())
++
++    test_func = functools.partial(
++        topotest.router_json_cmp,
++        router,
++        "show bgp link-state link-state [E][L2][I0x0][N[s0000.0000.0004.00]][R[s0000.0000.0003.00]][L[i10.0.5.4][n10.0.5.3]] json",
++        expected,
++    )
++    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
++    assertmsg = '"rr" BGP-LS link attributes not received correctly'
++    assert result is None, assertmsg
++
++
+ 
+ def test_bgp_ls_static_route_add():
+     """Test adding a static route and verifying BGP-LS update"""
+
+From 369b7720f5f3c256855657db512ceb579ebe2b1d Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Tue, 12 May 2026 09:20:20 +0300
+Subject: [PATCH 2/3] bgpd: BGP-LS: add protocol id to attr processing
+
+Some TLVs need protocol id to be parsed/encoded properly.
+
+Add `protocol_id` argument to `bgp_ls_encode_attr`,
+`bgp_packet_ls_attribute` and `bgp_ls_parse_attr`.
+
+`bgp_ls_parse_attr` is run before NLRI decoding, so to get protocol id
+before that add `bgp_ls_decode_nlri_protocol_id` that decodes only
+protocol id from NLRI.
+
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+---
+ bgpd/bgp_attr.c          | 59 +++++++++++++++++++++---
+ bgpd/bgp_ls_nlri.c       | 97 +++++++++++++++++++++++++++++++++++++++-
+ bgpd/bgp_ls_nlri.h       | 14 +++++-
+ bgpd/bgp_ls_ted.c        |  5 ++-
+ bgpd/bgp_ls_ted.h        |  6 ++-
+ bgpd/bgp_updgrp_packet.c |  2 +-
+ 6 files changed, 169 insertions(+), 14 deletions(-)
+
+diff --git a/bgpd/bgp_attr.c b/bgpd/bgp_attr.c
+index 23bd6185f142..50ec97a0fd6c 100644
+--- a/bgpd/bgp_attr.c
++++ b/bgpd/bgp_attr.c
+@@ -4271,8 +4271,52 @@ static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
+ 	return bgp_attr_ignore(peer, args->type);
+ }
+ 
++/* Get Protocol-ID from NLRIs, if both present they should have equal Protocol-ID */
++static enum bgp_ls_protocol_id get_nlri_protocol_id(struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw)
++{
++	int ret;
++	enum bgp_ls_protocol_id protocol_id_update;
++	enum bgp_ls_protocol_id protocol_id_withdraw;
++
++	if (mp_update->nlri) {
++		ret = bgp_ls_decode_nlri_protocol_id(mp_update, &protocol_id_update);
++		if (ret == -1) {
++			zlog_warn("%s: couldn't decode protocol id of UPDATE, setting reserved",
++				  __func__);
++			return BGP_LS_PROTO_RESERVED;
++		}
++	}
++
++	if (mp_withdraw->nlri) {
++		ret = bgp_ls_decode_nlri_protocol_id(mp_withdraw, &protocol_id_withdraw);
++		if (ret == -1) {
++			zlog_warn("%s: couldn't decode protocol id of WITHDRAW, setting reserved",
++				  __func__);
++			return BGP_LS_PROTO_RESERVED;
++		}
++	}
++
++	if (mp_update->nlri && mp_withdraw->nlri) {
++		if (protocol_id_update != protocol_id_withdraw) {
++			zlog_warn("%s: different protocol ids in UPDATE and WITHDRAW, setting reserved",
++				  __func__);
++			return BGP_LS_PROTO_RESERVED;
++		}
++		return protocol_id_update;
++	}
++
++	if (mp_update->nlri)
++		return protocol_id_update;
++
++	if (mp_withdraw->nlri)
++		return protocol_id_withdraw;
++
++	return BGP_LS_PROTO_RESERVED;
++}
++
+ /* BGP-LS attribute (rfc9552) */
+-static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
++static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args,
++					   struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw)
+ {
+ 	struct peer_connection *const connection = args->connection;
+ 	struct peer *const peer = connection->peer;
+@@ -4280,13 +4324,16 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
+ 	const size_t attr_startp = stream_get_getp(connection->curr);
+ 	int ret;
+ 	struct bgp_ls_attr *ls_attr;
++	enum bgp_ls_protocol_id protocol_id;
+ 
+ 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+ 		goto ls_attr_ignore;
+ 
++	protocol_id = get_nlri_protocol_id(mp_update, mp_withdraw);
++
+ 	ls_attr = bgp_ls_attr_alloc();
+ 
+-	ret = bgp_ls_parse_attr(connection->curr, args->length, ls_attr);
++	ret = bgp_ls_parse_attr(connection->curr, args->length, protocol_id, ls_attr);
+ 	if (ret != 0) {
+ 		bgp_ls_attr_free(ls_attr);
+ 		flog_warn(EC_BGP_LS_PACKET, "%s: malformed BGP-LS Attribute, discarding attribute",
+@@ -4670,7 +4717,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
+ 			ret = bgp_attr_nhc(&attr_args);
+ 			break;
+ 		case BGP_ATTR_LINK_STATE:
+-			ret = bgp_attr_ls(&attr_args);
++			ret = bgp_attr_ls(&attr_args, mp_update, mp_withdraw);
+ 			break;
+ 		default:
+ 			ret = bgp_attr_unknown(&attr_args);
+@@ -5169,7 +5216,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
+ }
+ 
+ static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct attr *attr,
+-				    struct bgp_path_info *bpi)
++				    struct bgp_path_info *bpi, enum bgp_ls_protocol_id protocol_id)
+ {
+ 	struct bgp_ls_attr *ls_attr = bgp_attr_get_ls_attr(attr);
+ 	size_t attr_start, len_pos, attr_len;
+@@ -5182,7 +5229,7 @@ static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct at
+ 	len_pos = stream_get_endp(s);
+ 	stream_putw(s, 0); /* Placeholder for extended length */
+ 
+-	ret = bgp_ls_encode_attr(s, ls_attr);
++	ret = bgp_ls_encode_attr(s, ls_attr, protocol_id);
+ 
+ 	if (ret < 0) {
+ 		/* No attributes or encoding failed - rollback the stream */
+@@ -6122,7 +6169,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
+ 
+ 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
+ 	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
+-		bgp_packet_ls_attribute(s, bgp, attr, bpi);
++		bgp_packet_ls_attribute(s, bgp, attr, bpi, bgp_ls_nlri_protocol_id(ls_nlri));
+ 
+ 	/* draft-ietf-idr-entropy-label */
+ 	if (peergroup_flag_check(peer, PEER_FLAG_SEND_NHC_ATTRIBUTE))
+diff --git a/bgpd/bgp_ls_nlri.c b/bgpd/bgp_ls_nlri.c
+index 9996ab069505..ff37c451d3c9 100644
+--- a/bgpd/bgp_ls_nlri.c
++++ b/bgpd/bgp_ls_nlri.c
+@@ -1030,6 +1030,28 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
+ 	return size;
+ }
+ 
++/* NLRI get protocol_id helper */
++enum bgp_ls_protocol_id bgp_ls_nlri_protocol_id(const struct bgp_ls_nlri *nlri)
++{
++	if (!nlri)
++		return BGP_LS_PROTO_RESERVED;
++
++	switch (nlri->nlri_type) {
++	case BGP_LS_NLRI_TYPE_NODE:
++		return nlri->nlri_data.node.protocol_id;
++	case BGP_LS_NLRI_TYPE_LINK:
++		return nlri->nlri_data.link.protocol_id;
++	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
++	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
++		return nlri->nlri_data.prefix.protocol_id;
++	case BGP_LS_NLRI_TYPE_SRV6_SID:
++		return nlri->nlri_data.srv6_sid.protocol_id;
++	case BGP_LS_NLRI_TYPE_RESERVED:
++		return BGP_LS_PROTO_RESERVED;
++	}
++	return BGP_LS_PROTO_RESERVED;
++}
++
+ /*
+  * ===========================================================================
+  * String Conversion Functions
+@@ -2233,7 +2255,8 @@ int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
+  *
+  * Returns number of bytes written, or -1 on error
+  */
+-int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
++int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
++		       enum bgp_ls_protocol_id protocol_id)
+ {
+ 	size_t start_pos;
+ 
+@@ -3869,6 +3892,75 @@ int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint
+ 	return 0;
+ }
+ 
++/*
++ * Decode protocol id from BGP-LS NLRI UPDATE message
++ *
++ * Needed by BGP-LS attribute that is parsed before NLRI
++ *
++ * Returns: 0 on success, -1 on error
++ */
++int bgp_ls_decode_nlri_protocol_id(struct bgp_nlri *packet,
++					  enum bgp_ls_protocol_id *protocol_id)
++{
++	uint16_t nlri_type, nlri_length;
++	uint8_t *data;
++
++	if (!packet || !protocol_id)
++		return -1;
++
++	/* Read NLRI Type + Length (4 bytes total) */
++	if (packet->length < BGP_LS_NLRI_TYPE_SIZE + BGP_LS_NLRI_LENGTH_SIZE) {
++		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: %s: Not enough data for NLRI type and length",
++			  __func__);
++		return -1;
++	}
++
++	/* Creating stream requires allocating/deallocating and copying memory, it
++	 * seems too much for two words parsing
++	 */
++	data = packet->nlri;
++	nlri_type = *data++ << 8;
++	nlri_type += *data++;
++	nlri_length = *data++ << 8;
++	nlri_length += *data++;
++
++	/* Check if stream has enough data for NLRI */
++	if (packet->length - (data - packet->nlri) < nlri_length) {
++		flog_warn(EC_BGP_LS_PACKET,
++			  "BGP-LS: %s: NLRI type=%u length=%u exceeds available data", __func__,
++			  nlri_type, nlri_length);
++		return -1;
++	}
++
++	/* Decode based on NLRI type */
++	switch ((enum bgp_ls_nlri_type)nlri_type) {
++	case BGP_LS_NLRI_TYPE_NODE:
++	case BGP_LS_NLRI_TYPE_LINK:
++	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
++	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
++	case BGP_LS_NLRI_TYPE_SRV6_SID:
++		/* Check minimum length */
++		if (nlri_length < BGP_LS_NLRI_MIN_LENGTH) {
++			flog_warn(EC_BGP_LS_PACKET,
++				  "BGP-LS: %s: Node NLRI length %u too short (minimum %u)",
++				  __func__, nlri_length, BGP_LS_NLRI_MIN_LENGTH);
++			return -1;
++		}
++
++		/* Read Protocol-ID (1 byte) */
++		*protocol_id = *data;
++		break;
++
++	case BGP_LS_NLRI_TYPE_RESERVED:
++	default:
++		/* Unknown NLRI type - preserve and propagate (RFC 9552 Section 5.2) */
++		zlog_warn("BGP-LS: %s: Unknown NLRI type %u", __func__, nlri_type);
++		return -1;
++	}
++
++	return 0;
++}
++
+ /*
+  * Decode complete BGP-LS NLRI from UPDATE message (RFC 9552 Section 5.2)
+  *
+@@ -5263,7 +5355,8 @@ static int parse_srv6_endpoint_behavior(struct stream *s, uint16_t length, struc
+ 	return 0;
+ }
+ 
+-int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
++int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, enum bgp_ls_protocol_id protocol_id,
++		      struct bgp_ls_attr *attr)
+ {
+ 	uint16_t type, length;
+ 	size_t end_pos = stream_get_getp(s) + total_length;
+diff --git a/bgpd/bgp_ls_nlri.h b/bgpd/bgp_ls_nlri.h
+index feacfebdefb4..dc3b814d12f7 100644
+--- a/bgpd/bgp_ls_nlri.h
++++ b/bgpd/bgp_ls_nlri.h
+@@ -851,6 +851,9 @@ extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
+ /* NLRI size calculation helpers */
+ extern size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri);
+ 
++/* NLRI get protocol_id helper */
++extern enum bgp_ls_protocol_id bgp_ls_nlri_protocol_id(const struct bgp_ls_nlri *nlri);
++
+ /* String conversion helpers */
+ extern const char *bgp_ls_protocol_id_str(enum bgp_ls_protocol_id proto_id);
+ extern const char *bgp_ls_nlri_type_str(enum bgp_ls_nlri_type nlri_type);
+@@ -948,7 +951,8 @@ extern int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefi
+ extern int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri);
+ 
+ /* Encode BGP-LS Attributes (Type 29 TLVs) */
+-extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr);
++extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
++			      enum bgp_ls_protocol_id protocol_id);
+ 
+ /*
+  * Get Prefix-SID attribute SID length by flags
+@@ -997,15 +1001,21 @@ extern int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlr
+ /* Decode complete NLRI */
+ extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);
+ 
++/* Decode enough NLRI to get protocol id */
++extern int bgp_ls_decode_nlri_protocol_id(struct bgp_nlri *packet,
++					  enum bgp_ls_protocol_id *protocol_id);
++
+ /*
+  * Parse BGP-LS Attributes (Type 29 TLVs)
+  *
+  * @param s Stream containing the attribute TLVs
+  * @param total_length Total length of all TLVs in bytes
++ * @param protocol_id Protocol-ID from NLRI needed by some attributes
+  * @param attr Pointer to node attribute structure to populate
+  * @return 0 on success, -1 on error
+  */
+-extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr);
++extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length,
++			     enum bgp_ls_protocol_id protocol_id, struct bgp_ls_attr *attr);
+ 
+ /*
+  * Convert BGP-LS Attributes to JSON object
+diff --git a/bgpd/bgp_ls_ted.c b/bgpd/bgp_ls_ted.c
+index 993f5dcd70fe..076455bfe9b7 100644
+--- a/bgpd/bgp_ls_ted.c
++++ b/bgpd/bgp_ls_ted.c
+@@ -182,7 +182,8 @@ static void bgp_ls_populate_srv6_adj_sid(struct bgp_ls_attr *attr,
+ /*
+  * Populate BGP-LS Attributes from Link State Attributes
+  */
+-int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr)
++int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr,
++			      enum bgp_ls_protocol_id protocol_id)
+ {
+ 	if (!ls_attr || !attr)
+ 		return -1;
+@@ -713,7 +714,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
+ 
+ 	/* Populate BGP-LS attributes from Link State edge */
+ 	ls_attr = bgp_ls_attr_alloc();
+-	if (bgp_ls_populate_link_attr(edge->attributes, ls_attr) < 0) {
++	if (bgp_ls_populate_link_attr(edge->attributes, ls_attr, protocol_id) < 0) {
+ 		zlog_warn("BGP-LS: Failed to populate Link attributes");
+ 		bgp_ls_attr_free(ls_attr);
+ 		return -1;
+diff --git a/bgpd/bgp_ls_ted.h b/bgpd/bgp_ls_ted.h
+index 6eb6579a49d6..f706322460ab 100644
+--- a/bgpd/bgp_ls_ted.h
++++ b/bgpd/bgp_ls_ted.h
+@@ -11,6 +11,8 @@
+ #ifndef _FRR_BGP_LS_TED_H
+ #define _FRR_BGP_LS_TED_H
+ 
++#include "bgpd/bgp_ls_nlri.h"
++
+ #define UNKNOWN LS_UNKNOWN
+ #include "lib/link_state.h"
+ #undef UNKNOWN
+@@ -33,9 +35,11 @@ extern int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr
+  *
+  * @param ls_attr Link State attributes from TED
+  * @param attr BGP-LS link attribute structure to populate
++ * @param protocol_id - IGP protocol (ISIS/OSPF)
+  * @return 0 on success, -1 on error
+  */
+-extern int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr);
++extern int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr,
++				     enum bgp_ls_protocol_id protocol_id);
+ 
+ /*
+  * Populate BGP-LS Attributes from Link State Prefix
+diff --git a/bgpd/bgp_updgrp_packet.c b/bgpd/bgp_updgrp_packet.c
+index 6cd31f74b9f5..ea48fc92c80f 100644
+--- a/bgpd/bgp_updgrp_packet.c
++++ b/bgpd/bgp_updgrp_packet.c
+@@ -786,7 +786,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
+ 			total_attr_len = bgp_packet_attribute(NULL, peer, s, adv->baa->attr,
+ 							      &vecarr, NULL, afi, safi, from, NULL,
+ 							      NULL, 0, dest->srv6_unicast, 0, 0,
+-							      path, NULL, false);
++							      path, dest->ls_nlri, false);
+ 			space_remaining =
+ 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
+ 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
+
+From 0c1d6a72af4111b2eba4b70db6a019f760d3d603 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Tue, 12 May 2026 09:36:43 +0300
+Subject: [PATCH 3/3] bgpd: BGP-LS: add Adjacency SID (TLV 1099)
+
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+---
+ bgpd/bgp_ls_nlri.c | 179 +++++++++++++++++++++++++++++++++++++++++++--
+ bgpd/bgp_ls_nlri.h |  26 +++++++
+ bgpd/bgp_ls_ted.c  |  35 +++++++++
+ 3 files changed, 233 insertions(+), 7 deletions(-)
+
+diff --git a/bgpd/bgp_ls_nlri.c b/bgpd/bgp_ls_nlri.c
+index ff37c451d3c9..02f706691030 100644
+--- a/bgpd/bgp_ls_nlri.c
++++ b/bgpd/bgp_ls_nlri.c
+@@ -449,6 +449,19 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
+ 			return ret;
+ 	}
+ 
++	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
++		if (attr1->adj_sid_count != attr2->adj_sid_count)
++			return numcmp(attr1->adj_sid_count, attr2->adj_sid_count);
++		for (int i = 0; i < attr1->adj_sid_count; i++) {
++			if (attr1->adj_sid[i].sid != attr2->adj_sid[i].sid)
++				return numcmp(attr1->adj_sid[i].sid, attr2->adj_sid[i].sid);
++			if (attr1->adj_sid[i].flags != attr2->adj_sid[i].flags)
++				return numcmp(attr1->adj_sid[i].flags, attr2->adj_sid[i].flags);
++			if (attr1->adj_sid[i].weight != attr2->adj_sid[i].weight)
++				return numcmp(attr1->adj_sid[i].weight, attr2->adj_sid[i].weight);
++		}
++	}
++
+ 	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT)) {
+ 		if (attr1->igp_flags != attr2->igp_flags)
+ 			return numcmp(attr1->igp_flags, attr2->igp_flags);
+@@ -1460,6 +1473,15 @@ unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *attr)
+ 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT))
+ 		key = jhash(attr->link_name, strlen(attr->link_name), key);
+ 
++	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
++		key = jhash(&attr->adj_sid_count, sizeof(attr->adj_sid_count), key);
++		for (int i = 0; i < attr->adj_sid_count; i++) {
++			key = jhash(&attr->adj_sid[i].sid, sizeof(attr->adj_sid[i].sid), key);
++			key = jhash(&attr->adj_sid[i].flags, sizeof(attr->adj_sid[i].flags), key);
++			key = jhash(&attr->adj_sid[i].weight, sizeof(attr->adj_sid[i].weight), key);
++		}
++	}
++
+ 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT))
+ 		key = jhash_1word(attr->igp_flags, key);
+ 
+@@ -2485,6 +2507,33 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
+ 		}
+ 	}
+ 
++	/* Adjacency SID (TLV 1099) */
++	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT))
++		for (int i = 0; i < attr->adj_sid_count; i++) {
++			int sid_len = bgp_ls_attr_adjacency_sid_len(attr->adj_sid[i].flags,
++								    protocol_id);
++
++			if (sid_len == -1) {
++				/* Should be impossible here */
++				zlog_warn("BGP-LS: %s wrong combination of V-Flag and L-Flag for Adjacency SID",
++					  __func__);
++				continue;
++			}
++
++			if (STREAM_WRITEABLE(s) < (size_t)BGP_LS_TLV_HDR_SIZE + (size_t)sid_len + 4)
++				return -1;
++			stream_putw(s, BGP_LS_ATTR_ADJ_SID);
++			stream_putw(s, sid_len + 4);
++
++			stream_putc(s, attr->adj_sid[i].flags);
++			stream_putc(s, attr->adj_sid[i].weight);
++			stream_putw(s, 0);
++			if (sid_len == 3)
++				stream_put3(s, attr->adj_sid[i].sid);
++			else
++				stream_putl(s, attr->adj_sid[i].sid);
++		}
++
+ 	/* Extended Admin Group (TLV 1173) */
+ 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT)) {
+ 		size_t nb_words = admin_group_nb_words(&attr->ext_admin_group);
+@@ -2820,12 +2869,7 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
+ 	return stream_get_endp(s) - start_pos;
+ }
+ 
+-/*
+- * Get Prefix-SID attribute SID length by flags
+- *
+- * @return 3 or 4 in normal case, -1 in error case
+- */
+-int bgp_ls_attr_prefix_sid_len(uint8_t flags)
++static int bgp_ls_attr_sid_len_by_lv_flags(uint8_t flags, uint8_t v_flag_mask, uint8_t l_flag_mask)
+ {
+ 	/*
+ 	 * IS-IS: RFC 8667, 2.1.1; OSPFv2: RFC8665, 5; OSPFv3: RFC8666, 6:
+@@ -2834,7 +2878,7 @@ int bgp_ls_attr_prefix_sid_len(uint8_t flags)
+ 	 * are invalid and any SID Advertisement received with an invalid setting
+ 	 * for V- and L-Flags MUST be ignored.
+ 	 */
+-	uint8_t vl_mask = BGP_LS_PREFIX_SID_FLAG_VALUE | BGP_LS_PREFIX_SID_FLAG_LOCAL;
++	uint8_t vl_mask = v_flag_mask | l_flag_mask;
+ 	uint8_t vl_val = CHECK_FLAG(flags, vl_mask);
+ 
+ 	if (vl_val != 0 && vl_val != vl_mask)
+@@ -2843,6 +2887,43 @@ int bgp_ls_attr_prefix_sid_len(uint8_t flags)
+ 	return vl_val ? 3 : 4;
+ }
+ 
++/*
++ * Get Prefix-SID attribute SID length by flags
++ *
++ * @return 3 or 4 in normal case, -1 in error case
++ */
++int bgp_ls_attr_prefix_sid_len(uint8_t flags)
++{
++	return bgp_ls_attr_sid_len_by_lv_flags(flags, BGP_LS_PREFIX_SID_FLAG_VALUE,
++					       BGP_LS_PREFIX_SID_FLAG_LOCAL);
++}
++
++/*
++ * Get Adjacency SID attribute Label/Index SID length by flags
++ *
++ * @return 3 or 4 in normal case, -1 in error case
++ */
++int bgp_ls_attr_adjacency_sid_len(uint8_t flags, enum bgp_ls_protocol_id protocol_id)
++{
++	switch (protocol_id) {
++	case BGP_LS_PROTO_ISIS_L1:
++	case BGP_LS_PROTO_ISIS_L2:
++		return bgp_ls_attr_sid_len_by_lv_flags(flags, ISIS_EXT_SUBTLV_LINK_ADJ_SID_VFLG,
++						       ISIS_EXT_SUBTLV_LINK_ADJ_SID_LFLG);
++	case BGP_LS_PROTO_OSPFV2:
++	case BGP_LS_PROTO_OSPFV3:
++		return bgp_ls_attr_sid_len_by_lv_flags(flags, OSPF_EXT_SUBTLV_LINK_ADJ_SID_VFLG,
++						       OSPF_EXT_SUBTLV_LINK_ADJ_SID_LFLG);
++	default:
++	case BGP_LS_PROTO_RESERVED:
++	case BGP_LS_PROTO_DIRECT:
++	case BGP_LS_PROTO_STATIC:
++	case BGP_LS_PROTO_BGP:
++		zlog_warn("BGP-LS: %s unsupported protocol %d", __func__, protocol_id);
++		return -1;
++	}
++}
++
+ /*
+  * ===========================================================================
+  * NLRI Decoding Functions
+@@ -4481,6 +4562,59 @@ static int parse_link_name(struct stream *s, uint16_t length, struct bgp_ls_attr
+ 	return 0;
+ }
+ 
++/*
++ * Parse Adjacency SID (TLV 1099)
++ * RFC 9085 Section 2.2.1
++ */
++static int parse_adjacency_sid(struct stream *s, uint16_t length, enum bgp_ls_protocol_id protocol_id, struct bgp_ls_attr *attr)
++{
++	int flags;
++	int sid_len;
++
++	if (length != 7 && length != 8) {
++		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Adjacency SID length (%u bytes)",
++			  length);
++		return -1;
++	}
++
++	if (attr->adj_sid_count == BGP_LS_ADJ_MAX) {
++		flog_warn(EC_BGP_UPDATE_RCV,
++			  "BGP-LS: Ignoring Adjacency SID, maximum %d is implemented",
++			  BGP_LS_ADJ_MAX);
++		stream_forward_getp(s, length);
++		return 0;
++	}
++
++	flags = stream_getc(s);
++	sid_len = bgp_ls_attr_adjacency_sid_len(flags, protocol_id);
++	if (sid_len != length - 4) {
++		stream_forward_getp(s, length - 1);
++		if (sid_len == -1) {
++			flog_warn(EC_BGP_LS_PACKET,
++				  "BGP-LS: %s wrong combination of V-Flag and L-Flag for Adjacency SID, ignoring",
++				  __func__);
++		} else {
++			flog_warn(EC_BGP_LS_PACKET,
++				  "BGP-LS: %s L/V-Flag value contradicts length of Adjacent SID, ignoring",
++				  __func__);
++		}
++		return 0;
++	}
++
++	attr->adj_sid[attr->adj_sid_count].flags = flags;
++	attr->adj_sid[attr->adj_sid_count].weight = stream_getc(s);
++	stream_getw(s); /* Reserved, ignored */
++	if (sid_len == 3)
++		attr->adj_sid[attr->adj_sid_count].sid = stream_get3(s);
++	else
++		attr->adj_sid[attr->adj_sid_count].sid = stream_getl(s);
++	attr->adj_sid_count++;
++
++	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT);
++
++	return 0;
++}
++
+ /*
+  * Parse Extended Admin Group TLV (TLV 1173)
+  */
+@@ -5467,6 +5601,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, enum bgp_ls_proto
+ 				return -1;
+ 			break;
+ 
++		case BGP_LS_ATTR_ADJ_SID:
++			if (parse_adjacency_sid(s, length, protocol_id, attr) < 0)
++				return -1;
++			break;
++
+ 		case BGP_LS_ATTR_UNIDIRECTIONAL_LINK_DELAY:
+ 			if (parse_link_delay(s, length, attr) < 0)
+ 				return -1;
+@@ -5722,6 +5861,22 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
+ 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT))
+ 		json_object_string_add(json_ls_attr, "linkName", ls_attr->link_name);
+ 
++	/* Adjacency SID */
++	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
++		struct json_object *jadj = json_object_new_array();
++
++		json_object_object_add(json_ls_attr, "adjSids", jadj);
++		for (int i = 0; i < ls_attr->adj_sid_count; i++) {
++			json_object *jobj = json_object_new_object();
++
++			json_object_int_add(jobj, "sid", ls_attr->adj_sid[i].sid);
++			json_object_string_addf(jobj, "flags", "0x%x", ls_attr->adj_sid[i].flags);
++			json_object_int_add(jobj, "weight", ls_attr->adj_sid[i].weight);
++
++			json_object_array_add(jadj, jobj);
++		}
++	}
++
+ 	/* Performance Metrics - Link Delay */
+ 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT))
+ 		json_object_int_add(json_ls_attr, "delay", ls_attr->delay);
+@@ -6056,6 +6211,16 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
+ 		col += vty_out(vty, "Link Name: %s", ls_attr->link_name);
+ 	}
+ 
++	/* Adjacency SID */
++	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
++		for (int i = 0; i < ls_attr->adj_sid_count; i++) {
++			CHECK_WRAP();
++			col += vty_out(vty, "Adjacency-SID: %u Flags: 0x%x Weight: 0x%x",
++				       ls_attr->adj_sid[i].sid, ls_attr->adj_sid[i].flags,
++				       ls_attr->adj_sid[i].weight);
++		}
++	}
++
+ 	/* Performance Metrics - Link Delay */
+ 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT)) {
+ 		CHECK_WRAP();
+diff --git a/bgpd/bgp_ls_nlri.h b/bgpd/bgp_ls_nlri.h
+index dc3b814d12f7..0cb5c4d0c2be 100644
+--- a/bgpd/bgp_ls_nlri.h
++++ b/bgpd/bgp_ls_nlri.h
+@@ -442,6 +442,16 @@ enum bgp_ls_attr_tlv {
+ #define BGP_LS_PREFIX_SID_FLAG_VALUE 0x08 /* Same for IS-IS, OSPFv2, OSPFv3 */
+ #define BGP_LS_PREFIX_SID_FLAG_LOCAL 0x04 /* Same for IS-IS, OSPFv2, OSPFv3 */
+ 
++/*
++ * IS-IS RFC 8667, 2.2.1
++ * OSPFv2 RFC 8665, 6.1
++ * OSPFv3 RFC 8666, 7.1
++ */
++#define ISIS_EXT_SUBTLV_LINK_ADJ_SID_VFLG 0x20
++#define ISIS_EXT_SUBTLV_LINK_ADJ_SID_LFLG 0x10
++#define OSPF_EXT_SUBTLV_LINK_ADJ_SID_VFLG 0x40
++#define OSPF_EXT_SUBTLV_LINK_ADJ_SID_LFLG 0x20
++
+ /*
+  * ===========================================================================
+  * Descriptor Structures (RFC 9552 Section 5.2)
+@@ -738,6 +748,15 @@ struct bgp_ls_attr {
+ 	/* Link Name (TLV 1098) */
+ 	char *link_name;
+ 
++	/* Adjacency SID (TLV 1099) */
++#define BGP_LS_ADJ_MAX 4
++	uint8_t adj_sid_count; /* number of adj_sid elements */
++	struct bgp_ls_adjacency {
++		uint32_t sid;	   /* SID as MPLS label or index */
++		uint8_t flags;	   /* Flags */
++		uint8_t weight;	   /* Administrative weight */
++	} adj_sid[BGP_LS_ADJ_MAX]; /* IPv4/IPv6 & Primary/Backup Adj. SID */
++
+ 	/* Extended Administrative Group (TLV 1173) */
+ 	struct admin_group ext_admin_group;
+ 
+@@ -961,6 +980,13 @@ extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
+  */
+ extern int bgp_ls_attr_prefix_sid_len(uint8_t flags);
+ 
++/*
++ * Get Adjacency SID attribute Label/Index SID length by flags
++ *
++ * @return 3 or 4 in normal case, -1 in error case
++ */
++extern int bgp_ls_attr_adjacency_sid_len(uint8_t flags, enum bgp_ls_protocol_id protocol_id);
++
+ /*
+  * ===========================================================================
+  * NLRI Decoding Functions
+diff --git a/bgpd/bgp_ls_ted.c b/bgpd/bgp_ls_ted.c
+index 076455bfe9b7..eaa7ed3698e2 100644
+--- a/bgpd/bgp_ls_ted.c
++++ b/bgpd/bgp_ls_ted.c
+@@ -109,6 +109,35 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
+  * ===========================================================================
+  */
+ 
++static void populate_adj_sid(struct ls_attributes *ls_attr, int index, int flag,
++			     struct bgp_ls_attr *attr, enum bgp_ls_protocol_id protocol_id)
++{
++	int sid_len;
++
++	if (!CHECK_FLAG(ls_attr->flags, flag))
++		return;
++
++	if (attr->adj_sid_count >= BGP_LS_ADJ_MAX) {
++		zlog_warn("BGP-LS: %s maximum supported number of Adjacency SID is %d, ignoring others",
++			  __func__, BGP_LS_ADJ_MAX);
++		return;
++	}
++
++	sid_len = bgp_ls_attr_adjacency_sid_len(ls_attr->adj_sid[index].flags, protocol_id);
++	if (sid_len == -1) {
++		zlog_warn("BGP-LS: %s TED contains wrong combination of V-Flag and L-Flag for Adjacent SID",
++			  __func__);
++		return;
++	}
++
++	attr->adj_sid[attr->adj_sid_count].sid = ls_attr->adj_sid[index].sid;
++	attr->adj_sid[attr->adj_sid_count].flags = ls_attr->adj_sid[index].flags;
++	attr->adj_sid[attr->adj_sid_count].weight = ls_attr->adj_sid[index].weight;
++	attr->adj_sid_count++;
++
++	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT);
++}
++
+ /*
+  * Fill a pre-allocated SRv6 End.X SID entry (TLV 1106) from a Link State adjacency SID
+  */
+@@ -255,6 +284,12 @@ int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr
+ 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT);
+ 	}
+ 
++	/* Adjacency SID (TLV 1099) */
++	populate_adj_sid(ls_attr, ADJ_PRI_IPV4, LS_ATTR_ADJ_SID, attr, protocol_id);
++	populate_adj_sid(ls_attr, ADJ_BCK_IPV4, LS_ATTR_BCK_ADJ_SID, attr, protocol_id);
++	populate_adj_sid(ls_attr, ADJ_PRI_IPV6, LS_ATTR_ADJ_SID6, attr, protocol_id);
++	populate_adj_sid(ls_attr, ADJ_BCK_IPV6, LS_ATTR_BCK_ADJ_SID6, attr, protocol_id);
++
+ 	/* Remote IPv4 Router-ID (TLV 1030) */
+ 	if (CHECK_FLAG(ls_attr->flags, LS_ATTR_REMOTE_ADDR)) {
+ 		attr->ipv4_router_id_remote = ls_attr->standard.remote_addr;
