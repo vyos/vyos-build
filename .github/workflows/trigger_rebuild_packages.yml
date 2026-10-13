@@ -43,6 +43,8 @@ jobs:
               - 'scripts/package-build/frr/**'
             frr_exporter:
               - 'scripts/package-build/frr_exporter/**'
+            haproxy:
+              - 'scripts/package-build/haproxy/**'
             hostap:
               - 'scripts/package-build/hostap/**'
             hsflowd:
@@ -169,6 +171,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.frr_exporter }}" == "true" ]; then
             trigger_build "frr_exporter"
+          fi
+
+          if [ "${{ steps.changes.outputs.haproxy }}" == "true" ]; then
+            trigger_build "haproxy"
           fi
 
           if [ "${{ steps.changes.outputs.hostap }}" == "true" ]; then
