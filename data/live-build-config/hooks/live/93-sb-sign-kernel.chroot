@@ -63,7 +63,7 @@ for conf in ${SB_PKCS11_CONF} ${SB_OPENSSL_CONF}; do
 done
 
 echo "I: Removing Secure Boot signing tooling"
-apt-get -y purge libengine-pkcs11-openssl yubihsm-pkcs11 libyubihsm2 opensc opensc-pkcs11 libyubihsm-http2
+apt-get -y purge libengine-pkcs11-openssl yubihsm-pkcs11 libyubihsm2 opensc opensc-pkcs11 libyubihsm-http2 p11-kit-modules
 
 for cert in $(ls /var/lib/shim-signed/mok/); do
     if grep -rq "BEGIN PRIVATE KEY" /var/lib/shim-signed/mok/${cert}; then
