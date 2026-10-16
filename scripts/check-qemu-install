@@ -554,7 +554,10 @@ def toggleUEFISecureBoot(c):
         c.send(KEY_F2)
         time.sleep(0.250)
 
-    time.sleep(10)
+    # Wait for the firmware to start the setup application - the time this
+    # takes differs between hosts, a fixed delay would lose the key presses
+    c.expect(r'BdsDxe: starting Boot0000 "UiApp"', timeout=120)
+    time.sleep(5)
 
     # Device Manager
     UEFIKeyPress(c, KEY_DOWN)
