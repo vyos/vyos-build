@@ -67,10 +67,11 @@ done
 echo "I: Removing Secure Boot signing tooling"
 apt-get -y purge libengine-pkcs11-openssl yubihsm-pkcs11 libyubihsm2 opensc opensc-pkcs11 libyubihsm-http2
 
-for cert in $(ls /var/lib/shim-signed/mok/); do
-    if grep -rq "BEGIN PRIVATE KEY" /var/lib/shim-signed/mok/${cert}; then
-        echo "Found private key - bailing out"
-        exit 1
-    fi
-done
+# Fail if any private key found in the image chroot path
+KEY_FILES=$(find /var/lib/shim-signed/mok/ -type f \
+    -exec grep -lE -e '-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----' {} + 2>/dev/null)
+if [ -n "${KEY_FILES}" ]; then
+    echo "Found private key - bailing out: ${KEY_FILES}"
+    exit 1
+fi
 
