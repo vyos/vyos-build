@@ -112,8 +112,11 @@ mok_password = '1234'
 # If present, the image was signed with a custom CA and the MOK must be enrolled.
 # If absent, the image is expected to be signed by the VyOS CA and boots as-is.
 SB_CERT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'certificates')
-SB_CUSTOM_KEY = os.path.join(SB_CERT_DIR, 'vyos-dev-2025-linux.key')
-SB_CUSTOM_CERT = os.path.join(SB_CERT_DIR, 'vyos-dev-2025-linux.pem')
+SB_DEV_YEAR = time.strftime('%Y')
+SB_CUSTOM_KEY = os.path.join(SB_CERT_DIR, f'vyos-dev-{SB_DEV_YEAR}-linux.key')
+SB_CUSTOM_CERT = os.path.join(SB_CERT_DIR, f'vyos-dev-{SB_DEV_YEAR}-linux.pem')
+# Development shim root certificate, placed in the image by build-vyos-image
+SB_MOK_DER = f'/var/lib/shim-signed/mok/vyos-dev-{SB_DEV_YEAR}-shim.der'
 # Expected Linux Kernel signature certificate of a VyOS CA signed image
 SB_VYOS_ISSUER = '/CN=VyOS Networks Secure Boot CA'
 SB_VYOS_SUBJECT = '/CN=VyOS Networks Secure Boot Signer 2025 - linux'
@@ -554,7 +557,10 @@ def toggleUEFISecureBoot(c):
         c.send(KEY_F2)
         time.sleep(0.250)
 
-    time.sleep(10)
+    # Wait for the firmware to start the setup application - the time this
+    # takes differs between hosts, a fixed delay would lose the key presses
+    c.expect(r'BdsDxe: starting Boot0000 "UiApp"', timeout=120)
+    time.sleep(5)
 
     # Device Manager
     UEFIKeyPress(c, KEY_DOWN)
@@ -1105,7 +1111,7 @@ try:
     c.expect(op_mode_prompt, timeout=300)
 
     if sb_custom_ca:
-        c.sendline('install mok')
+        c.sendline(f'sudo mokutil --ignore-keyring --import {SB_MOK_DER}')
         c.expect('input password:.*')
         c.sendline(mok_password)
         c.expect('input password again:.*')

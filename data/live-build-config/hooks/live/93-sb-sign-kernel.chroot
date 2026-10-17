@@ -1,7 +1,9 @@
 #!/bin/sh
+
 SIGN_FILE=$(find /usr/lib -name sign-file)
-KERNEL_KEY="/var/lib/shim-signed/mok/vyos-dev-2025-linux.key"
-KERNEL_CERT="/var/lib/shim-signed/mok/vyos-dev-2025-linux.pem"
+CA_YEAR="$(date +%Y)"
+KERNEL_KEY="/var/lib/shim-signed/mok/vyos-dev-${CA_YEAR}-linux.key"
+KERNEL_CERT="/var/lib/shim-signed/mok/vyos-dev-${CA_YEAR}-linux.pem"
 SB_KERNEL_CERT="/var/lib/shim-signed/mok/vyos-prod-2025-linux.pem"
 SB_OPENSSL_CONF="/etc/ssl/yubihsm-openssl.cnf"
 SB_PKCS11_CONF="/etc/yubihsm_pkcs11.conf"
@@ -48,9 +50,24 @@ if [ -f ${SB_KERNEL_CERT} ] && [ -f ${SB_OPENSSL_CONF} ]; then
     echo "I: Linux Kernel signed and signature verified"
 elif [ -f ${KERNEL_KEY} ] && [ -f ${KERNEL_CERT} ]; then
     echo "I: Signing Linux Kernel for Secure Boot"
-    sbsign --key ${KERNEL_KEY} --cert ${KERNEL_CERT} /boot/${VMLINUZ} --output /boot/${VMLINUZ}
-    sbverify --list /boot/${VMLINUZ}
+    sbsign --key ${KERNEL_KEY} --cert ${KERNEL_CERT} \
+        /boot/${VMLINUZ} --output /boot/${VMLINUZ}.tmp
+    if [ $? -ne 0 ]; then
+        rm -f /boot/${VMLINUZ}.tmp ${KERNEL_KEY}
+        echo "E: Signing of Linux Kernel failed"
+        exit 1
+    fi
+
+    sbverify --cert ${KERNEL_CERT} /boot/${VMLINUZ}.tmp
+    if [ $? -ne 0 ]; then
+        rm -f /boot/${VMLINUZ}.tmp ${KERNEL_KEY}
+        echo "E: Signature verification failed - keeping the unsigned Linux Kernel"
+        exit 1
+    fi
+
+    mv /boot/${VMLINUZ}.tmp /boot/${VMLINUZ}
     rm -f ${KERNEL_KEY}
+    echo "I: Linux Kernel signed and signature verified"
 else
     echo "I: Signing key for Linux Kernel not found - Secure Boot not possible"
 fi
@@ -65,10 +82,11 @@ done
 echo "I: Removing Secure Boot signing tooling"
 apt-get -y purge libengine-pkcs11-openssl yubihsm-pkcs11 libyubihsm2 opensc opensc-pkcs11 libyubihsm-http2 p11-kit-modules
 
-for cert in $(ls /var/lib/shim-signed/mok/); do
-    if grep -rq "BEGIN PRIVATE KEY" /var/lib/shim-signed/mok/${cert}; then
-        echo "Found private key - bailing out"
-        exit 1
-    fi
-done
+# Fail if any private key found in the image chroot path
+KEY_FILES=$(find /var/lib/shim-signed/mok/ -type f \
+    -exec grep -lE -e '-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----' {} + 2>/dev/null)
+if [ -n "${KEY_FILES}" ]; then
+    echo "Found private key - bailing out: ${KEY_FILES}"
+    exit 1
+fi
 
