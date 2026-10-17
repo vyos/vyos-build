@@ -50,9 +50,24 @@ if [ -f ${SB_KERNEL_CERT} ] && [ -f ${SB_OPENSSL_CONF} ]; then
     echo "I: Linux Kernel signed and signature verified"
 elif [ -f ${KERNEL_KEY} ] && [ -f ${KERNEL_CERT} ]; then
     echo "I: Signing Linux Kernel for Secure Boot"
-    sbsign --key ${KERNEL_KEY} --cert ${KERNEL_CERT} /boot/${VMLINUZ} --output /boot/${VMLINUZ}
-    sbverify --list /boot/${VMLINUZ}
+    sbsign --key ${KERNEL_KEY} --cert ${KERNEL_CERT} \
+        /boot/${VMLINUZ} --output /boot/${VMLINUZ}.tmp
+    if [ $? -ne 0 ]; then
+        rm -f /boot/${VMLINUZ}.tmp ${KERNEL_KEY}
+        echo "E: Signing of Linux Kernel failed"
+        exit 1
+    fi
+
+    sbverify --cert ${KERNEL_CERT} /boot/${VMLINUZ}.tmp
+    if [ $? -ne 0 ]; then
+        rm -f /boot/${VMLINUZ}.tmp ${KERNEL_KEY}
+        echo "E: Signature verification failed - keeping the unsigned Linux Kernel"
+        exit 1
+    fi
+
+    mv /boot/${VMLINUZ}.tmp /boot/${VMLINUZ}
     rm -f ${KERNEL_KEY}
+    echo "I: Linux Kernel signed and signature verified"
 else
     echo "I: Signing key for Linux Kernel not found - Secure Boot not possible"
 fi
