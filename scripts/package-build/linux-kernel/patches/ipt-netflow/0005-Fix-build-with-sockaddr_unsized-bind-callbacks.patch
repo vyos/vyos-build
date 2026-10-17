@@ -1,0 +1,37 @@
+From: Christian Breunig <christian@vyos.io>
+Subject: [PATCH] Fix build with sockaddr_unsized proto_ops bind()
+
+Kernel commit 0e50474fa514 ("net: Convert proto_ops bind() callbacks to
+use sockaddr_unsized") changed the bind() callback to take a
+struct sockaddr_unsized pointer. It was backported to 6.18.y stable, so
+detect it with a compile test instead of a version check.
+---
+diff --git a/gen_compat_def b/gen_compat_def
+index d267b5a..134df99 100755
+--- a/gen_compat_def
++++ b/gen_compat_def
+@@ -152,6 +152,8 @@ kbuild_test_ref    totalram_pages linux/mm.h
+ kbuild_test_member nf_ct_event_notifier.ct_event net/netfilter/nf_conntrack_ecache.h
+ # 6.4: 0199849acd07 ("sysctl: remove register_sysctl_paths()")
+ kbuild_test_symbol register_sysctl_paths linux/sysctl.h
++# 0e50474fa514 ("net: Convert proto_ops bind() callbacks to use sockaddr_unsized")
++kbuild_test_struct sockaddr_unsized linux/socket.h
+ 
+ echo "// End of compat_def.h"
+ 
+diff --git a/ipt_NETFLOW.c b/ipt_NETFLOW.c
+index 7ed9fe6..69f5c40 100644
+--- a/ipt_NETFLOW.c
++++ b/ipt_NETFLOW.c
+@@ -1936,7 +1936,11 @@ static struct socket *usock_open_sock(struct ipt_netflow_sock *usock)
+ 			salen = sizeof(struct sockaddr_in);
+ 		else if (usock->saddr.ss_family == AF_INET6)
+ 			salen = sizeof(struct sockaddr_in6);
++#ifdef HAVE_SOCKADDR_UNSIZED
++		if ((error = sock->ops->bind(sock, (struct sockaddr_unsized *)&usock->saddr, salen)) < 0) {
++#else
+ 		if ((error = sock->ops->bind(sock, (struct sockaddr *)&usock->saddr, salen)) < 0) {
++#endif
+ 			printk(KERN_ERR "ipt_NETFLOW: error binding socket %d\n", -error);
+ 			goto err_free_sock;
+ 		}
