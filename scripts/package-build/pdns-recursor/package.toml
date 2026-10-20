@@ -1,0 +1,4 @@
+[[packages]]
+name = "pdns-recursor"
+commit_id = "c24eb42e31172dc71b36e822915e802f489fe9ee" # debian/bookworm, 4.8.8-1+deb12u1
+scm_url = "https://salsa.debian.org/debian/pdns-recursor.git"
