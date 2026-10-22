@@ -9,6 +9,22 @@ SB_OPENSSL_CONF="/etc/ssl/yubihsm-openssl.cnf"
 SB_PKCS11_CONF="/etc/yubihsm_pkcs11.conf"
 PKCS11_KEY_OBJECT="vyos-sb-signer-2025"
 VMLINUZ=$(readlink /boot/vmlinuz)
+KERNEL_INPUT="/boot/${VMLINUZ}"
+KERNEL_UNCOMPRESSED=""
+
+trap '[ -z "${KERNEL_UNCOMPRESSED}" ] || rm -f "${KERNEL_UNCOMPRESSED}"' EXIT
+
+# sbsign needs the EFI executable, not the gzip wrapper used on ARM64.
+prepare_kernel() {
+    if [ "$(od -An -tx1 -N2 "${KERNEL_INPUT}" | tr -d ' \n')" = "1f8b" ]; then
+        echo "I: Decompressing Linux Kernel for Secure Boot"
+        KERNEL_UNCOMPRESSED=$(mktemp "/boot/${VMLINUZ}.uncompressed.XXXXXX") || return 1
+        if ! gzip -dc "${KERNEL_INPUT}" > "${KERNEL_UNCOMPRESSED}"; then
+            return 1
+        fi
+        KERNEL_INPUT="${KERNEL_UNCOMPRESSED}"
+    fi
+}
 
 # Abort HSM signing: drop the partially signed Kernel and the HSM configuration
 hsm_sign_failed() {
@@ -30,13 +46,17 @@ done
 if [ -f ${SB_KERNEL_CERT} ] && [ -f ${SB_OPENSSL_CONF} ]; then
     echo "I: Signing Linux Kernel for Secure Boot using the HSM"
 
+    if ! prepare_kernel; then
+        hsm_sign_failed "Decompression of Linux Kernel failed"
+    fi
+
     export OPENSSL_CONF="${SB_OPENSSL_CONF}"
     export YUBIHSM_PKCS11_CONF="${SB_PKCS11_CONF}"
 
     sbsign --engine pkcs11 \
         --key "pkcs11:object=${PKCS11_KEY_OBJECT};type=private" \
         --cert ${SB_KERNEL_CERT} \
-        /boot/${VMLINUZ} --output /boot/${VMLINUZ}.tmp
+        "${KERNEL_INPUT}" --output /boot/${VMLINUZ}.tmp
     if [ $? -ne 0 ]; then
         hsm_sign_failed "Signing of Linux Kernel failed"
     fi
@@ -50,8 +70,14 @@ if [ -f ${SB_KERNEL_CERT} ] && [ -f ${SB_OPENSSL_CONF} ]; then
     echo "I: Linux Kernel signed and signature verified"
 elif [ -f ${KERNEL_KEY} ] && [ -f ${KERNEL_CERT} ]; then
     echo "I: Signing Linux Kernel for Secure Boot"
+    if ! prepare_kernel; then
+        rm -f "/boot/${VMLINUZ}.tmp" "${KERNEL_KEY}"
+        echo "E: Decompression of Linux Kernel failed"
+        exit 1
+    fi
+
     sbsign --key ${KERNEL_KEY} --cert ${KERNEL_CERT} \
-        /boot/${VMLINUZ} --output /boot/${VMLINUZ}.tmp
+        "${KERNEL_INPUT}" --output /boot/${VMLINUZ}.tmp
     if [ $? -ne 0 ]; then
         rm -f /boot/${VMLINUZ}.tmp ${KERNEL_KEY}
         echo "E: Signing of Linux Kernel failed"
