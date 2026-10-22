@@ -591,6 +591,51 @@ def toggleUEFISecureBoot(c):
     UEFIKeyPress(c, KEY_DOWN)
     UEFIKeyPress(c, KEY_RETURN)
 
+def selectLiveGRUBSerialConsole(child) -> None:
+    def expectSelected(title, timeout=15) -> bool:
+        try:
+            child.expect_exact(b'*' + title, timeout=timeout)
+        except (pexpect.TIMEOUT, pexpect.EOF):
+            recent = child.before[-1500:]
+            log.warning(
+                f'GRUB did not confirm selection of {title!r}; '
+                f'recent output: {recent!r}'
+            )
+            return False
+        return True
+
+    # The countdown is printed after all menu entries have been drawn.
+    child.expect(
+        rb'The highlighted entry will be executed automatically in \d+s\.',
+        timeout=120,
+    )
+
+    # A missing acknowledgement does not tell us whether the key was received.
+    # Restart from Home instead of repeating Down from an unknown selection.
+    for _ in range(3):
+        if child.eof():
+            return
+
+        # Ctrl-A is Home without the EFI console's escape-sequence parsing.
+        child.sendcontrol('a')
+        # Retry a dropped Home before the 10-second autoboot timeout expires.
+        if not expectSelected(b'Live system (vyos) - KVM console', timeout=1):
+            continue
+
+        for title in (
+            b'Live system (vyos fail-safe mode)',
+            b'Live system (vyos) - Serial console',
+        ):
+            # Ctrl-N is Down without the escape-sequence parsing of arrow keys.
+            child.sendcontrol('n')
+            if not expectSelected(title):
+                break
+        else:
+            child.send(b'\r')
+            return
+
+    raise RuntimeError('Failed to confirm GRUB serial console boot selection after 3 attempts')
+
 def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
     """ Select the boot entry that uses the serial console on a LIVE ISO image.
         An already installed system boots its default entry, which already
@@ -605,21 +650,7 @@ def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
 
     # XXX: UEFI systems directly load GRUB, BIOS systems fallback to ISOLINUX
     if live and args.uefi:
-        # Let UEFI start before GRUB
-        child.expect(UEFI_STRING, timeout=BOOTLOADER_TMO)
-        # Wait for GRUB
-        child.expect(GRUB_STRING, timeout=BOOTLOADER_TMO)
-        time.sleep(BOOTLOADER_LOAD_TMO)
-
-        # Select GRUB serial console
-        # Key DOWN -> fail-safe mode
-        child.send(KEY_DOWN)
-        time.sleep(BOOTLOADER_SLEEP)
-        # Key DOWN -> Serial Console boot
-        child.send(KEY_DOWN)
-        time.sleep(BOOTLOADER_SLEEP)
-        # Boot
-        child.send(KEY_RETURN)
+        selectLiveGRUBSerialConsole(child)
     elif live and not args.uefi:
         # Wait for ISOLINUX
         child.expect(ISOLINUX_STRING, timeout=BOOTLOADER_TMO)
