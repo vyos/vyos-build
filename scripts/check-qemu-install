@@ -633,7 +633,7 @@ def selectLiveGRUBSerialConsole(child) -> None:
             child.send(b'\r')
             return
 
-    log.warning('GRUB serial console selection remains unconfirmed; waiting for login')
+    raise RuntimeError('Failed to confirm GRUB serial console boot selection after 3 attempts')
 
 def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
     """ Select the boot entry that uses the serial console on a LIVE ISO image.
