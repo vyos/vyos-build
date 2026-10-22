@@ -25,7 +25,7 @@ TEST_MEM := $(shell awk '/MemTotal/{if ($$2/1024/1024 >= 10) print 8; else print
 # to their scripts via $(MAKECMDGOALS). Those extra words are also goals as
 # far as make is concerned, so without this they'd fall through to the `%:`
 # flavor rule below and run build-vyos-image with garbage arguments.
-TEST_TARGETS := test test-no-interfaces test-no-interfaces-no-vpp test-interfaces test-vpp testc testcvpp testraid test-secure-boot testtpm testifname test-ci-qcow2 test-image-update qemu-live test-suite test-oci
+TEST_TARGETS := test test-no-interfaces test-no-interfaces-no-vpp test-interfaces test-vpp testc testcvpp testraid test-secure-boot testtpm test-interface-naming test-interface-naming-vmware test-ci-qcow2 test-image-update qemu-live test-suite test-oci
 ifneq ($(filter $(TEST_TARGETS),$(firstword $(MAKECMDGOALS))),)
 $(eval $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS)):;@:)
 endif
@@ -88,23 +88,34 @@ test-secure-boot:
 testtpm:
 	scripts/check-qemu-install --debug $(UEFI_FLAG) --tpmtest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
-.PHONY: testifname
+.PHONY: test-interface-naming
 .ONESHELL:
-testifname:
+test-interface-naming:
 	scripts/check-qemu-install --debug $(UEFI_FLAG) --ifnametest --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
 
-# Runs each test target as its own $(MAKE) invocation (rather than as
-# prerequisites) so make aborts immediately on the first failing testcase
-# instead of collecting failures across a parallel-eligible dependency list.
+# Same testcases on a guest presenting VMware firmware, where the adapter
+# order comes from the port labels rather than from the PCI addresses.
+.PHONY: test-interface-naming-vmware
+.ONESHELL:
+test-interface-naming-vmware:
+	scripts/check-qemu-install --debug $(UEFI_FLAG) --ifnametest --vmware --iso $(ISO_PATH) $(filter-out $@,$(MAKECMDGOALS))
+
+# Each test target runs as its own $(MAKE) invocation rather than as a
+# prerequisite, so the list keeps this order instead of becoming eligible to
+# run in parallel. ".ONESHELL" above is global - make accepts no prerequisites
+# for it - so the whole list goes to a single shell, and "set -e" is what makes
+# a failing target abort the suite rather than be reported and stepped over.
 .PHONY: test-suite
 test-suite:
+	@set -e
 	$(MAKE) test-interfaces
 	$(MAKE) test-no-interfaces-no-vpp
 	$(MAKE) testc
 	$(MAKE) testcvpp
 	$(MAKE) test-vpp
 	$(MAKE) testraid
-	$(MAKE) testifname
+	$(MAKE) test-interface-naming
+	$(MAKE) test-interface-naming-vmware
 	$(MAKE) testtpm
 
 .PHONY: test-ci-qcow2
