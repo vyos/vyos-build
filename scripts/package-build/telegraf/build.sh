@@ -18,7 +18,7 @@ fi
 # too, otherwise telegraf fails to start with an "unknown plugin" error.
 TELEGRAF_INPUTS="chrony conntrack cpu disk diskio ethtool exec internal
                  interrupts kernel linux_sysctl_fs mem net netstat nstat
-                 processes syslog system systemd_units"
+                 processes prometheus syslog system systemd_units"
 TELEGRAF_OUTPUTS="azure_data_explorer http influxdb_v2 loki prometheus_client"
 # "influx" backs [[inputs.exec]] data_format, "splunkmetric" backs the Splunk
 # [[outputs.http]] data_format.
