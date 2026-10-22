@@ -592,9 +592,9 @@ def toggleUEFISecureBoot(c):
     UEFIKeyPress(c, KEY_RETURN)
 
 def selectLiveGRUBSerialConsole(child) -> None:
-    def expectSelected(title) -> bool:
+    def expectSelected(title, timeout=15) -> bool:
         try:
-            child.expect_exact(b'*' + title, timeout=15)
+            child.expect_exact(b'*' + title, timeout=timeout)
         except (pexpect.TIMEOUT, pexpect.EOF):
             recent = child.before[-1500:]
             log.warning(
@@ -618,7 +618,8 @@ def selectLiveGRUBSerialConsole(child) -> None:
 
         # Ctrl-A is Home without the EFI console's escape-sequence parsing.
         child.sendcontrol('a')
-        if not expectSelected(b'Live system (vyos) - KVM console'):
+        # Retry a dropped Home before the 10-second autoboot timeout expires.
+        if not expectSelected(b'Live system (vyos) - KVM console', timeout=1):
             continue
 
         for title in (
