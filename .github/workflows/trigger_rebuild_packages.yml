@@ -84,6 +84,8 @@ jobs:
               - 'scripts/package-build/owamp/**'
             pam_tacplus:
               - 'scripts/package-build/pam_tacplus/**'
+            pdns-recursor:
+              - 'scripts/package-build/pdns-recursor/**'
             podman:
               - 'scripts/package-build/podman/**'
             pyhumps:
@@ -251,6 +253,10 @@ jobs:
 
           if [ "${{ steps.changes.outputs.pam_tacplus }}" == "true" ]; then
             trigger_build "pam_tacplus"
+          fi
+
+          if [ "${{ steps.changes.outputs.pdns-recursor }}" == "true" ]; then
+            trigger_build "pdns-recursor"
           fi
 
           if [ "${{ steps.changes.outputs.podman }}" == "true" ]; then

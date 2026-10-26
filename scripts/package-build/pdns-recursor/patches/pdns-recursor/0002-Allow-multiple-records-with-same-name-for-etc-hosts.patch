@@ -1,0 +1,48 @@
+Description: Allow multiple records with the same name for /etc/hosts processing
+ With export-etc-hosts enabled, the recursor only served the first line of
+ /etc/hosts for a name. A name listed with an IPv4 and an IPv6 address on two
+ lines got only the first one, so either the A or the AAAA record was missing.
+ The records of the same name are now added to the same zone.
+Author: Sten Spans <sten@blinkenlights.nl>
+Origin: upstream, https://github.com/PowerDNS/pdns/commit/a867410a2183e64d6abe212c5abcac7cf8a95b6b
+Applied-Upstream: 4.9.0, https://github.com/PowerDNS/pdns/pull/12203
+Forwarded: not-needed
+Last-Update: 2026-10-20
+
+diff --git a/reczones-helpers.cc b/reczones-helpers.cc
+index 8f613ac92fed..daee88e6ffd8 100644
+--- a/reczones-helpers.cc
++++ b/reczones-helpers.cc
+@@ -75,17 +75,30 @@ static void makeNameToIPZone(SyncRes::domainmap_t& newMap,
+                              const ComboAddress& address,
+                              Logr::log_t log)
+ {
++  SyncRes::AuthDomain ad;
+   DNSRecord dr;
++
+   dr.d_name = hostname;
+ 
+-  SyncRes::AuthDomain ad = makeSOAAndNSNodes(dr, "localhost.");
++  if (newMap.count(hostname) != 0) {
++    ad = newMap[hostname];
++  }
++  else {
++    ad = makeSOAAndNSNodes(dr, "localhost.");
++  }
+ 
+   auto recType = address.isIPv6() ? QType::AAAA : QType::A;
+   dr.d_type = recType;
++  dr.d_ttl = 86400;
+   dr.d_content = DNSRecordContent::mastermake(recType, 1, address.toStringNoInterface());
+   ad.d_records.insert(dr);
+ 
+-  addToDomainMap(newMap, ad, dr.d_name, log);
++  if (newMap.count(hostname) != 0) {
++    newMap[ad.d_name] = ad;
++  }
++  else {
++    addToDomainMap(newMap, ad, dr.d_name, log);
++  }
+ }
+ 
+ static void makeIPToNamesZone(SyncRes::domainmap_t& newMap,
