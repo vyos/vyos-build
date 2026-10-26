@@ -152,7 +152,7 @@ index e3e4824..42df09e 100644
 -
  typedef struct
  {
-     struct nl_sock *nl_sock;
+     /* socket used for synchronous request/reply transactions (commands and
 diff --git a/src/openvpn/networking.h b/src/openvpn/networking.h
 index bce0c19..cab560c 100644
 --- a/src/openvpn/networking.h
