@@ -73,11 +73,18 @@ NESTED_HTTP_VRF_TABLE = '42042'
 NESTED_HTTP_VRF_ADDR = '198.51.100.99'  # RFC 5737 TEST-NET-3: bind address for http.server inside VRF
 NESTED_HTTP_MOUNT_POINT = '/mnt/nested_installer_iso'
 
+# RFC7042 section 2.1.2 MAC addresses used for documentation
+macbase = '00:00:5E:00:53'
+
 # Cloud-Init data
 CI_CONFIG_ARGS = {
     'hostname': 'vyos-CLOUD-INIT',
+    'eth0_mac': f'{macbase}:02'.lower(),
+    'eth1_mac': f'{macbase}:00'.lower(),
+    'eth2_mac': f'{macbase}:01'.lower(),
     'eth0_ipv4': '192.0.2.1/25',
     'eth0_ipv6': '2001:db8::1/64',
+    'eth2_ipv4': '198.51.100.1/24',
     'default_nexthop' : '192.0.2.126',
     'default_nexthop6' : '2001:db8::ffff',
     }
@@ -86,8 +93,6 @@ tpm_folder = '/tmp/vyos_tpm_test'
 tpm_sock = f'{tpm_folder}/swtpm-sock'
 qemu_name = 'VyOS-QEMU'
 
-# RFC7042 section 2.1.2 MAC addresses used for documentation
-macbase = '00:00:5E:00:53'
 # NICs wired up at boot by get_qemu_cmd() - the VMware variant labels
 # every one of them
 VMWARE_PORT_LABEL_COUNT = 8
@@ -1010,6 +1015,46 @@ def firmware_diagnostics(c):
         c.expect(op_mode_prompt)
 
 
+def verify_cloud_init_mapping(c, log, mapping_file):
+    """ Which NIC the cloud considers its first one is not visible in the
+        hardware, so the order the datasource gives has to be recorded in the
+        mapping file before the naming pass reads it. The seed names the
+        cards against the order they sit in, so deriving names from the
+        hardware alone would put the other card on eth0. """
+    log.info('Verify the datasource order reached the mapping file')
+    expected = {'eth0': CI_CONFIG_ARGS['eth0_mac'],
+                'eth1': CI_CONFIG_ARGS['eth1_mac'],
+                'eth2': CI_CONFIG_ARGS['eth2_mac']}
+
+    for ifname, mac in sorted(expected.items()):
+        tmp = get_cmd_output(c, f'cat /sys/class/net/{ifname}/address').lower()
+        if tmp != mac:
+            raise Exception(f'{ifname} is on {tmp!r}, expected {mac} - the '
+                            'names were derived from the hardware instead of '
+                            'the order the datasource gave')
+        log.info(f"'{ifname}' is on {mac}")
+
+    for ifname, mac in sorted(expected.items()):
+        tmp = get_cmd_output(
+            c, f'sudo jq -r \'.hardware["{ifname}"] // "NONE"\' '
+               f'{mapping_file}').lower()
+        if tmp != mac:
+            raise Exception(f'{mapping_file} records {ifname} on {tmp!r}, '
+                            f'expected {mac}')
+
+        tmp = get_cmd_output(
+            c, f'sudo jq -r \'.interfaces["{ifname}"] // "NONE"\' '
+               f'{mapping_file}')
+        if tmp == 'NONE':
+            raise Exception(f'{ifname} is absent from {mapping_file}')
+        # these cards sit in a PCI slot, so a name anchored to the MAC would
+        # mean the slot was never resolved
+        if tmp.startswith('ID_NET_NAME_MAC='):
+            raise Exception(f'{ifname} is recorded on {tmp!r}, which is its '
+                            'MAC rather than the slot it sits in')
+        log.info(f"'{ifname}' is recorded on {tmp}")
+
+
 def ifname_diagnostics(c, mapping_file):
     """ Dump everything needed to reconstruct a naming decision after the
         fact. Cheap, and the difference between a one-line failure and an
@@ -1231,12 +1276,31 @@ if args.cloud_init:
     # create "empty" meta-data file
     open(f'{CI_DATA_DIR}/meta-data', mode='w').close()
 
+    # Name the cards against the order they sit in, the way a cloud hands out
+    # an order of its own. It is a three-cycle: not one of them keeps the name
+    # its slot would give it, so none of this holds unless the order the
+    # datasource gave reached the mapping file.
     network_config = """version: 2
 ethernets:
   eth0:
+    match:
+      macaddress: {eth0_mac}
+    set-name: eth0
     dhcp4: false
     dhcp6: false
-"""
+  eth1:
+    match:
+      macaddress: {eth1_mac}
+    set-name: eth1
+    dhcp4: false
+    dhcp6: false
+  eth2:
+    match:
+      macaddress: {eth2_mac}
+    set-name: eth2
+    dhcp4: false
+    dhcp6: false
+""".format(**CI_CONFIG_ARGS)
 
     user_data = """#cloud-config
 vyos_config_commands:
@@ -1246,6 +1310,7 @@ vyos_config_commands:
   - delete interfaces ethernet eth0 address 'dhcp'
   - set interfaces ethernet eth0 address '{eth0_ipv4}'
   - set interfaces ethernet eth0 address '{eth0_ipv6}'
+  - set interfaces ethernet eth2 address '{eth2_ipv4}'
   - set protocols static route 0.0.0.0/0 next-hop '{default_nexthop}'
   - set protocols static route6 ::/0 next-hop '{default_nexthop6}'
 """.format(**CI_CONFIG_ARGS)
@@ -1310,6 +1375,12 @@ try:
         c.expect(CI_CONFIG_ARGS['eth0_ipv6'])
         c.expect(op_mode_prompt)
 
+        # the last card of the cycle carries an address of its own, so a name
+        # on the wrong wire shows up as an address on the wrong wire
+        c.sendline('ip --json addr show dev eth2 | jq -r \'.[0].addr_info[] | select(.family=="inet") | "\(.local)/\(.prefixlen)"\'')
+        c.expect(CI_CONFIG_ARGS['eth2_ipv4'])
+        c.expect(op_mode_prompt)
+
         # Valida default route nexthops
         c.sendline('ip -4 --json route show default | jq -r ".[0].gateway"')
         c.expect(CI_CONFIG_ARGS['default_nexthop'])
@@ -1318,6 +1389,9 @@ try:
         c.sendline('ip -6 --json route show default | jq -r ".[0].gateway"')
         c.expect(CI_CONFIG_ARGS['default_nexthop6'])
         c.expect(op_mode_prompt)
+
+        ifname_diagnostics(c, IFNAME_MAPPING_FILE)
+        verify_cloud_init_mapping(c, log, IFNAME_MAPPING_FILE)
 
         shutdownVM(c, log, 'Powering off system')
         c.close()
