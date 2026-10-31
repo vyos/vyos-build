@@ -76,8 +76,11 @@ cd ../.. && sudo ./build-vyos-image generic --architecture amd64
   Testing a feature branch's image with another branch's `check-qemu-install`
   fails on things the image no longer does. Check out the matching branch.
 - Failures propagate: a failing testcase makes `vyos-smoketest` exit non-zero,
-  the harness raise, and `make` stop. `test-suite` runs its targets one per
-  recipe line, so it aborts at the first failure rather than running on.
+  the harness raise, and `make` stop. `test-suite` runs its targets in order
+  and aborts at the first failure. Note `.ONESHELL` is set globally, so a
+  multi-line recipe is one shell and make only sees its last command's status -
+  any such recipe needs `set -e` to stop early. Without it a failing step is
+  reported and then stepped over, and `make` still exits 0.
 
 ## Repository layout
 
@@ -100,7 +103,6 @@ cd ../.. && sudo ./build-vyos-image generic --architecture amd64
   * `vyos-http-api-tools` HTTP API RESTful and GraphQL
   * `hvinfo` tool to get information from running Hypervisor
   * `vyatta-bash` fork of bash to implement CLI completion help
-  * `vyatta-biosdevname` get NIC information also from Hypervisor platforms
   * `vyatta-cfg` referred to as the old configuration backend running CStore.
     It is old but very much in operation.
 - ISO assembly delegates to `vyos/vyos-live-build` (Debian live-build fork)
