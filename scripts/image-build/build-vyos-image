@@ -485,9 +485,12 @@ def build():
                 with open('../data/versions') as f:
                     version_mapping = json.load(f)
 
-                branch_version = version_mapping[git_branch]
-
-                version = "{0}-rolling-{1}".format(branch_version, build_timestamp)
+                # Branches without a mapping (e.g. rolling) use the default version
+                branch_version = version_mapping.get(git_branch)
+                if branch_version:
+                    version = "{0}-rolling-{1}".format(branch_version, build_timestamp)
+                else:
+                    version = "999.{0}".format(build_timestamp)
             except Exception as e:
                 print("W: Could not build a version string specific to git branch, falling back to default: {0}".format(str(e)))
                 version = "999.{0}".format(build_timestamp)
