@@ -1,0 +1,88 @@
+From fed3ece02e2ca865377e9fbdb148bb5769c89940 Mon Sep 17 00:00:00 2001
+From: Razvan Becheriu <razvan@isc.org>
+Date: Fri, 27 Feb 2026 17:43:26 +0200
+Subject: [PATCH] [#1117] drop packets with vlan tag
+
+(cherry picked from commit fed3ece02e2ca865377e9fbdb148bb5769c89940, only the part for Linux)
+---
+ src/lib/dhcp/pkt_filter_lpf.cc | 26 ++++++++++++++++++--------
+ 1 file changed, 18 insertions(+), 8 deletions(-)
+
+diff --git a/src/lib/dhcp/pkt_filter_lpf.cc b/src/lib/dhcp/pkt_filter_lpf.cc
+index 2c6bfc726e..b120e340da 100644
+--- a/src/lib/dhcp/pkt_filter_lpf.cc
++++ b/src/lib/dhcp/pkt_filter_lpf.cc
+@@ -46,13 +46,13 @@ using namespace isc::dhcp;
+ struct sock_filter dhcp_sock_filter [] = {
+     // Make sure this is an IP packet: check the half-word (two bytes)
+     // at offset 12 in the packet (the Ethernet packet type).  If it
+-    // is, advance to the next instruction.  If not, advance 11
++    // is, advance to the next instruction.  If not, advance 13
+     // instructions (which takes execution to the last instruction in
+     // the sequence: "drop it").
+     // #0
+     BPF_STMT(BPF_LD + BPF_H + BPF_ABS, ETHERNET_PACKET_TYPE_OFFSET),
+     // #1
+-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_IP, 0, 11),
++    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_IP, 0, 13),
+ 
+     // Make sure it's a UDP packet.  The IP protocol is at offset
+     // 9 in the IP header so, adding the Ethernet packet header size
+@@ -61,7 +61,7 @@ struct sock_filter dhcp_sock_filter [] = {
+     BPF_STMT(BPF_LD + BPF_B + BPF_ABS,
+              ETHERNET_HEADER_LEN + IP_PROTO_TYPE_OFFSET),
+     // #3
+-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 0, 9),
++    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 0, 11),
+ 
+     // Make sure this isn't a fragment by checking that the fragment
+     // offset field in the IP header is zero.  This field is the
+@@ -71,7 +71,7 @@ struct sock_filter dhcp_sock_filter [] = {
+     // #4
+     BPF_STMT(BPF_LD + BPF_H + BPF_ABS, ETHERNET_HEADER_LEN + IP_FLAGS_OFFSET),
+     // #5
+-    BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, 0x1fff, 7, 0),
++    BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, 0x1fff, 9, 0),
+ 
+     // Check the packet's destination address. The program will only
+     // allow the packets sent to the broadcast address or unicast
+@@ -89,7 +89,7 @@ struct sock_filter dhcp_sock_filter [] = {
+     // If this is not broadcast address, compare it with the unicast
+     // address specified for the interface.
+     // #8
+-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x00000000, 0, 4),
++    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x00000000, 0, 6),
+ 
+     // Get the IP header length.  This is achieved by the following
+     // (special) instruction that, given the offset of the start
+@@ -110,14 +110,24 @@ struct sock_filter dhcp_sock_filter [] = {
+     // offset 11 in the program.  If this is changed, openSocket() must be
+     // updated.
+     // #11
+-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP4_SERVER_PORT, 0, 1),
++    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP4_SERVER_PORT, 0, 3),
+ 
+-    // If we passed all the tests, ask for the whole packet.
++    // Make sure this packet does not contain a vlan tag. The tag is stripped
++    // automatically by the kernel when presented to the vlan interface.
++    // Parent interface should not see this packet.
+     // #12
++    BPF_STMT(BPF_LD + BPF_B + BPF_ABS, (u_int)SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT),
++
++    // If this packet contains vlan tag drop the packet.
++    // #13
++    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 1),
++
++    // If we passed all the tests, ask for the whole packet.
++    // #14
+     BPF_STMT(BPF_RET + BPF_K, (u_int)-1),
+ 
+     // Otherwise, drop it.
+-    // #13
++    // #15
+     BPF_STMT(BPF_RET + BPF_K, 0),
+ };
+ 
+-- 
+2.55.0
+

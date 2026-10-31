@@ -1,0 +1,31 @@
+From 4313cbb478a8855a52f21a8f787478953fe038fa Mon Sep 17 00:00:00 2001
+From: Razvan Becheriu <razvan@isc.org>
+Date: Tue, 3 Mar 2026 10:57:14 +0200
+Subject: [PATCH] [#1117] addressed review comments
+
+(cherry picked from commit 4313cbb478a8855a52f21a8f787478953fe038fa, only the part for Linux)
+---
+diff --git a/src/lib/dhcp/pkt_filter_lpf.cc b/src/lib/dhcp/pkt_filter_lpf.cc
+index b120e340da..06f7305ae8 100644
+--- a/src/lib/dhcp/pkt_filter_lpf.cc
++++ b/src/lib/dhcp/pkt_filter_lpf.cc
+@@ -173,8 +173,15 @@ PktFilterLPF::openSocket(Iface& iface,
+                   << " on the socket " << sock);
+     }
+ 
+-#ifdef SO_TIMESTAMP
+     int enable = 1;
++    // Enable ancillary data to detect VLAN tagged packets.
++    if (setsockopt(sock, SOL_PACKET, PACKET_AUXDATA, &enable, sizeof(enable))) {
++        const char* errmsg = strerror(errno);
++        isc_throw(SocketConfigError, "Could not enable PACKET_AUXDATA for " << addr.toText()
++                  << ", error: " << errmsg);
++    }
++
++#ifdef SO_TIMESTAMP
+     if (setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &enable, sizeof(enable))) {
+         const char* errmsg = strerror(errno);
+         isc_throw(SocketConfigError, "Could not enable SO_TIMESTAMP for " << addr.toText()
+-- 
+2.55.0
+
