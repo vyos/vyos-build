@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# Restore file capabilities dropped by 00-drop-file-caps.chroot
+
+CAPS_FILE=/tmp/vyos-file-caps
+
+if [ ! -f $CAPS_FILE ]; then
+    echo "E: $CAPS_FILE missing, cannot restore file capabilities"
+    exit 1
+fi
+
+# live-build's chroot_hacks regenerates the initramfs after all hooks, which
+# would run with the capabilities restored. Do it here instead and tell
+# live-build to skip it.
+echo "I: Regenerating initramfs before restoring file capabilities"
+update-initramfs -k all -t -u || exit 1
+touch /initrd.img_has_already_been_regenerated
+
+# mkinitramfs ignores modprobe failures - without squashfs the image is unbootable
+for initrd in /boot/initrd.img-*; do
+    if ! lsinitramfs $initrd | grep -q '/squashfs\.ko'; then
+        echo "E: $initrd contains no squashfs module!"
+        exit 1
+    fi
+done
+
+while read -r file caps; do
+    echo "I: Restoring file capabilities $caps on $file"
+    setcap $caps $file || exit 1
+done < $CAPS_FILE
+rm -f $CAPS_FILE

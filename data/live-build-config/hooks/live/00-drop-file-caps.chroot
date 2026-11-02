@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# vyos-1x grants file capabilities to some binaries. If the build container's
+# capability bounding set lacks them (e.g. Proxmox LXC drops sys_module and
+# sys_time), exec fails with EPERM - mkinitramfs then silently produces an
+# initrd without any kernel modules. Drop them for the duration of the hooks,
+# 99-restore-file-caps.chroot puts them back.
+
+CAPS_FILE=/tmp/vyos-file-caps
+
+getcap /usr/bin/kmod /usr/bin/date > $CAPS_FILE
+while read -r file caps; do
+    echo "I: Temporarily dropping file capabilities from $file"
+    setcap -r $file
+done < $CAPS_FILE
