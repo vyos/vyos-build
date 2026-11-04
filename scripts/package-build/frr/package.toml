@@ -5,6 +5,11 @@ scm_url = "https://github.com/CESNET/libyang.git"
 build_cmd = "pipx run apkg build -i && find pkg/pkgs -type f -name *.deb -exec mv -t .. {} + && sudo dpkg -i ../libyang*.deb"
 
 [[packages]]
+name = "libbpf"
+commit_id = "debian/1.7.0-1_exp1"
+scm_url = "https://salsa.debian.org/sudip/libbpf.git"
+
+[[packages]]
 name = "frr"
 commit_id = "e42337c8d3b80" # stable/10.7 branch
 scm_url = "https://github.com/FRRouting/frr.git"
@@ -34,5 +39,6 @@ packages = [
     "bison",
     "liblua5.3-dev",
     "flex",
-    "libelf-dev"
+    "libelf-dev",
+    "libbpf-dev",
 ]
