@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 BASE_DIR=$(dirname $0)
 MODULE_DIR=$1
