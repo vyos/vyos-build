@@ -1,0 +1,1563 @@
+From 8ddb41618b1e3b8c15d5a9cce4dd4854ae230b5b Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Thu, 15 Oct 2026 22:11:34 +0300
+Subject: [PATCH] zebra: Add Split Horizon Filter implementation
+
+---
+ Makefile.am                                 |  11 +
+ configure.ac                                |  70 ++-
+ tests/topotests/Dockerfile                  |  39 ++
+ tests/topotests/docker/inner/compile_frr.sh |   1 +
+ zebra/.gitignore                            |   1 +
+ zebra/debug.c                               |  22 +-
+ zebra/debug.h                               |   3 +
+ zebra/dplane_fpm_nl.c                       |   3 +
+ zebra/interface.c                           |  17 +-
+ zebra/kernel_netlink.c                      |  12 +-
+ zebra/kernel_socket.c                       |   9 +
+ zebra/subdir.am                             |  26 +
+ zebra/zebra_dplane.c                        |  88 ++++
+ zebra/zebra_dplane.h                        |  13 +
+ zebra/zebra_evpn_mh.c                       |  15 +
+ zebra/zebra_evpn_mh.h                       |   1 +
+ zebra/zebra_rib.c                           |   3 +
+ zebra/zebra_script.c                        |   3 +
+ zebra/zebra_split_horizon_filter.bpf.c      | 172 ++++++
+ zebra/zebra_split_horizon_filter.bpf.h      |  30 ++
+ zebra/zebra_split_horizon_filter.c          | 555 ++++++++++++++++++++
+ zebra/zebra_split_horizon_filter.h          |  46 ++
+ 22 files changed, 1129 insertions(+), 11 deletions(-)
+ create mode 100644 zebra/zebra_split_horizon_filter.bpf.c
+ create mode 100644 zebra/zebra_split_horizon_filter.bpf.h
+ create mode 100644 zebra/zebra_split_horizon_filter.c
+ create mode 100644 zebra/zebra_split_horizon_filter.h
+
+diff --git a/Makefile.am b/Makefile.am
+index 6a37e04f3f..d5f9e30635 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -8,6 +8,7 @@ AM_CFLAGS = \
+ 	$(LIBYANG_CFLAGS) \
+ 	$(SQLITE3_CFLAGS) \
+ 	$(UNWIND_CFLAGS) \
++	$(LIBBPF_CFLAGS) \
+ 	$(SAN_FLAGS) \
+ 	$(WERROR) \
+ 	# end
+@@ -306,6 +307,16 @@ am__v_LLVM_LD_ = $(am__v_LLVM_LD_$(AM_DEFAULT_VERBOSITY))
+ am__v_LLVM_LD_0 = @echo "  LLVM.LD " $@;
+ am__v_LLVM_LD_1 = 
+ 
++AM_V_BPFTOOL = $(am__v_BPFTOOL_$(V))
++am__v_BPFTOOL_ = $(am__v_BPFTOOL_$(AM_DEFAULT_VERBOSITY))
++am__v_BPFTOOL_0 = @echo "  BPFTOOL " $@;
++am__v_BPFTOOL_1 = 
++
++AM_V_CLANG_BPF = $(am__v_CLANG_BPF_$(V))
++am__v_CLANG_BPF_ = $(am__v_CLANG_BPF_$(AM_DEFAULT_VERBOSITY))
++am__v_CLANG_BPF_0 = @echo "  CLANG.BPF " $@;
++am__v_CLANG_BPF_1 = 
++
+ SUFFIXES += .lo.bc .o.bc
+ 
+ .o.o.bc:
+diff --git a/configure.ac b/configure.ac
+index 8778c24f2d..643ad3ee38 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -975,6 +975,73 @@ fi
+ AC_SUBST([DFLT_NAME])
+ AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
+ 
++
++dnl ------------------------------------------------------------
++dnl Check clang, libbpf, bpftool, result variable: HAVE_EBPF_TCX
++dnl ------------------------------------------------------------
++
++HAVE_EBPF_TCX=no
++AC_CHECK_PROG([CLANG], [clang], [clang])
++AC_CHECK_PROG([BPFTOOL], [bpftool], [bpftool])
++# 1.3 is needed for bpf_program__attach_tcx
++PKG_CHECK_MODULES([LIBBPF], [libbpf >= 1.3], [have_libbpf=yes], [have_libbpf=no])
++
++AS_IF([test "x$CLANG" != "x" -a "x$BPFTOOL" != "x" -a "x$have_libbpf" = "xyes"], [
++  AC_MSG_CHECKING([whether $CLANG supports BPF target])
++  echo "int x;" > conftest.c
++  $CLANG -O2 -target bpf -c conftest.c -o conftest.o >/dev/null 2>&1
++  if test $? -eq 0; then
++    AC_MSG_RESULT([yes])
++
++    AC_MSG_CHECKING([whether required eBPF headers are available])
++
++    # Command taken from https://github.com/libbpf/libbpf-bootstrap/commit/2b2426e0cdc1a39e30ece3361519757cb76e294a
++    # This is needed to have asm/types.h etc
++    CLANG_BPF_SYS_INCLUDES="`$CLANG -v -E - </dev/null 2>&1 \
++        | sed -n '/<...> search starts here:/,/End of search list./s| \(/.*\)|-idirafter \1|p' | tr '\n' ' '`"
++
++    printf "#include <linux/bpf.h>\n#include <bpf/bpf_helpers.h>\nint x;" > conftest2.c
++    $CLANG -O2 -target bpf $CLANG_BPF_SYS_INCLUDES $LIBBPF_CFLAGS -c conftest2.c -o conftest2.o >/dev/null 2>&1
++    if test $? -eq 0; then
++      AC_MSG_RESULT([yes])
++      HAVE_EBPF_TCX=yes
++    else
++      AC_MSG_RESULT([no])
++    fi
++    rm -f conftest2.c conftest2.o
++  else
++    AC_MSG_RESULT([no])
++  fi
++  rm -f conftest.c conftest.o
++])
++AC_SUBST([CLANG])
++AC_SUBST([BPFTOOL])
++AC_SUBST([LIBBPF_CFLAGS])
++AC_SUBST([LIBBPF_LIBS])
++AC_SUBST([CLANG_BPF_SYS_INCLUDES])
++
++
++dnl ----------------------------------------------
++dnl Optional Split Horizon Filter using TCX + eBPF
++dnl ----------------------------------------------
++
++AC_ARG_ENABLE(splithorizon,
++	AS_HELP_STRING([--enable-splithorizon], [Enable eBPF-based split horizon filter]),
++[case "${enableval}" in
++  yes) enable_splithorizon=yes ;;
++  no) enable_splithorizon=no ;;
++  *) AC_MSG_ERROR([bad value ${enableval} for --enable-splithorizon]) ;;
++esac],[enable_splithorizon=no])
++
++AS_IF([test "x$enable_splithorizon" = "xyes"], [
++  AS_IF([test "x$HAVE_EBPF_TCX" != "xyes"], [
++    AC_MSG_ERROR([Failed to enable requested Split Horizon Filtering: missing eBPF TCX support ])
++  ])
++  AC_DEFINE([HAVE_SPLIT_HORIZON_FILTER], [1], [Build with eBPF-based split horizon filter support])
++])
++AM_CONDITIONAL([HAVE_SPLIT_HORIZON_FILTER], [test "x$enable_splithorizon" = "xyes"])
++
++
+ #
+ # Python for clippy
+ #
+@@ -2917,7 +2984,7 @@ EOF
+ EOF
+ fi
+     ], [
+-    FRR_ALL_CCLS_FLAGS="$(echo ${LIBYANG_CFLAGS} ${LUA_INCLUDE} ${SQLITE3_CFLAGS} | sed -e 's/  */ /g')"
++    FRR_ALL_CCLS_FLAGS="$(echo ${LIBYANG_CFLAGS} ${LUA_INCLUDE} ${SQLITE3_CFLAGS} ${LIBBPF_CFLAGS} | sed -e 's/  */ /g')"
+     FRR_ALL_CCLS_CFLAGS="$(echo ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS} | sed -e 's/  */ /g')"
+     ac_frr_confdate="${CONFDATE}"
+     ac_frr_sysconfdir="${frr_sysconfdir}/"
+@@ -2976,6 +3043,7 @@ config file mask        : ${enable_configfile_mask}
+ log file mask           : ${enable_logfile_mask}
+ zebra protobuf enabled  : ${enable_protobuf:-yes}
+ vici socket path        : ${vici_socket}
++split horizon filter    : ${enable_splithorizon}
+ 
+ The above user and group must have read/write access to the state file
+ directory and to the config files in the config file directory."
+diff --git a/tests/topotests/Dockerfile b/tests/topotests/Dockerfile
+index 4f1bb32a1a..86d5b45d61 100644
+--- a/tests/topotests/Dockerfile
++++ b/tests/topotests/Dockerfile
+@@ -74,6 +74,11 @@ RUN apt update -y && apt upgrade -y && \
+         strace \
+         tcpdump \
+       && \
++    # eBPF compilation requirements
++    apt-get install -y \
++        clang \
++        llvm \
++      && \
+     download-mibs && \
+     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
+     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
+@@ -117,6 +122,40 @@ RUN echo "" >> /etc/security/limits.conf; \
+ # Copy run scripts to facilitate users wanting to run the tests
+ COPY docker/inner /opt/topotests
+ 
++# libbpf: we need at least 1.3 for TCX in Split Horizon Filter
++ARG LIBBPF_VERSION=1.8.0
++ARG LIBBPF_CHECKSUM=b7a1e685f90f6a63ead0dd85d053694b222975da8d09c1a966041cff6f0055ff
++RUN mkdir /tmp/compile-libbpf \
++    && cd /tmp/compile-libbpf \
++    && wget --tries=5 --waitretry=10 --retry-connrefused https://github.com/libbpf/libbpf/archive/refs/tags/v$LIBBPF_VERSION.tar.gz \
++    && echo "$LIBBPF_CHECKSUM  v$LIBBPF_VERSION.tar.gz" | sha256sum -c - \
++    && tar -xvf v$LIBBPF_VERSION.tar.gz \
++    && cd libbpf-$LIBBPF_VERSION/src \
++    && PREFIX=/usr/local LIBDIR=/usr/local/lib make \
++    && PREFIX=/usr/local LIBDIR=/usr/local/lib make install \
++    # Required for runtime search of libs in /usr/local/lib
++    && ldconfig \
++    && cd / \
++    && rm -rf /tmp/compile-libbpf \
++    ;
++
++
++# bpftool: Ubuntu package is only wrapper that chooses path
++# based on kernel version, this doesn't work under docker
++ARG BPFTOOL_VERSION=7.8.1
++ARG BPFTOOL_CHECKSUM=fed76b7acb54d810cc3982eb6394726010114977542fd146695887a7d904b60c
++RUN mkdir /tmp/compile-bpftool \
++    && cd /tmp/compile-bpftool \
++    && wget --tries=5 --waitretry=10 --retry-connrefused https://github.com/libbpf/bpftool/releases/download/v$BPFTOOL_VERSION/bpftool-libbpf-v$BPFTOOL_VERSION-sources.tar.gz \
++    && echo "$BPFTOOL_CHECKSUM  bpftool-libbpf-v$BPFTOOL_VERSION-sources.tar.gz" | sha256sum -c - \
++    && tar -xvf bpftool-libbpf-v$BPFTOOL_VERSION-sources.tar.gz \
++    && cd bpftool-libbpf-v$BPFTOOL_VERSION-sources/src \
++    && make \
++    && prefix=/usr/local make install \
++    && rm -rf /tmp/compile-bpftool \
++    && cd / \
++    ;
++
+ ENV PATH "$PATH:/opt/topotests"
+ 
+ RUN echo "cat /opt/topotests/motd.txt" >> /root/.profile && \
+diff --git a/tests/topotests/docker/inner/compile_frr.sh b/tests/topotests/docker/inner/compile_frr.sh
+index e943c385c7..061da985e2 100755
+--- a/tests/topotests/docker/inner/compile_frr.sh
++++ b/tests/topotests/docker/inner/compile_frr.sh
+@@ -69,6 +69,7 @@ if [ ! -e Makefile ]; then
+ 		--enable-grpc \
+ 		--enable-scripting \
+ 		--enable-sharpd \
++		--enable-splithorizon \
+ 		$EXTRA_CONFIGURE \
+ 		--with-pkg-extra-version=-topotests \
+ 		|| log_fatal "failed to configure the sources"
+diff --git a/zebra/.gitignore b/zebra/.gitignore
+index f10240db43..0e88faadb9 100644
+--- a/zebra/.gitignore
++++ b/zebra/.gitignore
+@@ -2,3 +2,4 @@ zebra
+ zebra.conf
+ client
+ fpm_listener
++zebra_split_horizon_filter.bpf.skel.h
+diff --git a/zebra/debug.c b/zebra/debug.c
+index 2973523bfd..c6d4006b4c 100644
+--- a/zebra/debug.c
++++ b/zebra/debug.c
+@@ -119,6 +119,9 @@ DEFUN_NOSH (show_debugging_zebra,
+ 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
+ 		vty_out(vty, "  Zebra EVPN-MH Neigh debugging is on\n");
+ 
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++		vty_out(vty, "  Zebra EVPN-MH Split Horizon Filter debugging is on\n");
++
+ 	if (IS_ZEBRA_DEBUG_PBR)
+ 		vty_out(vty, "  Zebra PBR debugging is on\n");
+ 
+@@ -464,7 +467,7 @@ DEFPY (debug_zebra_mlag,
+ 
+ DEFPY (debug_zebra_evpn_mh,
+        debug_zebra_evpn_mh_cmd,
+-       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh>",
++       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh|sph$sph>",
+        NO_STR
+        DEBUG_STR
+        "Zebra configuration\n"
+@@ -473,7 +476,8 @@ DEFPY (debug_zebra_evpn_mh,
+        "Ethernet Segment Debugging\n"
+        "MAC Debugging\n"
+        "Neigh Debugging\n"
+-       "Nexthop Debugging\n")
++       "Nexthop Debugging\n"
++       "Split Horizon Filter Debugging\n")
+ {
+ 	if (es) {
+ 		if (no) {
+@@ -518,6 +522,16 @@ DEFPY (debug_zebra_evpn_mh,
+ 		}
+ 	}
+ 
++	if (sph) {
++		if (no) {
++			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_SPH);
++			vty_out(vty, "Zebra EVPN-MH Split Horizon Filter debugging is off\n");
++		} else {
++			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_SPH);
++			vty_out(vty, "Zebra EVPN-MH Split Horizon Filter debugging is on\n");
++		}
++	}
++
+ 	return CMD_SUCCESS;
+ }
+ 
+@@ -818,6 +832,10 @@ static int config_write_debug(struct vty *vty)
+ 		vty_out(vty, "debug zebra evpn mh neigh\n");
+ 		write++;
+ 	}
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH) {
++		vty_out(vty, "debug zebra evpn mh sph\n");
++		write++;
++	}
+ 	if (IS_ZEBRA_DEBUG_PW) {
+ 		vty_out(vty, "debug zebra pseudowires\n");
+ 		write++;
+diff --git a/zebra/debug.h b/zebra/debug.h
+index b4e5ee4b5b..86b80949f2 100644
+--- a/zebra/debug.h
++++ b/zebra/debug.h
+@@ -55,6 +55,7 @@ extern "C" {
+ #define ZEBRA_DEBUG_EVPN_MH_NH 0x02
+ #define ZEBRA_DEBUG_EVPN_MH_MAC 0x04
+ #define ZEBRA_DEBUG_EVPN_MH_NEIGH 0x08
++#define ZEBRA_DEBUG_EVPN_MH_SPH 0x10
+ 
+ #define ZEBRA_DEBUG_PBR 0x01
+ 
+@@ -117,6 +118,8 @@ extern "C" {
+ 	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_MAC)
+ #define IS_ZEBRA_DEBUG_EVPN_MH_NEIGH \
+ 	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_NEIGH)
++#define IS_ZEBRA_DEBUG_EVPN_MH_SPH \
++	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_SPH)
+ 
+ #define IS_ZEBRA_DEBUG_PBR (zebra_debug_pbr & ZEBRA_DEBUG_PBR)
+ 
+diff --git a/zebra/dplane_fpm_nl.c b/zebra/dplane_fpm_nl.c
+index 8e12083709..e7fc00e46f 100644
+--- a/zebra/dplane_fpm_nl.c
++++ b/zebra/dplane_fpm_nl.c
+@@ -1119,6 +1119,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
+ 	case DPLANE_OP_NEIGH_READ:
+ 	case DPLANE_OP_TC_QDISC_READ:
+ 	case DPLANE_OP_TC_QDISC_NOTIFY:
++	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++	case DPLANE_OP_EVPN_MH_ES_DELETE:
+ 		break;
+ 
+ 	}
+diff --git a/zebra/interface.c b/zebra/interface.c
+index 6e8d2b9de3..3d8b8e083f 100644
+--- a/zebra/interface.c
++++ b/zebra/interface.c
+@@ -636,6 +636,9 @@ void if_add_update(struct interface *ifp)
+ 				   ifp->ifindex);
+ 	}
+ 
++	if (if_data->flags & ZIF_FLAG_EVPN_MH_UPLINK)
++		zebra_evpn_mh_uplink_oper_add(if_data);
++
+ 	frrtrace(2, frr_zebra, if_add_del_update, ifp, 1);
+ }
+ 
+@@ -800,13 +803,6 @@ void if_delete_update(struct interface **pifp)
+ 
+ 	zebra_ns_unlink_ifp(ifp);
+ 
+-	/* Update ifindex after distributing the delete message.  This is in
+-	   case any client needs to have the old value of ifindex available
+-	   while processing the deletion.  Each client daemon is responsible
+-	   for setting ifindex to IFINDEX_INTERNAL after processing the
+-	   interface deletion message. */
+-	if_set_index(ifp, IFINDEX_INTERNAL);
+-
+ 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
+ 
+ 	/* Reset some zebra interface params to default values. */
+@@ -821,6 +817,13 @@ void if_delete_update(struct interface **pifp)
+ 		zebra_evpn_mac_ifp_del(ifp);
+ 	}
+ 
++	/* Update ifindex after distributing the delete message.  This is in
++	   case any client needs to have the old value of ifindex available
++	   while processing the deletion.  Each client daemon is responsible
++	   for setting ifindex to IFINDEX_INTERNAL after processing the
++	   interface deletion message. */
++	if_set_index(ifp, IFINDEX_INTERNAL);
++
+ 	if (!ifp->configured) {
+ 		if (IS_ZEBRA_DEBUG_KERNEL)
+ 			zlog_debug("interface %s is being deleted from the system",
+diff --git a/zebra/kernel_netlink.c b/zebra/kernel_netlink.c
+index 563fb6c4ab..784b3104b7 100644
+--- a/zebra/kernel_netlink.c
++++ b/zebra/kernel_netlink.c
+@@ -41,6 +41,7 @@
+ #include "zebra/netconf_netlink.h"
+ #include "zebra/zebra_errors.h"
+ #include "zebra/ge_netlink.h"
++#include "zebra/zebra_split_horizon_filter.h"
+ #include "zebra/zebra_trace.h"
+ 
+ #ifndef SO_RCVBUFFORCE
+@@ -1474,9 +1475,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
+ 	case DPLANE_OP_SYS_ROUTE_DELETE:
+ 	case DPLANE_OP_ROUTE_NOTIFY:
+ 	case DPLANE_OP_LSP_NOTIFY:
+-	case DPLANE_OP_BR_PORT_UPDATE:
+ 		return FRR_NETLINK_SUCCESS;
+ 
++	case DPLANE_OP_BR_PORT_UPDATE:
++		return sph_process_br_port_msg(bth, ctx);
++
+ 	case DPLANE_OP_INTF_SPEED_GET:
+ 	case DPLANE_OP_IPTABLE_ADD:
+ 	case DPLANE_OP_IPTABLE_DELETE:
+@@ -1522,6 +1525,13 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
+ 
+ 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+ 		return netlink_put_sr_tunsrc_set_msg(bth, ctx);
++
++	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++		return sph_process_uplink_add_msg(bth, ctx);
++	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++		return sph_process_uplink_delete_msg(bth, ctx);
++	case DPLANE_OP_EVPN_MH_ES_DELETE:
++		return sph_process_es_delete_msg(bth, ctx);
+ 	}
+ 
+ 	return FRR_NETLINK_ERROR;
+diff --git a/zebra/kernel_socket.c b/zebra/kernel_socket.c
+index 5d508ce50f..613e37cad8 100644
+--- a/zebra/kernel_socket.c
++++ b/zebra/kernel_socket.c
+@@ -1678,6 +1678,15 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
+ 			res = kernel_intf_netconf_update(ctx);
+ 			break;
+ 
++		case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++		case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++		case DPLANE_OP_EVPN_MH_ES_DELETE:
++#ifdef HAVE_SPLIT_HORIZON_FILTER
++	#error Missing Split Horizon Filter implementation here
++#endif
++			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
++			break;
++
+ 		case DPLANE_OP_NONE:
+ 		case DPLANE_OP_BR_PORT_UPDATE:
+ 		case DPLANE_OP_IPTABLE_ADD:
+diff --git a/zebra/subdir.am b/zebra/subdir.am
+index d4a4e4f933..ed2277135b 100644
+--- a/zebra/subdir.am
++++ b/zebra/subdir.am
+@@ -56,6 +56,7 @@ zebra_zebra_SOURCES = \
+ 	zebra/router-id.c \
+ 	zebra/rt_netlink.c \
+ 	zebra/ge_netlink.c \
++	zebra/zebra_split_horizon_filter.c \
+ 	zebra/rt_socket.c \
+ 	zebra/rtadv.c \
+ 	zebra/rtread_netlink.c \
+@@ -261,3 +262,28 @@ zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/z
+ zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
+ zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
+ zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)
++
++EXTRA_DIST += zebra/zebra_split_horizon_filter.bpf.c
++
++if HAVE_SPLIT_HORIZON_FILTER
++noinst_HEADERS += \
++	zebra/zebra_split_horizon_filter.h \
++	zebra/zebra_split_horizon_filter.bpf.h
++
++zebra_zebra_LDADD += $(LIBBPF_LIBS)
++BUILT_SOURCES += zebra/zebra_split_horizon_filter.bpf.skel.h
++CLEANFILES += \
++        zebra/zebra_split_horizon_filter.bpf.skel.h \
++        zebra/zebra_split_horizon_filter.bpf.o
++
++zebra/zebra_split_horizon_filter.o: zebra/zebra_split_horizon_filter.bpf.skel.h \
++        zebra/zebra_split_horizon_filter.h
++
++zebra/zebra_split_horizon_filter.bpf.o: zebra/zebra_split_horizon_filter.bpf.c zebra/zebra_split_horizon_filter.h zebra/zebra_split_horizon_filter.bpf.h
++	@$(MKDIR_P) $(dir $@)
++	$(AM_V_CLANG_BPF)${CLANG} -Wall -O2 -g -target bpf ${CLANG_BPF_SYS_INCLUDES} ${LIBBPF_CFLAGS} -c $< -o $@
++
++zebra/zebra_split_horizon_filter.bpf.skel.h: zebra/zebra_split_horizon_filter.bpf.o
++	@$(MKDIR_P) $(dir $@)
++	$(AM_V_BPFTOOL)${BPFTOOL} gen skeleton $< > $@ || (res=$$? ; rm -f $@ ; exit $$res)
++endif
+diff --git a/zebra/zebra_dplane.c b/zebra/zebra_dplane.c
+index d6e81e2c56..d710ea04a2 100644
+--- a/zebra/zebra_dplane.c
++++ b/zebra/zebra_dplane.c
+@@ -700,6 +700,11 @@ static struct zebra_dplane_globals {
+ 	_Atomic uint32_t dg_srv6_encap_srcaddr_set_in;
+ 	_Atomic uint32_t dg_srv6_encap_srcaddr_set_errors;
+ 
++	_Atomic uint32_t dg_evpn_mh_uplink_update_in;
++	_Atomic uint32_t dg_evpn_mh_uplink_update_errors;
++	_Atomic uint32_t dg_evpn_mh_es_update_in;
++	_Atomic uint32_t dg_evpn_mh_es_update_errors;
++
+ 	/* Dataplane pthread */
+ 	struct frr_pthread *dg_pthread;
+ 
+@@ -936,6 +941,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
+ 	case DPLANE_OP_RULE_UPDATE:
+ 	case DPLANE_OP_NEIGH_DISCOVER:
+ 	case DPLANE_OP_BR_PORT_UPDATE:
++	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++	case DPLANE_OP_EVPN_MH_ES_DELETE:
+ 	case DPLANE_OP_NEIGH_IP_INSTALL:
+ 	case DPLANE_OP_NEIGH_IP_DELETE:
+ 	case DPLANE_OP_NONE:
+@@ -1298,6 +1306,12 @@ const char *dplane_op2str(enum dplane_op_e op)
+ 		return "TC_QDISC_READ";
+ 	case DPLANE_OP_TC_QDISC_NOTIFY:
+ 		return "TC_QDISC_NOTIFY";
++	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++		return "EVPN_MH_UPLINK_ADD";
++	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++		return "EVPN_MH_UPLINK_DELETE";
++	case DPLANE_OP_EVPN_MH_ES_DELETE:
++		return "EVPN_MH_ES_DELETE";
+ 	}
+ 
+ 	return "UNKNOWN";
+@@ -5508,6 +5522,74 @@ enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp, bool
+ 	return result;
+ }
+ 
++/*
++ * Enqueue EVPN MH Uplink/ES update
++ */
++static enum zebra_dplane_result dplane_evpn_mh_common_update(enum dplane_op_e op,
++						      const struct interface *ifp,
++						      _Atomic uint32_t *pin,
++						      _Atomic uint32_t *perrors
++)
++{
++	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
++	int ret;
++	struct zebra_dplane_ctx *ctx = NULL;
++	struct zebra_ns *zns;
++
++	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_EVPN_MH_SPH) {
++		zlog_debug(
++			"%s: op %s ifindex %d ifp %s",
++			__func__, dplane_op2str(op), ifp->ifindex, ifp->name);
++	}
++
++	ctx = dplane_ctx_alloc();
++
++	ctx->zd_op = op;
++	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
++	ctx->zd_vrf_id = ifp->vrf->vrf_id;
++
++	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
++	dplane_ctx_ns_init(ctx, zns, false);
++
++	ctx->zd_ifindex = ifp->ifindex;
++	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
++
++	/* Enqueue for processing on the dplane pthread */
++	ret = dplane_update_enqueue(ctx);
++
++	/* Increment counter */
++	atomic_fetch_add_explicit(pin, 1,
++				  memory_order_relaxed);
++
++	if (ret == AOK) {
++		result = ZEBRA_DPLANE_REQUEST_QUEUED;
++	} else {
++		/* Error counter */
++		atomic_fetch_add_explicit(perrors, 1,
++					  memory_order_relaxed);
++		dplane_ctx_free(&ctx);
++	}
++
++	return result;
++}
++enum zebra_dplane_result dplane_evpn_mh_uplink_update(enum dplane_op_e op,
++						      const struct interface *ifp)
++{
++	return dplane_evpn_mh_common_update(
++		op, ifp,
++		&zdplane_info.dg_evpn_mh_uplink_update_in,
++		&zdplane_info.dg_evpn_mh_uplink_update_errors);
++}
++enum zebra_dplane_result dplane_evpn_mh_es_update(enum dplane_op_e op,
++						  const struct interface *ifp)
++{
++	return dplane_evpn_mh_common_update(
++		op, ifp,
++		&zdplane_info.dg_evpn_mh_es_update_in,
++		&zdplane_info.dg_evpn_mh_es_update_errors);
++}
++
++
+ enum zebra_dplane_result
+ dplane_intf_mpls_modify_state(const struct interface *ifp, bool set)
+ {
+@@ -7346,6 +7428,9 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
+ 	case DPLANE_OP_ROUTE_NOTIFY:
+ 	case DPLANE_OP_LSP_NOTIFY:
+ 	case DPLANE_OP_BR_PORT_UPDATE:
++	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++	case DPLANE_OP_EVPN_MH_ES_DELETE:
+ 
+ 	case DPLANE_OP_NONE:
+ 		break;
+@@ -7632,6 +7717,9 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
+ 	case DPLANE_OP_ROUTE_NOTIFY:
+ 	case DPLANE_OP_LSP_NOTIFY:
+ 	case DPLANE_OP_BR_PORT_UPDATE:
++	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++	case DPLANE_OP_EVPN_MH_ES_DELETE:
+ 		break;
+ 
+ 	/* TODO -- error counters for incoming events? */
+diff --git a/zebra/zebra_dplane.h b/zebra/zebra_dplane.h
+index b1585065a2..0e9a2b0e1d 100644
+--- a/zebra/zebra_dplane.h
++++ b/zebra/zebra_dplane.h
+@@ -226,6 +226,11 @@ enum dplane_op_e {
+ 	/* Traffic control qdisc read */
+ 	DPLANE_OP_TC_QDISC_READ,
+ 	DPLANE_OP_TC_QDISC_NOTIFY,
++
++	/* EVPN-MH uplink and Ethernet Segment update */
++	DPLANE_OP_EVPN_MH_UPLINK_ADD,
++	DPLANE_OP_EVPN_MH_UPLINK_DELETE,
++	DPLANE_OP_EVPN_MH_ES_DELETE,
+ };
+ 
+ /* Operational status of Bridge Ports */
+@@ -979,6 +984,14 @@ enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp, bool
+ 					       const struct ipaddr *sph_filters,
+ 					       uint32_t backup_nhg_id);
+ 
++/*
++ * Enqueue EVPN MH Uplink/ES update
++ */
++enum zebra_dplane_result dplane_evpn_mh_uplink_update(enum dplane_op_e op,
++						      const struct interface *ifp);
++enum zebra_dplane_result dplane_evpn_mh_es_update(enum dplane_op_e op,
++						  const struct interface *ifp);
++
+ /* Forward ref of nhg_hash_entry */
+ struct nhg_hash_entry;
+ /*
+diff --git a/zebra/zebra_evpn_mh.c b/zebra/zebra_evpn_mh.c
+index 625d2a6863..4e087dccaa 100644
+--- a/zebra/zebra_evpn_mh.c
++++ b/zebra/zebra_evpn_mh.c
+@@ -1239,6 +1239,9 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
+ 	vlanid_t vid;
+ 	struct zebra_evpn_es *es;
+ 
++	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
++		dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_DELETE, zif->ifp);
++
+ 	if (bf_is_inited(zif->vlan_bitmap)) {
+ 		bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
+ 		{
+@@ -2570,6 +2573,8 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
+ 	if (!dplane_updated)
+ 		zebra_evpn_es_br_port_dplane_clear(es);
+ 
++	dplane_evpn_mh_es_update(DPLANE_OP_EVPN_MH_ES_DELETE, es->zif->ifp);
++
+ 	/* clear the es from the parent interface */
+ 	zif->es_info.es = NULL;
+ 	es->zif = NULL;
+@@ -3930,6 +3935,8 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
+ 
+ 		zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK;
+ 		++zmh_info->uplink_cfg_cnt;
++		if (zif->ifp->ifindex)
++			dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_ADD, zif->ifp);
+ 	} else {
+ 		if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK))
+ 			return;
+@@ -3937,6 +3944,8 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
+ 		zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK;
+ 		if (zmh_info->uplink_cfg_cnt)
+ 			--zmh_info->uplink_cfg_cnt;
++		if (zif->ifp->ifindex)
++			dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_DELETE, zif->ifp);
+ 	}
+ 
+ 	zebra_evpn_mh_uplink_oper_flags_update(zif, set);
+@@ -3954,6 +3963,12 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
+ 				       new_protodown);
+ }
+ 
++void zebra_evpn_mh_uplink_oper_add(struct zebra_if *zif)
++{
++	if (zif->ifp->ifindex)
++		dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_ADD, zif->ifp);
++}
++
+ void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif)
+ {
+ 	bool old_protodown = zebra_evpn_mh_is_all_uplinks_down();
+diff --git a/zebra/zebra_evpn_mh.h b/zebra/zebra_evpn_mh.h
+index 96a94bfbc0..148cdad0a0 100644
+--- a/zebra/zebra_evpn_mh.h
++++ b/zebra/zebra_evpn_mh.h
+@@ -393,6 +393,7 @@ void zebra_evpn_es_local_br_port_update(struct zebra_if *zif);
+ extern int zebra_evpn_mh_startup_delay_update(struct vty *vty,
+ 					      uint32_t duration,
+ 					      bool set_default);
++extern void zebra_evpn_mh_uplink_oper_add(struct zebra_if *zif);
+ extern void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif);
+ extern void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif,
+ 						    bool clear,
+diff --git a/zebra/zebra_rib.c b/zebra/zebra_rib.c
+index 54897872c6..b1a934c0a9 100644
+--- a/zebra/zebra_rib.c
++++ b/zebra/zebra_rib.c
+@@ -5305,6 +5305,9 @@ static void rib_process_dplane_results(struct event *event)
+ 			case DPLANE_OP_VTEP_ADD:
+ 			case DPLANE_OP_VTEP_DELETE:
+ 			case DPLANE_OP_BR_PORT_UPDATE:
++			case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++			case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++			case DPLANE_OP_EVPN_MH_ES_DELETE:
+ 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
+ 			case DPLANE_OP_GRE_SET:
+ 			case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+diff --git a/zebra/zebra_script.c b/zebra/zebra_script.c
+index 08fa3c7f92..a199b533a3 100644
+--- a/zebra/zebra_script.c
++++ b/zebra/zebra_script.c
+@@ -359,6 +359,9 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
+ 		break;
+ 	case DPLANE_OP_VTEP_ADD:
+ 	case DPLANE_OP_VTEP_DELETE:
++	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
++	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
++	case DPLANE_OP_EVPN_MH_ES_DELETE:
+ 		break;
+ 	case DPLANE_OP_BR_PORT_UPDATE:
+ 		/* br_port */
+diff --git a/zebra/zebra_split_horizon_filter.bpf.c b/zebra/zebra_split_horizon_filter.bpf.c
+new file mode 100644
+index 0000000000..04ab1209d8
+--- /dev/null
++++ b/zebra/zebra_split_horizon_filter.bpf.c
+@@ -0,0 +1,172 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Split Horizon Filter implementation
++ * Copyright (c) 2026 VyOS Inc
++ * Kyrylo Yatsenko
++ */
++
++#include <stddef.h>
++#include <linux/bpf.h>
++#include <linux/if_ether.h>
++#include <linux/if_packet.h>
++#include <linux/ip.h>
++#include <bpf/bpf_endian.h>
++#include <bpf/bpf_helpers.h>
++
++#include "zebra_split_horizon_filter.bpf.h"
++
++/* Backward compatibility, values must be equal to enum values in
++ * tcx_action_base enum
++ */
++#define TCX_NEXT -1
++#define TCX_DROP 2
++
++/* #define BPF_DEBUG */
++
++char LICENSE[] SEC("license") = "GPL";
++
++__u32 fwmark_from_uplink_mask = FWMARK_DEFAULT_UPLINK_BIT_MASK;
++__u32 fwmark_vtep_id_mask_shifted = FWMARK_DEFAULT_VTEP_ID_MASK_SHIFTED;
++__u32 fwmark_vtep_id_shift = FWMARK_DEFAULT_VTEP_ID_SHIFT;
++
++static inline __u8 fwmark_is_from_uplink(__u32 fwmark)
++{
++	return (fwmark & fwmark_from_uplink_mask) ? 1 : 0;
++}
++static inline __u32 fwmark_get_vtep_id(__u32 fwmark)
++{
++	return (fwmark & fwmark_vtep_id_mask_shifted) >> fwmark_vtep_id_shift;
++}
++static inline void fwmark_set_from_uplink(__u32 *fwmark)
++{
++	*fwmark |= fwmark_from_uplink_mask;
++}
++static inline void fwmark_set_vtep_id(__u32 *fwmark, __u32 vtep_id)
++{
++	*fwmark =
++		(*fwmark & ~fwmark_vtep_id_mask_shifted)
++		| ((vtep_id << fwmark_vtep_id_shift) & fwmark_vtep_id_mask_shifted);
++}
++
++/**
++ * Maps VTEP IPv4 addresses to VTEP ids
++ */
++struct {
++	__uint(type, BPF_MAP_TYPE_HASH);
++	__type(key, __be32);
++	__type(value, __u32);
++	__uint(max_entries, MAX_VTEP_CNT);
++} ip_to_vtep_id SEC(".maps");
++
++/**
++ * Map (VTEP id, ifindex) -> u8
++ * We need set here, but it is not supported by BPF, so waste a byte per entry.
++ * If (VTEP, ifindex) pair is in this set, the VTEP is peer in ES of bond with ifindex
++ */
++struct {
++	__uint(type, BPF_MAP_TYPE_HASH);
++	__type(key, struct vtep_ifindex_pair);
++	__type(value, __u8);
++	__uint(max_entries, MAX_VTEP_BOND_CONNECTIONS_CNT);
++} vtep_bond_set SEC(".maps");
++
++/**
++ * Map ifindex -> u8
++ * For each bond 1 if we are DF on it and 0 if not
++ */
++struct {
++	__uint(type, BPF_MAP_TYPE_HASH);
++	__type(key, __u32);
++	__type(value, __u8);
++	__uint(max_entries, MAX_ES_CNT);
++} is_df_on_bond SEC(".maps");
++
++/**
++ * Split Horizon Filter, should be attached to each uplink interface
++ *
++ * 1. Check if it is IPv4 (IPv6 TODO)
++ * 2. (TODO) If so, check that transport protocol is UDP with VXLAN data
++ * 3. Then set mark with uplink bit and VTEP id (or 0 if unknown)
++ */
++SEC("tcx/ingress")
++int split_horizon_filter_uplink(struct __sk_buff *skb)
++{
++	__be32 ipv4_saddr;
++	__u32 *pval;
++
++	switch (skb->protocol) {
++	case bpf_htons(ETH_P_IP):
++		bpf_skb_load_bytes_relative(
++			skb,
++			offsetof(struct iphdr, saddr),
++			&ipv4_saddr,
++			sizeof(__be32),
++			BPF_HDR_START_NET);
++		pval = bpf_map_lookup_elem(&ip_to_vtep_id, &ipv4_saddr);
++		fwmark_set_from_uplink(&skb->mark);
++		fwmark_set_vtep_id(&skb->mark, pval ? *pval : 0);
++		break;
++	}
++	return TCX_NEXT;
++}
++
++/**
++ * Split Horizon Filter, should be attached to bond interface
++ *
++ * If we are non-DF: filter any BUM traffic except originated from local hosts
++ * If we are DF: filter any BUM traffic from peer VTEPs on this ES
++ */
++SEC("tcx/egress")
++int split_horizon_filter_bond(struct __sk_buff *skb)
++{
++	/* We are interested in BUM only */
++	/* TODO Unknown Unicast case */
++	if (skb->pkt_type != PACKET_BROADCAST && skb->pkt_type != PACKET_MULTICAST) {
++#ifdef BPF_DEBUG
++		bpf_printk("%s: ifindex: %u, not BUM, passing", __func__, skb->ifindex);
++#endif
++		return TCX_NEXT;
++	}
++
++	/* Packets from non-uplink shouldn't be filtered (local bias) */
++	if (!fwmark_is_from_uplink(skb->mark)) {
++#ifdef BPF_DEBUG
++		bpf_printk("%s: ifindex: %u, not from uplink, passing", __func__, skb->ifindex);
++#endif
++		return TCX_NEXT;
++	}
++
++	__u8 *pis_df;
++	/* When using skb->ifindex directly eBPF verifier fails */
++	__u32 key_ifindex = skb->ifindex;
++
++	pis_df = bpf_map_lookup_elem(&is_df_on_bond, &key_ifindex);
++	if (!pis_df) {
++#ifdef BPF_DEBUG
++		bpf_printk("%s: WARNING Unknown DF!!! We shouldn't be here, ifindex: %u", __func__, skb->ifindex);
++#endif
++		return TCX_NEXT;
++	}
++
++	__u8 is_df = *pis_df;
++
++	if (!is_df) {
++#ifdef BPF_DEBUG
++		bpf_printk("%s: !DF, ifindex: %u, from_uplink: %d, vtep_id: %d, pkt_type: %d, verdict: TCX_DROP", __func__, skb->ifindex, fwmark_is_from_uplink(skb->mark), fwmark_get_vtep_id(skb->mark), skb->pkt_type);
++#endif
++		/* We need to pass packets from non-uplink (local bias), this
++		 * is done in check of fwmark_is_from_uplink at the beginning
++		 * of function
++		 */
++		return TCX_DROP;
++	}
++
++	struct vtep_ifindex_pair vip = {.ifindex = skb->ifindex, .vtep_id = fwmark_get_vtep_id(skb->mark)};
++	__u8 *p = bpf_map_lookup_elem(&vtep_bond_set, &vip);
++
++#ifdef BPF_DEBUG
++	bpf_printk("%s: DF, ifindex: %u, from_uplink: %d, vtep_id: %d, pkt_type: %d, verdict: %s\n", __func__, skb->ifindex, fwmark_is_from_uplink(skb->mark), fwmark_get_vtep_id(skb->mark), skb->pkt_type,
++			p ? "TCX_DROP" : "TCX_NEXT");
++#endif
++	return p ? TCX_DROP : TCX_NEXT;
++}
+diff --git a/zebra/zebra_split_horizon_filter.bpf.h b/zebra/zebra_split_horizon_filter.bpf.h
+new file mode 100644
+index 0000000000..7829d810dc
+--- /dev/null
++++ b/zebra/zebra_split_horizon_filter.bpf.h
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Split Horizon Filter implementation
++ * Copyright (c) 2026 VyOS Inc
++ * Kyrylo Yatsenko
++ */
++
++#ifndef _ZEBRA_SPLIT_HORIZON_FILTER_BPF_H
++#define _ZEBRA_SPLIT_HORIZON_FILTER_BPF_H
++
++/* When changing MAX_VTEP_CNT pay attention to FWMARK_DEFAULT_VTEP_ID_MASK_SHIFTED width */
++#define MAX_UPLINK_CNT 32
++#define MAX_VTEP_CNT 127
++#define MAX_ES_CNT 256
++#define FWMARK_DEFAULT_UPLINK_BIT_MASK 0x80000000
++#define FWMARK_DEFAULT_VTEP_ID_SHIFT 24
++#define FWMARK_DEFAULT_VTEP_ID_MASK_SHIFTED (0x7f << FWMARK_DEFAULT_VTEP_ID_SHIFT)
++
++/* For each ES we need to remember each peer VTEP in this ES */
++#define MAX_VTEP_BOND_CONNECTIONS_CNT 4096
++
++/**
++ * Struct for key in `vtep_bond_set`
++ */
++struct vtep_ifindex_pair {
++	__u32 vtep_id;
++	__s32 ifindex;
++};
++
++#endif /* _ZEBRA_SPLIT_HORIZON_FILTER_BPF_H */
+diff --git a/zebra/zebra_split_horizon_filter.c b/zebra/zebra_split_horizon_filter.c
+new file mode 100644
+index 0000000000..4749cd9e1b
+--- /dev/null
++++ b/zebra/zebra_split_horizon_filter.c
+@@ -0,0 +1,555 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Split Horizon Filter implementation
++ * Copyright (c) 2026 VyOS Inc
++ * Kyrylo Yatsenko
++ */
++
++#include <zebra.h>
++
++#ifdef HAVE_NETLINK
++
++#include "zebra/zebra_split_horizon_filter.h"
++#include "zebra/kernel_netlink.h"
++#include "zebra/zebra_dplane.h"
++
++#ifdef HAVE_SPLIT_HORIZON_FILTER
++#include <lib/ipaddr.h>
++#include <bpf/bpf.h>
++#include <bpf/libbpf.h>
++#include "zebra/zebra_split_horizon_filter.bpf.h"
++#include "zebra/zebra_split_horizon_filter.bpf.skel.h"
++#include "zebra/debug.h"
++
++extern struct zebra_privs_t zserv_privs;
++
++static struct zebra_split_horizon_filter_bpf *sph_skel;
++
++static int sph_links_cnt;
++
++static ifindex_t sph_uplink_ifindexes[MAX_UPLINK_CNT];
++static struct bpf_link *sph_uplink_links[MAX_UPLINK_CNT];
++
++static ifindex_t sph_bond_ifindexes[MAX_ES_CNT];
++static struct bpf_link *sph_bond_links[MAX_ES_CNT];
++
++static uint32_t last_vtep_id;
++
++/* Count of VTEP id usage, 0 - unused VTEP id */
++static int vtep_id_usage_cnt[MAX_VTEP_CNT + 1];
++static __be32 vtep_key_by_id[MAX_VTEP_CNT + 1];
++
++static int sph_skel_init(void);
++static void sph_check_cleanup(void);
++
++static int get_idx_by_ifindex(ifindex_t ifindex, ifindex_t *ifindexes_array, int num);
++
++static int get_uplink_idx(ifindex_t ifindex);
++static int get_bond_idx(ifindex_t ifindex);
++
++enum ret_value_get_or_create_vtep_id_by_ip {
++	ERR_NO_SKEL = -2,
++	ERR_UNSUPPORTED_IP = -3,
++	ERR_FAIL_UPDATE = -4,
++	ERR_NO_FREE_IDS = -5,
++};
++
++/* Returns found/created id or return code from above */
++static int get_or_create_vtep_id_by_ip(const struct ipaddr *ip);
++
++static void remove_vtep_id(uint32_t vtep_id);
++
++static int sph_skel_init(void)
++{
++	if (sph_skel)
++		return 0;
++
++	frr_with_privs(&zserv_privs) {
++		sph_skel = zebra_split_horizon_filter_bpf__open_and_load();
++	}
++
++	if (!sph_skel) {
++		zlog_warn("%s: Split Horizon Filter: failed to open and load tcx skeleton", __func__);
++		return 1;
++	}
++
++	sph_links_cnt = 0;
++
++	return 0;
++}
++
++static void sph_check_cleanup(void)
++{
++	if (sph_links_cnt)
++		return;
++
++	if (!sph_skel)
++		return;
++
++	/* No bond or uplink links left, clean up everything */
++	frr_with_privs(&zserv_privs) {
++		zebra_split_horizon_filter_bpf__destroy(sph_skel);
++	}
++	sph_skel = NULL;
++
++	last_vtep_id = 0;
++	memset(vtep_id_usage_cnt, 0, sizeof(vtep_id_usage_cnt));
++}
++
++static int get_idx_by_ifindex(ifindex_t ifindex, ifindex_t *ifindexes_array, int num)
++{
++	for (int idx = 0; idx < num; idx++)
++		if (ifindexes_array[idx] == ifindex)
++			return idx;
++	return -1;
++}
++
++static int get_uplink_idx(ifindex_t ifindex)
++{
++	return get_idx_by_ifindex(ifindex, sph_uplink_ifindexes, MAX_UPLINK_CNT);
++}
++static int get_bond_idx(ifindex_t ifindex)
++{
++	return get_idx_by_ifindex(ifindex, sph_bond_ifindexes, MAX_ES_CNT);
++}
++
++static int get_or_create_vtep_id_by_ip(const struct ipaddr *ip)
++{
++	uint32_t vtep_id;
++	int err;
++
++	if (!sph_skel)
++		return ERR_NO_SKEL;
++
++	if (!IS_IPADDR_V4(ip))
++		return ERR_UNSUPPORTED_IP;
++
++	/* First check if it is in map already */
++	if (!bpf_map__lookup_elem(sph_skel->maps.ip_to_vtep_id,
++					&ip->ip._v4_addr.s_addr,
++					sizeof(__be32),
++					&vtep_id,
++					sizeof(uint32_t),
++					0)) {
++		return (int)vtep_id;
++	}
++
++	/* Select free vtep_id */
++	vtep_id = last_vtep_id + 1;
++
++	for (; vtep_id <= MAX_VTEP_CNT; vtep_id++)
++		if (!vtep_id_usage_cnt[vtep_id])
++			break;
++
++	/* continue search from beginning... */
++	if (vtep_id == MAX_VTEP_CNT + 1) {
++		for (vtep_id = 1; vtep_id <= last_vtep_id; vtep_id++)
++			if (!vtep_id_usage_cnt[vtep_id])
++				break;
++
++		if (vtep_id == last_vtep_id + 1)
++			return ERR_NO_FREE_IDS;
++	}
++
++	/* Now add to map... */
++	frr_with_privs(&zserv_privs) {
++		err = bpf_map__update_elem(
++				sph_skel->maps.ip_to_vtep_id,
++				&ip->ip._v4_addr.s_addr,
++				sizeof(__be32),
++				&vtep_id,
++				sizeof(uint32_t),
++				BPF_ANY
++				);
++	}
++	if (err) {
++		zlog_warn("%s: Split Horizon Filter: failed to insert value into ip_to_vtep_id: %s", __func__, strerror(-err));
++		return ERR_FAIL_UPDATE;
++	}
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++		zlog_debug("%s: added VTEP %pIA as %"PRIu32" to ip_to_vtep_id", __func__, ip, vtep_id);
++
++	last_vtep_id = vtep_id;
++	vtep_key_by_id[vtep_id] = ip->ip._v4_addr.s_addr;
++	/* vtep_id_usage_cnt[last_vtep_id] is unchanged here, it is incremented
++	 * in `sph_process_br_port_msg` both for new vtep_ids and for already
++	 * used
++	 */
++	return vtep_id;
++}
++
++static void remove_vtep_id(uint32_t vtep_id)
++{
++	int err;
++
++	if (!sph_skel)
++		return;
++
++	frr_with_privs(&zserv_privs) {
++		err = bpf_map__delete_elem(
++			sph_skel->maps.ip_to_vtep_id,
++			&vtep_key_by_id[vtep_id],
++			sizeof(__be32),
++			0
++			);
++	}
++	if (err) {
++		zlog_warn("%s: Split Horizon Filter: failed to delete element from ip_to_vtep_id: %s", __func__, strerror(-err));
++	} else {
++		if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++			zlog_debug("%s: removed VTEP ID %"PRIu32, __func__, vtep_id);
++	}
++}
++
++#endif /* HAVE_SPLIT_HORIZON_FILTER */
++
++enum netlink_msg_status
++sph_process_br_port_msg(struct nl_batch *bth,
++			struct zebra_dplane_ctx *ctx)
++{
++#ifdef HAVE_SPLIT_HORIZON_FILTER
++	int err;
++	int err2;
++	int idx;
++	uint32_t cnt;
++	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
++	uint8_t is_df;
++	const struct ipaddr *sph_filters;
++
++	if (!ifindex)
++		return FRR_NETLINK_SUCCESS;
++
++	cnt = dplane_ctx_get_br_port_sph_filter_cnt(ctx);
++	is_df = (dplane_ctx_get_br_port_flags(ctx) & DPLANE_BR_PORT_NON_DF) ? 0 : 1;
++	sph_filters = dplane_ctx_get_br_port_sph_filters(ctx);
++
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH) {
++		zlog_debug("%s: ifindex: %d, ifname: %s, count: %"PRIu32, __func__, dplane_ctx_get_ifindex(ctx), dplane_ctx_get_ifname(ctx), cnt);
++		for (uint32_t i = 0; i < cnt; i++)
++			zlog_debug("%s: sph_filters[%"PRIu32"]: %pIA", __func__, i, &sph_filters[i]);
++	}
++
++	if (!sph_skel)
++		if (sph_skel_init())
++			return FRR_NETLINK_ERROR;
++
++	idx = get_bond_idx(ifindex);
++
++	if (idx == -1) {
++		idx = get_bond_idx(0);
++		if (idx == -1) {
++			zlog_warn("%s: Split Horizon Filter: bond number limit reached, maximum: %d, no filter will be installed for %s",
++					__func__, MAX_ES_CNT, dplane_ctx_get_ifname(ctx));
++			sph_check_cleanup();
++			return FRR_NETLINK_ERROR;
++		}
++
++		frr_with_privs(&zserv_privs) {
++			sph_bond_links[idx] = bpf_program__attach_tcx(sph_skel->progs.split_horizon_filter_bond,
++								ifindex, NULL);
++			err = -errno;
++		}
++		if (!sph_bond_links[idx]) {
++			zlog_warn("%s: Split Horizon Filter: failed to attach eBPF program to %s: %s",
++				__func__, dplane_ctx_get_ifname(ctx), strerror(-err));
++			sph_check_cleanup();
++			return FRR_NETLINK_ERROR;
++		}
++		sph_bond_ifindexes[idx] = ifindex;
++		sph_links_cnt++;
++
++		if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++			zlog_debug("%s: Attached bond filter to %s", __func__, dplane_ctx_get_ifname(ctx));
++	}
++
++	/* Update `is_df_on_bond`*/
++	frr_with_privs(&zserv_privs) {
++		err = bpf_map__update_elem(
++				sph_skel->maps.is_df_on_bond,
++				&ifindex,
++				sizeof(ifindex),
++				&is_df,
++				sizeof(uint8_t),
++				BPF_ANY
++				);
++	}
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++		zlog_debug("%s: setting is_df to %d for interface %d, %s", __func__, is_df, ifindex, dplane_ctx_get_ifname(ctx));
++	if (err)
++		zlog_warn("%s: Split Horizon Filter: failed to update element of is_df_on_bond: %s", __func__, strerror(-err));
++
++	/* First add all new VTEP ids to vtep_bond_set */
++	uint8_t dummy_val = 0;
++	uint32_t vtep_ids[ES_VTEP_MAX_CNT];
++	struct vtep_ifindex_pair vip;
++	struct vtep_ifindex_pair cur_vip;
++	struct vtep_ifindex_pair *cur_pvip = NULL;
++	uint32_t i;
++	int id;
++
++	vip.ifindex = ifindex;
++	for (i = 0; i < cnt; i++) {
++		vtep_ids[i] = 0;
++
++		id = get_or_create_vtep_id_by_ip(&sph_filters[i]);
++
++		if (id < 0) {
++			switch ((enum ret_value_get_or_create_vtep_id_by_ip) id) {
++			case ERR_UNSUPPORTED_IP:
++				if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++					zlog_debug("%s: ignoring %pIA - not IPv4", __func__, &sph_filters[i]);
++				continue;
++			case ERR_NO_FREE_IDS:
++				zlog_warn("%s: Split Horizon Filter: max number of ids reached: %d, traffic from VTEP %pIA won't be filtered", __func__, MAX_VTEP_CNT, &sph_filters[i]);
++				continue;
++			case ERR_FAIL_UPDATE:
++			/* For ERR_FAIL_UPDATE message already issued in get_or_create_vtep_id_by_ip */
++			case ERR_NO_SKEL:
++			/* Shouldn't be possible here */
++			default:
++				continue;
++			}
++		}
++
++		vip.vtep_id = (uint32_t) id;
++		vtep_ids[i] = vip.vtep_id;
++
++		frr_with_privs(&zserv_privs) {
++			err = bpf_map__update_elem(
++					sph_skel->maps.vtep_bond_set,
++					&vip,
++					sizeof(struct vtep_ifindex_pair),
++					&dummy_val,
++					sizeof(uint8_t),
++					BPF_NOEXIST
++					);
++		}
++		/* We are ok with pair already existing in set */
++		if (err && err != -EEXIST) {
++			zlog_warn("%s: Split Horizon Filter: failed to insert value into vtep_bond_set: %s", __func__, strerror(-err));
++			/* Failed to insert just created VTEP id, clean it */
++			if (!vtep_id_usage_cnt[id])
++				remove_vtep_id(id);
++		}
++		if (!err)
++			vtep_id_usage_cnt[id]++;
++	}
++
++	/* Now clear all (ifindex, vtep_id) pairs that are stale */
++	while (true) {
++		frr_with_privs(&zserv_privs) {
++			err = bpf_map__get_next_key(
++					sph_skel->maps.vtep_bond_set,
++					cur_pvip,
++					&vip,
++					sizeof(struct vtep_ifindex_pair)
++					);
++		}
++		if (cur_pvip && cur_pvip->ifindex == ifindex) {
++			for (i = 0; i < cnt; i++)
++				if (cur_pvip->vtep_id == vtep_ids[i])
++					break;
++
++			/* vtep_id not up-to-date, delete pair */
++			if (i == cnt) {
++				frr_with_privs(&zserv_privs) {
++					err2 = bpf_map__delete_elem(
++						sph_skel->maps.vtep_bond_set,
++						cur_pvip,
++						sizeof(struct vtep_ifindex_pair),
++						0
++						);
++				}
++				if (err2) {
++					zlog_warn("%s: Split Horizon Filter: failed to delete element from vtep_bond_set: %s", __func__, strerror(-err2));
++				} else {
++					vtep_id_usage_cnt[cur_pvip->vtep_id]--;
++					if (!vtep_id_usage_cnt[cur_pvip->vtep_id])
++						remove_vtep_id(cur_pvip->vtep_id);
++				}
++			}
++		}
++		if (err == -ENOENT)
++			break;
++		if (err) {
++			zlog_warn("%s: Split Horizon Filter: failed to get next key in vtep_bond_set: %s", __func__, strerror(-err));
++			break;
++		}
++		cur_pvip = &cur_vip;
++		cur_vip = vip;
++	}
++
++#endif /* HAVE_SPLIT_HORIZON_FILTER */
++
++	return FRR_NETLINK_SUCCESS;
++}
++
++enum netlink_msg_status
++sph_process_uplink_add_msg(struct nl_batch *bth,
++			   struct zebra_dplane_ctx *ctx)
++{
++#ifdef HAVE_SPLIT_HORIZON_FILTER
++	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
++	int idx;
++	int err;
++
++	if (!ifindex)
++		return FRR_NETLINK_SUCCESS;
++
++	idx = get_uplink_idx(ifindex);
++	if (idx != -1)
++		return FRR_NETLINK_SUCCESS;
++
++	/* find empty slot */
++	idx = get_uplink_idx(0);
++	if (idx == -1) {
++		zlog_warn("%s: Split Horizon Filter: uplink number limit reached, maximum: %d, no filter will be installed for %s",
++				__func__, MAX_UPLINK_CNT, dplane_ctx_get_ifname(ctx));
++		return FRR_NETLINK_ERROR;
++	}
++
++	if (!sph_skel)
++		if (sph_skel_init())
++			return FRR_NETLINK_ERROR;
++
++	frr_with_privs(&zserv_privs) {
++		sph_uplink_links[idx] = bpf_program__attach_tcx(sph_skel->progs.split_horizon_filter_uplink,
++							ifindex, NULL);
++		err = -errno;
++	}
++	if (!sph_uplink_links[idx]) {
++		zlog_warn("%s: Split Horizon Filter: failed to attach eBPF program to %s: %s",
++			__func__, dplane_ctx_get_ifname(ctx), strerror(-err));
++		sph_check_cleanup();
++		return FRR_NETLINK_ERROR;
++	}
++	sph_uplink_ifindexes[idx] = ifindex;
++	sph_links_cnt++;
++
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++		zlog_debug("%s: Attached uplink filter to %s", __func__, dplane_ctx_get_ifname(ctx));
++#endif /* HAVE_SPLIT_HORIZON_FILTER */
++
++	return FRR_NETLINK_SUCCESS;
++}
++
++enum netlink_msg_status
++sph_process_uplink_delete_msg(struct nl_batch *bth,
++			     struct zebra_dplane_ctx *ctx)
++{
++#ifdef HAVE_SPLIT_HORIZON_FILTER
++	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
++
++	if (!ifindex)
++		return FRR_NETLINK_SUCCESS;
++
++	int idx = get_uplink_idx(ifindex);
++
++	if (idx == -1)
++		return FRR_NETLINK_SUCCESS;
++
++	/* Destroy TCX uplink link */
++	frr_with_privs(&zserv_privs) {
++		bpf_link__destroy(sph_uplink_links[idx]);
++	}
++	sph_uplink_links[idx] = NULL;
++	sph_uplink_ifindexes[idx] = 0;
++	sph_links_cnt--;
++
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++		zlog_debug("%s: Detached uplink filter from %s", __func__, dplane_ctx_get_ifname(ctx));
++
++	sph_check_cleanup();
++#endif /* HAVE_SPLIT_HORIZON_FILTER */
++
++	return FRR_NETLINK_SUCCESS;
++}
++
++enum netlink_msg_status
++sph_process_es_delete_msg(struct nl_batch *bth,
++			 struct zebra_dplane_ctx *ctx)
++{
++#ifdef HAVE_SPLIT_HORIZON_FILTER
++	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
++
++	if (!ifindex)
++		return FRR_NETLINK_SUCCESS;
++
++	int idx = get_bond_idx(ifindex);
++	struct vtep_ifindex_pair vip;
++	struct vtep_ifindex_pair cur_vip;
++	struct vtep_ifindex_pair *cur_pvip = NULL;
++	int err;
++	int err2;
++
++	if (idx == -1)
++		return FRR_NETLINK_SUCCESS;
++
++	/* clear vtep_bond_set from ifindex */
++	while (true) {
++		frr_with_privs(&zserv_privs) {
++			err = bpf_map__get_next_key(
++					sph_skel->maps.vtep_bond_set,
++					cur_pvip,
++					&vip,
++					sizeof(struct vtep_ifindex_pair)
++					);
++		}
++		if (cur_pvip && cur_pvip->ifindex == ifindex) {
++			frr_with_privs(&zserv_privs) {
++				err2 = bpf_map__delete_elem(
++					sph_skel->maps.vtep_bond_set,
++					cur_pvip,
++					sizeof(struct vtep_ifindex_pair),
++					0
++					);
++			}
++			if (err2) {
++				zlog_warn("%s: Split Horizon Filter: failed to delete element from vtep_bond_set: %s", __func__, strerror(-err2));
++			} else {
++				vtep_id_usage_cnt[cur_pvip->vtep_id]--;
++				if (!vtep_id_usage_cnt[cur_pvip->vtep_id])
++					remove_vtep_id(cur_pvip->vtep_id);
++			}
++		}
++		if (err == -ENOENT)
++			break;
++		if (err) {
++			zlog_warn("%s: Split Horizon Filter: failed to get next key in vtep_bond_set: %s", __func__, strerror(-err));
++			break;
++		}
++		cur_pvip = &cur_vip;
++		cur_vip = vip;
++	}
++
++	/* Delete from is_df_on_bond */
++	frr_with_privs(&zserv_privs) {
++		err = bpf_map__delete_elem(
++			sph_skel->maps.is_df_on_bond,
++			&ifindex,
++			sizeof(ifindex),
++			0
++			);
++	}
++
++	if (err)
++		zlog_warn("%s: Split Horizon Filter: failed to delete element from is_df_on_bond: %s", __func__, strerror(-err));
++
++	/* Destroy TCX bond link */
++	frr_with_privs(&zserv_privs) {
++		bpf_link__destroy(sph_bond_links[idx]);
++	}
++	sph_bond_links[idx] = NULL;
++	sph_bond_ifindexes[idx] = 0;
++	sph_links_cnt--;
++
++	if (IS_ZEBRA_DEBUG_EVPN_MH_SPH)
++		zlog_debug("%s: Detached bond filter from %s", __func__, dplane_ctx_get_ifname(ctx));
++
++	sph_check_cleanup();
++#endif /* HAVE_SPLIT_HORIZON_FILTER */
++
++	return FRR_NETLINK_SUCCESS;
++}
++
++#endif /* HAVE_NETLINK */
+diff --git a/zebra/zebra_split_horizon_filter.h b/zebra/zebra_split_horizon_filter.h
+new file mode 100644
+index 0000000000..5311bc5332
+--- /dev/null
++++ b/zebra/zebra_split_horizon_filter.h
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Split Horizon Filter implementation
++ * Copyright (c) 2026 VyOS Inc
++ * Kyrylo Yatsenko
++ */
++
++#ifndef _ZEBRA_SPLIT_HORIZON_FILTER_H
++#define _ZEBRA_SPLIT_HORIZON_FILTER_H
++
++#ifdef HAVE_NETLINK
++
++#include "lib/if.h"
++#include "lib/prefix.h"
++#include "zebra/zebra_dplane.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++struct zebra_dplane_ctx;
++struct nl_batch;
++
++extern enum netlink_msg_status
++sph_process_br_port_msg(struct nl_batch *bth,
++		       struct zebra_dplane_ctx *ctx);
++
++extern enum netlink_msg_status
++sph_process_uplink_add_msg(struct nl_batch *bth,
++			   struct zebra_dplane_ctx *ctx);
++
++extern enum netlink_msg_status
++sph_process_uplink_delete_msg(struct nl_batch *bth,
++				 struct zebra_dplane_ctx *ctx);
++
++extern enum netlink_msg_status
++sph_process_es_delete_msg(struct nl_batch *bth,
++			     struct zebra_dplane_ctx *ctx);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* HAVE_NETLINK */
++
++#endif /* _ZEBRA_SPLIT_HORIZON_FILTER_H */
+-- 
+2.54.0
+
