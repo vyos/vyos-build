@@ -1,7 +1,7 @@
 #!/bin/sh
 
 SRC="isc-kea"
-BRANCH="Kea-3.0.3"
+BRANCH="Kea-3.2.1"
 
 # Fetch debian packaging repo
 git clone --branch ${BRANCH} https://gitlab.isc.org/isc-projects/kea-packaging.git
