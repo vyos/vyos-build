@@ -36,37 +36,37 @@ build_cmd = "build_intel_qat"
 
 [[packages]]
 name = "igb"
-commit_id = "v5.20.28"
+commit_id = "v5.20.93"
 scm_url = "https://github.com/intel/ethernet-linux-igb"
 build_cmd = "build_intel_nic"
 
 [[packages]]
 name = "ixgbe"
-commit_id = "v6.4.5"
+commit_id = "v6.5.9"
 scm_url = "https://github.com/intel/ethernet-linux-ixgbe"
 build_cmd = "build_intel_nic"
 
 [[packages]]
 name = "ixgbevf"
-commit_id = "v5.3.36"
+commit_id = "v5.3.87"
 scm_url = "http://github.com/intel/ethernet-linux-ixgbevf"
 build_cmd = "build_intel_nic"
 
 [[packages]]
 name = "i40e"
-commit_id = "v2.30.18"
+commit_id = "v2.30.83"
 scm_url = "http://github.com/intel/ethernet-linux-i40e"
 build_cmd = "build_intel_nic"
 
 [[packages]]
 name = "ice"
-commit_id = "v2.6.7"
+commit_id = "v2.7.6"
 scm_url = "http://github.com/intel/ethernet-linux-ice"
 build_cmd = "build_intel_nic"
 
 [[packages]]
 name = "iavf"
-commit_id = "v4.13.35"
+commit_id = "v4.13.78"
 scm_url = "http://github.com/intel/ethernet-linux-iavf"
 build_cmd = "build_intel_nic"
 

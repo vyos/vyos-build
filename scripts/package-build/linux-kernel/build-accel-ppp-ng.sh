@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 ARCH_TRIPLET=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 CWD=$(pwd)

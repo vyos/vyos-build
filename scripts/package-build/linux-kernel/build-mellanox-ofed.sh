@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 DROP_DEV_DBG_DEBS=1
 DEB_DISTRO='debian12.1'
 CWD=$(pwd)
@@ -7,7 +8,7 @@ KERNEL_VAR_FILE=${CWD}/kernel-vars
 
 if [ $(id -u) -ne 0 ]; then
   echo "Mellanox OFED script needs to be run as root"
-  exit
+  exit 1
 fi
 
 require_amd64 "Mellanox OFED"
