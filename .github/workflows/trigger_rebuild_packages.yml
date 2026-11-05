@@ -312,7 +312,7 @@ jobs:
           fi
 
           if [ "${{ steps.changes.outputs.wide-dhcpv6 }}" == "true" ]; then
-            trigger_build "ethtool"
+            trigger_build "wide-dhcpv6"
           fi
 
           if [ "${{ steps.changes.outputs.xen-guest-agent }}" == "true" ]; then
