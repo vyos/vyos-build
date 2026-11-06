@@ -1,0 +1,88 @@
+diff --git a/osdep/ExtOsdep.cpp b/osdep/ExtOsdep.cpp
+index 4efab5a6c..771668d72 100644
+--- a/osdep/ExtOsdep.cpp
++++ b/osdep/ExtOsdep.cpp
+@@ -256,6 +256,18 @@ bool ExtOsdep::getBindAddrs(std::map<InetAddress, std::string>& ret)
+ 	return resp->result;
+ }
+ 
++void ExtOsdep::configUpdate(uint64_t nwid, uint64_t revision)
++{
++	zt_eod_msg_configupdate msg;
++	memset(&msg, 0, sizeof(msg));
++	msg.cmd = ZT_EOD_MSG_CONFIGUPDATE;
++	msg.nwid = nwid;
++	msg.revision = revision;
++
++	Mutex::Lock l(eodMutex);
++	__eodSend(msg);
++}
++
+ ExtOsdepTap::ExtOsdepTap(
+ 	const char* homePath,
+ 	const MAC& mac,
+@@ -499,6 +511,7 @@ bool ExtOsdepTap::removeIp(const InetAddress& ip)
+ 	for (auto i = allIps.begin(); i != allIps.end(); ++i) {
+ 		if (*i == ip) {
+ 			doRemoveIp(*i);
++			allIps.erase(i);
+ 			return true;
+ 		}
+ 	}
+diff --git a/osdep/ExtOsdep.hpp b/osdep/ExtOsdep.hpp
+index d7028902c..c1951239f 100644
+--- a/osdep/ExtOsdep.hpp
++++ b/osdep/ExtOsdep.hpp
+@@ -34,6 +34,7 @@
+ #define ZT_EOD_MSG_ADDROUTERESP		17
+ #define ZT_EOD_MSG_DELROUTE			18
+ #define ZT_EOD_MSG_DELROUTERESP		19
++#define ZT_EOD_MSG_CONFIGUPDATE		20
+ 
+ struct zt_eod_msg_addtap {
+ 	unsigned char cmd;
+@@ -105,6 +106,12 @@ struct zt_eod_msg_route {
+ 	unsigned char src[16];
+ } __attribute__((packed));
+ 
++struct zt_eod_msg_configupdate {
++	unsigned char cmd;
++	uint64_t nwid;
++	uint64_t revision;
++} __attribute__((packed));
++
+ struct zt_eod_mgmt_req {
+ 	uint32_t method;
+ 	uint32_t pathlen;
+@@ -144,6 +151,7 @@ class ExtOsdep {
+ 
+ 	static void routeAddDel(bool, const InetAddress& target, const InetAddress& via, const InetAddress& src, const char* ifaceName);
+ 	static bool getBindAddrs(std::map<InetAddress, std::string>&);
++	static void configUpdate(uint64_t nwid, uint64_t revision);
+ 
+ 	static bool mgmtRecv(void* cookie, void* data, unsigned long len, std::function<unsigned(unsigned, const std::string&, const std::string&, std::string&)>);
+ 	static bool mgmtWritable(void*);
+diff --git a/service/OneService.cpp b/service/OneService.cpp
+index 41d790516..ea8e4ce3c 100644
+--- a/service/OneService.cpp
++++ b/service/OneService.cpp
+@@ -3599,6 +3599,9 @@ class OneServiceImpl : public OneService {
+ #endif
+ 					syncManagedStuff(n, true, true, true);
+ 					n.tap()->setMtu(nwc->mtu);
++#ifdef ZT_EXTOSDEP
++					ExtOsdep::configUpdate(nwid, (uint64_t)nwc->netconfRevision);
++#endif
+ 				}
+ 				else {
+ 					_nets.erase(nwid);
+@@ -3611,6 +3614,9 @@ class OneServiceImpl : public OneService {
+ 				if (n.tap()) {	 // sanity check
+ #if defined(__WINDOWS__) && ! defined(ZT_SDK)
+ 					std::string winInstanceId(((WindowsEthernetTap*)(n.tap().get()))->instanceId());
++#endif
++#ifdef ZT_EXTOSDEP
++					ExtOsdep::configUpdate(nwid, (uint64_t)n.config().netconfRevision);
+ #endif
+ 					*nuptr = (void*)0;
+ 					n.tap().reset();
