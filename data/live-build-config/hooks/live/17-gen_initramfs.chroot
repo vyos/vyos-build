@@ -12,7 +12,7 @@ fi
 KERNEL_COUNT=$(find /boot/ -type f -name vmlinuz* | wc -l)
 if [ "$KERNEL_COUNT" -gt 1 ]; then
     echo "E: there is more than one kernel image file installed!"
-    echo "E: please make sure that kernel_version in data/defaults.toml is up to date"
+    echo "E: please make sure that kernel_version and kernel_revision in data/defaults.toml are up to date"
     echo "E: if your repository is up to date, then there is a bug"
 fi
 
