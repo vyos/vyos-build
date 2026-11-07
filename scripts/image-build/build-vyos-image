@@ -750,7 +750,7 @@ menu clear
                 --iso-publisher "{{build_by}}" \
                 --iso-volume "VyOS" \
                 --linux-flavours "{{kernel_flavor}}" \
-                --linux-packages "linux-image-{{kernel_version}}" \
+                --linux-packages "linux-image-{{kernel_version}}-{{kernel_revision}}" \
                 --mirror-binary "{{debian_mirror}}" \
                 --mirror-binary-security "{{debian_security_mirror}}" \
                 --mirror-bootstrap "{{debian_mirror}}" \
