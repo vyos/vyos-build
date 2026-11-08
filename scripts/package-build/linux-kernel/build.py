@@ -239,7 +239,7 @@ def build_intel(driver_name: str, commit_id: str, scm_url: str):
 
 def build_mellanox_ofed():
     """Build Mellanox OFED"""
-    run(['sudo', './build-mellanox-ofed.sh'], check=True)
+    run(['./build-mellanox-ofed.sh'], check=True)
 
 
 def build_realtek_r8126():

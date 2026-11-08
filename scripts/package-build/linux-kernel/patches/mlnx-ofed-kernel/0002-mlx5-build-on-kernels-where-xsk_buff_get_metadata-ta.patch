@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Sun, 8 Nov 2026 09:26:17 +0000
+Subject: [PATCH] mlx5: build on kernels where xsk_buff_get_metadata takes
+ options
+
+Linux 6.18.y stable backported upstream commit a6e4b9a6deb9 ("xsk: honor
+XDP_TX_METADATA in zero-copy path"), which adds the descriptor options
+to xsk_buff_get_metadata(). OFED still calls it with two arguments and
+the mlx5 XSK TX path fails to compile.
+
+Add a HAVE_XSK_BUFF_GET_METADATA_OPTIONS feature test and a backport
+patch passing the descriptor options, matching the in-tree driver.
+---
+ ...0-BACKPORT-xsk_buff_get_metadata-options.patch | 15 +++++++++++++++
+ compat/config/rdma.m4                             |  8 ++++++++
+ 2 files changed, 23 insertions(+)
+ create mode 100644 backports/0380-BACKPORT-xsk_buff_get_metadata-options.patch
+
+diff --git a/backports/0380-BACKPORT-xsk_buff_get_metadata-options.patch b/backports/0380-BACKPORT-xsk_buff_get_metadata-options.patch
+new file mode 100644
+index 0000000..3c83cde
+--- /dev/null
++++ b/backports/0380-BACKPORT-xsk_buff_get_metadata-options.patch
+@@ -0,0 +1,15 @@
++--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
+++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
++@@ -119,8 +119,12 @@ bool mlx5e_xsk_tx(struct mlx5e_xdpsq *sq
++ #endif
++ 		xdptxd.len = desc.len;
++ #ifdef HAVE_XSK_TX_METADATA_OPS
+++#ifdef HAVE_XSK_BUFF_GET_METADATA_OPTIONS
+++		meta = xsk_buff_get_metadata(pool, desc.addr, desc.options);
+++#else
++ 		meta = xsk_buff_get_metadata(pool, desc.addr);
++ #endif
+++#endif
++ 
++ #ifdef HAVE_XSK_BUFF_ALLOC
++ 		xsk_buff_raw_dma_sync_for_device(pool, xdptxd.dma_addr, xdptxd.len);
+diff --git a/compat/config/rdma.m4 b/compat/config/rdma.m4
+index f9a185a..070595c 100644
+--- a/compat/config/rdma.m4
++++ b/compat/config/rdma.m4
+@@ -4721,6 +4721,14 @@ MLNX_RDMA_TEST_CASE(HAVE_DEVL_RATE_NODES_DESTROY_UNSETS_PARENT, [devl_rate_nodes
+ 		return 0;
+ 	])
+ 
++	MLNX_RDMA_TEST_CASE(HAVE_XSK_BUFF_GET_METADATA_OPTIONS, [xsk_buff_get_metadata has options parameter], [
++		#include <net/xdp_sock_drv.h>
++	],[
++		xsk_buff_get_metadata(NULL, 0, 0);
++
++		return 0;
++	])
++
+ 	MLNX_RDMA_TEST_CASE(HAVE_IRQ_UPDATE_AFFINITY_HINT, [irq_set_affinity_and_hint is defined], [
+ 		#include <linux/interrupt.h>
+ 	],[
+-- 
+2.39.5
+

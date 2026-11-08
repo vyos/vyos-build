@@ -6,11 +6,6 @@ CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
 . ${CWD}/common.sh
 
-if [ $(id -u) -ne 0 ]; then
-  echo "Mellanox OFED script needs to be run as root"
-  exit 1
-fi
-
 require_amd64 "Mellanox OFED"
 
 if [ ! -f ${KERNEL_VAR_FILE} ]; then
@@ -20,25 +15,23 @@ fi
 
 . ${KERNEL_VAR_FILE}
 
-mlxver="24.07-0.6.1.0"
-url="https://www.mellanox.com/downloads/ofed/MLNX_OFED-${mlxver}/MLNX_OFED_SRC-debian-${mlxver}.tgz"
+docaver="3.5.0"
+mlxver="26.07-0.7.7.0"
+url="https://linux.mellanox.com/public/repo/doca/${docaver}/SOURCES/mlnx_ofed/MLNX_OFED_SRC-debian-${mlxver}.tgz"
 
 cd ${CWD}
 
 DRIVER_FILE=$(basename ${url} | sed -e s/tar_0/tar/)
-DRIVER_SHA1="c64defa8fb38dcbce153adc09834ab5cdcecd791"
+DRIVER_SHA256="bbf2a5b56727e5099b3bdc0d1b0e7b8a09b758c78048f715ed90c5730bd64f96"
 
 DRIVER_DIR="${DRIVER_FILE%.tgz}"
 DRIVER_NAME="ofed"
 DRIVER_PRFX="MLNX_OFED"
 DRIVER_VERSION=$(echo ${DRIVER_DIR} | awk -F${DRIVER_PRFX} '{print $2}' | sed 's/^-//;s|_SRC-debian-||')
-DRIVER_VERSION_EXTRA=""
 
 # Build up Debian related variables required for packaging
 DEBIAN_ARCH=$(dpkg --print-architecture)
 DEBIAN_DIR="${CWD}/vyos-mellanox-${DRIVER_NAME}_${DRIVER_VERSION}_${DEBIAN_ARCH}"
-DEBIAN_CONTROL="${DEBIAN_DIR}/DEBIAN/control"
-DEBIAN_POSTINST="${CWD}/vyos-mellanox-ofed.postinst"
 
 # Fetch OFED driver source from Nvidia
 if [ -e ${DRIVER_FILE} ]; then
@@ -50,9 +43,9 @@ if [ "$?" -ne "0" ]; then
 fi
 
 # Verify integrity
-echo "${DRIVER_SHA1} ${DRIVER_FILE}" | sha1sum -c -
+echo "${DRIVER_SHA256} ${DRIVER_FILE}" | sha256sum -c -
 if [ $? != 0 ]; then
-    echo SHA1 checksum mismatch
+    echo SHA256 checksum mismatch
     exit 1
 fi
 
@@ -70,42 +63,68 @@ if [ -z $KERNEL_DIR ]; then
     exit 1
 fi
 
-rm -f SOURCES/ibarr_*.tar.gz
-rm -f SOURCES/ibdump_*.tar.gz
-rm -f SOURCES/ibsim_*.tar.gz
-rm -f SOURCES/iser_*.tar.gz
-rm -f SOURCES/isert_*.tar.gz
-rm -f SOURCES/kernel-mft_*.tar.gz
-rm -f SOURCES/knem_*.tar.gz
-rm -f SOURCES/libvma_*.tar.gz
-rm -f SOURCES/libxlio_*.tar.gz
-rm -f SOURCES/mlnx-ethtool_*.tar.gz
-rm -f SOURCES/mlnx-iproute2_*.tar.gz
-rm -f SOURCES/mlnx-nfsrdma_*.tar.gz
-rm -f SOURCES/mlnx-nvme_*.tar.gz
-rm -f SOURCES/mlx-steering-dump_*.tar.gz
-rm -f SOURCES/mpitests_*.tar.gz
-rm -f SOURCES/mstflint_*.tar.gz
-rm -f SOURCES/ofed-scripts_*.tar.gz
-rm -f SOURCES/openmpi_*.tar.gz
-rm -f SOURCES/openvswitch_*.tar.gz
-rm -f SOURCES/perftest_*.tar.gz
-rm -f SOURCES/rdma-core_*.tar.gz
-rm -f SOURCES/rshim_*.tar.gz
-rm -f SOURCES/sockperf_*.tar.gz
-rm -f SOURCES/srp_*.tar.gz
-rm -f SOURCES/ucx_*.tar.gz
+rm -f SOURCES/ibarr_*.tar.*
+rm -f SOURCES/ibdump_*.tar.*
+rm -f SOURCES/ibsim_*.tar.*
+rm -f SOURCES/iser_*.tar.*
+rm -f SOURCES/isert_*.tar.*
+rm -f SOURCES/kernel-mft_*.tar.*
+rm -f SOURCES/libvma_*.tar.*
+rm -f SOURCES/libxlio_*.tar.*
+rm -f SOURCES/mlnx-ethtool_*.tar.*
+rm -f SOURCES/mlnx-iproute2_*.tar.*
+rm -f SOURCES/mlnx-nfsrdma_*.tar.*
+rm -f SOURCES/mlnx-nvme_*.tar.*
+rm -f SOURCES/mlx-steering-dump_*.tar.*
+rm -f SOURCES/ofed-scripts_*.tar.*
+rm -f SOURCES/openmpi_*.tar.*
+rm -f SOURCES/perftest_*.tar.*
+rm -f SOURCES/rdma-core_*.tar.*
+rm -f SOURCES/rshim_*.tar.*
+rm -f SOURCES/sockperf_*.tar.*
+rm -f SOURCES/srp_*.tar.*
+rm -f SOURCES/ucx_*.tar.*
+rm -f SOURCES/virtiofs_*.tar.*
+rm -f SOURCES/xpmem_*.tar.*
 
+# install.pl builds from the orig tarballs in SOURCES, patch them in place
+PATCH_DIR=${CWD}/patches/mlnx-ofed-kernel
+if [ -d ${PATCH_DIR} ]; then
+    ORIG_TAR=$(ls SOURCES/mlnx-ofed-kernel_*.orig.tar.xz)
+    ORIG_DIR=$(mktemp -d)
+    tar -C ${ORIG_DIR} -xf ${ORIG_TAR}
+    for patch in $(ls ${PATCH_DIR})
+    do
+        echo "I: Apply patch: ${PATCH_DIR}/${patch}"
+        patch -d ${ORIG_DIR}/mlnx-ofed-kernel-* -p1 < ${PATCH_DIR}/${patch}
+    done
+    tar -C ${ORIG_DIR} -cJf ${ORIG_TAR} .
+    rm -rf ${ORIG_DIR}
+fi
+
+# --build-only keeps install.pl from touching the host's packages so no root
+# is needed. It is only accepted with --kernel-only, whose module set is
+# trimmed back to what was built before. Build dependencies are left to
+# dpkg-buildpackage, the install.pl check would try to apt-get them.
 ./install.pl \
-  --basic --dpdk \
+  --kernel-only --build-only \
+  --without-depcheck \
   --without-dkms \
   --without-mlnx-nvme-modules \
-  --with-vma --vma-vpi --vma-eth \
-  --guest --hypervisor \
+  --without-sdp --without-srpt --without-rds \
+  --without-e_ipoib --without-nfsrdma \
   --builddir ${DEBIAN_DIR}/mlx \
   --distro ${DEB_DISTRO} \
   --kernel-sources ${KERNEL_DIR} \
   --kernel ${KERNEL_VERSION}${KERNEL_SUFFIX}
+
+# mlnx-ofed-kernel-utils depends on mlnx-tools, which --kernel-only skips
+MLNX_TOOLS_DIR=${DEBIAN_DIR}/mlx/mlnx-tools
+mkdir -p ${MLNX_TOOLS_DIR}
+tar -C ${MLNX_TOOLS_DIR} -xf $(ls SOURCES/mlnx-tools_*.orig.tar.xz)
+(cd ${MLNX_TOOLS_DIR}/mlnx-tools-* && dpkg-buildpackage -us -uc -b)
+mkdir -p DEBS/${DEB_DISTRO}/x86_64
+cp ${MLNX_TOOLS_DIR}/mlnx-tools_*.deb DEBS/${DEB_DISTRO}/x86_64/
 
 if [ $DROP_DEV_DBG_DEBS -eq 1 ]; then
   echo "I: Removing development and debug packages"
@@ -123,9 +142,11 @@ TMP_DIR="tmp-ofed-sign"
 dpkg-deb --raw-extract ${DEB_NAME} ${TMP_DIR}
 # Sign generated Kernel modules
 ${CWD}/sign-modules.sh ${TMP_DIR}
+# Signing compresses the modules, md5sums still lists the plain .ko files
+(cd ${TMP_DIR} && find . -path ./DEBIAN -prune -o -type f -printf '%P\n' | sort | xargs md5sum > DEBIAN/md5sums)
 # Cleanup and repack DEB
 rm -f ${DEB_NAME}
-dpkg-deb --build ${TMP_DIR} ${DEB_NAME}
+dpkg-deb --build --root-owner-group ${TMP_DIR} ${DEB_NAME}
 rm -rf ${TMP_DIR}
 
 if [ -f ${DRIVER_FILE} ]; then
