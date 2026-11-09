@@ -710,7 +710,7 @@ def basic_cli_tests(c):
     c.sendline('show version')
     c.expect(op_mode_prompt)
     c.sendline('show version kernel')
-    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["kernel_flavor"]}')
+    c.expect(f'{vyos_defaults["kernel_version"]}-{vyos_defaults["kernel_revision"]}-{vyos_defaults["kernel_flavor"]}')
     c.expect(op_mode_prompt)
     c.sendline('show version frr')
     c.expect(op_mode_prompt)
@@ -944,7 +944,7 @@ def verify_bootup_scripts(c, log):
     if tmp != '0':
         raise Exception(f'the boot logged {tmp} "omitting directory" errors - '
                         'a bootup script was copied from a split path')
-    log.info('Both bootup hook scripts are usable, nothing was mis-copied')
+    log.info('Both bootup hook scripts are usable, nothing was miss-copied')
 
 
 def verify_eth_mac_mapping(c, log, count=8):

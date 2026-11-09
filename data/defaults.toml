@@ -15,6 +15,7 @@ vyos_branch = "rolling"
 release_train = "rolling"
 
 kernel_version = "6.18.60"
+kernel_revision = "1"
 kernel_flavor = "vyos"
 bootloaders = "syslinux,grub-efi"
 

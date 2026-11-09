@@ -27,8 +27,15 @@ if [ -z "${KERNEL_FLAVOR}" ]; then
     exit 1
 fi
 
+if [ -z "${KERNEL_REVISION}" ]; then
+    echo "E: KERNEL_REVISION is not set, run via ./build.py so it can be passed from data/defaults.toml"
+    exit 1
+fi
+
 KERNEL_VERSION=$(make kernelversion)
-KERNEL_SUFFIX=-${KERNEL_FLAVOR}
+# VyOS internal revision, e.g. 6.18.60-1-vyos - bumped when rebuilding the same
+# upstream version with additional patches
+KERNEL_SUFFIX=-${KERNEL_REVISION}-${KERNEL_FLAVOR}
 
 echo "I: Generate Kernel config"
 ARCH=$(dpkg --print-architecture)
@@ -131,7 +138,7 @@ EOF
 
 echo "I: Build Debian Kernel package"
 touch .scmversion
-make bindeb-pkg BUILD_TOOLS=1 LOCALVERSION=${KERNEL_SUFFIX} KDEB_PKGVERSION=${KERNEL_VERSION}-1 -j $(getconf _NPROCESSORS_ONLN)
+make bindeb-pkg BUILD_TOOLS=1 LOCALVERSION=${KERNEL_SUFFIX} KDEB_PKGVERSION=${KERNEL_VERSION}-${KERNEL_REVISION} -j $(getconf _NPROCESSORS_ONLN)
 
 # Back to the old Kernel build-scripts directory
 cd $CWD
