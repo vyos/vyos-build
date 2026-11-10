@@ -658,21 +658,28 @@ def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
 
         # The countdown is printed after all menu entries have been drawn.
         child.expect(
-            rb'The highlighted entry will be executed automatically in \d+s\.',
+            rb'The highlighted entry will be executed automatically in (\d+)s\.',
             timeout=120,
         )
+        # Until a key is confirmed, an unacknowledged Home is resent without
+        # using up an attempt, as long as the countdown may still be running.
+        autoboot = time.monotonic() + int(child.match.group(1)) - 2
 
         # A missing acknowledgement does not tell us whether the key was received.
         # Restart from Home instead of repeating Down from an unknown selection.
-        for _ in range(3):
+        attempts = 3
+        while attempts:
             if child.eof():
                 raise RuntimeError('QEMU exited during GRUB menu selection')
 
             # Ctrl-A is Home without the EFI console's escape-sequence parsing.
             child.sendcontrol('a')
-            # Retry a dropped Home before the 10-second autoboot timeout expires.
             if not expectSelected(b'Live system (vyos) - KVM console', timeout=1):
+                if time.monotonic() >= autoboot:
+                    attempts -= 1
                 continue
+            # A received key stops the countdown
+            autoboot = 0
 
             for title in (
                 b'Live system (vyos fail-safe mode)',
@@ -685,6 +692,7 @@ def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
             else:
                 child.send(b'\r')
                 return
+            attempts -= 1
 
         raise RuntimeError('Failed to confirm GRUB serial console boot selection after 3 attempts')
     elif live and not args.uefi:
