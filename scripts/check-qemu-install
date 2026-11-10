@@ -666,7 +666,7 @@ def BOOTLOADERchooseSerialConsole(child, live: bool) -> None:
         # Restart from Home instead of repeating Down from an unknown selection.
         for _ in range(3):
             if child.eof():
-                return
+                raise RuntimeError('QEMU exited during GRUB menu selection')
 
             # Ctrl-A is Home without the EFI console's escape-sequence parsing.
             child.sendcontrol('a')
