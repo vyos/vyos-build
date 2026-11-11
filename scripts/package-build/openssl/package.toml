@@ -1,6 +1,6 @@
 [[packages]]
 name = "openssl"
-commit_id = "debian/openssl-3.0.20-1_deb12u2"
+commit_id = "debian/openssl-3.0.22-1_deb12u2"
 scm_url = "https://salsa.debian.org/debian/openssl.git"
 pre_build_hook = "git reset --hard HEAD && git clean -ffdx"
 build_cmd = "sed -i '1s/)/+vyos1)/' debian/changelog && dpkg-buildpackage -us -uc -tc -b"
