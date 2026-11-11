@@ -6,6 +6,7 @@ on:
       - closed
     branches:
       - rolling
+      - scutum
       - circinus
       - sagitta
 
