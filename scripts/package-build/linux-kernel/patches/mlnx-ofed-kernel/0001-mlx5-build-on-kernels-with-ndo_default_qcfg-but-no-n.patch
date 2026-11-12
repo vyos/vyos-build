@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Sun, 8 Nov 2026 09:15:04 +0000
+Subject: [PATCH] mlx5: build on kernels with ndo_default_qcfg but no
+ ndo_validate_qcfg
+
+OFED assumes ndo_default_qcfg and ndo_validate_qcfg arrived together
+(Linux 7.0) and guards both with HAVE_NDO_DEFAULT_QCFG. Linux 6.18.y
+stable backported the queue config struct and ndo_default_qcfg without
+ndo_validate_qcfg, so the mlx5 driver fails to compile.
+
+Add a separate HAVE_NDO_VALIDATE_QCFG feature test and a backport patch
+which only wires up the validate callback if the kernel provides it.
+---
+ .../0379-BACKPORT-ndo_validate_qcfg.patch     | 28 +++++++++++++++++++
+ compat/config/rdma.m4                         | 18 ++++++++++++
+ 2 files changed, 46 insertions(+)
+ create mode 100644 backports/0379-BACKPORT-ndo_validate_qcfg.patch
+
+diff --git a/backports/0379-BACKPORT-ndo_validate_qcfg.patch b/backports/0379-BACKPORT-ndo_validate_qcfg.patch
+new file mode 100644
+index 0000000..f0baf3c
+--- /dev/null
++++ b/backports/0379-BACKPORT-ndo_validate_qcfg.patch
+@@ -0,0 +1,28 @@
++--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++@@ -6879,6 +6879,7 @@ static void mlx5e_queue_default_qcfg(str
++ 	qcfg->rx_page_size = PAGE_SIZE;
++ }
++ 
+++#ifdef HAVE_NDO_VALIDATE_QCFG
++ static int mlx5e_queue_validate_qcfg(struct net_device *dev,
++ 				     struct netdev_queue_config *qcfg,
++ 				     struct netlink_ext_ack *extack)
++@@ -6903,6 +6904,7 @@ static int mlx5e_queue_validate_qcfg(str
++ 
++ 	return 0;
++ }
+++#endif /* HAVE_NDO_VALIDATE_QCFG */
++ 
++ static bool mlx5e_queue_validate_page_size(struct net_device *dev,
++ 					   struct netdev_queue_config *qcfg,
++@@ -7067,7 +7069,9 @@ static const struct netdev_queue_mgmt_op
++ #ifdef HAVE_NDO_DEFAULT_QCFG
++ 	/* Newer kernels (7.0+): qcfg sub-feature on netdev_queue_mgmt_ops */
++ 	.ndo_default_qcfg       =	mlx5e_queue_default_qcfg,
+++#ifdef HAVE_NDO_VALIDATE_QCFG
++ 	.ndo_validate_qcfg	=	mlx5e_queue_validate_qcfg,
+++#endif
++ 	.supported_params       =	QCFG_RX_PAGE_SIZE,
++ #endif
++ };
+diff --git a/compat/config/rdma.m4 b/compat/config/rdma.m4
+index 02aeb4d..f9a185a 100644
+--- a/compat/config/rdma.m4
++++ b/compat/config/rdma.m4
+@@ -4703,6 +4703,24 @@ MLNX_RDMA_TEST_CASE(HAVE_DEVL_RATE_NODES_DESTROY_UNSETS_PARENT, [devl_rate_nodes
+ 		return 0;
+ 	])
+ 
++	MLNX_RDMA_TEST_CASE(HAVE_NDO_VALIDATE_QCFG, [struct netdev_queue_mgmt_ops has ndo_validate_qcfg], [
++		#include <net/netdev_queues.h>
++
++		static int test_validate(struct net_device *dev, struct netdev_queue_config *qcfg,
++					 struct netlink_ext_ack *extack);
++		static int test_validate(struct net_device *dev, struct netdev_queue_config *qcfg,
++					 struct netlink_ext_ack *extack)
++		{
++			return 0;
++		}
++	],[
++		struct netdev_queue_mgmt_ops ops = {
++			.ndo_validate_qcfg = test_validate,
++		};
++
++		return 0;
++	])
++
+ 	MLNX_RDMA_TEST_CASE(HAVE_IRQ_UPDATE_AFFINITY_HINT, [irq_set_affinity_and_hint is defined], [
+ 		#include <linux/interrupt.h>
+ 	],[
+-- 
+2.39.5
+

@@ -1,0 +1,102 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Sun, 8 Nov 2026 13:21:54 +0000
+Subject: [PATCH] debian: do not ship build sources in the modules package
+
+Without DKMS the modules package still installs headers, compat sources
+and Module.symvers to /usr/src/ofa_kernel, and registers them as an
+alternative, so further modules can be compiled on the target system.
+
+VyOS ships precompiled modules only and never builds kernel code on the
+target. Drop the source tree and the maintainer scripts which only
+managed its alternative.
+---
+ debian/mlnx-ofed-kernel-modules.postinst | 17 -----------------
+ debian/mlnx-ofed-kernel-modules.prerm    | 10 ----------
+ debian/rules                             | 22 ----------------------
+ 3 files changed, 49 deletions(-)
+ delete mode 100755 debian/mlnx-ofed-kernel-modules.postinst
+ delete mode 100755 debian/mlnx-ofed-kernel-modules.prerm
+
+diff --git a/debian/mlnx-ofed-kernel-modules.postinst b/debian/mlnx-ofed-kernel-modules.postinst
+deleted file mode 100755
+index a67c0c4..0000000
+--- a/debian/mlnx-ofed-kernel-modules.postinst
++++ /dev/null
+@@ -1,17 +0,0 @@
+-#!/bin/bash
+-
+-symlink="/usr/src/ofa_kernel/default"
+-if [ "$1" = "configure" ]; then
+-	if [ -L "$symlink" ] && \
+-		! update-alternatives --list ofa_kernel_headers >/dev/null 2>&1;
+-	then
+-		rm -f "$symlink"
+-	fi
+-	mkdir -p /usr/src/ofa_kernel
+-	update-alternatives --install "$symlink" ofa_kernel_headers \
+-	  /usr/src/ofa_kernel/@ARCH@/@KVER@ 30
+-fi
+-
+-#DEBHELPER#
+-
+-exit 0
+diff --git a/debian/mlnx-ofed-kernel-modules.prerm b/debian/mlnx-ofed-kernel-modules.prerm
+deleted file mode 100755
+index 6f1b1df..0000000
+--- a/debian/mlnx-ofed-kernel-modules.prerm
++++ /dev/null
+@@ -1,10 +0,0 @@
+-#!/bin/sh
+-
+-set -e
+-
+-if [ "$1" = remove ]; then
+-    update-alternatives --remove ofa_kernel_headers \
+-      /usr/src/ofa_kernel/@ARCH@/@KVER@
+-fi
+-
+-#DEBHELPER#
+diff --git a/debian/rules b/debian/rules
+index 775cadd..2570424 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -112,22 +112,6 @@ endif
+ endif
+ 
+ 
+-	#
+-	# Sources for building stuff over MLNX_OFED
+-	#
+-	# With DKMS, copy the below files and folders during post_build since the
+-	# new DKMS versions started to remove the whole build directory.
+-	# however, some old versions of DKMS are buggy and ignores POST_BUILD
+-ifeq ($(WITH_DKMS),1)
+-else
+-	dh_installdirs -p$(pdkms)  $(mod_dev_dir)
+-	cp -a include/			debian/$(pdkms)$(mod_dev_dir)
+-	cp -a config*			debian/$(pdkms)$(mod_dev_dir)
+-	cp -a compat*			debian/$(pdkms)$(mod_dev_dir)
+-	cp -a ofed_scripts		debian/$(pdkms)$(mod_dev_dir)
+-	cp -a Module*.symvers		debian/$(pdkms)$(mod_dev_dir)
+-endif
+-
+ 	# Force DKMS to install our modules.
+ 	# This is mostly needed for modules that do not have a version number info, as DKMS
+ 	# will compare their srcversion field, which does not really say which module is newer.
+@@ -178,12 +162,6 @@ ifeq ($(DKMS3),1)
+ 	# versions:
+ 	echo "activate-await update-initramfs" >debian/$(pdkms)/DEBIAN/triggers
+ endif
+-else
+-	sed -i \
+-		-e 's/@KVER@/$(kernelver)/' \
+-		-e 's/@ARCH@/$(deb_arch)/' \
+-		debian/$(pdkms)/DEBIAN/postinst \
+-		debian/$(pdkms)/DEBIAN/prerm
+ endif
+ 
+ ifneq ($(MLNX_KO_NO_STRIP),1)
+-- 
+2.39.5
+

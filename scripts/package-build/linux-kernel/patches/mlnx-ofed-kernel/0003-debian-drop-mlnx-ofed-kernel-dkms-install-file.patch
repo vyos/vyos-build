@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Sun, 8 Nov 2026 09:32:47 +0000
+Subject: [PATCH] debian: drop mlnx-ofed-kernel-dkms install file
+
+The dkms package is excluded by the "modules" build profile, but
+dh_install still evaluates the install files of all packages to support
+dh_missing. This file is a dh-exec script and dh-exec is only a build
+dependency outside of the "modules" profile, so building with -Pmodules
+fails unless dh-exec happens to be installed.
+
+The dkms package is never built, drop its install file.
+---
+ debian/mlnx-ofed-kernel-dkms.install | 11 -----------
+ 1 file changed, 11 deletions(-)
+ delete mode 100755 debian/mlnx-ofed-kernel-dkms.install
+
+diff --git a/debian/mlnx-ofed-kernel-dkms.install b/debian/mlnx-ofed-kernel-dkms.install
+deleted file mode 100755
+index d116b98..0000000
+--- a/debian/mlnx-ofed-kernel-dkms.install
++++ /dev/null
+@@ -1,11 +0,0 @@
+-#!/usr/bin/dh-exec
+-source/compat*			usr/src/${pname}-${dkms_version}
+-source/include			usr/src/${pname}-${dkms_version}
+-source/drivers			usr/src/${pname}-${dkms_version}
+-source/fs			usr/src/${pname}-${dkms_version}
+-source/net			usr/src/${pname}-${dkms_version}
+-source/backports		usr/src/${pname}-${dkms_version}
+-source/backports_applied	usr/src/${pname}-${dkms_version}
+-source/ofed_scripts		usr/src/${pname}-${dkms_version}
+-source/COPYING			usr/src/${pname}-${dkms_version}
+-source/debian/changelog		usr/src/${pname}-${dkms_version}/debian
+-- 
+2.39.5
+
