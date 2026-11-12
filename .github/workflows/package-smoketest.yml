@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - rolling
+      - scutum
       - circinus
       - sagitta
     paths:
@@ -16,6 +17,7 @@ on:
   pull_request_target:
     branches:
       - rolling
+      - scutum
       - circinus
       - sagitta
     paths:

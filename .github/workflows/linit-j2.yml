@@ -5,8 +5,9 @@ on:
   pull_request:
     branches:
       - rolling
+      - scutum
+      - circinus
       - sagitta
-      - equuleus
   workflow_dispatch:
 
 permissions:

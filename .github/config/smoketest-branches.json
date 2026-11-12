@@ -5,6 +5,11 @@
       "container_image": "vyos/vyos-build:rolling",
       "use_pat": false
     },
+    "scutum": {
+      "vyos_mirror": "https://packages.vyos.net/repositories/scutum/",
+      "container_image": "vyos/vyos-build:scutum",
+      "use_pat": true
+    },
     "circinus": {
       "vyos_mirror": "https://packages.vyos.net/repositories/circinus/",
       "container_image": "vyos/vyos-build:circinus",
