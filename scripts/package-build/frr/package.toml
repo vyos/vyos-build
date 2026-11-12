@@ -11,7 +11,7 @@ scm_url = "https://salsa.debian.org/sudip/libbpf.git"
 
 [[packages]]
 name = "frr"
-commit_id = "e42337c8d3b80" # stable/10.7 branch
+commit_id = "9d7b378b80fed" # stable/10.7 branch
 scm_url = "https://github.com/FRRouting/frr.git"
 build_cmd = "sudo dpkg -i ../*.deb; dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib,pkg.frr.lua"
 
@@ -41,4 +41,6 @@ packages = [
     "flex",
     "libelf-dev",
     "libbpf-dev",
+    "clang",
+    "bpftool",
 ]
