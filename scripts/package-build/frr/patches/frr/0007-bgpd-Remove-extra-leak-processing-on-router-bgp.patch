@@ -1,0 +1,102 @@
+From a15c226de0746e7922873043bb1f8a8a01a70bd2 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Fri, 6 Nov 2026 17:20:20 +0200
+Subject: [PATCH] bgpd: Remove extra leak processing on router bgp
+
+On each vty command `router bgp` (no vrf) there was a call of
+`vpn_leak_postchange_all` even when there was no change in configuration
+at all.
+
+frr-reload.py can issue a lot of `router bgp` commands for a
+configuration change, which made its usage in such cases very
+time-consuming.
+
+This was introduced in 9f7177af13c4ccf8166bf861994702635703dd9a with
+change:
+
+```
+- if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
++ if (bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+```
+
+After that comment (removed in this commit) became outdated:
+
+```
+* If we just instantiated the default instance, complete
+* any pending VRF-VPN leaking that was configured via
+* earlier "router bgp X vrf FOO" blocks.
+```
+
+`bgp` was always not NULL at that point, so later commit
+25b6751d14900f3a3b6304f5c1292da6516dc119 removed it.
+
+The call is not needed anymore at all after
+94d12dc490d7c4109828e7d4421e7ae0d84c3448 as now
+`vpn_leak_postchange_all` is called from `bgp_ifp_create` on every
+loopback/vrf interface creation message, so when default bgp instance is
+created, it receives these messages and calls this function anyway.
+
+Even one extra call can take a long time when import table is large.
+
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+(cherry picked from commit b7f9a22c56e4d48e9380197735f4a81f168c6e64)
+---
+ bgpd/bgp_mplsvpn.c |  3 ---
+ bgpd/bgp_vty.c     | 10 ++--------
+ bgpd/bgp_zebra.c   |  4 ++++
+ 3 files changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/bgpd/bgp_mplsvpn.c b/bgpd/bgp_mplsvpn.c
+index d2102de61a..a474eb8fa5 100644
+--- a/bgpd/bgp_mplsvpn.c
++++ b/bgpd/bgp_mplsvpn.c
+@@ -4079,9 +4079,6 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
+  *
+  *     router bgp NNN
+  *       ...
+- *
+- * This function gets called when the default instance ("router bgp NNN")
+- * is created.
+  */
+ void vpn_leak_postchange_all(void)
+ {
+diff --git a/bgpd/bgp_vty.c b/bgpd/bgp_vty.c
+index fe9362486f..35367bae6a 100644
+--- a/bgpd/bgp_vty.c
++++ b/bgpd/bgp_vty.c
+@@ -1765,15 +1765,9 @@ DEFUN_NOSH (router_bgp,
+ 			vty_out(vty, "BGP instance not found\n");
+ 			return CMD_WARNING_CONFIG_FAILED;
+ 		}
+-		/*
+-		 * If we just instantiated the default instance, complete
+-		 * any pending VRF-VPN leaking that was configured via
+-		 * earlier "router bgp X vrf FOO" blocks.
+-		 */
+-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
++
++		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+ 			bgp_need_listening(bgp, vty);
+-			vpn_leak_postchange_all();
+-		}
+ 
+ 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
+ 			bgp_vpn_leak_export(bgp);
+diff --git a/bgpd/bgp_zebra.c b/bgpd/bgp_zebra.c
+index 89bfa54016..a903c318a6 100644
+--- a/bgpd/bgp_zebra.c
++++ b/bgpd/bgp_zebra.c
+@@ -3688,6 +3688,10 @@ static int bgp_ifp_create(struct interface *ifp)
+ 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+ 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+ 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
++		/* Be careful when changing: this call is also responsible for
++		 * processing deferred route leaks when default BGP instance is
++		 * created
++		 */
+ 		vpn_leak_postchange_all();
+ 	}
+ 
+-- 
+2.54.0
+
