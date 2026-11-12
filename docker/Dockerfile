@@ -319,12 +319,6 @@ RUN echo "deb http://deb.debian.org/debian bookworm-backports main" \
       && apt-get update \
       && apt install -y -t bookworm-backports meson
 
-# Needed for FRR's EVPN MH Split Horizon Filter
-RUN apt-get update && apt-get install -y \
-      clang \
-      llvm \
-      bpftool
-
 # Creating image for embedded systems needs this utilities to prepare a image file
 RUN apt-get update && apt-get install -y \
       parted \
