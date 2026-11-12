@@ -257,10 +257,6 @@ CONFIG_TRACEPOINTS=y
 # Kexec and crash features
 #
 CONFIG_KEXEC_CORE=y
-CONFIG_KEXEC=y
-CONFIG_KEXEC_FILE=y
-CONFIG_KEXEC_SIG=y
-# CONFIG_CRASH_DUMP is not set
 # end of Kexec and crash features
 # end of General setup
 
