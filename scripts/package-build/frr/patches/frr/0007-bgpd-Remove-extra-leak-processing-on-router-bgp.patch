@@ -1,4 +1,4 @@
-From a15c226de0746e7922873043bb1f8a8a01a70bd2 Mon Sep 17 00:00:00 2001
+From 88d673d27f5bc781e33a92ad036fba32ee8e45b3 Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Fri, 6 Nov 2026 17:20:20 +0200
 Subject: [PATCH] bgpd: Remove extra leak processing on router bgp
@@ -47,7 +47,7 @@ Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
  3 files changed, 6 insertions(+), 11 deletions(-)
 
 diff --git a/bgpd/bgp_mplsvpn.c b/bgpd/bgp_mplsvpn.c
-index d2102de61a..a474eb8fa5 100644
+index 0047ba4d19..c47f373bf7 100644
 --- a/bgpd/bgp_mplsvpn.c
 +++ b/bgpd/bgp_mplsvpn.c
 @@ -4079,9 +4079,6 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
@@ -61,10 +61,10 @@ index d2102de61a..a474eb8fa5 100644
  void vpn_leak_postchange_all(void)
  {
 diff --git a/bgpd/bgp_vty.c b/bgpd/bgp_vty.c
-index fe9362486f..35367bae6a 100644
+index 26f7a0ed05..3a446ac9cd 100644
 --- a/bgpd/bgp_vty.c
 +++ b/bgpd/bgp_vty.c
-@@ -1765,15 +1765,9 @@ DEFUN_NOSH (router_bgp,
+@@ -1770,15 +1770,9 @@ DEFUN_NOSH (router_bgp,
  			vty_out(vty, "BGP instance not found\n");
  			return CMD_WARNING_CONFIG_FAILED;
  		}
@@ -83,7 +83,7 @@ index fe9362486f..35367bae6a 100644
  		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
  			bgp_vpn_leak_export(bgp);
 diff --git a/bgpd/bgp_zebra.c b/bgpd/bgp_zebra.c
-index 89bfa54016..a903c318a6 100644
+index 0ba4a9f50f..bfd7958b01 100644
 --- a/bgpd/bgp_zebra.c
 +++ b/bgpd/bgp_zebra.c
 @@ -3688,6 +3688,10 @@ static int bgp_ifp_create(struct interface *ifp)

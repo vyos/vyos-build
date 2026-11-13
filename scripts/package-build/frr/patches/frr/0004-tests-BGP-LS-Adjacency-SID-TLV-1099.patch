@@ -1,7 +1,7 @@
-From 7b51fe0ff14f1a44520a82281518fe60cdf9c9b0 Mon Sep 17 00:00:00 2001
+From 60909f55df7a4103fdbc26c78c5980fa6d2adbee Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Thu, 30 Apr 2026 12:36:54 +0300
-Subject: [PATCH 1/3] tests: BGP-LS Adjacency SID (TLV 1099)
+Subject: [PATCH] tests: BGP-LS Adjacency SID (TLV 1099)
 
 Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
 ---
@@ -12,7 +12,7 @@ Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
 
 diff --git a/tests/topotests/bgp_link_state/rr/bgp_ls_attrs_link43.json b/tests/topotests/bgp_link_state/rr/bgp_ls_attrs_link43.json
 new file mode 100644
-index 000000000000..4ce4cb631b4d
+index 0000000000..4ce4cb631b
 --- /dev/null
 +++ b/tests/topotests/bgp_link_state/rr/bgp_ls_attrs_link43.json
 @@ -0,0 +1,14 @@
@@ -31,7 +31,7 @@ index 000000000000..4ce4cb631b4d
 +	]
 +}
 diff --git a/tests/topotests/bgp_link_state/test_bgp_link_state.py b/tests/topotests/bgp_link_state/test_bgp_link_state.py
-index fba67d0f54aa..cfb0ab8bd9d0 100644
+index 1607a6f834..0fcdbeb131 100644
 --- a/tests/topotests/bgp_link_state/test_bgp_link_state.py
 +++ b/tests/topotests/bgp_link_state/test_bgp_link_state.py
 @@ -473,6 +473,21 @@ def test_bgp_ls_attributes_consumer():
@@ -56,11 +56,13 @@ index fba67d0f54aa..cfb0ab8bd9d0 100644
  
  def test_bgp_ls_static_route_add():
      """Test adding a static route and verifying BGP-LS update"""
+-- 
+2.54.0
 
-From 369b7720f5f3c256855657db512ceb579ebe2b1d Mon Sep 17 00:00:00 2001
+From 87005bbdf9d1c2fe3bb72b4d288bcd69947a1c96 Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Tue, 12 May 2026 09:20:20 +0300
-Subject: [PATCH 2/3] bgpd: BGP-LS: add protocol id to attr processing
+Subject: [PATCH] bgpd: BGP-LS: add protocol id to attr processing
 
 Some TLVs need protocol id to be parsed/encoded properly.
 
@@ -82,10 +84,10 @@ Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
  6 files changed, 169 insertions(+), 14 deletions(-)
 
 diff --git a/bgpd/bgp_attr.c b/bgpd/bgp_attr.c
-index 23bd6185f142..50ec97a0fd6c 100644
+index ddaf7fc919..24abebb988 100644
 --- a/bgpd/bgp_attr.c
 +++ b/bgpd/bgp_attr.c
-@@ -4271,8 +4271,52 @@ static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
+@@ -4265,8 +4265,52 @@ otc_ignore:
  	return bgp_attr_ignore(peer, args->type);
  }
  
@@ -139,7 +141,7 @@ index 23bd6185f142..50ec97a0fd6c 100644
  {
  	struct peer_connection *const connection = args->connection;
  	struct peer *const peer = connection->peer;
-@@ -4280,13 +4324,16 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
+@@ -4274,13 +4318,16 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
  	const size_t attr_startp = stream_get_getp(connection->curr);
  	int ret;
  	struct bgp_ls_attr *ls_attr;
@@ -157,7 +159,7 @@ index 23bd6185f142..50ec97a0fd6c 100644
  	if (ret != 0) {
  		bgp_ls_attr_free(ls_attr);
  		flog_warn(EC_BGP_LS_PACKET, "%s: malformed BGP-LS Attribute, discarding attribute",
-@@ -4670,7 +4717,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
+@@ -4688,7 +4735,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
  			ret = bgp_attr_nhc(&attr_args);
  			break;
  		case BGP_ATTR_LINK_STATE:
@@ -184,7 +186,7 @@ index 23bd6185f142..50ec97a0fd6c 100644
  
  	if (ret < 0) {
  		/* No attributes or encoding failed - rollback the stream */
-@@ -6122,7 +6169,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
+@@ -5998,7 +6045,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
  
  	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
  	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
@@ -194,7 +196,7 @@ index 23bd6185f142..50ec97a0fd6c 100644
  	/* draft-ietf-idr-entropy-label */
  	if (peergroup_flag_check(peer, PEER_FLAG_SEND_NHC_ATTRIBUTE))
 diff --git a/bgpd/bgp_ls_nlri.c b/bgpd/bgp_ls_nlri.c
-index 9996ab069505..ff37c451d3c9 100644
+index 9996ab0695..ff37c451d3 100644
 --- a/bgpd/bgp_ls_nlri.c
 +++ b/bgpd/bgp_ls_nlri.c
 @@ -1030,6 +1030,28 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
@@ -323,7 +325,7 @@ index 9996ab069505..ff37c451d3c9 100644
  	uint16_t type, length;
  	size_t end_pos = stream_get_getp(s) + total_length;
 diff --git a/bgpd/bgp_ls_nlri.h b/bgpd/bgp_ls_nlri.h
-index feacfebdefb4..dc3b814d12f7 100644
+index feacfebdef..dc3b814d12 100644
 --- a/bgpd/bgp_ls_nlri.h
 +++ b/bgpd/bgp_ls_nlri.h
 @@ -851,6 +851,9 @@ extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
@@ -370,7 +372,7 @@ index feacfebdefb4..dc3b814d12f7 100644
  /*
   * Convert BGP-LS Attributes to JSON object
 diff --git a/bgpd/bgp_ls_ted.c b/bgpd/bgp_ls_ted.c
-index 993f5dcd70fe..076455bfe9b7 100644
+index 993f5dcd70..076455bfe9 100644
 --- a/bgpd/bgp_ls_ted.c
 +++ b/bgpd/bgp_ls_ted.c
 @@ -182,7 +182,8 @@ static void bgp_ls_populate_srv6_adj_sid(struct bgp_ls_attr *attr,
@@ -393,7 +395,7 @@ index 993f5dcd70fe..076455bfe9b7 100644
  		bgp_ls_attr_free(ls_attr);
  		return -1;
 diff --git a/bgpd/bgp_ls_ted.h b/bgpd/bgp_ls_ted.h
-index 6eb6579a49d6..f706322460ab 100644
+index 6eb6579a49..f706322460 100644
 --- a/bgpd/bgp_ls_ted.h
 +++ b/bgpd/bgp_ls_ted.h
 @@ -11,6 +11,8 @@
@@ -419,10 +421,10 @@ index 6eb6579a49d6..f706322460ab 100644
  /*
   * Populate BGP-LS Attributes from Link State Prefix
 diff --git a/bgpd/bgp_updgrp_packet.c b/bgpd/bgp_updgrp_packet.c
-index 6cd31f74b9f5..ea48fc92c80f 100644
+index bb3055a3a1..3abd645ce3 100644
 --- a/bgpd/bgp_updgrp_packet.c
 +++ b/bgpd/bgp_updgrp_packet.c
-@@ -786,7 +786,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
+@@ -762,7 +762,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
  			total_attr_len = bgp_packet_attribute(NULL, peer, s, adv->baa->attr,
  							      &vecarr, NULL, afi, safi, from, NULL,
  							      NULL, 0, dest->srv6_unicast, 0, 0,
@@ -431,11 +433,13 @@ index 6cd31f74b9f5..ea48fc92c80f 100644
  			space_remaining =
  				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
  				- BGP_MAX_PACKET_SIZE_OVERFLOW;
+-- 
+2.54.0
 
-From 0c1d6a72af4111b2eba4b70db6a019f760d3d603 Mon Sep 17 00:00:00 2001
+From 1116e54f195c27bb947a797416abcfe99d5f50fc Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Tue, 12 May 2026 09:36:43 +0300
-Subject: [PATCH 3/3] bgpd: BGP-LS: add Adjacency SID (TLV 1099)
+Subject: [PATCH] bgpd: BGP-LS: add Adjacency SID (TLV 1099)
 
 Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
 ---
@@ -445,7 +449,7 @@ Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
  3 files changed, 233 insertions(+), 7 deletions(-)
 
 diff --git a/bgpd/bgp_ls_nlri.c b/bgpd/bgp_ls_nlri.c
-index ff37c451d3c9..02f706691030 100644
+index ff37c451d3..02f7066910 100644
 --- a/bgpd/bgp_ls_nlri.c
 +++ b/bgpd/bgp_ls_nlri.c
 @@ -449,6 +449,19 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
@@ -698,7 +702,7 @@ index ff37c451d3c9..02f706691030 100644
  	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT)) {
  		CHECK_WRAP();
 diff --git a/bgpd/bgp_ls_nlri.h b/bgpd/bgp_ls_nlri.h
-index dc3b814d12f7..0cb5c4d0c2be 100644
+index dc3b814d12..0cb5c4d0c2 100644
 --- a/bgpd/bgp_ls_nlri.h
 +++ b/bgpd/bgp_ls_nlri.h
 @@ -442,6 +442,16 @@ enum bgp_ls_attr_tlv {
@@ -749,7 +753,7 @@ index dc3b814d12f7..0cb5c4d0c2be 100644
   * ===========================================================================
   * NLRI Decoding Functions
 diff --git a/bgpd/bgp_ls_ted.c b/bgpd/bgp_ls_ted.c
-index 076455bfe9b7..eaa7ed3698e2 100644
+index 076455bfe9..eaa7ed3698 100644
 --- a/bgpd/bgp_ls_ted.c
 +++ b/bgpd/bgp_ls_ted.c
 @@ -109,6 +109,35 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
@@ -801,3 +805,6 @@ index 076455bfe9b7..eaa7ed3698e2 100644
  	/* Remote IPv4 Router-ID (TLV 1030) */
  	if (CHECK_FLAG(ls_attr->flags, LS_ATTR_REMOTE_ADDR)) {
  		attr->ipv4_router_id_remote = ls_attr->standard.remote_addr;
+-- 
+2.54.0
+
