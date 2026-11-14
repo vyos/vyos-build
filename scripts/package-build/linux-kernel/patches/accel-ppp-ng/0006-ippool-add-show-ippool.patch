@@ -1,0 +1,92 @@
+From 5f2d3e2e24e124decb7e7f8ac6e1efe5442b333a Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Fri, 9 Oct 2026 23:20:00 +0000
+Subject: [PATCH 6/6] ippool: add "show ippool"
+
+Without this there is no way to observe what a pool actually contains -
+the only visible effect is which address the next session happens to get.
+That makes the reload behaviour effectively untestable on a live box:
+whether a range was picked up, whether a shrunk pool stopped offering an
+address, and whether a retired pool is still draining are all invisible.
+
+Reports per pool the number of free and leased addresses, the next= pool
+if one is set, and whether the pool has been retired by a reload and is
+waiting for its outstanding leases to come back.
+
+Read-only, and resolved from the accel-pppd binary at load time the same
+way shaper.c already uses the cli_* helpers.
+---
+ accel-pppd/extra/ippool.c | 46 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+
+diff --git a/accel-pppd/extra/ippool.c b/accel-pppd/extra/ippool.c
+index 3a6101b..f89ae20 100644
+--- a/accel-pppd/extra/ippool.c
++++ b/accel-pppd/extra/ippool.c
+@@ -12,6 +12,7 @@
+ #include "backup.h"
+ #include "ap_session_backup.h"
+ 
++#include "cli.h"
+ #include "ipdb.h"
+ 
+ #ifdef RADIUS
+@@ -1188,6 +1189,49 @@ static void ippool_reload(void)
+ 		free(leased.arr);
+ }
+ 
++static void show_pool(void *client, struct ippool_t *p)
++{
++	struct ippool_item_t *it;
++	unsigned int free_cnt = 0, used_cnt = 0;
++
++	spin_lock(&p->lock);
++	list_for_each_entry(it, &p->items, entry)
++		free_cnt++;
++	list_for_each_entry(it, &p->used, entry)
++		used_cnt++;
++	spin_unlock(&p->lock);
++
++	cli_sendv(client, "  %s: free %u, used %u",
++		  p->name ? p->name : "<default>", free_cnt, used_cnt);
++
++	if (p->next && p->next->name)
++		cli_sendv(client, ", next %s", p->next->name);
++
++	if (p->dead)
++		cli_send(client, " (retired, draining)");
++
++	cli_send(client, "\r\n");
++}
++
++static int show_pool_exec(const char *cmd, char * const *fields,
++			  int fields_cnt, void *client)
++{
++	struct ippool_t *p;
++
++	cli_send(client, "ip-pool:\r\n");
++
++	if (def_pool)
++		show_pool(client, def_pool);
++
++	list_for_each_entry(p, &pool_list, entry)
++		show_pool(client, p);
++
++	list_for_each_entry(p, &dead_pools, entry)
++		show_pool(client, p);
++
++	return CLI_CMD_OK;
++}
++
+ static void ippool_init2(void)
+ {
+ 	if (!conf_get_section("ip-pool"))
+@@ -1204,6 +1248,8 @@ static void ippool_init2(void)
+ 		triton_event_register_handler(EV_RADIUS_ACCESS_ACCEPT, (triton_event_func)ev_radius_access_accept);
+ #endif
+ 
++	cli_register_simple_cmd2(show_pool_exec, NULL, 2, "show", "ippool");
++
+ 	triton_event_register_handler(EV_CONFIG_RELOAD, (triton_event_func)ippool_reload);
+ }
+ 
