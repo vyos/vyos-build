@@ -1,4 +1,4 @@
-From 7a8296a9024fa007624b9adba5e29879f6d376de Mon Sep 17 00:00:00 2001
+From 99304ce554f3a48daf5021d353cd992ecb2dd629 Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Thu, 26 Feb 2026 14:38:17 +0200
 Subject: [PATCH] ospf6d: Fix router LSA when no new BDR elected
@@ -59,5 +59,5 @@ index e1ce158660..f74bf0725e 100644
  
  void interface_down(struct event *event)
 -- 
-2.39.5
+2.54.0
 

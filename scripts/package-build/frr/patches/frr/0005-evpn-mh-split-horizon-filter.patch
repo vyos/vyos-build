@@ -1,4 +1,4 @@
-From 8ddb41618b1e3b8c15d5a9cce4dd4854ae230b5b Mon Sep 17 00:00:00 2001
+From c239c1f24b59dec1d070d1d744a10f0b4a9b73d2 Mon Sep 17 00:00:00 2001
 From: Kyrylo Yatsenko <hedrok@gmail.com>
 Date: Thu, 15 Oct 2026 22:11:34 +0300
 Subject: [PATCH] zebra: Add Split Horizon Filter implementation

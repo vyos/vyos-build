@@ -13,7 +13,11 @@ scm_url = "https://salsa.debian.org/sudip/libbpf.git"
 name = "frr"
 commit_id = "9d7b378b80fed" # stable/10.7 branch
 scm_url = "https://github.com/FRRouting/frr.git"
-build_cmd = "sudo dpkg -i ../*.deb; dpkg-buildpackage -us -uc -tc -b -Ppkg.frr.rtrlib,pkg.frr.lua"
+# dpkg-buildpackage doesn't allow changing debian/rules from patches if source package is built
+# so change it by sed call
+# Last grep is to check that --enable-splithorizon was really added to cover future possible changes
+pre_build_hook = "sudo dpkg -i ../*.deb && sed -i 's/\\(--enable-logfile-mask=0640 \\\\\\)/\\1\\n		--enable-splithorizon \\\\/' debian/rules && grep -- '--enable-splithorizon' debian/rules"
+build_cmd = "dpkg-buildpackage -us -uc -tc -F --source-option=--tar-ignore=.git --source-option=--tar-ignore=.github --source-option=-i --source-option=--extend-diff-ignore='^\\.github(?:/.*)?$' -Ppkg.frr.rtrlib,pkg.frr.lua"
 
 [dependencies]
 packages = [
