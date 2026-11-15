@@ -88,6 +88,11 @@ def build_package(package: list, patch_dir: Path) -> None:
         # Clone the repository if it does not exist
         if not repo_dir.exists():
             run(['git', 'clone', package['scm_url'], str(repo_dir)], check=True)
+        elif (repo_dir / '.git').exists():
+            # A reused checkout still carries the applied patches, quilt state
+            # and pre_build_hook edits of the previous build
+            run(['git', 'reset', '--hard'], cwd=repo_dir, check=True)
+            run(['git', 'clean', '-fdx'], cwd=repo_dir, check=True)
 
         # Check out the specific commit
         run(['git', 'checkout', package['commit_id']], cwd=repo_dir, check=True)
