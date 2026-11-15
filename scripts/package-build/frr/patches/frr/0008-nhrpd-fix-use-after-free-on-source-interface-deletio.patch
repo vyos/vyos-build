@@ -1,0 +1,117 @@
+From 212457786cfbde98e948ad405abca01bb8202247 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Zoran=20Peri=C4=8Di=C4=87?= <zpericic@netst.org>
+Date: Wed, 4 Mar 2026 03:57:21 +0100
+Subject: [PATCH] nhrpd: fix use-after-free on source interface deletion
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+nhrp_if_delete_hook() frees nifp without detaching GRE tunnel
+subscribers. Dependent tunnels retain a dangling nbmaifp pointer
+and a notifier subscription on the freed list.
+
+Detach all GRE tunnel notifier subscriptions and clear nbmaifp
+before freeing the source interface's nhrp_interface data.
+
+Signed-off-by: Zoran Peričić <zpericic@netst.org>
+---
+ nhrpd/nhrp_interface.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/nhrpd/nhrp_interface.c b/nhrpd/nhrp_interface.c
+index a70ce536fb..df12603759 100644
+--- a/nhrpd/nhrp_interface.c
++++ b/nhrpd/nhrp_interface.c
+@@ -90,6 +90,8 @@ static int nhrp_if_new_hook(struct interface *ifp)
+ static int nhrp_if_delete_hook(struct interface *ifp)
+ {
+ 	struct nhrp_interface *nifp = ifp->info;
++	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
++	struct interface *gre_ifp;
+ 
+ 	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);
+ 
+@@ -107,6 +109,30 @@ static int nhrp_if_delete_hook(struct interface *ifp)
+ 	if (nifp->auth_token)
+ 		zbuf_free(nifp->auth_token);
+ 
++	/*
++	 * If this interface is a GRE tunnel subscribed to an NBMA source,
++	 * detach its notifier from the source's list.
++	 */
++	if (nifp->nbmaifp) {
++		struct nhrp_interface *src_nifp = nifp->nbmaifp->info;
++
++		notifier_del(&nifp->nbmanifp_notifier, &src_nifp->notifier_list);
++		nifp->nbmaifp = NULL;
++	}
++
++	/*
++	 * If this interface is an NBMA source, detach any GRE tunnels
++	 * subscribed to its notifier list.
++	 */
++	FOR_ALL_INTERFACES (vrf, gre_ifp) {
++		struct nhrp_interface *gnifp = gre_ifp->info;
++
++		if (gnifp && gnifp->nbmaifp == ifp) {
++			notifier_del(&gnifp->nbmanifp_notifier, &nifp->notifier_list);
++			gnifp->nbmaifp = NULL;
++		}
++	}
++
+ 	XFREE(MTYPE_NHRP_IF, ifp->info);
+ 	return 0;
+ }
+-- 
+2.54.0
+
+From 906cd3f7a94bb5d01d48cd909af8dd01ff74aa94 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Wed, 18 Nov 2026 23:12:53 +0200
+Subject: [PATCH] nhrpd: fix use after free for non-default VRFs
+
+Add non-default VRF coverage to nhrp_if_delete_hook(), as previous fix
+"nhrpd: fix use-after-free on source interface deletion" covered only
+default VRF.
+
+Signed-off-by: Kyrylo Yatsenko <hedrok@gmail.com>
+---
+ nhrpd/nhrp_interface.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/nhrpd/nhrp_interface.c b/nhrpd/nhrp_interface.c
+index df12603759..1cb370d867 100644
+--- a/nhrpd/nhrp_interface.c
++++ b/nhrpd/nhrp_interface.c
+@@ -90,7 +90,7 @@ static int nhrp_if_new_hook(struct interface *ifp)
+ static int nhrp_if_delete_hook(struct interface *ifp)
+ {
+ 	struct nhrp_interface *nifp = ifp->info;
+-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
++	struct vrf *vrf;
+ 	struct interface *gre_ifp;
+ 
+ 	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);
+@@ -124,12 +124,14 @@ static int nhrp_if_delete_hook(struct interface *ifp)
+ 	 * If this interface is an NBMA source, detach any GRE tunnels
+ 	 * subscribed to its notifier list.
+ 	 */
+-	FOR_ALL_INTERFACES (vrf, gre_ifp) {
+-		struct nhrp_interface *gnifp = gre_ifp->info;
++	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
++		FOR_ALL_INTERFACES (vrf, gre_ifp) {
++			struct nhrp_interface *gnifp = gre_ifp->info;
+ 
+-		if (gnifp && gnifp->nbmaifp == ifp) {
+-			notifier_del(&gnifp->nbmanifp_notifier, &nifp->notifier_list);
+-			gnifp->nbmaifp = NULL;
++			if (gnifp && gnifp->nbmaifp == ifp) {
++				notifier_del(&gnifp->nbmanifp_notifier, &nifp->notifier_list);
++				gnifp->nbmaifp = NULL;
++			}
+ 		}
+ 	}
+ 
+-- 
+2.54.0
+
