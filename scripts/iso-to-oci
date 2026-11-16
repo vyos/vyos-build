@@ -185,6 +185,23 @@ rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/root-p
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/reboot-on-panic"
 rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/system/option/performance"
 
+# features relying on out-of-tree Kernel modules built and signed for the VyOS
+# Kernel - the container runs on the host Kernel which does not provide them:
+# ipt_NETFLOW (flow-accounting), jool (nat64), nf_conntrack_rtsp/nf_nat_rtsp
+# and ipoe/vlan_mon shipped with Accel-PPP
+for node in system/flow-accounting nat64 system/conntrack/modules/rtsp \
+            service/ipoe-server \
+            service/pppoe-server/interface/node.tag/vlan-mon; do
+    rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-cfg/templates/${node}"
+done
+for node in generate/nat64 \
+            show/flow-accounting restart/flow-accounting \
+            show/log/flow-accounting monitor/log/flow-accounting \
+            show/ipoe-server restart/ipoe-server reset/ipoe-server \
+            show/log/ipoe-server monitor/log/ipoe-server; do
+    rm -rf "${UNSQUASHFS}/opt/vyatta/share/vyatta-op/templates/${node}"
+done
+
 # create a symbolic link to the configuration - /config already exists as an
 # empty directory in the squashfs, so it must go first. A plain "ln -s" would
 # happily create /config/config instead and leave /config a dead directory.
