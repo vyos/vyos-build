@@ -27,10 +27,10 @@ Refreshed against Linux 6.18.x:
  8 files changed, 34 insertions(+)
 
 diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
-index 27a861053b2f..fd75946cd249 100644
+index 9b8a1980bb54..bfc0d98ee8fb 100644
 --- a/Documentation/networking/ip-sysctl.rst
 +++ b/Documentation/networking/ip-sysctl.rst
-@@ -2044,6 +2044,17 @@ src_valid_mark - BOOLEAN
+@@ -2046,6 +2046,17 @@ src_valid_mark - BOOLEAN
  
  	Default value is 0.
  
@@ -61,7 +61,7 @@ index 6032eea2539a..b3ecf2a418af 100644
  struct in_ifaddr {
  	struct hlist_node	addr_lst;
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 7294e4e89b79..5243afbd98b8 100644
+index c5541096a286..58557ba81264 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
 @@ -91,6 +91,7 @@ struct ipv6_devconf {
@@ -109,10 +109,10 @@ index 942a887bf089..e6df2bfc4e40 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 80706368a303..d4d2be91c624 100644
+index 527ae9fc1c41..726d3dd54f27 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5739,6 +5739,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
+@@ -5759,6 +5759,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
  		READ_ONCE(cnf->accept_untracked_na);
  	array[DEVCONF_ACCEPT_RA_MIN_LFT] = READ_ONCE(cnf->accept_ra_min_lft);
  	array[DEVCONF_FORCE_FORWARDING] = READ_ONCE(cnf->force_forwarding);
@@ -120,7 +120,7 @@ index 80706368a303..d4d2be91c624 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7282,6 +7283,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7302,6 +7303,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
@@ -135,7 +135,7 @@ index 80706368a303..d4d2be91c624 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index e99b4901091a..8737bc69d9c4 100644
+index c3a837bdd0cb..5669fc19be17 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -718,6 +718,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)
