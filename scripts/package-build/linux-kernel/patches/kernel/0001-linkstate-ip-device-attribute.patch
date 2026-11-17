@@ -109,10 +109,10 @@ index 942a887bf089..e6df2bfc4e40 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 527ae9fc1c41..726d3dd54f27 100644
+index 8f651cafcb2a..e4981eca8330 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5759,6 +5759,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
+@@ -5760,6 +5760,7 @@ static void ipv6_store_devconf(const struct ipv6_devconf *cnf,
  		READ_ONCE(cnf->accept_untracked_na);
  	array[DEVCONF_ACCEPT_RA_MIN_LFT] = READ_ONCE(cnf->accept_ra_min_lft);
  	array[DEVCONF_FORCE_FORWARDING] = READ_ONCE(cnf->force_forwarding);
@@ -120,7 +120,7 @@ index 527ae9fc1c41..726d3dd54f27 100644
  }
  
  static inline size_t inet6_ifla6_size(void)
-@@ -7302,6 +7303,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+@@ -7303,6 +7304,13 @@ static const struct ctl_table addrconf_sysctl[] = {
  		.extra1		= (void *)SYSCTL_ZERO,
  		.extra2		= (void *)SYSCTL_ONE,
  	},
