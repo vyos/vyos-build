@@ -140,10 +140,17 @@ for unit in kea-dhcp-ddns-server.service; do
 done
 
 # optional step: Decrease docker image size by deleting not necessary files for container
-rm -rf "${UNSQUASHFS}/boot"
 rm -rf "${UNSQUASHFS}/lib/firmware/"
 rm -rf "${UNSQUASHFS}/usr/lib/x86_64-linux-gnu/libwireshark.so*"
-rm -rf "${UNSQUASHFS}/lib/modules/*-vyos"
+# the container runs on the host Kernel, modules built for VyOS are of no use
+KERNEL_IMAGES=("${UNSQUASHFS}"/boot/vmlinuz-*)
+if [[ ${#KERNEL_IMAGES[@]} -ne 1 || ! -f "${KERNEL_IMAGES[0]}" ]]; then
+    echo "E: expected exactly one Kernel image in the ISO /boot directory"
+    exit 1
+fi
+KERNEL_RELEASE="${KERNEL_IMAGES[0]##*/vmlinuz-}"
+rm -rf "${UNSQUASHFS}/lib/modules/${KERNEL_RELEASE}"
+rm -rf "${UNSQUASHFS}/boot"
 rm -rf "${UNSQUASHFS}/root/.gnupg"
 
 # podman(8) is useless inside the container as we do not support running
