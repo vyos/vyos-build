@@ -179,7 +179,8 @@ parser.add_argument('--secure-boot-test', help='Execute Secure Boot tests (enrol
                 action='store_true', default=False)
 parser.add_argument('--cloud-init', help='Execute cloud-init tests',
                 action='store_true', default=False)
-parser.add_argument('--test-image-update', help='Test ISO image update in default VRF and custom VRF',
+parser.add_argument('--test-image-update', help='Test ISO image update in default VRF (incl. booting the '
+                                                'new image) and custom VRF',
                 action='store_true', default=False)
 parser.add_argument('--qemu-cmd', help='Only generate QEMU launch command',
                 action='store_true', default=False)
@@ -1186,9 +1187,61 @@ def verify_interface_keeps_own_hardware(c, log, ifname, expected_mac):
                         'wrong wire')
     log.info(f'{ifname} correctly kept its own physical NIC')
 
-def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0.1', use_vrf=False):
-    """One add-system-image/delete cycle for nested ISO over HTTP (optional Linux VRF + VyOS vrf arg)."""
+def _mount_nested_iso(c, log):
+    log.info(f'Nested installer ISO: mount second CD-ROM ({NESTED_INNER_ISO_NAME})')
+    c.sendline(f'sudo mkdir -p {NESTED_HTTP_MOUNT_POINT}')
+    c.expect(op_mode_prompt)
+
+    # After drive-cd1 eject the first SCSI CD node is often an empty tray; real
+    # media may appear on sr1+. Try every optical device until one mounts.
+    c.sendline(
+        f'for d in /dev/sr*; do sudo mount -o ro "$d" {NESTED_HTTP_MOUNT_POINT} 2>/dev/null '
+        '&& echo NESTED_ISO_MOUNT_OK && break; done; '
+        f'mountpoint -q {NESTED_HTTP_MOUNT_POINT} || echo NESTED_ISO_MOUNT_FAIL'
+    )
+    if c.expect(['NESTED_ISO_MOUNT_OK', 'NESTED_ISO_MOUNT_FAIL']) != 0:
+        raise Exception('Failed to mount nested installer payload ISO (no usable /dev/sr* media)')
+    c.expect(op_mode_prompt)
+
+def _system_images(c):
+    """ Return {name: (default, running)} parsed from 'show system image' """
+    c.sendline('show system image')
+    c.expect(op_mode_prompt)
+    lines = ansi_escape.sub('', c.before.decode(errors='replace')).splitlines()
+
+    # Empty cells are blank, so split by the column offsets of the header
+    for idx, line in enumerate(lines):
+        if 'Default boot' in line and 'Running' in line:
+            break
+    else:
+        raise Exception('Unable to parse "show system image" output')
+    default_col = line.index('Default boot')
+    running_col = line.index('Running')
+
+    images = {}
+    for row in lines[idx + 1:]:
+        if not row.strip() or row.lstrip().startswith('-'):
+            continue
+        name = row[:default_col].strip()
+        images[name] = (row[default_col:running_col].strip() == 'Yes',
+                        row[running_col:].strip() == 'Yes')
+    return images
+
+def _running_image(c):
+    running = [name for name, (_, run) in _system_images(c).items() if run]
+    if len(running) != 1:
+        raise Exception(f'Expected exactly one running image, got {running}')
+    return running[0]
+
+def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0.1', use_vrf=False,
+                               boot_test=False):
+    """One add-system-image/delete cycle for nested ISO over HTTP (optional Linux VRF + VyOS vrf arg).
+    With boot_test the new image is made default, booted and then the original image restored."""
     url = f'http://{server_bind_host}:{NESTED_HTTP_SERV_PORT}/{NESTED_INNER_ISO_NAME}'
+
+    if boot_test:
+        previous_image = _running_image(c)
+        log.info(f'Currently running image: {previous_image}')
 
     vrf_exec = ''
     if use_vrf:
@@ -1242,7 +1295,7 @@ def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0
         if i == 0:
             c.sendline(new_image_name)
         elif i == 1:
-            c.sendline('n')
+            c.sendline('y' if boot_test else 'n')
         elif i == 2:
             c.sendline('y')
         elif i == 3:
@@ -1266,6 +1319,29 @@ def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0
     c.sendline('show system image')
     c.expect(new_image_name)
     c.expect(op_mode_prompt)
+
+    c.sendline(f'sudo fuser -k {NESTED_HTTP_SERV_PORT}/tcp 2>/dev/null || true')
+    c.expect(op_mode_prompt)
+
+    if boot_test:
+        log.info(f'Rebooting into upgraded image {new_image_name}')
+        c.sendline('reboot now')
+        waitForLogin(c, log)
+        loginVM(c, log)
+        if _system_images(c).get(new_image_name) != (True, True):
+            raise Exception(f'Did not boot into upgraded image {new_image_name!r}')
+        log.info(f'Booted into upgraded image {new_image_name}')
+
+        # The running image cannot be deleted - boot the original one again
+        log.info(f'Restoring {previous_image} as default boot image')
+        c.sendline(f'set system image default-boot {previous_image}')
+        c.expect('is now default boot image')
+        c.expect(op_mode_prompt)
+        c.sendline('reboot now')
+        waitForLogin(c, log)
+        loginVM(c, log)
+        if _running_image(c) != previous_image:
+            raise Exception(f'Did not boot back into image {previous_image!r}')
 
     c.sendline(f'TERM=dumb delete system image {new_image_name}')
     deadline = time.time() + timeout
@@ -1291,9 +1367,6 @@ def _image_update_cli_sequence(c, log, new_image_name, server_bind_host='127.0.0
     c.expect(op_mode_prompt)
     if new_image_name in c.before.decode(errors='replace'):
         raise Exception(f'Image {new_image_name!r} still listed after delete')
-
-    c.sendline(f'sudo fuser -k {NESTED_HTTP_SERV_PORT}/tcp 2>/dev/null || true')
-    c.expect(op_mode_prompt)
 
 if args.qemu_cmd:
     tmp = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
@@ -2240,22 +2313,10 @@ try:
             log.error(tmp)
             raise Exception(tmp)
     elif args.test_image_update:
-        log.info(f'Nested installer ISO: mount second CD-ROM ({NESTED_INNER_ISO_NAME})')
-        c.sendline(f'sudo mkdir -p {NESTED_HTTP_MOUNT_POINT}')
-        c.expect(op_mode_prompt)
-
-        # After drive-cd1 eject the first SCSI CD node is often an empty tray; real
-        # media may appear on sr1+. Try every optical device until one mounts.
-        c.sendline(
-            f'for d in /dev/sr*; do sudo mount -o ro "$d" {NESTED_HTTP_MOUNT_POINT} 2>/dev/null '
-            '&& echo NESTED_ISO_MOUNT_OK && break; done; '
-            f'mountpoint -q {NESTED_HTTP_MOUNT_POINT} || echo NESTED_ISO_MOUNT_FAIL'
-        )
-        if c.expect(['NESTED_ISO_MOUNT_OK', 'NESTED_ISO_MOUNT_FAIL']) != 0:
-            raise Exception('Failed to mount nested installer payload ISO (no usable /dev/sr* media)')
-        c.expect(op_mode_prompt)
-
-        _image_update_cli_sequence(c, log, NESTED_HTTP_IMAGE_NAME)
+        _mount_nested_iso(c, log)
+        _image_update_cli_sequence(c, log, NESTED_HTTP_IMAGE_NAME, boot_test=True)
+        # The reboots of the boot test dropped the mount
+        _mount_nested_iso(c, log)
         _image_update_cli_sequence(c, log, f'{NESTED_HTTP_IMAGE_NAME}-{NESTED_HTTP_VRF_NAME}', NESTED_HTTP_VRF_ADDR, use_vrf=True)
 
         log.info('Unmount nested installer ISO')
