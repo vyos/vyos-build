@@ -70,7 +70,7 @@ class DependencyChecker(object):
     def format_missing_dependencies(self):
         msg = "E: There are missing system dependencies!\n"
         if self.__missing['packages']:
-            msg += "E: Missing packages: " + " ".join(self.__missing['packages'])
+            msg += "E: Missing packages: " + " ".join(self.__missing['packages']) + "\n"
         if self.__missing['binaries']:
             msg += "E: Missing binaries: " + " ".join(self.__missing['binaries'])
         return msg
@@ -85,12 +85,12 @@ def check_system_dependencies(deps):
 
 def cmd(command):
     res = vyos.utils.process.call(command, shell=True)
-    if res > 0:
+    if res != 0:
         raise OSError(f"Command '{command}' failed")
 
 def rc_cmd(command):
     code, out = vyos.utils.process.rc_cmd(command, shell=True)
-    if code > 0:
+    if code != 0:
         raise OSError(f"Command '{command}' failed")
     else:
         return out

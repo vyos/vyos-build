@@ -55,11 +55,16 @@ class BuildContext:
         mkdir(self.raw_dir)
         mkdir(self.efi_dir)
 
-        # Mount the ISO image
-        cmd(f"""mount -t iso9660 -o ro,loop {self.iso_path} {self.iso_dir}""")
+        try:
+            # Mount the ISO image
+            cmd(f"""mount -t iso9660 -o ro,loop {self.iso_path} {self.iso_dir}""")
 
-        # Mount the SquashFS image
-        cmd(f"""mount -t squashfs -o ro,loop {self.iso_dir}/{SQUASHFS_FILE} {self.squash_dir}""")
+            # Mount the SquashFS image
+            cmd(f"""mount -t squashfs -o ro,loop {self.iso_dir}/{SQUASHFS_FILE} {self.squash_dir}""")
+        except Exception:
+            # __exit__ is not called when __enter__ raises: undo what was mounted
+            self.__exit__(*sys.exc_info())
+            raise
 
         return self
 
@@ -112,7 +117,7 @@ def setup_loop_device(con, raw_file):
     p = Popen(command, stderr=PIPE, stdout=PIPE, stdin=PIPE, shell=True)
     (stdout, stderr) = p.communicate()
 
-    if p.returncode > 0:
+    if p.returncode != 0:
         raise OSError(f"Could not set up a loop device: {stderr.decode()}")
 
     con.loop_device = stdout.decode().strip()
