@@ -132,7 +132,9 @@ RUN apt-get update && apt-get install -y \
       unzip
 
 # Installing OCaml needed to compile libvyosconfig
-RUN curl https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh \
+# opam installer pinned to a commit (installs opam 2.6.1)
+ARG OPAM_INSTALL_REF=f7bfa69f04f187a335f07906657f8ae75bbdb0b7
+RUN curl https://raw.githubusercontent.com/ocaml/opam/${OPAM_INSTALL_REF}/shell/install.sh \
       --output /tmp/opam_install.sh --retry 10 --retry-delay 5 && \
     sed -i 's/read_tty BINDIR/BINDIR=""/' /tmp/opam_install.sh && sh /tmp/opam_install.sh && \
     opam init --root=/opt/opam --comp=${OCAML_VERSION} --disable-sandboxing --no-setup \
@@ -157,11 +159,12 @@ RUN eval $(opam env --root=/opt/opam --set-root) && opam install -y \
 RUN apt-get update && apt-get install -y \
       zlib1g-dev
 
-# Install open-vmdk
-RUN wget -O /tmp/open-vmdk-master.zip https://github.com/vmware/open-vmdk/archive/master.zip && \
-    unzip -d /tmp/ /tmp/open-vmdk-master.zip && \
-    cd /tmp/open-vmdk-master/ && make && make install && \
-    cd /tmp && rm -rf /tmp/open-vmdk-master/ && rm /tmp/open-vmdk-master.zip
+# Install open-vmdk, pinned to a commit
+ARG OPEN_VMDK_REF=ff5c5fb312478902d6ab620edc7260ed539b3130
+RUN wget -O /tmp/open-vmdk.zip https://github.com/vmware/open-vmdk/archive/${OPEN_VMDK_REF}.zip && \
+    unzip -d /tmp/ /tmp/open-vmdk.zip && \
+    cd /tmp/open-vmdk-*/ && make && make install && \
+    cd /tmp && rm -rf /tmp/open-vmdk-*/ && rm /tmp/open-vmdk.zip
 
 # Packages need for build live-build
 RUN apt-get update && apt-get install -y \
