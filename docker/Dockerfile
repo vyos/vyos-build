@@ -246,11 +246,19 @@ RUN pip --no-cache --no-cache-dir install --break-system-packages \
       whois \
       python3-cracklib
 
-# Go required for telegraf and prometheus exporters build
-RUN GO_VERSION_INSTALL="1.23.2" ; \
-    wget -O /tmp/go${GO_VERSION_INSTALL}.linux-amd64.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-$(dpkg-architecture -qDEB_HOST_ARCH).tar.gz ; \
-    tar -C /opt -xzf /tmp/go*.tar.gz && \
-    rm /tmp/go*.tar.gz
+# Go required for telegraf, podman and prometheus exporters build.
+# Must be >= the highest "go" directive in their go.mod (podman v5.8.8: 1.26.0)
+RUN GO_VERSION_INSTALL="1.26.11" ; \
+    GO_ARCH="$(dpkg-architecture -qDEB_HOST_ARCH)" ; \
+    case "${GO_ARCH}" in \
+      amd64) GO_SHA256="9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec" ;; \
+      arm64) GO_SHA256="6c2f29b458b5add0835f18b776f69c8881a6d88428f1484a6da55755e620757e" ;; \
+      *) echo "E: no Go checksum for ${GO_ARCH}" >&2 ; exit 1 ;; \
+    esac ; \
+    wget -O /tmp/go.tar.gz https://go.dev/dl/go${GO_VERSION_INSTALL}.linux-${GO_ARCH}.tar.gz && \
+    echo "${GO_SHA256}  /tmp/go.tar.gz" | sha256sum -c - && \
+    tar -C /opt -xzf /tmp/go.tar.gz && \
+    rm /tmp/go.tar.gz
 RUN echo "export PATH=/opt/go/bin:$PATH" >> /etc/bash.bashrc
 
 # Packages needed for QEMU test-suite
