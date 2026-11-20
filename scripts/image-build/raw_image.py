@@ -112,7 +112,7 @@ def setup_loop_device(con, raw_file):
     p = Popen(command, stderr=PIPE, stdout=PIPE, stdin=PIPE, shell=True)
     (stdout, stderr) = p.communicate()
 
-    if p.returncode > 0:
+    if p.returncode != 0:
         raise OSError(f"Could not set up a loop device: {stderr.decode()}")
 
     con.loop_device = stdout.decode().strip()
