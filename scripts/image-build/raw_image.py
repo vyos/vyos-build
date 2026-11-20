@@ -55,11 +55,16 @@ class BuildContext:
         mkdir(self.raw_dir)
         mkdir(self.efi_dir)
 
-        # Mount the ISO image
-        cmd(f"""mount -t iso9660 -o ro,loop {self.iso_path} {self.iso_dir}""")
+        try:
+            # Mount the ISO image
+            cmd(f"""mount -t iso9660 -o ro,loop {self.iso_path} {self.iso_dir}""")
 
-        # Mount the SquashFS image
-        cmd(f"""mount -t squashfs -o ro,loop {self.iso_dir}/{SQUASHFS_FILE} {self.squash_dir}""")
+            # Mount the SquashFS image
+            cmd(f"""mount -t squashfs -o ro,loop {self.iso_dir}/{SQUASHFS_FILE} {self.squash_dir}""")
+        except Exception:
+            # __exit__ is not called when __enter__ raises: undo what was mounted
+            self.__exit__(*sys.exc_info())
+            raise
 
         return self
 
