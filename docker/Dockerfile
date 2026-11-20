@@ -163,8 +163,8 @@ RUN apt-get update && apt-get install -y \
 ARG OPEN_VMDK_REF=ff5c5fb312478902d6ab620edc7260ed539b3130
 RUN wget -O /tmp/open-vmdk.zip https://github.com/vmware/open-vmdk/archive/${OPEN_VMDK_REF}.zip && \
     unzip -d /tmp/ /tmp/open-vmdk.zip && \
-    cd /tmp/open-vmdk-${OPEN_VMDK_REF}/ && make && make install && \
-    cd /tmp && rm -rf /tmp/open-vmdk-${OPEN_VMDK_REF}/ && rm /tmp/open-vmdk.zip
+    cd /tmp/open-vmdk-*/ && make && make install && \
+    cd /tmp && rm -rf /tmp/open-vmdk-*/ && rm /tmp/open-vmdk.zip
 
 # Packages need for build live-build
 RUN apt-get update && apt-get install -y \
