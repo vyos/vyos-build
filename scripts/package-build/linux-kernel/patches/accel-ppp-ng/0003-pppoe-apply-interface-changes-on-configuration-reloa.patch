@@ -1,0 +1,172 @@
+From e0e5c82b506c3204aff558fc3d2fdcf9ac650bdb Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Fri, 9 Oct 2026 22:16:24 +0000
+Subject: [PATCH 3/6] pppoe: apply "interface" changes on configuration reload
+
+pppoe_init() called load_interfaces() and load_config() separately, but
+only load_config() was registered for EV_CONFIG_RELOAD. Adding or removing
+an "interface" option from the [pppoe] section therefore had no effect
+until the daemon was restarted, which drops every established session.
+
+Turn load_interfaces() into a mark/sweep reconciliation and call it from
+load_config(), mirroring what ctrl/ipoe/ipoe.c already does:
+
+  - servers still named in the configuration are marked and left running,
+    so their sessions survive the reload,
+  - newly configured interfaces are started,
+  - servers the configuration no longer mentions are stopped, and their
+    monitored-link entry removed so a later link-up event cannot bring
+    them back.
+
+Servers created dynamically by vlan-mon are deliberately never swept.
+ipoe's version does sweep its dynamic servers, which would mean any
+unrelated reload tears down every dynamically created VLAN sub-interface
+along with its sessions.
+
+Two side effects worth noting:
+
+  - Since load_interfaces() now runs from load_config() rather than before
+    it, servers are created after the scalar options have been parsed. At
+    startup they previously picked up conf_padi_limit before load_config()
+    had assigned it, so a configured "padi-limit" was silently ignored for
+    every interface. It is now honoured.
+
+  - An interface added at runtime with "accel-cmd pppoe interface add" is
+    not in the configuration file, so it is stopped by the next reload.
+    This makes a reload converge on the configuration, consistent with how
+    load_vlan_mon() already discards dynamic vlan-mon state.
+
+Also guard the section pointer in load_config(). load_vlan_mon() has
+always dereferenced it unconditionally, so a reload that removed the
+[pppoe] section crashed the daemon.
+---
+ accel-pppd/ctrl/pppoe/pppoe.c | 57 ++++++++++++++++++++++++++++++++---
+ accel-pppd/ctrl/pppoe/pppoe.h |  8 +++++
+ 2 files changed, 61 insertions(+), 4 deletions(-)
+
+diff --git a/accel-pppd/ctrl/pppoe/pppoe.c b/accel-pppd/ctrl/pppoe/pppoe.c
+index 4242761..c1e2f27 100644
+--- a/accel-pppd/ctrl/pppoe/pppoe.c
++++ b/accel-pppd/ctrl/pppoe/pppoe.c
+@@ -143,6 +143,7 @@ LIST_HEAD(monitored_link_list);
+ 
+ static void monitored_link_list_add(const char *name, const char *opt);
+ static void monitored_link_list_del(const char *name);
++static void load_interfaces(struct conf_sect_t *s);
+ struct monitored_link_list_entry_t * monitored_link_list_find(const char *name);
+ 
+ static uint8_t bc_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+@@ -1560,6 +1561,9 @@ static void __pppoe_server_start(const char *ifname, const char *opt, void *cli,
+ 	pthread_rwlock_rdlock(&serv_lock);
+ 	list_for_each_entry(serv, &serv_list, entry) {
+ 		if (serv->net == net && !strcmp(serv->ifname, ifname) && !serv->stopping) {
++			/* Still listed in the configuration: keep it running as-is
++			 * so its sessions survive, and mark it for load_interfaces() */
++			serv->active = 1;
+ 			if (cli)
+ 				cli_send(cli, "error: already exists\r\n");
+ 			pthread_rwlock_unlock(&serv_lock);
+@@ -1696,6 +1700,8 @@ static void __pppoe_server_start(const char *ifname, const char *opt, void *cli,
+ 		set_vlan_timeout(serv);
+ 	}
+ 
++	serv->active = 1;
++
+ 	pthread_rwlock_wrlock(&serv_lock);
+ 	list_add_tail(&serv->entry, &serv_list);
+ 	pthread_rwlock_unlock(&serv_lock);
+@@ -2282,20 +2288,64 @@ static void load_config(void)
+ 	if (opt && atoi(opt) >= 0)
+ 		conf_vlan_timeout = atoi(opt);
+ 
+-	load_vlan_mon(s);
++	/*
++	 * Both of these walk the section, and it can legitimately be gone by
++	 * the time we are called from a reload.
++	 */
++	if (s) {
++		load_interfaces(s);
++		load_vlan_mon(s);
++	}
+ }
+ 
+-static void load_interfaces()
++/*
++ * Reconcile serv_list against the "interface" options of the [pppoe]
++ * section. Called both at startup and on configuration reload, so it has
++ * to be idempotent: interfaces that are still configured keep running
++ * (and keep their sessions), newly configured ones are started, and ones
++ * that have disappeared from the configuration are stopped.
++ *
++ * This mirrors load_interfaces() in ctrl/ipoe/ipoe.c, except that servers
++ * created dynamically by vlan-mon are never swept - they are not named in
++ * the configuration, so an unrelated reload would otherwise drop every
++ * dynamically created VLAN sub-interface and its sessions.
++ */
++static void load_interfaces(struct conf_sect_t *s)
+ {
+-	struct conf_sect_t *s = conf_get_section("pppoe");
++	struct pppoe_serv_t *serv;
+ 	struct conf_option_t *opt;
+ 
++	pthread_rwlock_wrlock(&serv_lock);
++	list_for_each_entry(serv, &serv_list, entry)
++		serv->active = 0;
++	pthread_rwlock_unlock(&serv_lock);
++
+ 	list_for_each_entry(opt, &s->items, entry) {
+ 		if (!strcmp(opt->name, "interface")) {
+ 			if (opt->val)
+ 				pppoe_server_start(opt->val, NULL);
+ 		}
+ 	}
++
++	/*
++	 * Drop whatever the configuration no longer mentions. _server_stop()
++	 * is queued into the server's own context, so it runs once the reload
++	 * handler has returned and the lock has been released.
++	 */
++	pthread_rwlock_wrlock(&serv_lock);
++	list_for_each_entry(serv, &serv_list, entry) {
++		if (serv->active || serv->stopping || serv->vlan_mon)
++			continue;
++
++		log_info1("pppoe: interface %s is no longer configured,"
++			  " stopping the service on it\n", serv->ifname);
++
++		monitored_link_list_del(serv->ifname);
++
++		serv->stop_cause = TERM_ADMIN_RESET;
++		triton_context_call(&serv->ctx, (triton_event_func)_server_stop, serv);
++	}
++	pthread_rwlock_unlock(&serv_lock);
+ }
+ 
+ static void monitored_link_list_add(const char *name, const char *opt)
+@@ -2408,7 +2458,6 @@ static void pppoe_init(void)
+ 		return;
+ 	}
+ 
+-	load_interfaces();
+ 	load_config();
+ 
+ 	connlimit_loaded = triton_module_loaded("connlimit");
+diff --git a/accel-pppd/ctrl/pppoe/pppoe.h b/accel-pppd/ctrl/pppoe/pppoe.h
+index 0437c5b..f4c3ceb 100644
+--- a/accel-pppd/ctrl/pppoe/pppoe.h
++++ b/accel-pppd/ctrl/pppoe/pppoe.h
+@@ -109,6 +109,14 @@ struct pppoe_serv_t
+ 	unsigned int is_vpppoe:1;
+ 	unsigned int stop_cause;
+ 
++	/*
++	 * Set while load_interfaces() reconciles serv_list against the
++	 * [pppoe] section; servers left unmarked are no longer configured.
++	 * Deliberately not a bitfield: it shares no word with stopping,
++	 * which _server_stop() writes without holding serv_lock.
++	 */
++	int active;
++
+ #ifdef HAVE_SESSION_HOOKS
+ 	/* hooks set to sessions for this server */
+ 	struct ap_session_hooks_t *ses_hooks;

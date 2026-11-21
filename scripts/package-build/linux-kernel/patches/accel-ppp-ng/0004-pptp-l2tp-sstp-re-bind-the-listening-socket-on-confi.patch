@@ -1,0 +1,806 @@
+From 8457afb0183f25dd512ef1b082fb0cb1902a7f71 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Fri, 9 Oct 2026 22:37:36 +0000
+Subject: [PATCH 4/6] pptp, l2tp, sstp: re-bind the listening socket on
+ configuration reload
+
+All three parsed "bind" and "port" inside their init function and never
+looked at them again, so changing the address the server listens on had no
+effect until the daemon was restarted - which drops every established
+session. Each of them does have a load_config() registered for
+EV_CONFIG_RELOAD; it just never touched the socket.
+
+Split the socket setup out of the init path into a <mod>_parse_bind() and a
+<mod>_serv_open() pair, and have load_config() compare the newly parsed
+address against the one currently bound. Only when it actually differs is a
+rebind queued into the server's own context with triton_context_call(),
+which is required: the reload handler runs on whichever worker thread went
+idle last, not inside a triton context, and only the owning context is
+serialised against the accept/read handler on the listening socket.
+
+The rebind opens the replacement socket before unregistering the old one,
+so a bind failure - a typo, or an address that is not local - leaves the
+running listener in place and logs an error, rather than leaving the daemon
+with no listener at all. Established sessions have their own sockets and
+contexts and are unaffected either way.
+
+For the TCP listeners (pptp, sstp) that order is not always possible: Linux
+refuses a bind() overlapping a socket in LISTEN state on the same port even
+with SO_REUSEADDR, which is exactly the case when moving from 0.0.0.0 to a
+specific address. On EADDRINUSE the old listener is released first, and if
+the new address still cannot be bound the old one is re-opened. The open
+helpers return -errno so the caller can tell this case apart; a failed
+re-open leaves the server without a listener, which the context close
+handler and later reloads tolerate.
+
+For SSTP only "bind" and "port" are handled here. The TLS material is
+already reloaded correctly by ssl_load_config(), which builds a fresh
+SSL_CTX and swaps it in for new connections while established sessions keep
+the context they were accepted with. A unix-domain socket path is unlinked
+after the switch-over rather than before, so the old socket keeps serving
+until the new one is ready.
+
+Drive-by fixes in the code being moved:
+
+  - l2tp passed &udp_serv.hnd.fd as the option value to
+    setsockopt(SO_REUSEADDR) and SO_NO_CHECK, i.e. the file descriptor
+    number rather than a boolean. It happened to work because a valid fd
+    is non-zero. It now passes an int set to 1.
+  - sstp ran inet_pton(AF_INET6, ...) against the address union before
+    deciding which member to use; the union is now zeroed first, so the
+    result no longer depends on what a failed parse left behind.
+---
+ accel-pppd/ctrl/l2tp/l2tp.c | 135 +++++++++++++++++-------
+ accel-pppd/ctrl/pptp/pptp.c | 205 ++++++++++++++++++++++++++++--------
+ accel-pppd/ctrl/sstp/sstp.c | 179 +++++++++++++++++++++++++------
+ 3 files changed, 408 insertions(+), 111 deletions(-)
+
+diff --git a/accel-pppd/ctrl/l2tp/l2tp.c b/accel-pppd/ctrl/l2tp/l2tp.c
+index a15944c..85bc911 100644
+--- a/accel-pppd/ctrl/l2tp/l2tp.c
++++ b/accel-pppd/ctrl/l2tp/l2tp.c
+@@ -117,6 +117,8 @@ struct l2tp_serv_t
+ 	struct triton_context_t ctx;
+ 	struct triton_md_handler_t hnd;
+ 	struct sockaddr_in addr;
++	/* address a reload wants the server socket moved to */
++	struct sockaddr_in new_addr;
+ };
+ 
+ struct l2tp_sess_t
+@@ -4599,93 +4601,109 @@ static struct l2tp_serv_t udp_serv =
+ 	.ctx.close=l2tp_ip_close,
+ };*/
+ 
+-static int start_udp_server(void)
++static void l2tp_parse_bind(struct sockaddr_in *addr)
+ {
+-	struct sockaddr_in addr;
+ 	const char *opt;
+-	int flag;
+ 
+-	udp_serv.hnd.fd = socket(PF_INET, SOCK_DGRAM, 0);
+-	if (udp_serv.hnd.fd < 0) {
++	memset(addr, 0, sizeof(*addr));
++	addr->sin_family = AF_INET;
++
++	opt = conf_get_opt("l2tp", "bind");
++	if (opt)
++		addr->sin_addr.s_addr = inet_addr(opt);
++	else
++		addr->sin_addr.s_addr = htonl(INADDR_ANY);
++
++	opt = conf_get_opt("l2tp", "port");
++	if (opt && atoi(opt) > 0)
++		conf_port = atoi(opt);
++	addr->sin_port = htons(conf_port);
++}
++
++static int l2tp_udp_open(const struct sockaddr_in *addr)
++{
++	int fd, flag;
++
++	fd = socket(PF_INET, SOCK_DGRAM, 0);
++	if (fd < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+ 			  " socket(PF_INET) failed: %s\n", strerror(errno));
+ 		return -1;
+ 	}
+ 
+-	flag = fcntl(udp_serv.hnd.fd, F_GETFD);
++	flag = fcntl(fd, F_GETFD);
+ 	if (flag < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+ 			  " fcntl(F_GETFD) failed: %s\n", strerror(errno));
+ 		goto err_fd;
+ 	}
+-	flag = fcntl(udp_serv.hnd.fd, F_SETFD, flag | FD_CLOEXEC);
++	flag = fcntl(fd, F_SETFD, flag | FD_CLOEXEC);
+ 	if (flag < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+ 			  " fcntl(F_SETFD) failed: %s\n", strerror(errno));
+ 		goto err_fd;
+ 	}
+ 
+-	memset(&addr, 0, sizeof(addr));
+-	addr.sin_family = AF_INET;
+-
+-	opt = conf_get_opt("l2tp", "bind");
+-	if (opt)
+-		addr.sin_addr.s_addr = inet_addr(opt);
+-	else
+-		addr.sin_addr.s_addr = htonl(INADDR_ANY);
+-
+-	opt = conf_get_opt("l2tp", "port");
+-	if (opt && atoi(opt) > 0)
+-		conf_port = atoi(opt);
+-	addr.sin_port = htons(conf_port);
+-
+-	if (setsockopt(udp_serv.hnd.fd, SOL_SOCKET, SO_REUSEADDR,
+-		       &udp_serv.hnd.fd, sizeof(udp_serv.hnd.fd)) < 0) {
++	flag = 1;
++	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+ 			  " setsockopt(SO_REUSEADDR) failed: %s\n",
+ 			  strerror(errno));
+ 		goto err_fd;
+ 	}
+-	if (setsockopt(udp_serv.hnd.fd, SOL_SOCKET, SO_NO_CHECK,
+-		       &udp_serv.hnd.fd, sizeof(udp_serv.hnd.fd)) < 0) {
++	flag = 1;
++	if (setsockopt(fd, SOL_SOCKET, SO_NO_CHECK, &flag, sizeof(flag)) < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+ 			  " setsockopt(SO_NO_CHECK) failed: %s\n",
+ 			  strerror(errno));
+ 		goto err_fd;
+ 	}
+ 
+-	if (bind(udp_serv.hnd.fd,
+-		 (struct sockaddr *) &addr, sizeof (addr)) < 0) {
++	if (bind(fd, (struct sockaddr *) addr, sizeof(*addr)) < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+-			  " bind() failed: %s\n",
+-			  strerror(errno));
++			  " bind() failed: %s\n", strerror(errno));
+ 		goto err_fd;
+ 	}
+ 
+-	flag = fcntl(udp_serv.hnd.fd, F_GETFL);
++	flag = fcntl(fd, F_GETFL);
+ 	if (flag < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+-			  " fcntl(F_GETFL) failed: %s\n",
+-			  strerror(errno));
++			  " fcntl(F_GETFL) failed: %s\n", strerror(errno));
+ 		goto err_fd;
+ 	}
+-	flag = fcntl(udp_serv.hnd.fd, F_SETFL, flag | O_NONBLOCK);
++	flag = fcntl(fd, F_SETFL, flag | O_NONBLOCK);
+ 	if (flag < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+-			  " fcntl(F_SETFL) failed: %s\n",
+-			  strerror(errno));
++			  " fcntl(F_SETFL) failed: %s\n", strerror(errno));
+ 		goto err_fd;
+ 	}
+ 
+ 	flag = 1;
+-	if (setsockopt(udp_serv.hnd.fd, IPPROTO_IP,
+-		       IP_PKTINFO, &flag, sizeof(flag)) < 0) {
++	if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &flag, sizeof(flag)) < 0) {
+ 		log_error("l2tp: impossible to start L2TP server:"
+ 			  " setsockopt(IP_PKTINFO) failed: %s\n",
+ 			  strerror(errno));
+ 		goto err_fd;
+ 	}
+ 
++	return fd;
++
++err_fd:
++	close(fd);
++
++	return -1;
++}
++
++static int start_udp_server(void)
++{
++	struct sockaddr_in addr;
++
++	l2tp_parse_bind(&addr);
++
++	udp_serv.hnd.fd = l2tp_udp_open(&addr);
++	if (udp_serv.hnd.fd < 0)
++		return -1;
++
+ 	memcpy(&udp_serv.addr, &addr, sizeof(addr));
+ 
+ 	if (triton_context_register(&udp_serv.ctx, NULL) < 0) {
+@@ -4716,6 +4734,37 @@ err_fd:
+ 	return -1;
+ }
+ 
++/*
++ * Runs in udp_serv.ctx, so it is serialised against l2tp_udp_read() on the
++ * server socket. Established tunnels have their own sockets and contexts and
++ * are not affected. The replacement socket is bound before the old one is
++ * dropped, so a bind failure leaves the running listener in place.
++ */
++static void l2tp_udp_rebind(struct l2tp_serv_t *serv)
++{
++	int fd;
++
++	fd = l2tp_udp_open(&serv->new_addr);
++	if (fd < 0) {
++		log_error("l2tp: cannot bind %s:%i, still listening on %s:%i\n",
++			  inet_ntoa(serv->new_addr.sin_addr),
++			  ntohs(serv->new_addr.sin_port),
++			  inet_ntoa(serv->addr.sin_addr),
++			  ntohs(serv->addr.sin_port));
++		return;
++	}
++
++	triton_md_unregister_handler(&serv->hnd, 1);
++	serv->hnd.fd = fd;
++	triton_md_register_handler(&serv->ctx, &serv->hnd);
++	triton_md_enable_handler(&serv->hnd, MD_MODE_READ);
++
++	memcpy(&serv->addr, &serv->new_addr, sizeof(serv->addr));
++
++	log_info1("l2tp: now listening on %s:%i\n",
++		  inet_ntoa(serv->addr.sin_addr), ntohs(serv->addr.sin_port));
++}
++
+ static int show_stat_exec(const char *cmd, char * const *fields, int fields_cnt, void *client)
+ {
+ 	cli_send(client, "l2tp:\r\n");
+@@ -5079,6 +5128,18 @@ static void load_config(void)
+ 		/* Makes compiler happy */
+ 		break;
+ 	}
++
++	/*
++	 * udp_serv.addr is zero until start_udp_server() has succeeded, which
++	 * happens after the call to load_config() from l2tp_init(), so this
++	 * only ever triggers on a reload.
++	 */
++	l2tp_parse_bind(&udp_serv.new_addr);
++	if (udp_serv.addr.sin_family == AF_INET &&
++	    memcmp(&udp_serv.new_addr, &udp_serv.addr, sizeof(udp_serv.addr)))
++		triton_context_call(&udp_serv.ctx,
++				    (triton_event_func)l2tp_udp_rebind,
++				    &udp_serv);
+ }
+ 
+ static void l2tp_init(void)
+diff --git a/accel-pppd/ctrl/pptp/pptp.c b/accel-pppd/ctrl/pptp/pptp.c
+index 8d5ca03..61005e2 100644
+--- a/accel-pppd/ctrl/pptp/pptp.c
++++ b/accel-pppd/ctrl/pptp/pptp.c
+@@ -647,6 +647,10 @@ struct pptp_serv_t
+ {
+ 	struct triton_context_t ctx;
+ 	struct triton_md_handler_t hnd;
++	/* address the listening socket is bound to, and the one a reload
++	 * wants it moved to */
++	struct sockaddr_in addr;
++	struct sockaddr_in new_addr;
+ };
+ 
+ static int pptp_connect(struct triton_md_handler_t *h)
+@@ -764,10 +768,146 @@ static int pptp_connect(struct triton_md_handler_t *h)
+ static void pptp_serv_close(struct triton_context_t *ctx)
+ {
+ 	struct pptp_serv_t *s=container_of(ctx,typeof(*s),ctx);
+-	triton_md_unregister_handler(&s->hnd, 1);
++	/* a failed rebind can leave us without a registered listener */
++	if (s->hnd.tpd)
++		triton_md_unregister_handler(&s->hnd, 1);
+ 	triton_context_unregister(ctx);
+ }
+ 
++static int pptp_parse_bind(struct sockaddr_in *addr)
++{
++	char *opt;
++
++	memset(addr, 0, sizeof(*addr));
++	addr->sin_family = AF_INET;
++
++	opt = conf_get_opt("pptp", "bind");
++	if (opt) {
++		if (!inet_aton(opt, &addr->sin_addr)) {
++			log_error("pptp: failed to parse bind address '%s'\n", opt);
++			return -1;
++		}
++	} else
++		addr->sin_addr.s_addr = htonl(INADDR_ANY);
++
++	opt = conf_get_opt("pptp", "port");
++	if (opt && atoi(opt) > 0)
++		addr->sin_port = htons(atoi(opt));
++	else
++		addr->sin_port = htons(PPTP_PORT);
++
++	return 0;
++}
++
++/* Returns the listening socket, or -errno of the step that failed */
++static int pptp_serv_open(const struct sockaddr_in *addr)
++{
++	int fd, err, f = 1;
++
++	fd = socket(PF_INET, SOCK_STREAM, 0);
++	if (fd < 0) {
++		err = errno;
++		log_error("pptp: failed to create server socket: %s\n", strerror(err));
++		return -err;
++	}
++
++	fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
++	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &f, sizeof(f));
++
++	if (bind(fd, (struct sockaddr *)addr, sizeof(*addr)) < 0) {
++		err = errno;
++		/* EADDRINUSE is expected while the old listener still overlaps */
++		if (err != EADDRINUSE)
++			log_error("pptp: failed to bind socket: %s\n", strerror(err));
++		goto out_err;
++	}
++
++	if (listen(fd, 100) < 0) {
++		err = errno;
++		log_error("pptp: failed to listen socket: %s\n", strerror(err));
++		goto out_err;
++	}
++
++	if (fcntl(fd, F_SETFL, O_NONBLOCK)) {
++		err = errno;
++		log_error("pptp: failed to set nonblocking mode: %s\n", strerror(err));
++		goto out_err;
++	}
++
++	return fd;
++
++out_err:
++	close(fd);
++	return -err;
++}
++
++static void pptp_serv_attach(struct pptp_serv_t *s, int fd)
++{
++	s->hnd.fd = fd;
++	triton_md_register_handler(&s->ctx, &s->hnd);
++	triton_md_enable_handler(&s->hnd, MD_MODE_READ);
++}
++
++static void pptp_serv_detach(struct pptp_serv_t *s)
++{
++	if (s->hnd.tpd)
++		triton_md_unregister_handler(&s->hnd, 1);
++}
++
++/*
++ * Runs in serv.ctx, so it is serialised against pptp_connect() on the
++ * listening socket. Established sessions have their own accepted sockets
++ * and are not affected by replacing the listener.
++ */
++static void pptp_serv_rebind(struct pptp_serv_t *s)
++{
++	char cur[INET_ADDRSTRLEN], new[INET_ADDRSTRLEN];
++	int fd, err;
++
++	inet_ntop(AF_INET, &s->addr.sin_addr, cur, sizeof(cur));
++	inet_ntop(AF_INET, &s->new_addr.sin_addr, new, sizeof(new));
++
++	/* open the replacement first, so a failure keeps the old listener */
++	fd = pptp_serv_open(&s->new_addr);
++	if (fd == -EADDRINUSE && s->hnd.tpd) {
++		/*
++		 * Linux refuses a bind() that overlaps a socket in LISTEN state
++		 * on the same port, SO_REUSEADDR notwithstanding - e.g. moving
++		 * from 0.0.0.0 to a specific address. Release the old listener
++		 * and fall back to it if the new address still fails.
++		 */
++		pptp_serv_detach(s);
++		fd = pptp_serv_open(&s->new_addr);
++		if (fd < 0) {
++			err = -fd;
++			fd = pptp_serv_open(&s->addr);
++			if (fd < 0) {
++				log_error("pptp: cannot bind %s:%i (%s), nor restore %s:%i,"
++					  " not listening\n",
++					  new, ntohs(s->new_addr.sin_port), strerror(err),
++					  cur, ntohs(s->addr.sin_port));
++				return;
++			}
++			pptp_serv_attach(s, fd);
++			log_error("pptp: cannot bind %s:%i (%s), still listening on %s:%i\n",
++				  new, ntohs(s->new_addr.sin_port), strerror(err),
++				  cur, ntohs(s->addr.sin_port));
++			return;
++		}
++	} else if (fd < 0) {
++		log_error("pptp: cannot bind %s:%i (%s), %s\n",
++			  new, ntohs(s->new_addr.sin_port), strerror(-fd),
++			  s->hnd.tpd ? "still listening on the old address" : "not listening");
++		return;
++	} else
++		pptp_serv_detach(s);
++
++	pptp_serv_attach(s, fd);
++	memcpy(&s->addr, &s->new_addr, sizeof(s->addr));
++
++	log_info1("pptp: now listening on %s:%i\n", new, ntohs(s->addr.sin_port));
++}
++
+ static struct pptp_serv_t serv=
+ {
+ 	.hnd.read = pptp_connect,
+@@ -852,13 +992,22 @@ static void load_config(void)
+ 		/* Makes compiler happy */
+ 		break;
+ 	}
++
++	/*
++	 * serv.addr is only set once the listening socket is up and its
++	 * context registered, so this does nothing on the call from
++	 * pptp_init() and nothing if we failed to start at all.
++	 */
++	if (serv.addr.sin_family == AF_INET &&
++	    !pptp_parse_bind(&serv.new_addr) &&
++	    memcmp(&serv.new_addr, &serv.addr, sizeof(serv.addr)))
++		triton_context_call(&serv.ctx, (triton_event_func)pptp_serv_rebind, &serv);
+ }
+ 
+ static void pptp_init(void)
+ {
+ 	struct sockaddr_in addr;
+-	char *opt;
+-	int fd, f = 1;
++	int fd;
+ 
+ 	fd = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_PPTP);
+ 	if (fd >= 0)
+@@ -866,50 +1015,16 @@ static void pptp_init(void)
+ 	else if (system("modprobe -q pptp"))
+ 		log_warn("failed to load pptp kernel module\n");
+ 
+-	serv.hnd.fd = socket(PF_INET, SOCK_STREAM, 0);
+-	if (serv.hnd.fd < 0) {
+-		log_emerg("pptp: failed to create server socket: %s\n", strerror(errno));
++	if (pptp_parse_bind(&addr)) {
++		log_emerg("pptp: disabled, invalid bind address\n");
+ 		return;
+ 	}
+ 
+-	fcntl(serv.hnd.fd, F_SETFD, fcntl(serv.hnd.fd, F_GETFD) | FD_CLOEXEC);
+-
+-	memset(&addr, 0, sizeof(addr));
+-	addr.sin_family = AF_INET;
+-
+-	opt = conf_get_opt("pptp", "bind");
+-	if (opt) {
+-		if (!inet_aton(opt, &addr.sin_addr)) {
+-			log_emerg("pptp: failed to parse bind address '%s'\n", opt);
+-			close(serv.hnd.fd);
+-			return;
+-		}
+-	} else
+-		addr.sin_addr.s_addr = htonl(INADDR_ANY);
+-
+-	opt = conf_get_opt("pptp", "port");
+-	if (opt && atoi(opt) > 0)
+-		addr.sin_port = htons(atoi(opt));
+-	else
+-		addr.sin_port = htons(PPTP_PORT);
+-
+-  setsockopt(serv.hnd.fd, SOL_SOCKET, SO_REUSEADDR, &f, sizeof(f));
+-  if (bind (serv.hnd.fd, (struct sockaddr *) &addr, sizeof (addr)) < 0) {
+-    log_emerg("pptp: failed to bind socket: %s\n", strerror(errno));
+-		close(serv.hnd.fd);
+-    return;
+-  }
+-
+-  if (listen (serv.hnd.fd, 100) < 0) {
+-    log_emerg("pptp: failed to listen socket: %s\n", strerror(errno));
+-		close(serv.hnd.fd);
+-    return;
+-  }
+-
+-	if (fcntl(serv.hnd.fd, F_SETFL, O_NONBLOCK)) {
+-    log_emerg("pptp: failed to set nonblocking mode: %s\n", strerror(errno));
+-		close(serv.hnd.fd);
+-    return;
++	serv.hnd.fd = pptp_serv_open(&addr);
++	if (serv.hnd.fd < 0) {
++		log_emerg("pptp: disabled, could not set up the listening socket: %s\n",
++			  strerror(-serv.hnd.fd));
++		return;
+ 	}
+ 
+ 	conn_pool = mempool_create(sizeof(struct pptp_conn_t));
+@@ -921,6 +1036,8 @@ static void pptp_init(void)
+ 	triton_md_enable_handler(&serv.hnd, MD_MODE_READ);
+ 	triton_context_wakeup(&serv.ctx);
+ 
++	memcpy(&serv.addr, &addr, sizeof(serv.addr));
++
+ 	cli_register_simple_cmd2(show_stat_exec, NULL, 2, "show", "stat");
+ 
+ 	triton_event_register_handler(EV_CONFIG_RELOAD, (triton_event_func)load_config);
+diff --git a/accel-pppd/ctrl/sstp/sstp.c b/accel-pppd/ctrl/sstp/sstp.c
+index 2f096b9..1cdb0a2 100644
+--- a/accel-pppd/ctrl/sstp/sstp.c
++++ b/accel-pppd/ctrl/sstp/sstp.c
+@@ -148,6 +148,10 @@ static struct sstp_serv_t {
+ 	struct triton_md_handler_t hnd;
+ 
+ 	struct sockaddr_t addr;
++	/* address a reload wants the listening socket moved to */
++	struct sockaddr_t new_addr;
++	/* set once the listening socket is up and its context registered */
++	int running;
+ 
+ 	SSL_CTX *ssl_ctx;
+ } serv;
+@@ -2423,7 +2427,9 @@ static void sstp_serv_close(struct triton_context_t *ctx)
+ {
+ 	struct sstp_serv_t *serv = container_of(ctx, typeof(*serv), ctx);
+ 
+-	triton_md_unregister_handler(&serv->hnd, 1);
++	/* a failed rebind can leave us without a registered listener */
++	if (serv->hnd.tpd)
++		triton_md_unregister_handler(&serv->hnd, 1);
+ 	triton_context_unregister(ctx);
+ 
+ 	if (serv->ssl_ctx)
+@@ -2752,6 +2758,9 @@ void __export sstp_get_stat(unsigned int **starting, unsigned int **active)
+ 	*active = &stat_active;
+ }
+ 
++static void sstp_parse_bind(struct sockaddr_t *addr);
++static void sstp_serv_rebind(struct sstp_serv_t *s);
++
+ static void load_config(void)
+ {
+ 	int ipmode;
+@@ -2856,6 +2865,16 @@ static void load_config(void)
+ 		/* Makes compiler happy */
+ 		break;
+ 	}
++
++	/*
++	 * serv.running is only set once the listening socket is up and its
++	 * context registered, which happens after the call to load_config()
++	 * from sstp_init(), so this only ever triggers on a reload. The TLS
++	 * material is handled by ssl_load_config() above and needs no rebind.
++	 */
++	sstp_parse_bind(&serv.new_addr);
++	if (serv.running && memcmp(&serv.new_addr, &serv.addr, sizeof(serv.addr)))
++		triton_context_call(&serv.ctx, (triton_event_func)sstp_serv_rebind, &serv);
+ }
+ 
+ static struct sstp_serv_t serv = {
+@@ -2864,14 +2883,13 @@ static struct sstp_serv_t serv = {
+ 	.ctx.before_switch = sstp_ctx_switch,
+ };
+ 
+-static void sstp_init(void)
++static void sstp_parse_bind(struct sockaddr_t *addr)
+ {
+-	struct sockaddr_t *addr = &serv.addr;
+-	struct linger linger;
+-	struct stat st;
+-	int port, value;
++	int port;
+ 	char *opt;
+ 
++	memset(addr, 0, sizeof(*addr));
++
+ 	opt = conf_get_opt("sstp", "port");
+ 	if (opt && atoi(opt) > 0)
+ 		port = atoi(opt);
+@@ -2891,22 +2909,32 @@ static void sstp_init(void)
+ 		addr->u.sin6.sin6_family = AF_INET6;
+ 		addr->u.sin6.sin6_port = htons(port);
+ 	} else {
+-		addr->len = sizeof(addr->u.sin);		
++		addr->len = sizeof(addr->u.sin);
+ 		addr->u.sin.sin_family = AF_INET;
+ 		if (!opt || inet_pton(AF_INET, opt, &addr->u.sin.sin_addr) <= 0)
+ 			addr->u.sin.sin_addr.s_addr = htonl(INADDR_ANY);
+ 		addr->u.sin.sin_port = htons(port);
+ 	}
++}
+ 
+-	serv.hnd.fd = socket(addr->u.sa.sa_family, SOCK_STREAM, 0);
+-	if (serv.hnd.fd < 0) {
+-		log_emerg("sstp: failed to create server socket: %s\n", strerror(errno));
+-		return;
++/* Returns the listening socket, or -errno of the step that failed */
++static int sstp_serv_open(const struct sockaddr_t *addr)
++{
++	struct linger linger;
++	struct stat st;
++	int fd, err, value;
++
++	fd = socket(addr->u.sa.sa_family, SOCK_STREAM, 0);
++	if (fd < 0) {
++		err = errno;
++		log_error("sstp: failed to create server socket: %s\n", strerror(err));
++		return -err;
+ 	}
+ 
+-	value = fcntl(serv.hnd.fd, F_GETFD);
+-	if (value < 0 || fcntl(serv.hnd.fd, F_SETFD, value | FD_CLOEXEC) < 0) {
+-		log_emerg("sstp: failed to set socket flags: %s\n", strerror(errno));
++	value = fcntl(fd, F_GETFD);
++	if (value < 0 || fcntl(fd, F_SETFD, value | FD_CLOEXEC) < 0) {
++		err = errno;
++		log_error("sstp: failed to set socket flags: %s\n", strerror(err));
+ 		goto error_close;
+ 	}
+ 
+@@ -2917,16 +2945,19 @@ static void sstp_init(void)
+ 		}
+ 	} else {
+ 		value = 1;
+-		setsockopt(serv.hnd.fd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
++		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
+ 
+ 		/* quick timeout */
+ 		linger.l_onoff = 1;
+ 		linger.l_linger = 5;
+-		setsockopt(serv.hnd.fd, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger));
++		setsockopt(fd, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger));
+ 	}
+ 
+-	if (bind(serv.hnd.fd, &addr->u.sa, addr->len) < 0) {
+-		log_emerg("sstp: failed to bind socket: %s\n", strerror(errno));
++	if (bind(fd, &addr->u.sa, addr->len) < 0) {
++		err = errno;
++		/* EADDRINUSE is expected while the old listener still overlaps */
++		if (err != EADDRINUSE)
++			log_error("sstp: failed to bind socket: %s\n", strerror(err));
+ 		goto error_close;
+ 	}
+ 
+@@ -2936,17 +2967,110 @@ static void sstp_init(void)
+ 		log_warn("sstp: failed to set socket permissions: %s\n", strerror(errno));
+ 	}
+ 
+-	if (listen(serv.hnd.fd, 10) < 0) {
+-		log_emerg("sstp: failed to listen socket: %s\n", strerror(errno));
++	if (listen(fd, 10) < 0) {
++		err = errno;
++		log_error("sstp: failed to listen socket: %s\n", strerror(err));
+ 		goto error_unlink;
+ 	}
+ 
+-	value = fcntl(serv.hnd.fd, F_GETFL);
+-	if (fcntl(serv.hnd.fd, F_SETFL, value | O_NONBLOCK)) {
+-		log_emerg("sstp: failed to set nonblocking mode: %s\n", strerror(errno));
++	value = fcntl(fd, F_GETFL);
++	if (fcntl(fd, F_SETFL, value | O_NONBLOCK)) {
++		err = errno;
++		log_error("sstp: failed to set nonblocking mode: %s\n", strerror(err));
+ 		goto error_unlink;
+ 	}
+ 
++	return fd;
++
++error_unlink:
++	if (addr->u.sa.sa_family == AF_UNIX && addr->u.sun.sun_path[0])
++		unlink(addr->u.sun.sun_path);
++error_close:
++	close(fd);
++
++	return -err;
++}
++
++static void sstp_serv_attach(struct sstp_serv_t *s, int fd)
++{
++	s->hnd.fd = fd;
++	triton_md_register_handler(&s->ctx, &s->hnd);
++	triton_md_enable_handler(&s->hnd, MD_MODE_READ);
++}
++
++/*
++ * Runs in serv.ctx, so it is serialised against sstp_connect() on the
++ * listening socket. Established sessions keep their own accepted socket
++ * and their own SSL context and are not touched. The new socket is bound
++ * before the old one is dropped where possible, so a bind failure leaves
++ * the current listener serving rather than leaving us with none.
++ */
++static void sstp_serv_rebind(struct sstp_serv_t *s)
++{
++	char old_path[sizeof(s->addr.u.sun.sun_path)] = { 0 };
++	char buf[ADDRSTR_MAXLEN];
++	int fd, err;
++
++	fd = sstp_serv_open(&s->new_addr);
++	if (fd == -EADDRINUSE && s->hnd.tpd) {
++		/*
++		 * Linux refuses a bind() that overlaps a socket in LISTEN state
++		 * on the same port, SO_REUSEADDR notwithstanding - e.g. moving
++		 * from 0.0.0.0 to a specific address. Release the old listener
++		 * and fall back to it if the new address still fails.
++		 */
++		triton_md_unregister_handler(&s->hnd, 1);
++		fd = sstp_serv_open(&s->new_addr);
++		if (fd < 0) {
++			err = -fd;
++			sockaddr_ntop(&s->addr, buf, sizeof(buf), 0);
++			fd = sstp_serv_open(&s->addr);
++			if (fd < 0) {
++				log_error("sstp: cannot bind the new address (%s),"
++					  " nor restore %s, not listening\n", strerror(err), buf);
++				return;
++			}
++			sstp_serv_attach(s, fd);
++			log_error("sstp: cannot bind the new address (%s),"
++				  " still listening on %s\n", strerror(err), buf);
++			return;
++		}
++	} else if (fd < 0) {
++		sockaddr_ntop(&s->addr, buf, sizeof(buf), 0);
++		log_error("sstp: cannot bind the new address (%s), %s %s\n", strerror(-fd),
++			  s->hnd.tpd ? "still listening on" : "not listening, was", buf);
++		return;
++	} else if (s->hnd.tpd)
++		triton_md_unregister_handler(&s->hnd, 1);
++
++	if (s->addr.u.sa.sa_family == AF_UNIX && s->addr.u.sun.sun_path[0])
++		memcpy(old_path, s->addr.u.sun.sun_path, sizeof(old_path));
++
++	sstp_serv_attach(s, fd);
++
++	memcpy(&s->addr, &s->new_addr, sizeof(s->addr));
++
++	/* only now that we no longer serve it, drop the old socket file */
++	if (old_path[0] &&
++	    !(s->addr.u.sa.sa_family == AF_UNIX &&
++	      !strcmp(old_path, s->addr.u.sun.sun_path)))
++		unlink(old_path);
++
++	sockaddr_ntop(&s->addr, buf, sizeof(buf), 0);
++	log_info1("sstp: now listening on %s\n", buf);
++}
++
++static void sstp_init(void)
++{
++	sstp_parse_bind(&serv.addr);
++
++	serv.hnd.fd = sstp_serv_open(&serv.addr);
++	if (serv.hnd.fd < 0) {
++		log_emerg("sstp: disabled, could not set up the listening socket: %s\n",
++			  strerror(-serv.hnd.fd));
++		return;
++	}
++
+ 	conn_pool = mempool_create(sizeof(struct sstp_conn_t));
+ 
+ 	load_config();
+@@ -2956,18 +3080,13 @@ static void sstp_init(void)
+ 	triton_md_enable_handler(&serv.hnd, MD_MODE_READ);
+ 	triton_context_wakeup(&serv.ctx);
+ 
++	serv.running = 1;
++
+ 	cli_register_simple_cmd2(show_stat_exec, NULL, 2, "show", "stat");
+ 
+ 	triton_event_register_handler(EV_MPPE_KEYS, (triton_event_func)ev_mppe_keys);
+ 	triton_event_register_handler(EV_SES_AUTHORIZED, (triton_event_func)ev_ses_authorized);
+ 	triton_event_register_handler(EV_CONFIG_RELOAD, (triton_event_func)load_config);
+-	return;
+-
+-error_unlink:
+-	if (addr->u.sa.sa_family == AF_UNIX && addr->u.sun.sun_path[0])
+-		unlink(addr->u.sun.sun_path);
+-error_close:
+-	close(serv.hnd.fd);
+ }
+ 
+ DEFINE_INIT(20, sstp_init);
+-- 
+2.39.5
+
