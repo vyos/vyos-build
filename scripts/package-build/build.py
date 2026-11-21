@@ -136,9 +136,7 @@ def build_package(package: list, patch_dir: Path) -> None:
         #
         # Default to True if the key is missing
         if package.get('apply_patches', True):
-            # Check if the 'patches' directory exists in the repository
-            if (repo_dir / 'patches'):
-                apply_patches(repo_dir, patch_dir / repo_name)
+            apply_patches(repo_dir, patch_dir / repo_name)
 
         # Create original tarball for dpkg-source to be happy
         package_version = run(['dpkg-parsechangelog', '--show-field', 'Version', '--file', repo_dir / 'debian/changelog'], capture_output=True, check=False)
