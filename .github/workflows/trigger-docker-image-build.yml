@@ -11,11 +11,8 @@ on:
       - sagitta
 
 permissions:
-  packages: write
   contents: read
-  attestations: write
-  id-token: write
-  pull-requests: read
+  pull-requests: read  # paths-filter lists the PR files through the API
 
 jobs:
   track-changes:
