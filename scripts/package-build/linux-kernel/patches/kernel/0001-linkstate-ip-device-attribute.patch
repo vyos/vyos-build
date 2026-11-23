@@ -61,7 +61,7 @@ index 6032eea2539a..b3ecf2a418af 100644
  struct in_ifaddr {
  	struct hlist_node	addr_lst;
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index c5541096a286..58557ba81264 100644
+index 3a58998bccfe..30ec85eb1f07 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
 @@ -91,6 +91,7 @@ struct ipv6_devconf {
@@ -97,10 +97,10 @@ index d4d3ae774b26..8495f1b69a64 100644
  };
  
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 942a887bf089..e6df2bfc4e40 100644
+index 5374aa7e1ffa..e283e180098b 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -2652,6 +2652,7 @@ static struct devinet_sysctl_table {
+@@ -2651,6 +2651,7 @@ static struct devinet_sysctl_table {
  					      "route_localnet"),
  		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
  					      "drop_unicast_in_l2_multicast"),
@@ -135,7 +135,7 @@ index 8f651cafcb2a..e4981eca8330 100644
  		.procname	= "ioam6_id",
  		.data		= &ipv6_devconf.ioam6_id,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c3a837bdd0cb..5669fc19be17 100644
+index af376b9568e2..f1f98a6e2cfb 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -718,6 +718,14 @@ static inline void rt6_probe(struct fib6_nh *fib6_nh)

@@ -36,7 +36,7 @@ Signed-off-by: Christian Breunig <christian@breunig.cc>
  3 files changed, 218 insertions(+), 1 deletion(-)
 
 diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index e78e8ea93bb7..305a39cd47cc 100644
+index 1d575005a58e..caf033c60a45 100644
 --- a/net/l2tp/l2tp_core.c
 +++ b/net/l2tp/l2tp_core.c
 @@ -55,6 +55,8 @@
@@ -48,7 +48,7 @@ index e78e8ea93bb7..305a39cd47cc 100644
  
  #include <asm/byteorder.h>
  #include <linux/atomic.h>
-@@ -1463,6 +1465,67 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
+@@ -1466,6 +1468,67 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
   * These sockets are freed when the namespace exits using the pernet
   * exit hook.
   */
@@ -116,7 +116,7 @@ index e78e8ea93bb7..305a39cd47cc 100644
  static int l2tp_tunnel_sock_create(struct net *net,
  				   u32 tunnel_id,
  				   u32 peer_tunnel_id,
-@@ -1500,7 +1563,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
+@@ -1503,7 +1566,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
  		udp_conf.local_udp_port = htons(cfg->local_udp_port);
  		udp_conf.peer_udp_port = htons(cfg->peer_udp_port);
  
