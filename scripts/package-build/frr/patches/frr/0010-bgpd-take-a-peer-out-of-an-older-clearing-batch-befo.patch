@@ -1,0 +1,218 @@
+From 72f30decdb4b44ec78a768db1e2f2bbefe6eb3d6 Mon Sep 17 00:00:00 2001
+From: aprathik <aprathik@nvidia.com>
+Date: Thu, 5 Nov 2026 19:23:34 +0530
+Subject: [PATCH] bgpd: take a peer out of an older clearing batch before
+ clearing it again
+
+Problem
+When a graceful-restart (GR) neighbor goes down, bgpd batches its route
+clearing. The batch's RIB walk marks the neighbor's paths STALE instead
+of deleting them, and the GR timers remove them later.
+
+If the neighbor is unconfigured (or shut down, or GR is disabled) while
+that walk is running, the second event cancels the GR timers and needs
+every path from the neighbor cleared. That clear request is silently
+dropped.
+
+For example, if the walk has covered 20 of 100 prefixes when the second
+event arrives, the 20 prefixes already marked STALE keep paths from a
+neighbor that no longer exists, with nothing left to remove them. The
+remaining 80 are cleared correctly, because the walk reaches them after
+the neighbor's GR state was reset.
+
+Cause
+bgp_clearing_batch_add_peer() returned true whenever the head batch was
+open, even when it skipped the add because PEER_FLAG_CLEARING_BATCH was
+already set. The flag is a single bit and can belong to an older batch
+that has already closed and is walking the RIB, so the caller was told
+the peer was handled when it was in no open batch.
+
+Fix
+Remove the peer from its in-flight batch and move it to an open batch.
+If none exists, create and schedule a new batch so a fresh RIB walk
+handles all of the peer's paths using its current state.
+
+Signed-off-by: Aprathi K <aprathik@nvidia.com>
+(cherry picked from commit 3f413c1bde9116bc2bacc35eefec3c13278346ac)
+---
+ bgpd/bgp_route.c |   8 ++++
+ bgpd/bgpd.c      | 100 +++++++++++++++++++++++++++++++++++++++++------
+ bgpd/bgpd.h      |   8 +++-
+ 3 files changed, 101 insertions(+), 15 deletions(-)
+
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 31969d056b..953219390e 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -7660,6 +7660,14 @@ static void clear_dests_callback(struct event *event)
+ 	int ret;
+ 	struct bgp_clearing_info *cinfo = EVENT_ARG(event);
+ 
++	/* Peers can be removed from the batch. If it is empty, there is
++	 * nothing left to walk for, so skip the RIB walk.
++	 */
++	if (bgp_clearing_batch_is_empty(cinfo)) {
++		bgp_clearing_batch_completed(cinfo);
++		return;
++	}
++
+ 	/* Begin, or continue, work */
+ 	ret = clear_batch_rib_helper(cinfo);
+ 	if (ret == 0) {
+diff --git a/bgpd/bgpd.c b/bgpd/bgpd.c
+index 65b0974bf5..93428076b6 100644
+--- a/bgpd/bgpd.c
++++ b/bgpd/bgpd.c
+@@ -9813,6 +9813,11 @@ bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
+ 	return (p != NULL);
+ }
+ 
++bool bgp_clearing_batch_is_empty(const struct bgp_clearing_info *cinfo)
++{
++	return bgp_clearing_hash_count(&cinfo->peers) == 0;
++}
++
+ /*
+  * Done with a peer clearing batch; deal with refcounts, free memory
+  */
+@@ -9836,31 +9841,100 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
+ 	bgp_clearing_batch_free(cinfo->bgp, &cinfo);
+ }
+ 
+-/* If a clearing batch is available for 'peer', add it and return 'true',
+- * else return 'false'.
++/* Remove 'peer' from its clearing batch without calling peer_unlock().
++ * On success, the caller will use the batch's existing peer_lock()
++ * reference in another batch without calling peer_lock() again, or release
++ * that reference with peer_unlock() if no new batch is available.
++ * Return true if the peer was removed.
++ */
++static bool bgp_clearing_batch_drop_peer(struct bgp *bgp, struct peer *peer)
++{
++	struct bgp_clearing_info *cinfo;
++
++	frr_each (bgp_clearing_info, &bgp->clearing_list, cinfo) {
++		if (!bgp_clearing_batch_check_peer(cinfo, peer))
++			continue;
++
++		bgp_clearing_hash_del(&cinfo->peers, peer);
++
++		if (bgp_debug_neighbor_events(peer))
++			zlog_debug("%s: peer %pBP taken out of batch %#x", __func__, peer,
++				   cinfo->id);
++		return true;
++	}
++
++	return false;
++}
++
++/* A peer's clearing flag may belong to an older batch already walking the
++ * RIB. For example, a GR peer going down has its paths marked STALE. If GR
++ * is then disabled, peer_nsf_stop() cancels the timers and requests another
++ * clear, but the old walk does not revisit paths it already marked STALE.
++ * Move the peer to an open batch so a fresh walk uses its current state.
++ * Create and schedule a batch if needed, keeping completion owned by a
++ * batch even when the peer has no routes.
+  */
+ bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer)
+ {
+ 	struct bgp_clearing_info *cinfo;
++	bool has_old_batch_ref = false;
+ 
+ 	cinfo = bgp_clearing_info_first(&bgp->clearing_list);
++	/* A closed head batch has already started its RIB walk and cannot
++	 * accept peers. Treat it as no open batch being available.
++	 */
++	if (cinfo && !CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN))
++		cinfo = NULL;
+ 
+-	if (cinfo && CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN)) {
+-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH)) {
+-			/* Add a peer ref */
+-			peer_lock(peer);
++	if (CHECK_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH)) {
++		/* If the flag is set and the peer belongs to the current open
++		 * batch, its RIB walk has not started, so no new walk is needed.
++		 */
++		if (cinfo && bgp_clearing_batch_check_peer(cinfo, peer))
++			return true;
+ 
+-			bgp_clearing_hash_add(&cinfo->peers, peer);
+-			SET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
++		has_old_batch_ref = bgp_clearing_batch_drop_peer(bgp, peer);
++		assertf(has_old_batch_ref,
++			"peer %pBP has PEER_FLAG_CLEARING_BATCH set but no clearing batch", peer);
++	}
+ 
+-			if (bgp_debug_neighbor_events(peer))
+-				zlog_debug("%s: peer %pBP batched in %#x", __func__,
+-					   peer, cinfo->id);
++	/* The peer was not part of an in-flight batch and the new batch is
++	 * not open. Do not create a new batch in this case.
++	 */
++	if (!cinfo && !has_old_batch_ref)
++		return false;
++
++	/* The peer was removed from an in-flight batch, but no open batch
++	 * exists. Start a new batch so a fresh walk owns its completion.
++	 */
++	if (!cinfo) {
++		/* During termination, release the old batch's peer_lock() and
++		 * clear the flag so the caller uses the per-AFI/SAFI fallback.
++		 */
++		if (bm->terminating) {
++			UNSET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
++			peer_unlock(peer);
++			return false;
+ 		}
+-		return true;
++
++		bgp_clearing_batch_begin(bgp);
++		cinfo = bgp_clearing_info_first(&bgp->clearing_list);
++
++		/* Schedule once; later requests must not postpone the walk. */
++		bgp_clearing_batch_end_event_start(bgp);
+ 	}
+ 
+-	return false;
++	/* Reuse the old batch's peer_lock() reference, or take a new one. */
++	if (!has_old_batch_ref)
++		peer_lock(peer);
++
++	bgp_clearing_hash_add(&cinfo->peers, peer);
++	SET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
++
++	if (bgp_debug_neighbor_events(peer))
++		zlog_debug("%s: peer %pBP batched in %#x", __func__, peer, cinfo->id);
++
++	return true;
+ }
+ 
+ /*
+diff --git a/bgpd/bgpd.h b/bgpd/bgpd.h
+index 9d86658307..9f48b452dd 100644
+--- a/bgpd/bgpd.h
++++ b/bgpd/bgpd.h
+@@ -3357,13 +3357,17 @@ extern void srv6_function_free(struct bgp_srv6_function *func);
+ 
+ extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
+ 
+-/* If a clearing batch is available for 'peer', add it and return 'true',
+- * else return 'false'.
++/* Add a peer to an open clearing batch. If its previous batch is already
++ * walking the RIB, move it to an open batch, creating and scheduling one
++ * if necessary. Return false for per-AFI/SAFI clearing when no batch is
++ * available; new batches are not created during daemon termination.
+  */
+ bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer);
+ /* Check whether a dest's peer is relevant to a clearing batch */
+ bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
+ 				   const struct peer *peer);
++/* Check whether a clearing batch has no peers left. */
++bool bgp_clearing_batch_is_empty(const struct bgp_clearing_info *cinfo);
+ /* Done with a peer clearing batch; deal with refcounts, free memory */
+ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo);
+ /* Start a new batch of peers to clear */
+-- 
+2.54.0
+

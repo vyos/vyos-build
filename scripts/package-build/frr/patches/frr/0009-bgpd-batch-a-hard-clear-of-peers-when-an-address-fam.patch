@@ -1,0 +1,425 @@
+From 9a4ef9996079bd4865effd1c01fad96e8062faaa Mon Sep 17 00:00:00 2001
+From: Ruben Herold <ruben@puettmann.net>
+Date: Mon, 19 Oct 2026 10:06:53 +0200
+Subject: [PATCH] bgpd: batch a hard clear of peers when an address family is
+ given
+
+A clear that names an address family is not batched, because bgp_clear()
+only opens a clearing batch when neither AFI nor SAFI is given. Every
+peer is then cleared on its own, with a full table walk per peer, and
+bgpd is blocked while it runs. "clear ip bgp" counts as well, it sets
+the family to IPv4.
+
+A hard clear resets the whole session whatever family is given, the
+family only selects the peers. Batch it like a clear without a family.
+Soft clears stay as they are.
+
+A peer that is added to a batch returned from bgp_clear_route_all()
+before rfapiProcessPeerDown(), so VNC kept the routes of that peer.
+This was already the case for the clears that were batched before,
+and it now would reach one more clear command. Call it for batched
+peers as well, it only starts the withdraw timers of the routes of
+the peer and does not depend on the table walk.
+
+Add a topotest that clears a peer-group with a family, checks that only
+the member with that family is reset, and that a clearing batch ran.
+
+Signed-off-by: Ruben Herold <ruben@puettmann.net>
+(cherry picked from commit 6cbd8cc66a10a1bf9a9363fc567d74d71540b6f6)
+---
+ bgpd/bgp_route.c                              |   7 +-
+ bgpd/bgp_vty.c                                |  23 ++-
+ .../bgp_clear_peer_group_family/r1/frr.conf   |  26 +++
+ .../bgp_clear_peer_group_family/r2/frr.conf   |  21 +++
+ .../bgp_clear_peer_group_family/r3/frr.conf   |  21 +++
+ .../test_bgp_clear_peer_group_family.py       | 175 ++++++++++++++++++
+ 6 files changed, 264 insertions(+), 9 deletions(-)
+ create mode 100644 tests/topotests/bgp_clear_peer_group_family/r1/frr.conf
+ create mode 100644 tests/topotests/bgp_clear_peer_group_family/r2/frr.conf
+ create mode 100644 tests/topotests/bgp_clear_peer_group_family/r3/frr.conf
+ create mode 100644 tests/topotests/bgp_clear_peer_group_family/test_bgp_clear_peer_group_family.py
+
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 4059a67e57..31969d056b 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -7950,8 +7950,13 @@ void bgp_clear_route_all(struct peer *peer)
+ 	/* We may be able to batch multiple peers' clearing work: check
+ 	 * and see.
+ 	 */
+-	if (bgp_clearing_batch_add_peer(peer->bgp, peer))
++	if (bgp_clearing_batch_add_peer(peer->bgp, peer)) {
++#ifdef ENABLE_BGP_VNC
++		/* Does not depend on the table walk, VNC still has to know */
++		rfapiProcessPeerDown(peer);
++#endif
+ 		return;
++	}
+ 
+ 	FOREACH_AFI_SAFI (afi, safi)
+ 		bgp_clear_route(peer, afi, safi);
+diff --git a/bgpd/bgp_vty.c b/bgpd/bgp_vty.c
+index 3a446ac9cd..adbea621fc 100644
+--- a/bgpd/bgp_vty.c
++++ b/bgpd/bgp_vty.c
+@@ -1255,11 +1255,18 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 	bool found = false;
+ 	struct peer *peer;
+ 	bool afi_safi_unspec = false;
++	bool use_batch = false;
+ 
+ 	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
+ 
+ 	afi_safi_unspec = ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC));
+ 
++	/*
++	 * A hard clear resets the whole session whatever address family is
++	 * given, the family only selects the peers, so it can be batched too.
++	 */
++	use_batch = afi_safi_unspec || (stype == BGP_CLEAR_SOFT_NONE);
++
+ 	/* Clear all neighbors. */
+ 	/*
+ 	 * Pass along pointer to next node to peer_clear() when walking all
+@@ -1267,7 +1274,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 	 * doppelganger
+ 	 */
+ 	if (sort == clear_all) {
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_begin(bgp);
+ 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+ 
+@@ -1299,7 +1306,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 			bgp->advertisement_delay_over = 0;
+ 		}
+ 
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_end_event_start(bgp);
+ 		return CMD_SUCCESS;
+ 	}
+@@ -1357,7 +1364,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 			return CMD_WARNING;
+ 		}
+ 
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_begin(bgp);
+ 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+ 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
+@@ -1367,7 +1374,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 			else
+ 				found = true;
+ 		}
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_end_event_start(bgp);
+ 
+ 		if (!found)
+@@ -1380,7 +1387,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 
+ 	/* Clear all external (eBGP) neighbors. */
+ 	if (sort == clear_external) {
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_begin(bgp);
+ 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+ 			if (peer->sort == BGP_PEER_IBGP)
+@@ -1406,7 +1413,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 			   && bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {
+ 			bgp_zebra_send_capabilities(bgp, true);
+ 		}
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_end_event_start(bgp);
+ 		if (!found)
+ 			vty_out(vty,
+@@ -1425,7 +1432,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 			return CMD_WARNING;
+ 		}
+ 
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_begin(bgp);
+ 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+ 			if (peer->as != as)
+@@ -1452,7 +1459,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+ 			bgp_zebra_send_capabilities(bgp, true);
+ 		}
+ 
+-		if (afi_safi_unspec)
++		if (use_batch)
+ 			bgp_clearing_batch_end_event_start(bgp);
+ 		if (!found)
+ 			vty_out(vty,
+diff --git a/tests/topotests/bgp_clear_peer_group_family/r1/frr.conf b/tests/topotests/bgp_clear_peer_group_family/r1/frr.conf
+new file mode 100644
+index 0000000000..f6077d2d01
+--- /dev/null
++++ b/tests/topotests/bgp_clear_peer_group_family/r1/frr.conf
+@@ -0,0 +1,26 @@
++hostname r1
++!
++interface r1-eth0
++ ip address 10.0.0.1/24
++ ipv6 address 2001:db8::1/64
++ no shutdown
++!
++router bgp 65001
++ bgp router-id 10.255.0.1
++ timers bgp 3 10
++ no bgp ebgp-requires-policy
++ no bgp default ipv4-unicast
++ neighbor PG peer-group
++ neighbor PG remote-as external
++ neighbor 10.0.0.2 peer-group PG
++ neighbor 2001:db8::3 peer-group PG
++ !
++ address-family ipv4 unicast
++  neighbor 10.0.0.2 activate
++ exit-address-family
++ !
++ address-family ipv6 unicast
++  neighbor 2001:db8::3 activate
++ exit-address-family
++!
++line vty
+diff --git a/tests/topotests/bgp_clear_peer_group_family/r2/frr.conf b/tests/topotests/bgp_clear_peer_group_family/r2/frr.conf
+new file mode 100644
+index 0000000000..d2e63d6391
+--- /dev/null
++++ b/tests/topotests/bgp_clear_peer_group_family/r2/frr.conf
+@@ -0,0 +1,21 @@
++hostname r2
++!
++interface r2-eth0
++ ip address 10.0.0.2/24
++ no shutdown
++!
++router bgp 65002
++ bgp router-id 10.255.0.2
++ timers bgp 3 10
++ no bgp ebgp-requires-policy
++ no bgp default ipv4-unicast
++ neighbor 10.0.0.1 remote-as 65001
++ !
++ address-family ipv4 unicast
++  neighbor 10.0.0.1 activate
++  network 192.0.2.0/24
++ exit-address-family
++!
++ip route 192.0.2.0/24 blackhole
++!
++line vty
+diff --git a/tests/topotests/bgp_clear_peer_group_family/r3/frr.conf b/tests/topotests/bgp_clear_peer_group_family/r3/frr.conf
+new file mode 100644
+index 0000000000..a5693e9bae
+--- /dev/null
++++ b/tests/topotests/bgp_clear_peer_group_family/r3/frr.conf
+@@ -0,0 +1,21 @@
++hostname r3
++!
++interface r3-eth0
++ ipv6 address 2001:db8::3/64
++ no shutdown
++!
++router bgp 65003
++ bgp router-id 10.255.0.3
++ timers bgp 3 10
++ no bgp ebgp-requires-policy
++ no bgp default ipv4-unicast
++ neighbor 2001:db8::1 remote-as 65001
++ !
++ address-family ipv6 unicast
++  neighbor 2001:db8::1 activate
++  network 2001:db8:100::/48
++ exit-address-family
++!
++ipv6 route 2001:db8:100::/48 blackhole
++!
++line vty
+diff --git a/tests/topotests/bgp_clear_peer_group_family/test_bgp_clear_peer_group_family.py b/tests/topotests/bgp_clear_peer_group_family/test_bgp_clear_peer_group_family.py
+new file mode 100644
+index 0000000000..0394f0a43d
+--- /dev/null
++++ b/tests/topotests/bgp_clear_peer_group_family/test_bgp_clear_peer_group_family.py
+@@ -0,0 +1,175 @@
++#!/usr/bin/env python
++# SPDX-License-Identifier: ISC
++#
++# test_bgp_clear_peer_group_family.py
++# Copyright (c) 2026 by Ruben Herold
++#
++"""
++Test that a hard clear of a peer-group is batched when an address family is
++given, and that the family still selects the peers.
++
++r1 has a peer-group PG with two members: r2 (IPv4 unicast only) and r3 (IPv6
++unicast only). A hard clear resets the whole session, so
++"clear bgp ipv4 unicast peer-group PG" must reset r2 and leave r3 alone. As for
++a clear without a family, the peers are cleared in one batch (a single RIB
++walk) and not one by one, which shows in the neighbor-events debug log.
++"""
++
++import functools
++import json
++import os
++import sys
++import pytest
++
++from lib import topotest
++from lib.topogen import Topogen, get_topogen
++
++pytestmark = [pytest.mark.bgpd]
++
++CWD = os.path.dirname(os.path.realpath(__file__))
++sys.path.append(os.path.join(CWD, "../"))
++
++R2 = "10.0.0.2"
++R3 = "2001:db8::3"
++BATCH_LOG = "bgp_clearing_batch_completed"
++
++
++def build_topo(tgen):
++    for name in ["r1", "r2", "r3"]:
++        tgen.add_router(name)
++
++    switch = tgen.add_switch("s1")
++    for name in ["r1", "r2", "r3"]:
++        switch.add_link(tgen.gears[name])
++
++
++def setup_module(mod):
++    tgen = Topogen(build_topo, mod.__name__)
++    tgen.start_topology()
++
++    for router in tgen.routers().values():
++        router.load_frr_config()
++
++    tgen.start_router()
++
++
++def teardown_module(_mod):
++    tgen = get_topogen()
++    tgen.stop_topology()
++
++
++def _neighbor(router, address):
++    output = json.loads(router.vtysh_cmd(f"show bgp neighbors {address} json"))
++    return output.get(address, {})
++
++
++def _established(router, address):
++    state = _neighbor(router, address).get("bgpState")
++    return None if state == "Established" else {"bgpState": state}
++
++
++def _connections(router, address):
++    return _neighbor(router, address).get("connectionsEstablished", 0)
++
++
++def _drops(router, address):
++    return _neighbor(router, address).get("connectionsDropped", 0)
++
++
++def _batches():
++    "Number of finished clearing batches in the bgpd log of r1"
++    tgen = get_topogen()
++    path = os.path.join(tgen.logdir, "r1", "bgpd.log")
++    if not os.path.exists(path):
++        return 0
++    with open(path, encoding="utf-8", errors="replace") as logfile:
++        return sum(1 for line in logfile if BATCH_LOG in line)
++
++
++def _reconnected(router, address, before):
++    count = _connections(router, address)
++    if count <= before:
++        return {"connectionsEstablished": count, "before": before}
++    return None
++
++
++def _wait_established(router):
++    for address in [R2, R3]:
++        test_func = functools.partial(_established, router, address)
++        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
++        assert result is None, f"{address} is not Established: {result}"
++
++
++def test_sessions_established():
++    tgen = get_topogen()
++
++    if tgen.routers_have_failure():
++        pytest.skip(tgen.errors)
++
++    _wait_established(tgen.gears["r1"])
++
++
++def test_clear_group_with_family_is_batched():
++    "A hard clear with an address family resets the matching members in a batch"
++    tgen = get_topogen()
++
++    if tgen.routers_have_failure():
++        pytest.skip(tgen.errors)
++
++    r1 = tgen.gears["r1"]
++
++    # the batch only shows in the neighbor-events debug log
++    r1.vtysh_cmd("debug bgp neighbor-events")
++
++    r2_before = _connections(r1, R2)
++    r3_drops_before = _drops(r1, R3)
++    batches_before = _batches()
++
++    r1.vtysh_cmd("clear bgp ipv4 unicast peer-group PG")
++
++    # r2 carries IPv4 unicast, its session is reset and comes back
++    test_func = functools.partial(_reconnected, r1, R2, r2_before)
++    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
++    assert result is None, f"r2 was not reset by the clear: {result}"
++
++    # r3 has no IPv4 unicast, it must not be touched: no session drop, and it
++    # is still Established (a reset r3 could still be reconnecting here)
++    assert (
++        _drops(r1, R3) == r3_drops_before
++    ), "r3 has no IPv4 unicast but was reset as well"
++    assert _established(r1, R3) is None, "r3 is not Established after the clear"
++
++    # the clear went through a clearing batch
++    test_func = functools.partial(lambda: None if _batches() > batches_before else 1)
++    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
++    assert result is None, "the clear with an address family was not batched"
++
++
++def test_clear_group_without_family_is_batched():
++    "A clear without an address family still resets all members in a batch"
++    tgen = get_topogen()
++
++    if tgen.routers_have_failure():
++        pytest.skip(tgen.errors)
++
++    r1 = tgen.gears["r1"]
++    _wait_established(r1)
++    r2_before = _connections(r1, R2)
++    r3_before = _connections(r1, R3)
++    batches_before = _batches()
++
++    r1.vtysh_cmd("clear bgp peer-group PG")
++
++    for address, before in [(R2, r2_before), (R3, r3_before)]:
++        test_func = functools.partial(_reconnected, r1, address, before)
++        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
++        assert result is None, f"{address} was not reset by the clear: {result}"
++
++    test_func = functools.partial(lambda: None if _batches() > batches_before else 1)
++    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
++    assert result is None, "the clear without an address family was not batched"
++
++
++if __name__ == "__main__":
++    args = ["-s"] + sys.argv[1:]
++    sys.exit(pytest.main(args))
+-- 
+2.54.0
+
