@@ -1,0 +1,25 @@
+From: Christian Breunig <christian@breunig.cc>
+Date: Mon, 23 Nov 2026 21:37:40 +0100
+Subject: [PATCH] perf jitdump: include linux/string.h for strlcpy()
+
+The jitdump hardening backported to 6.18.65 calls strlcpy() in jit_open()
+but relies on the C library to declare it. glibc only provides strlcpy()
+since 2.38, so on Debian Bookworm (glibc 2.36) building perf fails with:
+
+  util/jitdump.c:247:17: error: implicit declaration of function 'strlcpy'
+  [-Werror=implicit-function-declaration]
+
+Include the tools copy of linux/string.h, which declares the fallback
+implementation from tools/lib/string.c.
+
+---
+--- a/tools/perf/util/jitdump.c	2026-11-23 21:37:40.115313636 +0100
++++ b/tools/perf/util/jitdump.c	2026-11-23 21:37:40.117313651 +0100
+@@ -14,6 +14,7 @@
+ #include <sys/stat.h>
+ #include <sys/mman.h>
+ #include <linux/stringify.h>
++#include <linux/string.h>
+ 
+ #include "event.h"
+ #include "debug.h"
