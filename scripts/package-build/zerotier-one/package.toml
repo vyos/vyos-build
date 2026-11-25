@@ -3,15 +3,17 @@ name = "zerotier-one"
 commit_id = "1.16.0"
 scm_url = "https://github.com/zerotier/ZeroTierOne.git"
 
+pre_build_hook = "git apply ../patches/zerotier-one/0001-extosdep-config-update-nudge.patch"
+
 build_cmd = """
-make -j"$(nproc)" ZT_SSO_SUPPORTED=0
+make -j"$(nproc)" ZT_EXTOSDEP=1 ZT_SSO_SUPPORTED=0
 mkdir -p tmp/usr/sbin
 install -m0755 zerotier-one tmp/usr/sbin/zerotier-one
 ln -s /usr/sbin/zerotier-one tmp/usr/sbin/zerotier-cli
 ln -s /usr/sbin/zerotier-one tmp/usr/sbin/zerotier-idtool
 
 fpm --input-type dir --output-type deb --name zerotier-one \
-    --version "1.16.0" --deb-compression gz \
+    --version "1.16.0" --iteration "vyos1" --deb-compression gz \
     --maintainer "VyOS Package Maintainers <maintainers@vyos.net>" \
     --description "ZeroTier virtual networking daemon" \
     --license "MPL-2.0" --chdir tmp .
