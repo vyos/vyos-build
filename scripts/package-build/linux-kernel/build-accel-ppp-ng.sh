@@ -4,9 +4,7 @@ set -e
 ARCH_TRIPLET=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 CWD=$(pwd)
 KERNEL_VAR_FILE=${CWD}/kernel-vars
-VPP_INCLUDE_PATH="${CWD}/../vpp/vpp/src/vpp-api:${CWD}/../vpp/vpp/src:${CWD}/../vpp/vpp/build-root/build-vpp-native/vpp/CMakeFiles/vpp-api"
-VPP_LIBRARY_PATH="${CWD}/../vpp/vpp/build-root/build-vpp-native/vpp/CMakeFiles/debian/libvppinfra/usr/lib/${ARCH_TRIPLET}:${CWD}/../vpp/vpp/build-root/install-vpp-native/vpp/lib/${ARCH_TRIPLET}"
-VPP_LIB_CHECK_PATH="${CWD}/../vpp/vpp/build-root/build-vpp-native/vpp/CMakeFiles/debian/libvppinfra/usr/lib/${ARCH_TRIPLET}"
+VPP_SYSROOT=${CWD}/vpp-sysroot
 
 ACCEL_SRC=${CWD}/accel-ppp-ng
 if [ ! -d ${ACCEL_SRC} ]; then
@@ -19,19 +17,30 @@ if [ ! -f ${KERNEL_VAR_FILE} ]; then
     exit 1
 fi
 
-# Build VPP as we need VPP libraries. This is a full VPP build (make pkg-deb),
-# not just headers, since that's the only build target VPP exposes here - skip
-# it if a previous run already produced the libraries we link against. Remove
-# ${VPP_LIB_CHECK_PATH} (or the whole ../vpp/vpp checkout) to force a rebuild,
-# e.g. after bumping the VPP commit_id in ../vpp/package.toml.
-if [ ! -d ${VPP_LIB_CHECK_PATH} ]; then
-    cd ../vpp/
-    ./build.py
-    cd ${CWD}
+# Link against the VPP packages from the VyOS APT repository - the same ones
+# that end up in the image - instead of building VPP from source. They are
+# only unpacked, not installed, so the build container stays untouched.
+VPP_VERSION=$(apt-cache policy vpp-dev | awk '/Candidate:/ {print $2}')
+if [ -z "${VPP_VERSION}" ] || [ "${VPP_VERSION}" = "(none)" ]; then
+    echo "E: vpp-dev not found in APT sources, is the VyOS repository configured?"
+    exit 1
 fi
 
-if [ ! -d ${VPP_LIB_CHECK_PATH} ]; then
-    echo "VPP source libraries not found"
+echo "I: Unpack VPP ${VPP_VERSION} development files"
+rm -rf ${VPP_SYSROOT}
+mkdir -p ${VPP_SYSROOT}/debs
+cd ${VPP_SYSROOT}/debs
+apt-get download vpp=${VPP_VERSION} vpp-dev=${VPP_VERSION} \
+    libvppinfra=${VPP_VERSION} libvppinfra-dev=${VPP_VERSION}
+for deb in *.deb; do
+    dpkg-deb -x ${deb} ${VPP_SYSROOT}
+done
+cd ${CWD}
+
+VPP_INCLUDE_PATH="${VPP_SYSROOT}/usr/include"
+VPP_LIBRARY_PATH="${VPP_SYSROOT}/usr/lib/${ARCH_TRIPLET}"
+if [ ! -f ${VPP_INCLUDE_PATH}/vapi/vapi.h ] || [ ! -e ${VPP_LIBRARY_PATH}/libvapiclient.so ]; then
+    echo "E: VPP development files not found in ${VPP_SYSROOT}"
     exit 1
 fi
 
@@ -76,8 +85,3 @@ cpack -G DEB
 
 # rename resulting Debian package according git description
 mv accel-ppp*.deb ${CWD}/accel-ppp-ng_$(git describe --always --tags)_$(dpkg --print-architecture).deb
-
-# move VPP binaries to linux-kernel dir, CI will get VPP .deb here.
-# If the VPP build was skipped above (libraries already present from a
-# prior run), there may be no fresh .deb here to copy - that's fine.
-cp ${CWD}/../vpp/*.deb ${CWD} 2>/dev/null || echo "I: No freshly built VPP .deb to copy"
