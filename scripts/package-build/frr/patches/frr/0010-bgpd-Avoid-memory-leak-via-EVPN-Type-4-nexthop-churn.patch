@@ -1,0 +1,54 @@
+From 21d33cf88bb7b75ce0a42618074ccf04d6dc0bf8 Mon Sep 17 00:00:00 2001
+From: Donatas Abraitis <donatas@opensourcerouting.org>
+Date: Thu, 4 Jun 2026 09:23:41 +0300
+Subject: [PATCH] bgpd: Avoid memory leak via EVPN Type-4 nexthop churn
+
+$ vtysh -c 'show bgp l2vpn evpn es'
+ES Flags: B - bypass, L local, R remote, I inconsistent
+VTEP Flags: E ESR/Type-4, A active nexthop
+ESI                            Flags RD                    #VNIs    VTEPs
+03:aa:bb:cc:dd:ee:ff:00:00:01  L     172.54.0.10:2         0        10.99.0.1(E),10.99.0.2(E),10.99.0.3(E),10.99.0.4(E),10.99.0.5(E),10.99.0.6(E),10.99.0.7(E),10.99.0.8(E),10.99.0.9(E),10.99.0.10(E),10.99.0.11(E),10.99.0.12(E),10.99.0.13(E),10.99.0.14(E),10.99.0.15(E),10.99.0.16(E),10.99.0.17(E),10.99.0.18(E),10.99.0.19(E),10.99.0.20(E),10.99.0.21(E),10.99.0.22(E),10.99.0.23(E),10.99.0.24(E),10.99.0.25(E),10.99.0.26(E),10.99.0.27(E),10.99.0.28(E),10.99.0.29(E),10.99.0.30(E),10.99.0.31(E),10.99.0.32(E),10.99.0.33(E),10.99.0.34(E),10.99.0.35(E),10.99.0.36(E),10.99.0.37(E),10.99.0.38(E),...
+
+$ vtysh -c 'show memory bgp' | grep 'ES VTEP'
+BGP EVPN ES VTEP              :       50    112        5600       50      5600
+
+$ vtysh -c 'show bgp l2vpn evpn route type es'
+   Network          Next Hop            Metric LocPrf Weight Path
+Route Distinguisher: 65002:1
+ *>  [4]:[03:aa:bb:cc:dd:ee:ff:00:00:01]:[32]:[10.99.0.1] RD 65002:1
+                    10.99.0.50                             0 65002 i
+...
+Displayed 2 prefixes (2 paths) (of requested type)
+```
+
+After MP_UNREACH withdraw of the prefix, **49** vteps remain; only the
+last-swapped NH `10.99.0.50` is deleted:
+
+```
+$ vtysh -c 'show memory bgp' | grep 'ES VTEP'
+BGP EVPN ES VTEP              :       49    112        5488       50      5600
+```
+
+Signed-off-by: Donatas Abraitis <donatas@opensourcerouting.org>
+(cherry picked from commit 6b9fd948653ebac06b3400e5d12e51cdffeebb41)
+---
+ bgpd/bgp_route.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 25dce00323..eaedfebe02 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -6409,7 +6409,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
+ 				}
+ 				/* evpn update with new nexthop: unimport route with old VTEP entry.*/
+ 				else if (safi == SAFI_EVPN &&
+-					 evp->prefix.route_type == BGP_EVPN_AD_ROUTE &&
++					 (evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
++					  evp->prefix.route_type == BGP_EVPN_ES_ROUTE) &&
+ 					 !bgp_attr_nexthop_same(pi->attr, attr_new, afi)) {
+ 					bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
+ 				}
+-- 
+2.54.0
+
