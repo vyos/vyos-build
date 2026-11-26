@@ -2169,14 +2169,31 @@ try:
         # Upper limit we wait for the array to be fully re-synced
         raid_sync_timeout = 900
 
+        def raid_diagnostics_and_fail(step):
+            for diag in ['cat /proc/mdstat', 'lsblk',
+                         'sudo mdadm --detail /dev/md0',
+                         'sudo journalctl -b --no-pager | grep -i mdadm | tail -n 20']:
+                c.sendline(diag)
+                c.expect(op_mode_prompt)
+            raise Exception(f'RAID1 test failed: {step}')
+
+        raid_error = r'Traceback|failed to run command|unable to format|does not exist|cannot be'
+
         log.info('Re-format new RAID member')
         c.sendline('format by-id disk drive-hd1 like drive-hd2')
+        if c.expect([raid_error, r'Do you wish to proceed\?'], timeout=raid_timeout) == 0:
+            c.expect(op_mode_prompt, timeout=raid_timeout)
+            raid_diagnostics_and_fail('re-formatting new member')
         c.sendline('yes')
-        c.expect(op_mode_prompt, timeout=raid_timeout)
+        if c.expect([raid_error, op_mode_prompt], timeout=raid_timeout) == 0:
+            c.expect(op_mode_prompt, timeout=raid_timeout)
+            raid_diagnostics_and_fail('re-formatting new member')
 
         log.info('Add member to RAID1 (md0)')
         c.sendline('add raid md0 by-id member drive-hd1-part3')
-        c.expect(op_mode_prompt, timeout=raid_timeout)
+        if c.expect([raid_error, op_mode_prompt], timeout=raid_timeout) == 0:
+            c.expect(op_mode_prompt, timeout=raid_timeout)
+            raid_diagnostics_and_fail('adding member to md0')
 
         log.info('Now we need to wait for re-sync to complete')
 
