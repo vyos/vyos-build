@@ -1,0 +1,100 @@
+From d713d7bab50d0cf004b197c3e93f116a1648ef8a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Filip=20Pobo=C5=99il?= <fpoboril@redhat.com>
+Date: Wed, 18 Nov 2026 14:35:34 +0100
+Subject: [PATCH] Limit ctstate rule to podman interfaces only
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The `ct state invalid drop` rule is needed to prevent an IP address
+leak, but without limiting it to only podman interfaces, it was too
+broad and caused issues. For example, when the host is used as a router,
+packets marked invalid may not be invalid, as they may just be forwarded
+via another host. Limiting the rule to only podman interfaces prevents
+the IP leak and doesn't cause unwanted side effects.
+
+Closes: https://github.com/containers/netavark/issues/1149
+Signed-off-by: Filip Pobořil <fpoboril@redhat.com>
+[VyOS: backported to netavark 1.14.0]
+---
+ src/firewall/nft.rs           | 17 +++++++++++++++++
+ test/250-bridge-nftables.bats | 10 ++++------
+ 2 files changed, 21 insertions(+), 6 deletions(-)
+
+diff --git a/src/firewall/nft.rs b/src/firewall/nft.rs
+index 2f8bf70..7b3b9bc 100644
+--- a/src/firewall/nft.rs
++++ b/src/firewall/nft.rs
+@@ -225,6 +225,13 @@ impl firewall::FirewallDriver for Nftables {
+             batch.add(make_rule(
+                 FORWARDCHAIN,
+                 vec![
++                    stmt::Statement::Match(stmt::Match {
++                        left: expr::Expression::Named(expr::NamedExpression::Meta(expr::Meta {
++                            key: expr::MetaKey::Iifname,
++                        })),
++                        right: expr::Expression::String(network_setup.bridge_name.clone()),
++                        op: stmt::Operator::EQ,
++                    }),
+                     stmt::Statement::Match(stmt::Match {
+                         left: expr::Expression::Named(expr::NamedExpression::CT(expr::CT {
+                             key: "state".to_string(),
+@@ -552,6 +559,16 @@ impl firewall::FirewallDriver for Nftables {
+             batch.delete(schema::NfListObject::Rule(rule));
+         }
+ 
++        let forwarding_rules =
++            get_matching_rules_in_chain(&existing_rules, FORWARDCHAIN, &match_our_bridge);
++        log::debug!(
++            "Removing {} forwarding rules for network",
++            forwarding_rules.len()
++        );
++        for rule in forwarding_rules {
++            batch.delete(schema::NfListObject::Rule(rule));
++        }
++
+         let rules = batch.to_nftables();
+ 
+         helper::apply_ruleset(&rules, None, None)?;
+diff --git a/test/250-bridge-nftables.bats b/test/250-bridge-nftables.bats
+index d2075ea..ab7cf78 100644
+--- a/test/250-bridge-nftables.bats
++++ b/test/250-bridge-nftables.bats
+@@ -79,8 +79,7 @@ export NETAVARK_FW=nftables
+ 
+     # check FORWARD rules
+     run_in_host_netns nft list chain inet netavark FORWARD
+-    assert "${lines[3]}" =~ "ct state invalid drop" "CT state invalid rule"
+-    assert "${#lines[@]}" = 7 "too many FORWARD rules after teardown"
++    assert "${#lines[@]}" = 6 "too many FORWARD rules after teardown"
+ 
+     # check POSTROUTING rules
+     run_in_host_netns nft list chain inet netavark POSTROUTING
+@@ -846,7 +845,7 @@ EOF
+ 
+     # check FORWARD rules
+     run_in_host_netns nft list chain inet netavark FORWARD
+-    assert "${lines[3]}" =~ "ct state invalid drop" "CT state invalid rule"
++    assert "${lines[3]}" =~ "iifname \"podman1\" ct state invalid drop" "CT state invalid rule"
+     assert "${lines[4]}" =~ "jump NETAVARK-ISOLATION-1"
+     assert "${lines[5]}" =~ "ip daddr 10.88.0.0/16 ct state established,related accept" "Related,established rule"
+     assert "${lines[6]}" =~ "ip saddr 10.88.0.0/16 accept" "Subnet saddr accept rule"
+@@ -857,8 +856,7 @@ EOF
+     expected_rc=1 run_in_host_netns ip link show podman1
+ 
+     run_in_host_netns nft list chain inet netavark FORWARD
+-    assert "${lines[3]}" =~ "ct state invalid drop" "forward rule 1"
+-    assert "${#lines[@]}" = 7 "too many NETAVARK_FORWARD rules"
++    assert "${#lines[@]}" = 6 "too many NETAVARK_FORWARD rules"
+ 
+     run_in_host_netns ip -o link
+     assert "${#lines[@]}" == 1 "only loopback adapter"
+@@ -981,7 +979,7 @@ function check_simple_bridge_nftables() {
+ 
+     # check FORWARD rules
+     run_in_host_netns nft list chain inet netavark FORWARD
+-    assert "${lines[3]}" =~ "ct state invalid drop" "CT state invalid rule"
++    assert "${lines[3]}" =~ "iifname \"podman0\" ct state invalid drop" "CT state invalid rule"
+     assert "${lines[4]}" =~ "jump NETAVARK-ISOLATION-1"
+     assert "${lines[5]}" =~ "ip daddr 10.88.0.0/16 ct state established,related accept" "Related,established rule"
+     assert "${lines[6]}" =~ "ip saddr 10.88.0.0/16 accept" "Subnet saddr accept rule"
