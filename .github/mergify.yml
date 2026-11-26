@@ -46,10 +46,10 @@ pull_request_rules:
       - 'author!=copilot-swe-agent'
       - 'author!=vyosbot'
       - or:
-          - '-title~=^(([a-zA-Z0-9\-_.]+:[ ])?)(T[0-9]+|NOS-[0-9]+|VD-[0-9]+):[ ]+[^\s]+.*'
+          - '-title~=^((Revert|Reapply)[ ]+"?)*(([a-zA-Z0-9\-_.]+:[ ])?)(T[0-9]+|NOS-[0-9]+|VD-[0-9]+):[ ]+[^\s]+.*'
           - and:
               - 'label!=legacy'
-              - 'commits[*].commit_message~=^(?!(([a-zA-Z0-9\-_.]+:[ ])?)(T[0-9]+|NOS-[0-9]+|VD-[0-9]+):[ ]+[^\s]+).*'
+              - 'commits[*].commit_message~=^(?!((Revert|Reapply)[ ]+"?)*(([a-zA-Z0-9\-_.]+:[ ])?)(T[0-9]+|NOS-[0-9]+|VD-[0-9]+):[ ]+[^\s]+).*'
     actions:
       label:
         toggle:
