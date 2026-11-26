@@ -33,3 +33,4 @@ ephemeral.*
 *.changes
 *.deb
 *.dsc
+/vpp-sysroot/
