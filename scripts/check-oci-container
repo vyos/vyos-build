@@ -25,6 +25,8 @@
 #  banner, /config symlink, removal of container incompatible CLI nodes) are
 #  still in place - those are invisible until someone imports the image by hand.
 #
+#  L2TPv3 tests need the l2tp Kernel modules on the host, loaded or autoloadable.
+#
 #  Arguments:
 #    [--image]      OCI tarball to test, defaults to the newest one in $PWD
 #    [--runtime]    Force 'docker' or 'podman', default is to auto-detect
@@ -493,6 +495,83 @@ def kmod_tests(c, runtime: str, name: str) -> None:
 
     l2tpv3_tests(c, runtime, name)
 
+def cfg_run(c, command: str) -> str:
+    """ Run a configuration mode command, return its output """
+    c.sendline(command)
+    c.expect(cfg_mode_prompt)
+    output = c.before
+    if 'Set failed' in output or 'is not valid' in output:
+        raise Exception(f'Command "{command}" was rejected: {output.strip()}')
+    return output
+
+def cfg_commit(c, expect_success: bool, reason: str, error: str = '') -> None:
+    """ A failing commit must report a clean error, not a traceback, and if
+        given mention error - the CLI wraps long lines """
+    c.sendline('commit')
+    c.expect(cfg_mode_prompt)
+    output = c.before
+    failed = 'failed' in output.lower()
+    if expect_success and failed:
+        raise Exception(f'Commit failed, {reason}: {output.strip()}')
+    if not expect_success and not failed:
+        raise Exception(f'Commit succeeded, {reason}: {output.strip()}')
+    if not expect_success and 'Traceback' in output:
+        raise Exception(f'Commit failed with a traceback, {reason}: {output.strip()}')
+    if not expect_success and error and error not in ' '.join(output.split()):
+        raise Exception(f'Commit error does not mention "{error}": {output.strip()}')
+
+def l2tpv3_session_tests(runtime: str, name: str, c) -> None:
+    """ T9581: a failed L2TPv3 commit must not leave a stale tunnel behind.
+        Uses IP encapsulation, where the Kernel rejects a duplicate session ID
+        even across tunnels. The host Kernel must provide the l2tp modules. """
+    sh = lambda cmd, check=True: container_exec(runtime, name, cmd, check=check)
+    local = '192.0.2.1'
+    base = 'interfaces l2tpv3'
+
+    def set_l2tpv3(ifname: str, tunnel_id: int, remote: str) -> None:
+        for option in ['encapsulation ip', f'source-address {local}',
+                       f'remote {remote}', f'tunnel-id {tunnel_id}',
+                       f'peer-tunnel-id {tunnel_id}', f'session-id {tunnel_id}',
+                       f'peer-session-id {tunnel_id}']:
+            cfg_run(c, f'set {base} {ifname} {option}')
+
+    c.sendline('configure')
+    c.expect(cfg_mode_prompt)
+    cfg_run(c, f'set interfaces dummy dum0 address {local}/32')
+    cfg_commit(c, True, 'could not add L2TPv3 source address')
+
+    log.info('L2TPv3: failed session creation must remove its tunnel')
+    try:
+        sh(f'ip l2tp add tunnel tunnel_id 99 peer_tunnel_id 99 encap ip '
+           f'local {local} remote 192.0.2.99')
+        sh('ip l2tp add session name foreign0 tunnel_id 99 session_id 10 '
+           'peer_session_id 10')
+    except Exception as e:
+        raise Exception('Could not create L2TPv3 tunnel - the container host '
+                        'must provide l2tp_netlink, l2tp_ip and l2tp_eth '
+                        f'Kernel modules: {e}')
+    set_l2tpv3('l2tpeth10', 10, '192.0.2.2')
+    cfg_commit(c, False, 'L2TPv3 session ID 10 is already in use',
+               'Could not create L2TPv3 session 10 in tunnel 10')
+    if 'Tunnel 10,' in sh('ip l2tp show tunnel'):
+        raise Exception('Failed L2TPv3 commit left stale tunnel 10 behind')
+
+    log.info('L2TPv3: retry after a failed commit must apply a changed remote')
+    sh('ip l2tp del tunnel tunnel_id 99')
+    cfg_run(c, f'set {base} l2tpeth10 remote 192.0.2.3')
+    cfg_commit(c, True, 'L2TPv3 retry after resolving the session ID conflict')
+    tunnel = sh('ip l2tp show tunnel tunnel_id 10')
+    if 'to 192.0.2.3' not in tunnel:
+        raise Exception(f'L2TPv3 tunnel 10 does not use new remote: {tunnel}')
+    sh('ip link show dev l2tpeth10')
+
+    log.info('L2TPv3: deleting the interface must remove its tunnel')
+    cfg_run(c, f'delete {base}')
+    cfg_run(c, 'delete interfaces dummy dum0')
+    cfg_commit(c, True, 'could not delete L2TPv3 interfaces')
+    tunnels = sh('ip l2tp show tunnel')
+    if tunnels:
+        raise Exception(f'L2TPv3 tunnels left behind after delete: {tunnels}')
     c.sendline('exit')
     c.expect(op_mode_prompt)
 
@@ -542,6 +621,13 @@ try:
     basic_cli_tests(c, vyos_version)
     iso_to_oci_tests(c)
     kmod_tests(c, runtime, name)
+    c.sendline('exit')
+    c.expect(op_mode_prompt)
+    if all(host_kmod_available(m) for m in L2TPV3_KMODS):
+        l2tpv3_session_tests(runtime, name, c)
+    else:
+        log.info('Host Kernel can not provide all L2TPv3 modules, skipping '
+                 'L2TPv3 session tests')
 
     c.sendline('exit')
     c.close()
