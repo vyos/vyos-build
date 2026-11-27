@@ -1,0 +1,35 @@
+From 6d6b53cdbcc4b39fe81abffbf60ca1c61ef0da58 Mon Sep 17 00:00:00 2001
+From: Kyrylo Yatsenko <hedrok@gmail.com>
+Date: Fri, 27 Nov 2026 11:37:02 +0200
+Subject: [PATCH] zebra: fix missing routes after short flap
+
+---
+ zebra/zebra_dplane.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/zebra/zebra_dplane.c b/zebra/zebra_dplane.c
+index d710ea04a2..25e76ba38c 100644
+--- a/zebra/zebra_dplane.c
++++ b/zebra/zebra_dplane.c
+@@ -7837,6 +7837,10 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
+ 			continue;
+ 		}
+ 
++		/* Disabled till properly fixed upstream (https://github.com/FRRouting/frr/issues/23277)
++		 * See https://vyos.dev/T9687 for details
++		 */
++		/*
+ 		if (zebra_nhg_kernel_nexthops_enabled() &&
+ 		    dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE &&
+ 		    dplane_ctx_get_old_nhe_id(ctx) == dplane_ctx_get_nhe_id(ctx) &&
+@@ -7851,6 +7855,7 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
+ 			dplane_provider_enqueue_out_ctx(prov, ctx);
+ 			continue;
+ 		}
++		*/
+ 		if ((dplane_ctx_get_op(ctx) == DPLANE_OP_IPTABLE_ADD
+ 		     || dplane_ctx_get_op(ctx) == DPLANE_OP_IPTABLE_DELETE))
+ 			kernel_dplane_process_iptable(prov, ctx);
+-- 
+2.54.0
+
