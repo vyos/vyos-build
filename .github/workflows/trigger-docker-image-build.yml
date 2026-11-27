@@ -41,7 +41,7 @@ jobs:
       - name: "Trigger Docker image build for ${{ github.event.pull_request.base.ref }}"
         if: ${{ steps.changes.outputs.docker-dir == 'true' }}
         run: |
-          curl -L \
+          curl -L --fail-with-body --retry 3 \
             -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.PAT }}" \
