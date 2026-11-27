@@ -1,0 +1,77 @@
+From b72fe56942a7f43a737548a49b4b41063708c85b Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Fri, 9 Oct 2026 21:55:12 +0000
+Subject: [PATCH 2/6] ippool: do not terminate the daemon on an unparseable
+ range
+
+add_range() called _exit(EXIT_FAILURE) when a range in [ip-pool] could not
+be parsed. At startup that is merely abrupt, but it makes reloading the
+[ip-pool] section impossible: a single typo would take down a daemon full
+of established sessions.
+
+Return an error instead and let the caller skip the offending option, which
+is what ipv6pool.c's add_prefix() already does. Also use log_error() rather
+than fprintf(stderr) so the message honours the configured log target -
+stderr is /dev/null once accel-pppd has daemonised.
+
+Note the behaviour change at startup: a pool with an unparseable range is
+now skipped with an error logged, instead of aborting the daemon.
+---
+ accel-pppd/extra/ippool.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/accel-pppd/extra/ippool.c b/accel-pppd/extra/ippool.c
+index 3ae48e9..d790df8 100644
+--- a/accel-pppd/extra/ippool.c
++++ b/accel-pppd/extra/ippool.c
+@@ -173,15 +173,15 @@ static int parse2(const char *str, uint32_t *begin, uint32_t *end)
+ 	return 0;
+ }
+ 
+-static void add_range(struct ippool_t *p, struct list_head *list, const char *name, void (*generate)(struct ippool_t *))
++static int add_range(struct ippool_t *p, struct list_head *list, const char *name, void (*generate)(struct ippool_t *))
+ {
+ 	uint32_t i,startip, endip;
+ 	struct ipaddr_t *ip;
+ 
+ 	if (parse1(name, &startip, &endip)) {
+ 		if (parse2(name, &startip, &endip)) {
+-			fprintf(stderr, "ippool: cann't parse '%s'\n", name);
+-			_exit(EXIT_FAILURE);
++			log_error("ippool: cann't parse '%s'\n", name);
++			return -1;
+ 		}
+ 	}
+ 
+@@ -195,6 +195,8 @@ static void add_range(struct ippool_t *p, struct list_head *list, const char *na
+ 	p->startip = startip;
+ 	p->endip = endip;
+ 	p->generate = generate;
++
++	return 0;
+ }
+ 
+ static uint8_t get_random()
+@@ -646,12 +648,16 @@ static void ippool_init2(void)
+ 				continue;
+ 			}
+ 
+-			if (!strcmp(opt->name, "gw"))
+-				add_range(pool, &pool->gw_list, opt->val, generate);
+-			else if (!strcmp(opt->name, "tunnel"))
+-				add_range(pool, &pool->tunnel_list, opt->val, generate);
+-			else if (!opt->val || strchr(opt->name, ','))
+-				add_range(pool, &pool->tunnel_list, opt->name, generate);
++			if (!strcmp(opt->name, "gw")) {
++				if (add_range(pool, &pool->gw_list, opt->val, generate))
++					continue;
++			} else if (!strcmp(opt->name, "tunnel")) {
++				if (add_range(pool, &pool->tunnel_list, opt->val, generate))
++					continue;
++			} else if (!opt->val || strchr(opt->name, ',')) {
++				if (add_range(pool, &pool->tunnel_list, opt->name, generate))
++					continue;
++			}
+ 
+ 			if (next)
+ 				pool->next = next;

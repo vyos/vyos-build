@@ -1,0 +1,705 @@
+From 18e928ad3fc1be44ad016c7b0ac5120f47ca4090 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@breunig.cc>
+Date: Fri, 9 Oct 2026 22:58:48 +0000
+Subject: [PATCH 5/6] ippool: reload the [ip-pool] section on configuration
+ reload
+
+The pools were built once in DEFINE_INIT2 and there was no
+EV_CONFIG_RELOAD handler, so any change to [ip-pool] needed a daemon
+restart - which drops every established session. This is the single most
+common reason to restart rather than reload.
+
+The difficulty is that a leased address had no representation in the pool
+at all: get_ip() unlinks the item from pool->items and hands it to the
+session, and only put_ip() puts it back. So the pool could not tell which
+of its addresses were in use, and rebuilding it would have handed out
+addresses that were already assigned.
+
+Track leases in a per-pool "used" list - two lines in get_ip()/put_ip() -
+and reconcile against it:
+
+  - Rebuild the pools from scratch rather than computing an incremental
+    delta. The generate callbacks pair gateway with peer addresses and
+    group net30 blocks over a whole pool at a time, so re-running them
+    exactly as they run at startup is the only way to be sure the result
+    matches the configuration.
+  - Hand the resulting addresses to the pool object that already exists
+    under the same name, rather than replacing the object. Addresses
+    leased out point back at it and outlive the reload.
+  - Take a snapshot of every address leased anywhere, and drop those from
+    the newly built pools. This has to be global rather than per pool:
+    the configuration may move an address between pools or rename a pool,
+    and in both cases a session is still using the address even though the
+    pool it came from no longer claims it.
+  - A leased address the pool no longer offers is marked stale; put_ip()
+    frees it on release instead of returning it to the free list. Sessions
+    are never disturbed - shrinking a pool just stops the address being
+    handed out again once its session ends.
+  - A pool dropped from the configuration is retired: unlinked from
+    pool_list so it can no longer be selected, free addresses released,
+    outstanding leases marked stale. The object is kept until its last
+    lease returns, then reaped at the next reload.
+
+The address sets involved are large - a /16 pool against a few thousand
+leases - so the lookups are binary searches over sorted arrays rather than
+list walks. A 65280-address pool with 5000 leases reconciles in a few ms.
+
+Adding an [ip-pool] section to a configuration that started without one
+still requires a restart: the handler is only registered when the section
+was present at startup.
+
+Two pre-existing leaks had to be fixed, since a reload turns both from a
+one-off into per-reload growth:
+
+  - find_pool() ignored the name the caller had allocated when the pool
+    already existed. On reload every range option looks its pool up again.
+  - The gw_list/tunnel_list staging lists are routinely left non-empty by
+    the generators - generate_pool_p2p() never touches gw_list when
+    gw-ip-address is set - and were never drained.
+
+Also fixed session_restore() (USE_BACKUP only, not built by default) to put
+a restored item on the used list. Without it put_ip() would list_del() an
+entry that was never linked.
+---
+ accel-pppd/extra/ippool.c | 539 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 531 insertions(+), 8 deletions(-)
+
+diff --git a/accel-pppd/extra/ippool.c b/accel-pppd/extra/ippool.c
+index d790df8..3a6101b 100644
+--- a/accel-pppd/extra/ippool.c
++++ b/accel-pppd/extra/ippool.c
+@@ -31,17 +31,29 @@ struct ippool_t
+ 	struct list_head gw_list;
+ 	struct list_head tunnel_list;
+ 	struct list_head items;
++	/*
++	 * Addresses handed out by get_ip() and not yet returned. Without this
++	 * a leased address has no representation in the pool at all, and a
++	 * reload has no way to tell which addresses are still in use.
++	 */
++	struct list_head used;
+ 	uint32_t startip;
+ 	uint32_t endip;
+ 	struct ippool_t *next;
+ 	generate_func generate;
+ 	spinlock_t lock;
++	/* dropped from the configuration; drains as its leases are returned */
++	int dead;
++	/* only used while ippool_reload() is reconciling */
++	struct ippool_t *final;
+ };
+ 
+ struct ippool_item_t
+ {
+ 	struct list_head entry;
+ 	struct ippool_t *pool;
++	/* address is no longer configured: free on release instead of reusing */
++	int stale;
+ 	struct ipv4db_item_t it;
+ };
+ 
+@@ -63,6 +75,12 @@ static int conf_attr = 88; // Framed-Pool
+ 
+ static int cnt;
+ static LIST_HEAD(pool_list);
++/*
++ * Pools dropped from the configuration. They are kept because addresses
++ * leased out of them still point back at them, and because a later reload
++ * has to be able to see those leases.
++ */
++static LIST_HEAD(dead_pools);
+ static struct ippool_t *def_pool;
+ 
+ struct ippool_t *create_pool(char *name)
+@@ -75,6 +93,7 @@ struct ippool_t *create_pool(char *name)
+ 	INIT_LIST_HEAD(&p->gw_list);
+ 	INIT_LIST_HEAD(&p->tunnel_list);
+ 	INIT_LIST_HEAD(&p->items);
++	INIT_LIST_HEAD(&p->used);
+ 	spinlock_init(&p->lock);
+ 
+ 	if (name)
+@@ -88,8 +107,17 @@ struct ippool_t *find_pool(char *name, int create)
+ 	struct ippool_t *p;
+ 
+ 	list_for_each_entry(p, &pool_list, entry) {
+-		if (!strcmp(p->name, name))
++		if (!strcmp(p->name, name)) {
++			/*
++			 * The pool owns its name, so the copy the caller
++			 * allocated for us is redundant. Releasing it here
++			 * matters on reload, where every range option looks
++			 * its pool up again.
++			 */
++			if (create)
++				_free(name);
+ 			return p;
++		}
+ 	}
+ 
+ 	if (create)
+@@ -363,6 +391,7 @@ static struct ipv4db_item_t *get_ip(struct ap_session *ses)
+ 		if (!list_empty(&pool->items)) {
+ 			it = list_entry(pool->items.next, typeof(*it), entry);
+ 			list_del(&it->entry);
++			list_add_tail(&it->entry, &pool->used);
+ 		} else
+ 			it = NULL;
+ 		spin_unlock(&pool->lock);
+@@ -387,10 +416,24 @@ static struct ipv4db_item_t *get_ip(struct ap_session *ses)
+ static void put_ip(struct ap_session *ses, struct ipv4db_item_t *it)
+ {
+ 	struct ippool_item_t *pit = container_of(it, typeof(*pit), it);
++	struct ippool_t *p = pit->pool;
++
++	spin_lock(&p->lock);
++	list_del(&pit->entry);
++
++	/*
++	 * A reload may have taken this address out of the pool while the
++	 * session was still using it. The session was left alone; the address
++	 * simply leaves the pool now instead of being handed out again.
++	 */
++	if (pit->stale || p->dead) {
++		spin_unlock(&p->lock);
++		free(pit);
++		return;
++	}
+ 
+-	spin_lock(&pit->pool->lock);
+-	list_add_tail(&pit->entry, &pit->pool->items);
+-	spin_unlock(&pit->pool->lock);
++	list_add_tail(&pit->entry, &p->items);
++	spin_unlock(&p->lock);
+ }
+ 
+ static struct ipdb_t ipdb = {
+@@ -440,6 +483,7 @@ static int session_restore(struct ap_session *ses, struct backup_mod *m)
+ 	list_for_each_entry(it, &def_pool->items, entry) {
+ 		if (peer_addr == it->it.peer_addr && addr == it->it.addr) {
+ 			list_del(&it->entry);
++			list_add_tail(&it->entry, &def_pool->used);
+ 			it0 = it;
+ 			break;
+ 		}
+@@ -452,6 +496,7 @@ static int session_restore(struct ap_session *ses, struct backup_mod *m)
+ 			list_for_each_entry(it, &p->items, entry) {
+ 				if (peer_addr == it->it.peer_addr && addr == it->it.addr) {
+ 					list_del(&it->entry);
++					list_add_tail(&it->entry, &p->used);
+ 					it0 = it;
+ 					break;
+ 				}
+@@ -614,16 +659,19 @@ static void ippool_init1(void)
+ 	ipdb_register(&ipdb);
+ }
+ 
+-static void ippool_init2(void)
++/*
++ * Build pool_list and def_pool from the [ip-pool] section. Only ever
++ * appends to the (empty) globals, so it can be re-run against a fresh set
++ * of pools on reload. Unparseable options are logged and skipped rather
++ * than being fatal, so this cannot fail as a whole.
++ */
++static void build_pools(void)
+ {
+ 	struct conf_sect_t *s = conf_get_section("ip-pool");
+ 	struct conf_option_t *opt;
+ 	struct ippool_t *pool, *next;
+ 	generate_func generate;
+ 
+-	if (!s)
+-		return;
+-
+ 	def_pool = create_pool(NULL);
+ 
+ 	list_for_each_entry(opt, &s->items, entry) {
+@@ -673,6 +721,479 @@ static void ippool_init2(void)
+ 		else
+ 			log_warn("ippool: pool '%s' is empty or not defined\n", pool->name);
+ 	}
++}
++
++static int cmp_item_addr(const void *a, const void *b)
++{
++	in_addr_t x = (*(struct ippool_item_t * const *)a)->it.peer_addr;
++	in_addr_t y = (*(struct ippool_item_t * const *)b)->it.peer_addr;
++
++	if (ntohl(x) < ntohl(y))
++		return -1;
++	if (ntohl(x) > ntohl(y))
++		return 1;
++
++	return 0;
++}
++
++/*
++ * Index a freshly built pool's addresses so that reconcile_pool() can ask
++ * "was this address generated again?" in logarithmic rather than linear
++ * time - a /16 pool against a few thousand leases is far too much work to
++ * do by walking a list.
++ */
++static struct ippool_item_t **index_pool(struct ippool_t *p, unsigned int *cntp)
++{
++	struct ippool_item_t **arr;
++	struct ippool_item_t *it;
++	unsigned int n = 0;
++
++	list_for_each_entry(it, &p->items, entry)
++		n++;
++
++	*cntp = n;
++	if (!n)
++		return NULL;
++
++	arr = malloc(n * sizeof(*arr));
++	if (!arr) {
++		log_error("ippool: out of memory indexing pool '%s'\n",
++			  p->name ? p->name : "<default>");
++		*cntp = 0;
++		return NULL;
++	}
++
++	n = 0;
++	list_for_each_entry(it, &p->items, entry)
++		arr[n++] = it;
++
++	qsort(arr, n, sizeof(*arr), cmp_item_addr);
++
++	return arr;
++}
++
++/*
++ * Binary search the sorted index and claim the match. Claimed entries stay
++ * in place so the search never degrades. Duplicates - which overlapping
++ * ranges within one pool can produce - are all claimed together, so an
++ * address that is currently leased cannot be left behind on the free list.
++ */
++static int index_claim(struct ippool_item_t **arr, char *claimed,
++		       unsigned int n, in_addr_t addr)
++{
++	unsigned int lo = 0, hi = n, i;
++	uint32_t key = ntohl(addr);
++	int found = 0;
++
++	while (lo < hi) {
++		unsigned int mid = lo + (hi - lo) / 2;
++		uint32_t val = ntohl(arr[mid]->it.peer_addr);
++
++		if (val == key) {
++			lo = mid;
++			found = 1;
++			break;
++		}
++		if (val < key)
++			lo = mid + 1;
++		else
++			hi = mid;
++	}
++
++	if (!found)
++		return 0;
++
++	claimed[lo] = 1;
++	for (i = lo; i-- > 0 && arr[i]->it.peer_addr == addr; )
++		claimed[i] = 1;
++	for (i = lo + 1; i < n && arr[i]->it.peer_addr == addr; i++)
++		claimed[i] = 1;
++
++	return 1;
++}
++
++static int cmp_addr(const void *a, const void *b)
++{
++	uint32_t x = ntohl(*(const in_addr_t *)a);
++	uint32_t y = ntohl(*(const in_addr_t *)b);
++
++	if (x < y)
++		return -1;
++	if (x > y)
++		return 1;
++
++	return 0;
++}
++
++struct leased_t {
++	in_addr_t *arr;
++	unsigned int cnt;
++};
++
++static int leased_has(const struct leased_t *l, in_addr_t addr)
++{
++	unsigned int lo = 0, hi = l->cnt;
++	uint32_t key = ntohl(addr);
++
++	while (lo < hi) {
++		unsigned int mid = lo + (hi - lo) / 2;
++		uint32_t val = ntohl(l->arr[mid]);
++
++		if (val == key)
++			return 1;
++		if (val < key)
++			lo = mid + 1;
++		else
++			hi = mid;
++	}
++
++	return 0;
++}
++
++static void leased_add_pool(struct ippool_t *p, in_addr_t *arr,
++			    unsigned int *n)
++{
++	struct ippool_item_t *it;
++
++	list_for_each_entry(it, &p->used, entry)
++		arr[(*n)++] = it->it.peer_addr;
++}
++
++static unsigned int count_used(struct ippool_t *p)
++{
++	struct ippool_item_t *it;
++	unsigned int n = 0;
++
++	list_for_each_entry(it, &p->used, entry)
++		n++;
++
++	return n;
++}
++
++/*
++ * Snapshot every address that is currently leased, from any pool - the one
++ * it was taken from, a pool that is about to be retired, or one retired by
++ * an earlier reload. The check has to be global rather than per pool: the
++ * configuration is free to move an address from one pool to another, or to
++ * rename a pool, and in both cases a session is still using the address
++ * even though the pool it came from no longer claims it.
++ */
++static void leased_build(struct leased_t *l, struct list_head *old_pools,
++			 struct ippool_t *old_def)
++{
++	struct ippool_t *p;
++	unsigned int max = 0;
++
++	l->arr = NULL;
++	l->cnt = 0;
++
++	max += count_used(old_def);
++	list_for_each_entry(p, old_pools, entry)
++		max += count_used(p);
++	list_for_each_entry(p, &dead_pools, entry)
++		max += count_used(p);
++
++	if (!max)
++		return;
++
++	l->arr = malloc(max * sizeof(*l->arr));
++	if (!l->arr) {
++		log_error("ippool: out of memory collecting leases,"
++			  " keeping the pools currently in use\n");
++		return;
++	}
++
++	leased_add_pool(old_def, l->arr, &l->cnt);
++	list_for_each_entry(p, old_pools, entry)
++		leased_add_pool(p, l->arr, &l->cnt);
++	list_for_each_entry(p, &dead_pools, entry)
++		leased_add_pool(p, l->arr, &l->cnt);
++
++	qsort(l->arr, l->cnt, sizeof(*l->arr), cmp_addr);
++}
++
++/*
++ * A pool that did not exist before keeps its freshly built item list as-is;
++ * it only has to give up addresses that a session took out of some other
++ * pool before the reload.
++ */
++static void drop_leased(struct ippool_t *p, const struct leased_t *leased)
++{
++	struct ippool_item_t *it;
++	struct list_head *pos, *n;
++
++	spin_lock(&p->lock);
++	list_for_each_safe(pos, n, &p->items) {
++		it = list_entry(pos, typeof(*it), entry);
++		if (!leased_has(leased, it->it.peer_addr))
++			continue;
++		list_del(&it->entry);
++		free(it);
++	}
++	spin_unlock(&p->lock);
++}
++
++/*
++ * Hand the addresses of a freshly built pool over to the pool object that
++ * already exists under the same name. The existing object has to stay
++ * alive: addresses currently leased out point back at it, and they outlive
++ * the reload.
++ */
++static void reconcile_pool(struct ippool_t *o, struct ippool_t *p,
++			   const struct leased_t *leased)
++{
++	struct ippool_item_t **arr = NULL;
++	char *claimed = NULL;
++	struct ippool_item_t *it;
++	struct list_head *pos, *n;
++	unsigned int cnt_new = 0, i;
++
++	arr = index_pool(p, &cnt_new);
++	if (cnt_new) {
++		claimed = calloc(cnt_new, 1);
++		if (!claimed) {
++			log_error("ippool: out of memory reconciling pool '%s'\n",
++				  p->name ? p->name : "<default>");
++			free(arr);
++			return;
++		}
++	}
++
++	spin_lock(&o->lock);
++
++	/*
++	 * An address leased out of this pool survives the reload only if this
++	 * pool still offers it. Otherwise the item is marked and put_ip()
++	 * frees it when the session ends - the session itself is never
++	 * disturbed, the address just leaves the pool.
++	 */
++	list_for_each_entry(it, &o->used, entry)
++		it->stale = !index_claim(arr, claimed, cnt_new, it->it.peer_addr);
++
++	/*
++	 * Drop every freshly generated address that somebody is still using,
++	 * wherever they got it from, so that a reload can never hand out an
++	 * address twice.
++	 */
++	for (i = 0; i < cnt_new; i++) {
++		if (!claimed[i] && !leased_has(leased, arr[i]->it.peer_addr))
++			continue;
++		list_del(&arr[i]->entry);
++		free(arr[i]);
++	}
++
++	/* the old free list is superseded wholesale */
++	list_for_each_safe(pos, n, &o->items) {
++		it = list_entry(pos, typeof(*it), entry);
++		list_del(&it->entry);
++		free(it);
++	}
++
++	list_for_each_entry(it, &p->items, entry)
++		it->pool = o;
++	list_splice_init(&p->items, &o->items);
++
++	o->startip = p->startip;
++	o->endip = p->endip;
++	o->generate = p->generate;
++
++	spin_unlock(&o->lock);
++
++	free(claimed);
++	free(arr);
++}
++
++static struct ippool_t *find_pool_in(struct list_head *list, const char *name)
++{
++	struct ippool_t *p;
++
++	list_for_each_entry(p, list, entry) {
++		if (!strcmp(p->name, name))
++			return p;
++	}
++
++	return NULL;
++}
++
++/*
++ * Free a pool object whose addresses have already been moved elsewhere.
++ * The staging lists have to be drained explicitly: generate_pool_p2p()
++ * leaves gw_list untouched when gw-ip-address is set, and stops on the
++ * shorter of the two lists otherwise, so they are routinely non-empty.
++ */
++static void free_pool_shell(struct ippool_t *p)
++{
++	struct list_head *pos, *n;
++	struct ipaddr_t *a;
++
++	list_for_each_safe(pos, n, &p->gw_list) {
++		a = list_entry(pos, typeof(*a), entry);
++		list_del(&a->entry);
++		free(a);
++	}
++
++	list_for_each_safe(pos, n, &p->tunnel_list) {
++		a = list_entry(pos, typeof(*a), entry);
++		list_del(&a->entry);
++		free(a);
++	}
++
++	if (p->name)
++		_free(p->name);
++	free(p);
++}
++
++/*
++ * Retire a pool that the configuration no longer mentions. Its free
++ * addresses go away immediately; the ones still leased are marked so that
++ * put_ip() releases them as the sessions end. The object itself is kept
++ * forever - items handed out of it still carry a pointer to it, and there
++ * is no cheap way to know when the last one is gone that is worth the risk
++ * of getting wrong. One struct per pool ever deleted is a bounded cost.
++ */
++static void retire_pool(struct ippool_t *p)
++{
++	struct ippool_item_t *it;
++	struct list_head *pos, *n;
++
++	spin_lock(&p->lock);
++
++	p->dead = 1;
++	p->next = NULL;
++
++	list_for_each_safe(pos, n, &p->items) {
++		it = list_entry(pos, typeof(*it), entry);
++		list_del(&it->entry);
++		free(it);
++	}
++
++	list_for_each_entry(it, &p->used, entry)
++		it->stale = 1;
++
++	spin_unlock(&p->lock);
++
++	log_info1("ippool: pool '%s' is no longer configured\n",
++		  p->name ? p->name : "<default>");
++}
++
++static void ippool_reload(void)
++{
++	LIST_HEAD(old_pools);
++	struct ippool_t *old_def = def_pool;
++	struct ippool_t *p, *o;
++	struct list_head *pos, *n;
++	struct leased_t leased;
++
++	if (!conf_get_section("ip-pool")) {
++		log_warn("ippool: [ip-pool] section is gone,"
++			 " keeping the pools currently in use\n");
++		return;
++	}
++
++	/*
++	 * Retired pools whose last lease has come back are unreferenced:
++	 * put_ip() has freed every item that pointed at them, and no live
++	 * pool has them in its next= chain.
++	 */
++	list_for_each_safe(pos, n, &dead_pools) {
++		o = list_entry(pos, typeof(*o), entry);
++		if (!list_empty(&o->used))
++			continue;
++		list_del(&o->entry);
++		free_pool_shell(o);
++	}
++
++	/*
++	 * Rebuild from scratch rather than trying to work out an incremental
++	 * delta: the generate callbacks pair gateway with peer addresses and
++	 * group net30 blocks over a whole pool at a time, so the only way to
++	 * be sure the result matches the configuration is to run them exactly
++	 * as they run at startup. The live pools are moved aside first and
++	 * reconciled against the result afterwards.
++	 */
++	list_replace_init(&pool_list, &old_pools);
++	def_pool = NULL;
++	cnt = 0;
++	/* so that dropping an option restores its default rather than
++	 * leaving the previous value in place */
++	conf_gw_ip_address = 0;
++	conf_shuffle = 0;
++
++	build_pools();
++
++	/*
++	 * First pass: work out which object each newly built pool resolves
++	 * to - the pre-existing one where the name is already known, so that
++	 * leases survive, otherwise the new one as-is.
++	 */
++	old_def->final = old_def;
++	def_pool->final = old_def;
++
++	list_for_each_entry(p, &pool_list, entry) {
++		o = find_pool_in(&old_pools, p->name);
++		p->final = o ? o : p;
++		if (o)
++			o->final = o;
++	}
++
++	/* Second pass: re-point the next= chains at the surviving objects. */
++	if (def_pool->next)
++		old_def->next = def_pool->next->final;
++	else
++		old_def->next = NULL;
++
++	list_for_each_entry(p, &pool_list, entry) {
++		if (p->final != p)
++			p->final->next = p->next ? p->next->final : NULL;
++		else if (p->next)
++			p->next = p->next->final;
++	}
++
++	/*
++	 * Third pass: hand the addresses over and swap the objects in. The
++	 * lease snapshot has to be taken before anything is handed over, and
++	 * covers all pools at once.
++	 */
++	leased_build(&leased, &old_pools, old_def);
++
++	reconcile_pool(old_def, def_pool, &leased);
++	free_pool_shell(def_pool);
++	def_pool = old_def;
++
++	list_for_each_safe(pos, n, &pool_list) {
++		p = list_entry(pos, typeof(*p), entry);
++		o = p->final;
++		if (o == p) {
++			/* brand new pool: it can still contain an address
++			 * that a session took out of a different pool */
++			drop_leased(p, &leased);
++			continue;
++		}
++
++		reconcile_pool(o, p, &leased);
++		list_del(&o->entry);
++		list_replace(&p->entry, &o->entry);
++		free_pool_shell(p);
++	}
++
++	/* Whatever is left was not mentioned by the new configuration. */
++	list_for_each_safe(pos, n, &old_pools) {
++		p = list_entry(pos, typeof(*p), entry);
++		list_del(&p->entry);
++		retire_pool(p);
++		list_add_tail(&p->entry, &dead_pools);
++	}
++
++	if (leased.arr)
++		free(leased.arr);
++}
++
++static void ippool_init2(void)
++{
++	if (!conf_get_section("ip-pool"))
++		return;
++
++	build_pools();
+ 
+ #ifdef USE_BACKUP
+ 	backup_register_module(&backup_mod);
+@@ -682,6 +1203,8 @@ static void ippool_init2(void)
+ 	if (triton_module_loaded("radius"))
+ 		triton_event_register_handler(EV_RADIUS_ACCESS_ACCEPT, (triton_event_func)ev_radius_access_accept);
+ #endif
++
++	triton_event_register_handler(EV_CONFIG_RELOAD, (triton_event_func)ippool_reload);
+ }
+ 
+ DEFINE_INIT(51, ippool_init1);
