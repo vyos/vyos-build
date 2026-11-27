@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Breunig <christian@vyos.io>
+Date: Thu, 26 Nov 2026 17:22:46 +0100
+Subject: [PATCH] nft: only skip ct invalid drop rule if it exists for this
+ bridge
+
+Since the "ct state invalid drop" rule is scoped to the network bridge,
+the check whether the rule already exists must be scoped as well.
+Otherwise only the first bridge set up gets the rule, and any further
+network is left without it - permanently so once the first network is
+torn down and its rule is removed. This re-opens the IP address leak
+the rule is meant to prevent.
+---
+ src/firewall/nft.rs           | 5 ++++-
+ test/250-bridge-nftables.bats | 7 +++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/src/firewall/nft.rs b/src/firewall/nft.rs
+index 7b3b9bc..a23de2f 100644
+--- a/src/firewall/nft.rs
++++ b/src/firewall/nft.rs
+@@ -221,7 +221,10 @@ impl firewall::FirewallDriver for Nftables {
+             }
+             false
+         };
+-        if get_matching_rules_in_chain(&existing_rules, FORWARDCHAIN, match_deny).is_empty() {
++        let match_our_deny = |r: &schema::Rule| -> bool {
++            match_deny(r) && get_rule_matcher_bridge(&network_setup.bridge_name)(r)
++        };
++        if get_matching_rules_in_chain(&existing_rules, FORWARDCHAIN, match_our_deny).is_empty() {
+             batch.add(make_rule(
+                 FORWARDCHAIN,
+                 vec![
+diff --git a/test/250-bridge-nftables.bats b/test/250-bridge-nftables.bats
+index ab7cf78..90dcbbb 100644
+--- a/test/250-bridge-nftables.bats
++++ b/test/250-bridge-nftables.bats
+@@ -877,6 +877,10 @@ EOF
+     assert "$output" =~ "jump nv_d7322dfb_10_89_2_0_nm24_dnat" "network 1 fw rule exists"
+     assert "$output" =~ "jump nv_fae505bb_10_89_1_0_nm24_dnat" "network 2 fw rule exists"
+ 
++    run_in_host_netns nft list chain inet netavark FORWARD
++    assert "$output" =~ "iifname \"podman2\" ct state invalid drop" "network 1 CT state invalid rule"
++    assert "$output" =~ "iifname \"podman3\" ct state invalid drop" "network 2 CT state invalid rule"
++
+     expected_rc=1 run_netavark --file ${TESTSDIR}/testfiles/two-networks.json teardown $(get_container_netns_path)
+     # order is not deterministic so we match twice with different eth name
+     assert "$output" =~ 'failed to delete container veth eth0\: Netlink error\: No such device \(os error 19\)' "correct eth0 error message"
+@@ -886,6 +890,9 @@ EOF
+     run_in_host_netns nft list chain inet netavark NETAVARK-HOSTPORT-DNAT
+     assert "$output" !~ "jump nv_d7322dfb_10_89_2_0_nm24_dnat" "network 1 fw rule should not exist"
+     assert "$output" !~ "jump nv_fae505bb_10_89_1_0_nm24_dnat" "network 2 fw rule should not exist"
++
++    run_in_host_netns nft list chain inet netavark FORWARD
++    assert "$output" !~ "ct state invalid drop" "CT state invalid rules should not exist"
+ }
+ 
+ @test "$fw_driver - ipv6 disabled error message" {
+-- 
+2.39.5
+
