@@ -25,6 +25,8 @@
 #  banner, /config symlink, removal of container incompatible CLI nodes) are
 #  still in place - those are invisible until someone imports the image by hand.
 #
+#  L2TPv3 tests need the l2tp Kernel modules on the host, loaded or autoloadable.
+#
 #  Arguments:
 #    [--image]      OCI tarball to test, defaults to the newest one in $PWD
 #    [--runtime]    Force 'docker' or 'podman', default is to auto-detect
@@ -33,6 +35,8 @@
 #    [--logfile]    name of logfile to save, defaulting to stdout
 #    [--silent]     only print on errors
 #    [--debug]      print all communication with the container
+#    [--unload-kmods] rmmod unused host L2TPv3 modules first, so the commit
+#                   has to make the host Kernel load them (requires root)
 #
 #  Exit codes: 0 on success, 1 if the image failed a test, 2 if the test could
 #  not be run at all (no runtime, no image) - same convention as iso-to-oci.
@@ -99,7 +103,13 @@ parser.add_argument('--silent', help='Do not show output on stdout unless an err
 parser.add_argument('--debug', help='Send all debug output to stdout',
                     action='store_true', default=False)
 parser.add_argument('--logfile', help='Log to file')
+parser.add_argument('--unload-kmods', help='Unload unused host L2TPv3 Kernel modules '
+                    'before testing they get loaded on demand (requires root)',
+                    action='store_true', default=False)
 args = parser.parse_args()
+
+if args.unload_kmods and os.geteuid() != 0:
+    bail('--unload-kmods requires root to unload host Kernel modules.')
 
 host_arch = ARCH_MAP.get(platform.machine())
 if host_arch is None:
@@ -353,6 +363,218 @@ def iso_to_oci_tests(c) -> None:
     c.sendline('exit')
     c.expect(op_mode_prompt)
 
+def cli_commit(c) -> str:
+    """ Commit in configuration mode and return the commit output """
+    c.sendline('commit')
+    c.expect(cfg_mode_prompt, timeout=120)
+    return c.before
+
+def expect_commit_kmod(c, module: str, available: bool) -> None:
+    """ A container can not load Kernel modules, the commit must succeed if the
+        host provides the module and fail in verify() pointing to the host if not """
+    output = cli_commit(c)
+    hint = f'modprobe {module}'
+    if available:
+        if 'failed' in output.lower():
+            raise Exception(f'Commit failed although host provides Kernel module '
+                            f'"{module}": {output.strip()}')
+    elif hint not in output:
+        raise Exception(f'Commit did not ask to run "{hint}" on the container '
+                        f'host: {output.strip()}')
+
+# Kernel modules required by an L2TPv3 interface. verify() probes all but
+# l2tp_eth, which the Kernel loads on its own once the session gets created.
+# Listed in unload order: l2tp_eth uses l2tp_netlink, l2tp_ip6 uses l2tp_ip
+L2TPV3_KMODS = ['l2tp_eth', 'l2tp_ip6', 'l2tp_ip', 'l2tp_netlink']
+
+def host_kmod_index(index: str) -> set:
+    """ Module names listed in a modules.* index of the running host Kernel """
+    path = f'/lib/modules/{platform.release()}/{index}'
+    if not os.path.isfile(path):
+        return set()
+    with open(path) as f:
+        return {os.path.basename(line.split(':')[0].strip()).split('.ko')[0].replace('-', '_')
+                for line in f if line.strip()}
+
+def host_kmod_loaded(module: str) -> bool:
+    """ A built-in driver only has a /sys/module entry if it has parameters """
+    return os.path.isdir(f'/sys/module/{module}') or \
+        module in host_kmod_index('modules.builtin')
+
+def host_kmod_available(module: str) -> bool:
+    """ The host Kernel provides the module, loaded or not """
+    return host_kmod_loaded(module) or module in host_kmod_index('modules.dep')
+
+def unload_host_kmods(modules: list) -> None:
+    """ Unload host modules nobody uses, a module in use is left alone """
+    for module in modules:
+        refcnt = f'/sys/module/{module}/refcnt'
+        # built-in or not loaded
+        if not os.path.isfile(refcnt):
+            continue
+        with open(refcnt) as f:
+            if f.read().strip() != '0':
+                log.info(f'Host Kernel module {module} is in use, not unloading')
+                continue
+        log.info(f'Unloading host Kernel module {module}')
+        run(['rmmod', module])
+
+def l2tpv3_tests(c, runtime: str, name: str) -> None:
+    """ Inside a container the commit must make the host Kernel load the L2TPv3
+        modules on demand, or point to the host if it can not provide them """
+    log.info('Verify L2TPv3 commit makes the host Kernel load its modules')
+    if args.unload_kmods:
+        unload_host_kmods(L2TPV3_KMODS)
+
+    loaded_before = {m: host_kmod_loaded(m) for m in L2TPV3_KMODS}
+    log.info('Host L2TPv3 Kernel modules before commit: ' + ', '.join(
+             f'{m}={"loaded" if v else "not loaded"}' for m, v in loaded_before.items()))
+
+    # verify() reports the first missing module only, in vyos-1x k_mod order
+    missing = [m for m in ['l2tp_netlink', 'l2tp_ip', 'l2tp_ip6']
+               if not host_kmod_available(m)]
+    if not missing and not host_kmod_available('l2tp_eth'):
+        log.info('Host Kernel can not provide l2tp_eth, skipping')
+        return
+
+    c.sendline('set interfaces loopback lo address 192.0.2.2/32')
+    c.expect(cfg_mode_prompt)
+    cli_commit(c)
+    # One tunnel per encapsulation, ip is served by l2tp_ip and udp by l2tp_core
+    for ifname, encapsulation, remote, offset in [('l2tpeth10', 'udp', '192.0.2.3', 0),
+                                                  ('l2tpeth11', 'ip', '192.0.2.4', 1)]:
+        for command in [f'encapsulation {encapsulation}', 'source-address 192.0.2.2',
+                        f'remote {remote}', f'tunnel-id {10 + offset}',
+                        f'peer-tunnel-id {20 + offset}', f'session-id {30 + offset}',
+                        f'peer-session-id {40 + offset}']:
+            c.sendline(f'set interfaces l2tpv3 {ifname} {command}')
+            c.expect(cfg_mode_prompt)
+
+    expect_commit_kmod(c, missing[0] if missing else 'l2tp_eth', not missing)
+    if not missing:
+        for ifname in ['l2tpeth10', 'l2tpeth11']:
+            container_exec(runtime, name, f'ip link show dev {ifname}')
+        not_loaded = [m for m in L2TPV3_KMODS if not host_kmod_loaded(m)]
+        if not_loaded:
+            raise Exception('L2TPv3 commit succeeded but the host Kernel did not '
+                            f'load: {", ".join(not_loaded)}')
+        autoloaded = [m for m, v in loaded_before.items() if not v]
+        if autoloaded:
+            log.info(f'Host Kernel loaded on demand: {", ".join(autoloaded)}')
+        else:
+            log.info('All host L2TPv3 Kernel modules were loaded before the '
+                     'commit, on demand loading not exercised (see --unload-kmods)')
+
+    c.sendline('delete interfaces l2tpv3')
+    c.expect(cfg_mode_prompt)
+    c.sendline('delete interfaces loopback lo address 192.0.2.2/32')
+    c.expect(cfg_mode_prompt)
+    cli_commit(c)
+
+def kmod_tests(c, runtime: str, name: str) -> None:
+    """ Kernel module availability is decided by the host (T9581) """
+    c.sendline('configure')
+    c.expect(cfg_mode_prompt)
+
+    # A built-in driver has no /sys/module entry but is still usable, the
+    # outcome can not be predicted from the host and the test is skipped
+    log.info('Verify WireGuard commit depends on host Kernel module')
+    if not os.path.isdir('/sys/module/wireguard'):
+        log.info('Host has no wireguard entry in /sys/module, skipping')
+    else:
+        private_key = container_exec(runtime, name, 'wg genkey')
+        c.sendline(f'set interfaces wireguard wg0 private-key {private_key}')
+        c.expect(cfg_mode_prompt)
+        c.sendline('set interfaces wireguard wg0 address 192.0.2.1/32')
+        c.expect(cfg_mode_prompt)
+        expect_commit_kmod(c, 'wireguard', True)
+        container_exec(runtime, name, 'ip link show dev wg0')
+        c.sendline('delete interfaces wireguard wg0')
+        c.expect(cfg_mode_prompt)
+        cli_commit(c)
+
+    l2tpv3_tests(c, runtime, name)
+
+def cfg_run(c, command: str) -> str:
+    """ Run a configuration mode command, return its output """
+    c.sendline(command)
+    c.expect(cfg_mode_prompt)
+    output = c.before
+    if 'Set failed' in output or 'is not valid' in output:
+        raise Exception(f'Command "{command}" was rejected: {output.strip()}')
+    return output
+
+def cfg_commit(c, expect_success: bool, reason: str, error: str = '') -> None:
+    """ A failing commit must report a clean error, not a traceback, and if
+        given mention error - the CLI wraps long lines """
+    c.sendline('commit')
+    c.expect(cfg_mode_prompt)
+    output = c.before
+    failed = 'failed' in output.lower()
+    if expect_success and failed:
+        raise Exception(f'Commit failed, {reason}: {output.strip()}')
+    if not expect_success and not failed:
+        raise Exception(f'Commit succeeded, {reason}: {output.strip()}')
+    if not expect_success and 'Traceback' in output:
+        raise Exception(f'Commit failed with a traceback, {reason}: {output.strip()}')
+    if not expect_success and error and error not in ' '.join(output.split()):
+        raise Exception(f'Commit error does not mention "{error}": {output.strip()}')
+
+def l2tpv3_session_tests(runtime: str, name: str, c) -> None:
+    """ T9581: a failed L2TPv3 commit must not leave a stale tunnel behind.
+        Uses IP encapsulation, where the Kernel rejects a duplicate session ID
+        even across tunnels. The host Kernel must provide the l2tp modules. """
+    sh = lambda cmd, check=True: container_exec(runtime, name, cmd, check=check)
+    local = '192.0.2.1'
+    base = 'interfaces l2tpv3'
+
+    def set_l2tpv3(ifname: str, tunnel_id: int, remote: str) -> None:
+        for option in ['encapsulation ip', f'source-address {local}',
+                       f'remote {remote}', f'tunnel-id {tunnel_id}',
+                       f'peer-tunnel-id {tunnel_id}', f'session-id {tunnel_id}',
+                       f'peer-session-id {tunnel_id}']:
+            cfg_run(c, f'set {base} {ifname} {option}')
+
+    c.sendline('configure')
+    c.expect(cfg_mode_prompt)
+    cfg_run(c, f'set interfaces dummy dum0 address {local}/32')
+    cfg_commit(c, True, 'could not add L2TPv3 source address')
+
+    log.info('L2TPv3: failed session creation must remove its tunnel')
+    try:
+        sh(f'ip l2tp add tunnel tunnel_id 99 peer_tunnel_id 99 encap ip '
+           f'local {local} remote 192.0.2.99')
+        sh('ip l2tp add session name foreign0 tunnel_id 99 session_id 10 '
+           'peer_session_id 10')
+    except Exception as e:
+        raise Exception('Could not create L2TPv3 tunnel - the container host '
+                        'must provide l2tp_netlink, l2tp_ip and l2tp_eth '
+                        f'Kernel modules: {e}')
+    set_l2tpv3('l2tpeth10', 10, '192.0.2.2')
+    cfg_commit(c, False, 'L2TPv3 session ID 10 is already in use',
+               'Could not create L2TPv3 session 10 in tunnel 10')
+    if 'Tunnel 10,' in sh('ip l2tp show tunnel'):
+        raise Exception('Failed L2TPv3 commit left stale tunnel 10 behind')
+
+    log.info('L2TPv3: retry after a failed commit must apply a changed remote')
+    sh('ip l2tp del tunnel tunnel_id 99')
+    cfg_run(c, f'set {base} l2tpeth10 remote 192.0.2.3')
+    cfg_commit(c, True, 'L2TPv3 retry after resolving the session ID conflict')
+    tunnel = sh('ip l2tp show tunnel tunnel_id 10')
+    if 'to 192.0.2.3' not in tunnel:
+        raise Exception(f'L2TPv3 tunnel 10 does not use new remote: {tunnel}')
+    sh('ip link show dev l2tpeth10')
+
+    log.info('L2TPv3: deleting the interface must remove its tunnel')
+    cfg_run(c, f'delete {base}')
+    cfg_run(c, 'delete interfaces dummy dum0')
+    cfg_commit(c, True, 'could not delete L2TPv3 interfaces')
+    tunnels = sh('ip l2tp show tunnel')
+    if tunnels:
+        raise Exception(f'L2TPv3 tunnels left behind after delete: {tunnels}')
+    c.sendline('exit')
+    c.expect(op_mode_prompt)
+
 image = args.image if args.image else find_image()
 if not os.path.isfile(image):
     bail(f'OCI image file not found: {image}')
@@ -398,6 +620,14 @@ try:
 
     basic_cli_tests(c, vyos_version)
     iso_to_oci_tests(c)
+    kmod_tests(c, runtime, name)
+    c.sendline('exit')
+    c.expect(op_mode_prompt)
+    if all(host_kmod_available(m) for m in L2TPV3_KMODS):
+        l2tpv3_session_tests(runtime, name, c)
+    else:
+        log.info('Host Kernel can not provide all L2TPv3 modules, skipping '
+                 'L2TPv3 session tests')
 
     c.sendline('exit')
     c.close()
