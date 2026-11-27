@@ -79,15 +79,19 @@ macbase = '00:00:5E:00:53'
 # Cloud-Init data
 CI_CONFIG_ARGS = {
     'hostname': 'vyos-CLOUD-INIT',
-    'eth0_mac': f'{macbase}:02'.lower(),
-    'eth1_mac': f'{macbase}:00'.lower(),
-    'eth2_mac': f'{macbase}:01'.lower(),
-    'eth0_ipv4': '192.0.2.1/25',
-    'eth0_ipv6': '2001:db8::1/64',
-    'eth2_ipv4': '198.51.100.1/24',
     'default_nexthop' : '192.0.2.126',
     'default_nexthop6' : '2001:db8::ffff',
     }
+
+# netplan ID, set-name, MAC and addresses of every card the seed describes.
+# The VM gets only as many NICs as listed here, so the MACs must be the first
+# ones get_qemu_cmd() hands out.
+CI_INTERFACES = [
+    ('mgmt', 'eth0',  f'{macbase}:02'.lower(), ['192.0.2.1/25', '2001:db8::1/64']),
+    ('dmz',  'eth5',  f'{macbase}:00'.lower(), ['198.51.100.1/24']),
+    ('lan',  'eth10', f'{macbase}:03'.lower(), ['203.0.113.1/24']),
+    ('wan',  'eth15', f'{macbase}:01'.lower(), ['192.0.2.129/25']),
+    ]
 
 tpm_folder = '/tmp/vyos_tpm_test'
 tpm_sock = f'{tpm_folder}/swtpm-sock'
@@ -253,7 +257,7 @@ def _kvm_exists():
 
 def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False,
                  vnc_enabled=False, secure_boot=False, nested_cdrom_iso=None,
-                 vmware=False):
+                 vmware=False, nic_count=None):
     uefi = ""
     uuid = "f48b60b2-e6ad-49ef-9d09-4245d0585e52"
     accel = ',accel=kvm' if _kvm_exists() else ''
@@ -327,6 +331,17 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
     # host_mtu is a virtio option and goes with them.
     nic_model = 'vmxnet3' if vmware else 'virtio-net-pci'
     nic_opts = '' if vmware else ',host_mtu=1500'
+    nics = [
+        f'-netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device {nic_model},id=nic0,netdev=n0,mac={macbase}:00,romfile="",bus={pci_bus},addr=0x4{nic_opts}',
+        f'-netdev user,id=n1 -device {nic_model},id=nic1,netdev=n1,mac={macbase}:01,romfile="",bus={pci_bus},addr=0x5{nic_opts}',
+        f'-netdev user,id=n2 -device {nic_model},id=nic2,netdev=n2,mac={macbase}:02,romfile="",bus={pci_bus},addr=0x6{nic_opts}',
+        f'-netdev user,id=n3 -device {nic_model},id=nic3,netdev=n3,mac={macbase}:03,romfile="",bus={pci_bus},addr=0x7{nic_opts}',
+        f'-netdev user,id=n4 -device e1000e,id=nic4,netdev=n4,mac={macbase}:04,romfile="",bus={pci_bus},addr=0xa',
+        f'-netdev user,id=n5 -device e1000e,id=nic5,netdev=n5,mac={macbase}:05,romfile="",bus={pci_bus},addr=0xb',
+        f'-netdev user,id=n6 -device vmxnet3,id=nic6,netdev=n6,mac={macbase}:06,romfile="",bus={pci_bus},addr=0xe',
+        f'-netdev user,id=n7 -device vmxnet3,id=nic7,netdev=n7,mac={macbase}:07,romfile="",bus={pci_bus},addr=0xf',
+        ][:nic_count]
+    nic_args = ' '.join(nics)
     cmd = f'{qemu_bin} \
         -name "{name}" \
         -smp {args.cpu},sockets=1,cores={args.cpu},threads=1 \
@@ -339,14 +354,7 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         -uuid {uuid} \
         {enable_kvm} \
         -monitor unix:/tmp/qemu-monitor-socket-{disk_img},server,nowait \
-        -netdev user,id=n0,net=192.0.2.0/24,dhcpstart=192.0.2.101,dns=192.0.2.10 -device {nic_model},id=nic0,netdev=n0,mac={macbase}:00,romfile="",bus={pci_bus},addr=0x4{nic_opts} \
-        -netdev user,id=n1 -device {nic_model},id=nic1,netdev=n1,mac={macbase}:01,romfile="",bus={pci_bus},addr=0x5{nic_opts} \
-        -netdev user,id=n2 -device {nic_model},id=nic2,netdev=n2,mac={macbase}:02,romfile="",bus={pci_bus},addr=0x6{nic_opts} \
-        -netdev user,id=n3 -device {nic_model},id=nic3,netdev=n3,mac={macbase}:03,romfile="",bus={pci_bus},addr=0x7{nic_opts} \
-        -netdev user,id=n4 -device e1000e,id=nic4,netdev=n4,mac={macbase}:04,romfile="",bus={pci_bus},addr=0xa \
-        -netdev user,id=n5 -device e1000e,id=nic5,netdev=n5,mac={macbase}:05,romfile="",bus={pci_bus},addr=0xb \
-        -netdev user,id=n6 -device vmxnet3,id=nic6,netdev=n6,mac={macbase}:06,romfile="",bus={pci_bus},addr=0xe \
-        -netdev user,id=n7 -device vmxnet3,id=nic7,netdev=n7,mac={macbase}:07,romfile="",bus={pci_bus},addr=0xf \
+        {nic_args} \
         -device virtio-scsi-pci,id=scsi0 \
         {cdrom}{nested_cdrom} \
         -drive format={disk_format},file={disk_img},if=none,media=disk,id=drive-hd1,readonly=off \
@@ -380,7 +388,7 @@ def get_qemu_cmd(name, enable_uefi, disk_img, raid=None, iso_img=None, tpm=False
         # the vendor string has to reach QEMU doubled or its option parser
         # treats it as a separator.
         cmd += ' -smbios "type=1,manufacturer=VMware,, Inc.,product=VMware Virtual Platform"'
-        for index in range(VMWARE_PORT_LABEL_COUNT):
+        for index in range(min(VMWARE_PORT_LABEL_COUNT, len(nics))):
             cmd += (f' -smbios type=41,designation=Ethernet{index},kind=ethernet,'
                     f'instance={index + 1},pcidev=nic{index}')
 
@@ -1059,12 +1067,11 @@ def verify_cloud_init_mapping(c, log, mapping_file):
     """ Which NIC the cloud considers its first one is not visible in the
         hardware, so the order the datasource gives has to be recorded in the
         mapping file before the naming pass reads it. The seed names the
-        cards against the order they sit in, so deriving names from the
-        hardware alone would put the other card on eth0. """
+        cards against the order they sit in, with gaps between the names, so
+        deriving names from the hardware alone would put another card on
+        eth0. The netplan IDs are labels only - the name is the set-name. """
     log.info('Verify the datasource order reached the mapping file')
-    expected = {'eth0': CI_CONFIG_ARGS['eth0_mac'],
-                'eth1': CI_CONFIG_ARGS['eth1_mac'],
-                'eth2': CI_CONFIG_ARGS['eth2_mac']}
+    expected = {ifname: mac for _, ifname, mac, _ in CI_INTERFACES}
 
     for ifname, mac in sorted(expected.items()):
         tmp = get_cmd_output(c, f'cat /sys/class/net/{ifname}/address').lower()
@@ -1389,30 +1396,20 @@ if args.cloud_init:
     open(f'{CI_DATA_DIR}/meta-data', mode='w').close()
 
     # Name the cards against the order they sit in, the way a cloud hands out
-    # an order of its own. It is a three-cycle: not one of them keeps the name
-    # its slot would give it, so none of this holds unless the order the
-    # datasource gave reached the mapping file.
-    network_config = """version: 2
-ethernets:
-  eth0:
+    # an order of its own: not one of them keeps the name its slot would give
+    # it, and the names are spaced apart. The IDs are role labels the way
+    # clouds write them, so only set-name may end up as an interface name.
+    network_config = 'version: 2\nethernets:\n'
+    for iface_id, ifname, mac, addresses in CI_INTERFACES:
+        network_config += f"""  {iface_id}:
     match:
-      macaddress: {eth0_mac}
-    set-name: eth0
+      macaddress: "{mac}"
+    set-name: {ifname}
     dhcp4: false
     dhcp6: false
-  eth1:
-    match:
-      macaddress: {eth1_mac}
-    set-name: eth1
-    dhcp4: false
-    dhcp6: false
-  eth2:
-    match:
-      macaddress: {eth2_mac}
-    set-name: eth2
-    dhcp4: false
-    dhcp6: false
-""".format(**CI_CONFIG_ARGS)
+    addresses:
+"""
+        network_config += ''.join(f'      - {address}\n' for address in addresses)
 
     user_data = """#cloud-config
 vyos_config_commands:
@@ -1420,9 +1417,6 @@ vyos_config_commands:
   - set service ntp server 1.pool.ntp.org
   - set service ntp server 2.pool.ntp.org
   - delete interfaces ethernet eth0 address 'dhcp'
-  - set interfaces ethernet eth0 address '{eth0_ipv4}'
-  - set interfaces ethernet eth0 address '{eth0_ipv6}'
-  - set interfaces ethernet eth2 address '{eth2_ipv4}'
   - set protocols static route 0.0.0.0/0 next-hop '{default_nexthop}'
   - set protocols static route6 ::/0 next-hop '{default_nexthop6}'
 """.format(**CI_CONFIG_ARGS)
@@ -1451,7 +1445,8 @@ try:
     cmd = get_qemu_cmd(qemu_name, args.uefi, args.disk, raid=diskname_raid,
                        tpm=args.tpmtest, iso_img=args.iso, vnc_enabled=args.vnc,
                        secure_boot=args.secure_boot_test, nested_cdrom_iso=nested_payload_iso_path,
-                       vmware=args.vmware)
+                       vmware=args.vmware,
+                       nic_count=len(CI_INTERFACES) if args.cloud_init else None)
     log.debug(f'Executing command: {cmd}')
     c = pexpect.spawn(cmd, logfile=stl, timeout=60)
 
@@ -1478,20 +1473,19 @@ try:
         log.info('Perform basic CLI configuration mode tests from cloud-init...')
         basic_cli_tests(c)
 
-        # Valida assigned IPv4 and IPv6 addresses
-        c.sendline('ip --json addr show dev eth0 | jq -r \'.[0].addr_info[] | select(.family=="inet") | "\(.local)/\(.prefixlen)"\'')
-        c.expect(CI_CONFIG_ARGS['eth0_ipv4'])
-        c.expect(op_mode_prompt)
+        # every card carries an address of its own, so a name on the wrong
+        # wire shows up as an address on the wrong wire
+        for _, ifname, _, addresses in CI_INTERFACES:
+            for address in addresses:
+                family = 'inet6' if ':' in address else 'inet'
+                c.sendline(f'ip --json addr show dev {ifname} | jq -r \'.[0].addr_info[] | select(.family=="{family}" and .scope=="global" and (.temporary|not)) | "\\(.local)/\\(.prefixlen)"\'')
+                c.expect(address)
+                c.expect(op_mode_prompt)
 
-        c.sendline('ip --json addr show dev eth0 | jq -r \'.[0].addr_info[] | select(.family=="inet6" and .scope=="global" and (.temporary|not)) | "\(.local)/\(.prefixlen)"\'')
-        c.expect(CI_CONFIG_ARGS['eth0_ipv6'])
-        c.expect(op_mode_prompt)
-
-        # the last card of the cycle carries an address of its own, so a name
-        # on the wrong wire shows up as an address on the wrong wire
-        c.sendline('ip --json addr show dev eth2 | jq -r \'.[0].addr_info[] | select(.family=="inet") | "\(.local)/\(.prefixlen)"\'')
-        c.expect(CI_CONFIG_ARGS['eth2_ipv4'])
-        c.expect(op_mode_prompt)
+        roles = '|'.join(iface_id for iface_id, _, _, _ in CI_INTERFACES)
+        tmp = get_cmd_output(c, f'show configuration commands | grep -cE "ethernet ({roles})( |$)" || true')
+        if tmp != '0':
+            raise Exception(f'a netplan ID was used as an interface name: {tmp!r} lines')
 
         # Valida default route nexthops
         c.sendline('ip -4 --json route show default | jq -r ".[0].gateway"')
